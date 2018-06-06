@@ -135,6 +135,11 @@ static Path *get_singleton_append_subpath(Path *path,
 static void set_dummy_rel_pathlist(RelOptInfo *rel);
 static void set_subquery_pathlist(PlannerInfo *root, RelOptInfo *rel,
 								  Index rti, RangeTblEntry *rte);
+static void add_subqueryscan_variant(PlannerInfo *root, RelOptInfo *rel,
+						 Index rti, RangeTblEntry *rte,
+						 Bitmapset *required_outer,
+						 Query *subquery, List *pushed_down_clauses, double tuple_fraction,
+						 bool update_estimates);
 static void set_function_pathlist(PlannerInfo *root, RelOptInfo *rel,
 								  RangeTblEntry *rte);
 static void set_values_pathlist(PlannerInfo *root, RelOptInfo *rel,
@@ -2684,6 +2689,7 @@ set_subquery_pathlist(PlannerInfo *root, RelOptInfo *rel,
 					  Index rti, RangeTblEntry *rte)
 {
 	Query	   *parse = root->parse;
+	Query	   *unparameterized_subquery;
 	Query	   *subquery = rte->subquery;
 	bool		trivial_pathtarget;
 	Relids		required_outer;
@@ -2694,6 +2700,7 @@ set_subquery_pathlist(PlannerInfo *root, RelOptInfo *rel,
 	ListCell   *lc;
 	char	   *plan_name;
 	List	   *pushed_down_ec_joins = NIL;
+	bool		sq_is_pushdown_safe;
 
 	/*
 	 * Must copy the Query so that planning doesn't mess up the RTE contents
@@ -2755,9 +2762,10 @@ set_subquery_pathlist(PlannerInfo *root, RelOptInfo *rel,
 	 * XXX Are there any cases where we want to make a policy decision not to
 	 * push down a pushable qual, because it'd result in a worse plan?
 	 */
-	if ((rel->baserestrictinfo != NIL ||
-		 (!bms_is_empty(required_outer) && (rel->joininfo || rel->has_eclass_joins))) &&
-		subquery_is_pushdown_safe(subquery, subquery, &safetyInfo))
+	sq_is_pushdown_safe = subquery_is_pushdown_safe(subquery, subquery, &safetyInfo);
+	if (sq_is_pushdown_safe &&
+		(rel->baserestrictinfo != NIL ||
+		 (!bms_is_empty(required_outer) && (rel->joininfo || rel->has_eclass_joins))))
 	{
 		/* OK to consider pushing down individual quals */
 		ListCell   *l;
@@ -2854,6 +2862,7 @@ set_subquery_pathlist(PlannerInfo *root, RelOptInfo *rel,
 			if (rel->has_eclass_joins)
 			{
 				List	   *clauses;
+				ListCell *lc;
 
 				clauses =	generate_join_implied_equalities(root,
 														 available_relids,
@@ -2907,6 +2916,102 @@ set_subquery_pathlist(PlannerInfo *root, RelOptInfo *rel,
 	else
 		tuple_fraction = root->tuple_fraction;
 
+	unparameterized_subquery = copyObject(subquery);
+
+	add_subqueryscan_variant(root, rel, rti, rte,
+							 required_outer, subquery, pushed_down_ec_joins, tuple_fraction, true);
+
+	/*
+	 * Also create parameterized join paths, where we push the join condition
+	 * down to the subquery.
+	 *
+	 * To keep the planning time reasonable, this is all-or-nothing. We try to
+	 * push all join conditions down to the subquery, and create paths for that.
+	 * We don't create paths for every combination of join conditions that we
+	 * could push down.
+	 */
+	if ((rel->has_eclass_joins || rel->joininfo) &&
+		sq_is_pushdown_safe)
+	{
+		List	   *clauses;
+		ListCell   *lc;
+		List	   *pushed_down_clauses = list_copy(pushed_down_ec_joins);
+		Bitmapset  *available_relids;
+		Bitmapset  *other_relids;
+
+		subquery = copyObject(unparameterized_subquery);
+
+		required_outer = bms_copy(required_outer);
+
+		foreach(lc, rel->joininfo)
+		{
+			RestrictInfo *rinfo = (RestrictInfo *) lfirst(lc);
+			Node	   *clause = (Node *) rinfo->clause;
+
+			if (!rinfo->pseudoconstant &&
+				qual_is_pushdown_safe(subquery, rti, clause, &safetyInfo))
+			{
+				/* Push it down */
+				required_outer = bms_union(required_outer,
+										   pull_varnos(clause));
+				required_outer = bms_del_member(required_outer, rti);
+
+				subquery_push_qual(subquery, rte, rti, clause, 0);
+
+				pushed_down_clauses = lappend(pushed_down_clauses, rinfo);
+			}
+		}
+
+		/*
+		 * We already pushed down any join quals with LATERAL referenced rels, don't add
+		 * them again.
+		 */
+		available_relids = bms_difference(root->all_baserels, rel->lateral_referencers);
+		other_relids = bms_del_member(bms_copy(available_relids), rti);
+
+		clauses = generate_join_implied_equalities(root,
+												   available_relids,
+												   other_relids,
+												   rel);
+		foreach(lc, clauses)
+		{
+			RestrictInfo *rinfo = (RestrictInfo *) lfirst(lc);
+			Node	   *clause = (Node *) rinfo->clause;
+
+			if (!rinfo->pseudoconstant &&
+				qual_is_pushdown_safe(subquery, rti, clause, &safetyInfo))
+			{
+				/* Push it down */
+				required_outer = bms_union(required_outer,
+										   pull_varnos(clause));
+				required_outer = bms_del_member(required_outer, rti);
+
+				subquery_push_qual(subquery, rte, rti, clause, 0);
+
+				pushed_down_clauses = lappend(pushed_down_clauses, rinfo);
+			}
+		}
+		if (pushed_down_clauses)
+			add_subqueryscan_variant(root, rel, rti, rte,
+									 required_outer,
+									 subquery, pushed_down_clauses, tuple_fraction, false);
+	}
+
+	pfree(safetyInfo.unsafeColumns);
+}
+
+static void
+add_subqueryscan_variant(PlannerInfo *root, RelOptInfo *rel,
+						 Index rti, RangeTblEntry *rte,
+						 Bitmapset *required_outer,
+						 Query *subquery, List *pushed_down_clauses, double tuple_fraction,
+						 bool update_estimates)
+{
+	RelOptInfo *sub_final_rel;
+	ListCell   *lc;
+	PlannerInfo *subroot;
+	List	   *subplan_params;
+
 	/* plan_params should not be in use in current query level */
 	Assert(root->plan_params == NIL);
 
@@ -2916,7 +3021,7 @@ set_subquery_pathlist(PlannerInfo *root, RelOptInfo *rel,
 									root, NULL, false, tuple_fraction, NULL);
 
 	/* Isolate the params needed by this specific subplan */
-	rel->subplan_params = root->plan_params;
+	subplan_params = root->plan_params;
 	root->plan_params = NIL;
 
 	/*
@@ -2924,7 +3029,7 @@ set_subquery_pathlist(PlannerInfo *root, RelOptInfo *rel,
 	 * so, it's desirable to produce an unadorned dummy path so that we will
 	 * recognize appropriate optimizations at this query level.
 	 */
-	sub_final_rel = fetch_upper_rel(rel->subroot, UPPERREL_FINAL, NULL);
+	sub_final_rel = fetch_upper_rel(subroot, UPPERREL_FINAL, NULL);
 
 	if (IS_DUMMY_REL(sub_final_rel))
 	{
@@ -2936,8 +3041,13 @@ set_subquery_pathlist(PlannerInfo *root, RelOptInfo *rel,
 	 * Mark rel with estimated output rows, width, etc.  Note that we have to
 	 * do this before generating outer-query paths, else cost_subqueryscan is
 	 * not happy.
+	 *
+	 * Don't overwrite the estimates when we're creating parameterized paths
+	 * for joins. The estimate for a parameterized path includes the effects
+	 * of the join clauses.
 	 */
-	set_subquery_size_estimates(root, rel);
+	if (update_estimates)
+		set_subquery_size_estimates(root, rel, subroot);
 
 	/*
 	 * Also detect whether the reltarget is trivial, so that we can pass that
@@ -2988,7 +3098,7 @@ set_subquery_pathlist(PlannerInfo *root, RelOptInfo *rel,
 		add_path(rel, (Path *)
 				 create_subqueryscan_path(root, rel, subpath,
 										  trivial_pathtarget,
-										  pathkeys, required_outer, pushed_down_ec_joins));
+										  pathkeys, required_outer, pushed_down_clauses));
 	}
 
 	/* If outer rel allows parallelism, do same for partial paths. */
@@ -3012,10 +3122,10 @@ set_subquery_pathlist(PlannerInfo *root, RelOptInfo *rel,
 
 			/* Generate outer path using this subpath */
 			add_partial_path(rel, (Path *)
-							 create_subqueryscan_path(root, rel, subpath,
+							 create_subqueryscan_path(root, rel, subroot, subplan_params, subpath,
 													  trivial_pathtarget,
 													  pathkeys,
-													  required_outer, pushed_down_ec_joins));
+													  required_outer, pushed_down_clauses));
 		}
 	}
 }

@@ -136,6 +136,8 @@ extern GatherMergePath *create_gather_merge_path(PlannerInfo *root,
 												 double *rows);
 extern SubqueryScanPath *create_subqueryscan_path(PlannerInfo *root,
 												  RelOptInfo *rel,
+												  PlannerInfo *subroot,
+												  List *subplan_params,
 												  Path *subpath,
 												  bool trivial_pathtarget,
 												  List *pathkeys,

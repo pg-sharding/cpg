@@ -509,7 +509,7 @@ build_setop_child_paths(PlannerInfo *root, RelOptInfo *rel,
 	 * do this before generating outer-query paths, else cost_subqueryscan is
 	 * not happy.
 	 */
-	set_subquery_size_estimates(root, rel);
+	set_subquery_size_estimates(root, rel, rel->subroot);
 
 	/*
 	 * Since we may want to add a partial path to this relation, we must set
@@ -548,6 +548,8 @@ build_setop_child_paths(PlannerInfo *root, RelOptInfo *rel,
 			/* Generate outer path using this subpath */
 			add_path(rel, (Path *) create_subqueryscan_path(root,
 															rel,
+															rel->subroot,
+															NIL,
 															subpath,
 															trivial_tlist,
 															pathkeys,
@@ -616,6 +618,8 @@ build_setop_child_paths(PlannerInfo *root, RelOptInfo *rel,
 			/* Generate outer path using this subpath */
 			add_path(rel, (Path *) create_subqueryscan_path(root,
 															rel,
+															rel->subroot,
+															NIL,
 															subpath,
 															trivial_tlist,
 															pathkeys,
@@ -640,7 +644,7 @@ build_setop_child_paths(PlannerInfo *root, RelOptInfo *rel,
 
 		partial_subpath = linitial(final_rel->partial_pathlist);
 		partial_path = (Path *)
-			create_subqueryscan_path(root, rel, partial_subpath,
+			create_subqueryscan_path(root, rel, rel->subroot, NIL, partial_subpath,
 									 trivial_tlist,
 									 NIL, NULL, NIL);
 		add_partial_path(rel, partial_path);
