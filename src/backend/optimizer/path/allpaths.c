@@ -155,12 +155,11 @@ static pushdown_safe_type qual_is_pushdown_safe(Query *subquery, Index rti,
 												RestrictInfo *rinfo,
 												pushdown_safety_info *safetyInfo);
 static void subquery_push_qual(Query *subquery,
-							   RangeTblEntry *rte, Index rti, Node *qual);
+							   RangeTblEntry *rte, Index rti, Node *qual, int sublevels_up);
 static void recurse_push_qual(Node *setOp, Query *topquery,
-							  RangeTblEntry *rte, Index rti, Node *qual);
+							  RangeTblEntry *rte, Index rti, Node *qual, int sublevels_up);
 static void remove_unused_subquery_outputs(Query *subquery, RelOptInfo *rel,
 										   Bitmapset *extra_used_attrs);
-
 
 /*
  * make_one_rel
@@ -2477,6 +2476,11 @@ check_and_push_window_quals(Query *subquery, RangeTblEntry *rte, Index rti,
  * So the paths made here will be parameterized if the subquery contains
  * LATERAL references, otherwise not.  As long as that's true, there's no need
  * for a separate set_subquery_size phase: just make the paths right away.
+ *
+ * (If a subquery is LATERAL, though, we do push down join clauses that refer
+ * to relations that the subquery already references laterally.  Pushing down
+ * such quals won't make the subquery any more lateral, so there's no reason
+ * not to.)
  */
 static void
 set_subquery_pathlist(PlannerInfo *root, RelOptInfo *rel,
@@ -2491,6 +2495,7 @@ set_subquery_pathlist(PlannerInfo *root, RelOptInfo *rel,
 	RelOptInfo *sub_final_rel;
 	Bitmapset  *run_cond_attrs = NULL;
 	ListCell   *lc;
+	List	   *pushed_down_ec_joins = NIL;
 
 	/*
 	 * Must copy the Query so that planning doesn't mess up the RTE contents
@@ -2501,8 +2506,7 @@ set_subquery_pathlist(PlannerInfo *root, RelOptInfo *rel,
 
 	/*
 	 * If it's a LATERAL subquery, it might contain some Vars of the current
-	 * query level, requiring it to be treated as parameterized, even though
-	 * we don't support pushing down join quals into subqueries.
+	 * query level, requiring it to be treated as parameterized.
 	 */
 	required_outer = rel->lateral_relids;
 
@@ -2541,65 +2545,139 @@ set_subquery_pathlist(PlannerInfo *root, RelOptInfo *rel,
 	 * pseudoconstant clauses; better to have the gating node above the
 	 * subquery.
 	 *
+	 * Join clauses are only pushed down, if the subquery is LATERAL, and
+	 * the join clause only refers to relations that the subquery already
+	 * depends on.  It might be useful to push down other join clauses, too,
+	 * but then we would need to plan the subquery multiple times, to create
+	 * parameterized paths, which seems too expensive.
+	 *
 	 * Non-pushed-down clauses will get evaluated as qpquals of the
 	 * SubqueryScan node.
 	 *
 	 * XXX Are there any cases where we want to make a policy decision not to
 	 * push down a pushable qual, because it'd result in a worse plan?
 	 */
-	if (rel->baserestrictinfo != NIL &&
+	if ((rel->baserestrictinfo != NIL ||
+		 (!bms_is_empty(required_outer) && (rel->joininfo || rel->has_eclass_joins))) &&
 		subquery_is_pushdown_safe(subquery, subquery, &safetyInfo))
 	{
 		/* OK to consider pushing down individual quals */
-		List	   *upperrestrictlist = NIL;
 		ListCell   *l;
+		Bitmapset *available_relids;
 
-		foreach(l, rel->baserestrictinfo)
+		if (rel->baserestrictinfo)
 		{
-			RestrictInfo *rinfo = (RestrictInfo *) lfirst(l);
-			Node	   *clause = (Node *) rinfo->clause;
+			List	   *upperrestrictlist = NIL;
 
-			if (rinfo->pseudoconstant)
+			foreach(l, rel->baserestrictinfo)
 			{
-				upperrestrictlist = lappend(upperrestrictlist, rinfo);
-				continue;
+				RestrictInfo *rinfo = (RestrictInfo *) lfirst(l);
+				Node	   *clause = (Node *) rinfo->clause;
+
+				if (rinfo->pseudoconstant)
+				{
+					upperrestrictlist = lappend(upperrestrictlist, rinfo);
+					continue;
+				}
+
+				switch (qual_is_pushdown_safe(subquery, rti, rinfo, &safetyInfo))
+				{
+					case PUSHDOWN_SAFE:
+						/* Push it down */
+						subquery_push_qual(subquery, rte, rti, clause, 0);
+						break;
+
+					case PUSHDOWN_WINDOWCLAUSE_RUNCOND:
+
+						/*
+						* Since we can't push the qual down into the subquery,
+						* check if it happens to reference a window function.  If
+						* so then it might be useful to use for the WindowAgg's
+						* runCondition.
+						*/
+						if (!subquery->hasWindowFuncs ||
+							check_and_push_window_quals(subquery, rte, rti, clause,
+														&run_cond_attrs))
+						{
+							/*
+							* subquery has no window funcs or the clause is not a
+							* suitable window run condition qual or it is, but
+							* the original must also be kept in the upper query.
+							*/
+							upperrestrictlist = lappend(upperrestrictlist, rinfo);
+						}
+						break;
+
+					case PUSHDOWN_UNSAFE:
+						upperrestrictlist = lappend(upperrestrictlist, rinfo);
+						break;
+				}
+			}
+			rel->baserestrictinfo = upperrestrictlist;
+			/* We don't bother recomputing baserestrict_min_security */
+		}
+
+		/*
+		 * Push down join quals, as well.  But only for LATERAL, and only for those
+		 * relations that are "required" anyway.
+		 */
+		if (!bms_is_empty(required_outer))
+		{
+			available_relids = bms_copy(required_outer);
+			available_relids = bms_add_member(available_relids, rti);
+
+			if (rel->joininfo)
+			{
+				ListCell   *lc;
+				List	   *upperjoinlist = NIL;
+
+				foreach(lc, rel->joininfo)
+				{
+					RestrictInfo *rinfo = (RestrictInfo *) lfirst(lc);
+					Node       *clause = (Node *) rinfo->clause;
+
+					if (!rinfo->pseudoconstant &&
+						bms_is_subset(rinfo->required_relids, available_relids) &&
+						qual_is_pushdown_safe(subquery, rti, rinfo, &safetyInfo))
+					{
+						/* Push it down */
+						subquery_push_qual(subquery, rte, rti, clause, 0);
+					}
+					else
+					{
+						/* Keep it in the upper query */
+						upperjoinlist = lappend(upperjoinlist, rinfo);
+					}
+				}
+				rel->joininfo = upperjoinlist;
 			}
 
-			switch (qual_is_pushdown_safe(subquery, rti, rinfo, &safetyInfo))
+			if (rel->has_eclass_joins)
 			{
-				case PUSHDOWN_SAFE:
-					/* Push it down */
-					subquery_push_qual(subquery, rte, rti, clause);
-					break;
+				List	   *clauses;
 
-				case PUSHDOWN_WINDOWCLAUSE_RUNCOND:
+				clauses = generate_join_implied_equalities(root,
+														   available_relids,
+														   required_outer,
+														   rel);
 
-					/*
-					 * Since we can't push the qual down into the subquery,
-					 * check if it happens to reference a window function.  If
-					 * so then it might be useful to use for the WindowAgg's
-					 * runCondition.
-					 */
-					if (!subquery->hasWindowFuncs ||
-						check_and_push_window_quals(subquery, rte, rti, clause,
-													&run_cond_attrs))
+				foreach(lc, clauses)
+				{
+					RestrictInfo *rinfo = (RestrictInfo *) lfirst(lc);
+					Node       *clause = (Node *) rinfo->clause;
+
+					if (!rinfo->pseudoconstant &&
+						qual_is_pushdown_safe(subquery, rti, rinfo, &safetyInfo))
 					{
-						/*
-						 * subquery has no window funcs or the clause is not a
-						 * suitable window run condition qual or it is, but
-						 * the original must also be kept in the upper query.
-						 */
-						upperrestrictlist = lappend(upperrestrictlist, rinfo);
-					}
-					break;
+						/* Push it down */
+						Assert(bms_is_subset(rinfo->required_relids, available_relids));
+						subquery_push_qual(subquery, rte, rti, clause, 0);
 
-				case PUSHDOWN_UNSAFE:
-					upperrestrictlist = lappend(upperrestrictlist, rinfo);
-					break;
+						pushed_down_ec_joins = lappend(pushed_down_ec_joins, clause);
+					}
+				}
 			}
 		}
-		rel->baserestrictinfo = upperrestrictlist;
-		/* We don't bother recomputing baserestrict_min_security */
 	}
 
 	pfree(safetyInfo.unsafeFlags);
@@ -2709,7 +2787,7 @@ set_subquery_pathlist(PlannerInfo *root, RelOptInfo *rel,
 		add_path(rel, (Path *)
 				 create_subqueryscan_path(root, rel, subpath,
 										  trivial_pathtarget,
-										  pathkeys, required_outer));
+										  pathkeys, required_outer, pushed_down_ec_joins));
 	}
 
 	/* If outer rel allows parallelism, do same for partial paths. */
@@ -2736,7 +2814,7 @@ set_subquery_pathlist(PlannerInfo *root, RelOptInfo *rel,
 							 create_subqueryscan_path(root, rel, subpath,
 													  trivial_pathtarget,
 													  pathkeys,
-													  required_outer));
+													  required_outer, pushed_down_ec_joins));
 		}
 	}
 }
@@ -3953,13 +4031,13 @@ qual_is_pushdown_safe(Query *subquery, Index rti, RestrictInfo *rinfo,
  * subquery_push_qual - push down a qual that we have determined is safe
  */
 static void
-subquery_push_qual(Query *subquery, RangeTblEntry *rte, Index rti, Node *qual)
+subquery_push_qual(Query *subquery, RangeTblEntry *rte, Index rti, Node *qual, int sublevels_up)
 {
 	if (subquery->setOperations != NULL)
 	{
 		/* Recurse to push it separately to each component query */
 		recurse_push_qual(subquery->setOperations, subquery,
-						  rte, rti, qual);
+						  rte, rti, qual, sublevels_up);
 	}
 	else
 	{
@@ -3967,12 +4045,18 @@ subquery_push_qual(Query *subquery, RangeTblEntry *rte, Index rti, Node *qual)
 		 * We need to replace Vars in the qual (which must refer to outputs of
 		 * the subquery) with copies of the subquery's targetlist expressions.
 		 * Note that at this point, any uplevel Vars in the qual should have
-		 * been replaced with Params, so they need no work.
+		 * been replaced with Params, so they need no work.  But in a join qual,
+		 * there can be Vars referring to other relations at the same level.
+		 * We need to increment varlevelsup of those, so that when the qual is
+		 * pushed down, they refer to the parent query.
 		 *
 		 * This step also ensures that when we are pushing into a setop tree,
 		 * each component query gets its own copy of the qual.
 		 */
-		qual = ReplaceVarsFromTargetList(qual, rti, 0, rte,
+		qual = copyObject(qual);
+		IncrementVarSublevelsUp(qual, sublevels_up + 1, 0);
+
+		qual = ReplaceVarsFromTargetList(qual, rti, sublevels_up + 1, rte,
 										 subquery->targetList,
 										 REPLACEVARS_REPORT_ERROR, 0,
 										 &subquery->hasSubLinks);
@@ -4001,7 +4085,7 @@ subquery_push_qual(Query *subquery, RangeTblEntry *rte, Index rti, Node *qual)
  */
 static void
 recurse_push_qual(Node *setOp, Query *topquery,
-				  RangeTblEntry *rte, Index rti, Node *qual)
+				  RangeTblEntry *rte, Index rti, Node *qual, int sublevels_up)
 {
 	if (IsA(setOp, RangeTblRef))
 	{
@@ -4010,14 +4094,14 @@ recurse_push_qual(Node *setOp, Query *topquery,
 		Query	   *subquery = subrte->subquery;
 
 		Assert(subquery != NULL);
-		subquery_push_qual(subquery, rte, rti, qual);
+		subquery_push_qual(subquery, rte, rti, qual, sublevels_up + 1);
 	}
 	else if (IsA(setOp, SetOperationStmt))
 	{
 		SetOperationStmt *op = (SetOperationStmt *) setOp;
 
-		recurse_push_qual(op->larg, topquery, rte, rti, qual);
-		recurse_push_qual(op->rarg, topquery, rte, rti, qual);
+		recurse_push_qual(op->larg, topquery, rte, rti, qual, sublevels_up);
+		recurse_push_qual(op->rarg, topquery, rte, rti, qual, sublevels_up);
 	}
 	else
 	{

@@ -107,7 +107,8 @@ extern SubqueryScanPath *create_subqueryscan_path(PlannerInfo *root,
 												  Path *subpath,
 												  bool trivial_pathtarget,
 												  List *pathkeys,
-												  Relids required_outer);
+												  Relids required_outer,
+												  List *pushed_down_ec_joins);
 extern Path *create_functionscan_path(PlannerInfo *root, RelOptInfo *rel,
 									  List *pathkeys, Relids required_outer);
 extern Path *create_valuesscan_path(PlannerInfo *root, RelOptInfo *rel,
