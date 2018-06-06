@@ -242,7 +242,7 @@ recurse_set_operations(Node *setOp, PlannerInfo *root,
 		 * parentOp, pass that down to encourage subquery_planner to consider
 		 * suitably-sorted Paths.
 		 */
-		subroot = rel->subroot = subquery_planner(root->glob, subquery, root,
+		subroot = subquery_planner(root->glob, subquery, root,
 												  false, root->tuple_fraction,
 												  parentOp);
 
