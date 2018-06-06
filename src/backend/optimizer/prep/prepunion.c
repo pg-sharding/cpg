@@ -266,7 +266,7 @@ recurse_set_operations(Node *setOp, PlannerInfo *root,
 		setops = castNode(SetOperationStmt, root->parse->setOperations);
 
 		/* Generate a subroot and Paths for the subquery */
-		subroot = rel->subroot = subquery_planner(root->glob, subquery, root,
+		subroot = subquery_planner(root->glob, subquery, root,
 												  false, root->tuple_fraction,
 												  setops);
 
