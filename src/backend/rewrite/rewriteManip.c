@@ -1758,6 +1758,7 @@ typedef struct
 	int			result_relation;
 	ReplaceVarsNoMatchOption nomatch_option;
 	int			nomatch_varno;
+	int			min_sublevels_up;
 } ReplaceVarsFromTargetList_context;
 
 static Node *
@@ -1903,6 +1904,10 @@ ReplaceVarFromTargetList(const Var *var,
 		/* Make a copy of the tlist item to return */
 		Expr	   *newnode = copyObject(tle->expr);
 
+		/* Must adjust varlevelsup if tlist item is from higher query */
+		if (var->varlevelsup + rcon->min_sublevels_up > 0)
+			IncrementVarSublevelsUp((Node *) newnode, var->varlevelsup - rcon->min_sublevels_up, 0);
+
 		/*
 		 * Check to see if the tlist item contains a PARAM_MULTIEXPR Param,
 		 * and throw error if so.  This case could only happen when expanding
@@ -1967,6 +1972,7 @@ ReplaceVarsFromTargetList(Node *node,
 	context.result_relation = result_relation;
 	context.nomatch_option = nomatch_option;
 	context.nomatch_varno = nomatch_varno;
+	context.min_sublevels_up = sublevels_up;
 
 	return replace_rte_variables(node, target_varno, sublevels_up,
 								 ReplaceVarsFromTargetList_callback,
