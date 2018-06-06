@@ -2396,8 +2396,6 @@ _outRelOptInfo(StringInfo str, const RelOptInfo *node)
 	WRITE_FLOAT_FIELD(tuples, "%.0f");
 	WRITE_FLOAT_FIELD(allvisfrac, "%.6f");
 	WRITE_BITMAPSET_FIELD(eclass_indexes);
-	WRITE_NODE_FIELD(subroot);
-	WRITE_NODE_FIELD(subplan_params);
 	WRITE_INT_FIELD(rel_parallel_workers);
 	WRITE_UINT_FIELD(amflags);
 	WRITE_OID_FIELD(serverid);
