@@ -1758,6 +1758,7 @@ typedef struct
 	int			result_relation;
 	ReplaceVarsNoMatchOption nomatch_option;
 	int			nomatch_varno;
+	int			min_sublevels_up;
 } ReplaceVarsFromTargetList_context;
 
 static Node *
@@ -1774,9 +1775,10 @@ ReplaceVarsFromTargetList_callback(const Var *var,
 									   rcon->nomatch_option,
 									   rcon->nomatch_varno);
 
-	/* Must adjust varlevelsup if replaced Var is within a subquery */
-	if (var->varlevelsup > 0)
-		IncrementVarSublevelsUp(newnode, var->varlevelsup, 0);
+	/* Must adjust varlevelsup if tlist item is from higher query */
+	if (var->varlevelsup + rcon->min_sublevels_up > 0)
+		IncrementVarSublevelsUp((Node *) newnode, var->varlevelsup - rcon->min_sublevels_up, 0);
+
 
 	return newnode;
 }
@@ -1967,6 +1969,7 @@ ReplaceVarsFromTargetList(Node *node,
 	context.result_relation = result_relation;
 	context.nomatch_option = nomatch_option;
 	context.nomatch_varno = nomatch_varno;
+	context.min_sublevels_up = sublevels_up;
 
 	return replace_rte_variables(node, target_varno, sublevels_up,
 								 ReplaceVarsFromTargetList_callback,

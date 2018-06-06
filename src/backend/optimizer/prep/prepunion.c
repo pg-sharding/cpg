@@ -551,7 +551,7 @@ build_setop_child_paths(PlannerInfo *root, RelOptInfo *rel,
 															subpath,
 															trivial_tlist,
 															pathkeys,
-															NULL));
+															NULL, NIL));
 		}
 
 		/* skip dealing with sorted paths if the setop doesn't need them */
@@ -619,7 +619,7 @@ build_setop_child_paths(PlannerInfo *root, RelOptInfo *rel,
 															subpath,
 															trivial_tlist,
 															pathkeys,
-															NULL));
+															NULL, NIL));
 		}
 	}
 
@@ -642,7 +642,7 @@ build_setop_child_paths(PlannerInfo *root, RelOptInfo *rel,
 		partial_path = (Path *)
 			create_subqueryscan_path(root, rel, partial_subpath,
 									 trivial_tlist,
-									 NIL, NULL);
+									 NIL, NULL, NIL);
 		add_partial_path(rel, partial_path);
 	}
 
