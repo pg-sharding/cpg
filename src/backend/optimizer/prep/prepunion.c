@@ -291,7 +291,7 @@ recurse_set_operations(Node *setOp, PlannerInfo *root,
 		 * soon too, likely.)
 		 */
 		path = (Path *) create_subqueryscan_path(root, rel, subpath,
-												 NIL, NULL);
+												 NIL, NULL, NIL);
 
 		add_path(rel, path);
 
@@ -309,7 +309,7 @@ recurse_set_operations(Node *setOp, PlannerInfo *root,
 			partial_subpath = linitial(final_rel->partial_pathlist);
 			partial_path = (Path *)
 				create_subqueryscan_path(root, rel, partial_subpath,
-										 NIL, NULL);
+										 NIL, NULL, NIL);
 			add_partial_path(rel, partial_path);
 		}
 
