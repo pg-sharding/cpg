@@ -2956,6 +2956,13 @@
   assign_hook => 'assign_synchronous_commit',
 },
 
+# MDB 
+{ name => 'synchronous_commit_cancelation', type => 'bool', context => 'PGC_USERSET', group => 'WAL_SETTINGS',
+  short_desc => 'Allow to cancel waiting for replication of transaction commited localy.',
+  variable => 'synchronous_commit_cancelation',
+  boot_val => 'false',
+},
+
 { name => 'synchronous_standby_names', type => 'string', context => 'PGC_SIGHUP', group => 'REPLICATION_PRIMARY',
   short_desc => 'Number of synchronous standbys and list of names of potential synchronous ones.',
   flags => 'GUC_LIST_INPUT',
