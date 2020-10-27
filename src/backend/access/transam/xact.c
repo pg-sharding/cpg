@@ -82,6 +82,7 @@ bool		DefaultXactDeferrable = false;
 bool		XactDeferrable;
 
 int			synchronous_commit = SYNCHRONOUS_COMMIT_ON;
+bool		synchronous_commit_cancelation = false;
 
 /*
  * When running as a parallel worker, we place only a single
