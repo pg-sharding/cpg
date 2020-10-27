@@ -85,6 +85,7 @@ bool		DefaultXactDeferrable = false;
 bool		XactDeferrable;
 
 int			synchronous_commit = SYNCHRONOUS_COMMIT_ON;
+bool		synchronous_commit_cancelation = false;
 
 /*
  * CheckXidAlive is a xid value pointing to a possibly ongoing (sub)
