@@ -29,6 +29,10 @@
 
 #define MaxMultiXactOffset	((MultiXactOffset) 0xFFFFFFFF)
 
+/* Number of SLRU buffers to use for multixact */
+#define NUM_MULTIXACTOFFSET_BUFFERS		32
+#define NUM_MULTIXACTMEMBER_BUFFERS		64
+
 /*
  * Possible multixact lock modes ("status").  The first four modes are for
  * tuple locks (FOR KEY SHARE, FOR SHARE, FOR NO KEY UPDATE, FOR UPDATE); the
