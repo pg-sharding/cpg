@@ -1,0 +1,536 @@
+diff --git a/configure b/configure
+index 7c6b36e0f7..625e0a0ce7 100755
+--- a/configure
++++ b/configure
+@@ -2813,6 +2813,7 @@ ac_config_sub="$SHELL $ac_aux_dir/config.sub"  # Please don't use this var.
+ ac_configure="$SHELL $ac_aux_dir/configure"  # Please don't use this var.
+ 
+ 
++ac_configure_args=$(echo "$ac_configure_args" | sed -e "s/ -f\(debug\|file\)-prefix-map=[^' ]*//g")
+ 
+ 
+ cat >>confdefs.h <<_ACEOF
+diff --git a/configure.ac b/configure.ac
+index 63c188d7d6..143bb8d8d6 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -19,14 +19,11 @@ m4_pattern_forbid(^PGAC_)dnl to catch undefined macros
+ 
+ AC_INIT([PostgreSQL], [14.2], [pgsql-bugs@lists.postgresql.org], [], [https://www.postgresql.org/])
+ 
+-m4_if(m4_defn([m4_PACKAGE_VERSION]), [2.69], [], [m4_fatal([Autoconf version 2.69 is required.
+-Untested combinations of 'autoconf' and PostgreSQL versions are not
+-recommended.  You can remove the check from 'configure.ac' but it is then
+-your responsibility whether the result works or not.])])
+ AC_COPYRIGHT([Copyright (c) 1996-2021, PostgreSQL Global Development Group])
+ AC_CONFIG_SRCDIR([src/backend/access/common/heaptuple.c])
+ AC_CONFIG_AUX_DIR(config)
+ AC_PREFIX_DEFAULT(/usr/local/pgsql)
++[ac_configure_args=$(echo "$ac_configure_args" | sed -e "s/ -f\(debug\|file\)-prefix-map=[^' ]*//g")]
+ AC_DEFINE_UNQUOTED(CONFIGURE_ARGS, ["$ac_configure_args"], [Saved arguments from configure])
+ 
+ [PG_MAJORVERSION=`expr "$PACKAGE_VERSION" : '\([0-9][0-9]*\)'`]
+diff --git a/src/Makefile.global.in b/src/Makefile.global.in
+index 6e2f224cc4..91d06dfbbd 100644
+--- a/src/Makefile.global.in
++++ b/src/Makefile.global.in
+@@ -119,7 +119,7 @@ libdir := @libdir@
+ pkglibdir = $(libdir)
+ ifeq "$(findstring pgsql, $(pkglibdir))" ""
+ ifeq "$(findstring postgres, $(pkglibdir))" ""
+-override pkglibdir := $(pkglibdir)/postgresql
++override pkglibdir := /usr/lib/postgresql/@PG_MAJORVERSION@/lib
+ endif
+ endif
+ 
+@@ -167,7 +167,7 @@ endif # PGXS
+ 
+ # These derived path variables aren't separately configurable.
+ 
+-includedir_server = $(pkgincludedir)/server
++includedir_server = $(pkgincludedir)/@PG_MAJORVERSION@/server
+ includedir_internal = $(pkgincludedir)/internal
+ pgxsdir = $(pkglibdir)/pgxs
+ bitcodedir = $(pkglibdir)/bitcode
+@@ -588,8 +588,8 @@ libpq = -L$(libpq_builddir) -lpq
+ # on client link lines, since that also appears in $(LIBS).
+ # libpq_pgport_shlib is the same idea, but for use in client shared libraries.
+ ifdef PGXS
+-libpq_pgport = -L$(libdir) -lpgcommon -lpgport $(libpq)
+-libpq_pgport_shlib = -L$(libdir) -lpgcommon_shlib -lpgport_shlib $(libpq)
++libpq_pgport = -L$(pkglibdir) -lpgcommon -lpgport $(libpq)
++libpq_pgport_shlib = -L$(pkglibdir) -lpgcommon_shlib -lpgport_shlib $(libpq)
+ else
+ libpq_pgport = -L$(top_builddir)/src/common -lpgcommon -L$(top_builddir)/src/port -lpgport $(libpq)
+ libpq_pgport_shlib = -L$(top_builddir)/src/common -lpgcommon_shlib -L$(top_builddir)/src/port -lpgport_shlib $(libpq)
+diff --git a/src/backend/commands/extension.c b/src/backend/commands/extension.c
+index b37009bfec..3e774f7f94 100644
+--- a/src/backend/commands/extension.c
++++ b/src/backend/commands/extension.c
+@@ -128,6 +128,8 @@ static void ApplyExtensionUpdates(Oid extensionOid,
+ 								  bool cascade,
+ 								  bool is_create);
+ static char *read_whole_file(const char *filename, int *length);
++static bool file_exists(const char *name);
++static bool directory_exists(const char *dir);
+ 
+ 
+ /*
+@@ -388,6 +390,16 @@ get_extension_control_filename(const char *extname)
+ 
+ 	get_share_path(my_exec_path, sharepath);
+ 	result = (char *) palloc(MAXPGPATH);
++	/*
++	 * If extension_destdir is set, try to find the file there first
++	 */
++	if (*extension_destdir != '\0')
++	{
++		snprintf(result, MAXPGPATH, "%s%s/extension/%s.control",
++				 extension_destdir, sharepath, extname);
++		if (file_exists(result))
++			return result;
++	}
+ 	snprintf(result, MAXPGPATH, "%s/extension/%s.control",
+ 			 sharepath, extname);
+ 
+@@ -427,6 +439,16 @@ get_extension_aux_control_filename(ExtensionControlFile *control,
+ 	scriptdir = get_extension_script_directory(control);
+ 
+ 	result = (char *) palloc(MAXPGPATH);
++	/*
++	 * If extension_destdir is set, try to find the file there first
++	 */
++	if (*extension_destdir != '\0')
++	{
++		snprintf(result, MAXPGPATH, "%s%s/%s--%s.control",
++				 extension_destdir, scriptdir, control->name, version);
++		if (file_exists(result))
++			return result;
++	}
+ 	snprintf(result, MAXPGPATH, "%s/%s--%s.control",
+ 			 scriptdir, control->name, version);
+ 
+@@ -445,6 +467,23 @@ get_extension_script_filename(ExtensionControlFile *control,
+ 	scriptdir = get_extension_script_directory(control);
+ 
+ 	result = (char *) palloc(MAXPGPATH);
++	/*
++	 * If extension_destdir is set, try to find the file there first
++	 */
++	if (*extension_destdir != '\0')
++	{
++		if (from_version)
++			snprintf(result, MAXPGPATH, "%s%s/%s--%s--%s.sql",
++					 extension_destdir, scriptdir, control->name, from_version, version);
++		else
++			snprintf(result, MAXPGPATH, "%s%s/%s--%s.sql",
++					 extension_destdir, scriptdir, control->name, version);
++		if (file_exists(result))
++		{
++			pfree(scriptdir);
++			return result;
++		}
++	}
+ 	if (from_version)
+ 		snprintf(result, MAXPGPATH, "%s/%s--%s--%s.sql",
+ 				 scriptdir, control->name, from_version, version);
+@@ -1122,6 +1161,59 @@ get_ext_ver_list(ExtensionControlFile *control)
+ 	DIR		   *dir;
+ 	struct dirent *de;
+ 
++	/*
++	 * If extension_destdir is set, try to find the files there first
++	 */
++	if (*extension_destdir != '\0')
++	{
++		char		location[MAXPGPATH];
++
++		snprintf(location, MAXPGPATH, "%s%s", extension_destdir,
++				get_extension_script_directory(control));
++		dir = AllocateDir(location);
++		while ((de = ReadDir(dir, location)) != NULL)
++		{
++			char	   *vername;
++			char	   *vername2;
++			ExtensionVersionInfo *evi;
++			ExtensionVersionInfo *evi2;
++
++			/* must be a .sql file ... */
++			if (!is_extension_script_filename(de->d_name))
++				continue;
++
++			/* ... matching extension name followed by separator */
++			if (strncmp(de->d_name, control->name, extnamelen) != 0 ||
++				de->d_name[extnamelen] != '-' ||
++				de->d_name[extnamelen + 1] != '-')
++				continue;
++
++			/* extract version name(s) from 'extname--something.sql' filename */
++			vername = pstrdup(de->d_name + extnamelen + 2);
++			*strrchr(vername, '.') = '\0';
++			vername2 = strstr(vername, "--");
++			if (!vername2)
++			{
++				/* It's an install, not update, script; record its version name */
++				evi = get_ext_ver_info(vername, &evi_list);
++				evi->installable = true;
++				continue;
++			}
++			*vername2 = '\0';		/* terminate first version */
++			vername2 += 2;			/* and point to second */
++
++			/* if there's a third --, it's bogus, ignore it */
++			if (strstr(vername2, "--"))
++				continue;
++
++			/* Create ExtensionVersionInfos and link them together */
++			evi = get_ext_ver_info(vername, &evi_list);
++			evi2 = get_ext_ver_info(vername2, &evi_list);
++			evi->reachable = lappend(evi->reachable, evi2);
++		}
++		FreeDir(dir);
++	}
++
+ 	location = get_extension_script_directory(control);
+ 	dir = AllocateDir(location);
+ 	while ((de = ReadDir(dir, location)) != NULL)
+@@ -3478,3 +3570,32 @@ read_whole_file(const char *filename, int *length)
+ 	buf[*length] = '\0';
+ 	return buf;
+ }
++
++static bool
++file_exists(const char *name)
++{
++	struct stat st;
++
++	AssertArg(name != NULL);
++
++	if (stat(name, &st) == 0)
++		return S_ISDIR(st.st_mode) ? false : true;
++	else if (!(errno == ENOENT || errno == ENOTDIR || errno == EACCES))
++		ereport(ERROR,
++				(errcode_for_file_access(),
++				 errmsg("could not access file \"%s\": %m", name)));
++
++	return false;
++}
++
++static bool
++directory_exists(const char *dir)
++{
++	struct stat st;
++
++	if (stat(dir, &st) != 0)
++		return false;
++	if (S_ISDIR(st.st_mode))
++		return true;
++	return false;
++}
+diff --git a/src/backend/utils/fmgr/dfmgr.c b/src/backend/utils/fmgr/dfmgr.c
+index e8c6cdde97..10a303967b 100644
+--- a/src/backend/utils/fmgr/dfmgr.c
++++ b/src/backend/utils/fmgr/dfmgr.c
+@@ -34,6 +34,7 @@
+ #include "lib/stringinfo.h"
+ #include "miscadmin.h"
+ #include "storage/shmem.h"
++#include "utils/guc.h"
+ #include "utils/hsearch.h"
+ 
+ 
+@@ -487,7 +488,7 @@ expand_dynamic_library_name(const char *name)
+ {
+ 	bool		have_slash;
+ 	char	   *new;
+-	char	   *full;
++	char	   *full, *full2;
+ 
+ 	AssertArg(name);
+ 
+@@ -502,6 +503,19 @@ expand_dynamic_library_name(const char *name)
+ 	else
+ 	{
+ 		full = substitute_libpath_macro(name);
++		/*
++		 * If extension_destdir is set, try to find the file there first
++		 */
++		if (*extension_destdir != '\0')
++		{
++			full2 = psprintf("%s%s", extension_destdir, full);
++			if (file_exists(full2))
++			{
++				pfree(full);
++				return full2;
++			}
++			pfree(full2);
++		}
+ 		if (file_exists(full))
+ 			return full;
+ 		pfree(full);
+@@ -520,6 +534,19 @@ expand_dynamic_library_name(const char *name)
+ 	{
+ 		full = substitute_libpath_macro(new);
+ 		pfree(new);
++		/*
++		 * If extension_destdir is set, try to find the file there first
++		 */
++		if (*extension_destdir != '\0')
++		{
++			full2 = psprintf("%s%s", extension_destdir, full);
++			if (file_exists(full2))
++			{
++				pfree(full);
++				return full2;
++			}
++			pfree(full2);
++		}
+ 		if (file_exists(full))
+ 			return full;
+ 		pfree(full);
+diff --git a/src/backend/utils/misc/guc.c b/src/backend/utils/misc/guc.c
+index 64579fb7e3..099fc32f08 100644
+--- a/src/backend/utils/misc/guc.c
++++ b/src/backend/utils/misc/guc.c
+@@ -599,6 +599,7 @@ char	   *ConfigFileName;
+ char	   *HbaFileName;
+ char	   *IdentFileName;
+ char	   *external_pid_file;
++char	   *extension_destdir;
+ 
+ char	   *pgstat_temp_directory;
+ 
+@@ -4393,6 +4394,17 @@ static struct config_string ConfigureNamesString[] =
+ 		check_canonical_path, NULL, NULL
+ 	},
+ 
++	{
++		{"extension_destdir", PGC_SUSET, FILE_LOCATIONS,
++			gettext_noop("Path to prepend for extension loading"),
++			gettext_noop("This directory is prepended to paths when loading extensions (control and SQL files), and to the '$libdir' directive when loading modules that back functions. The location is made configurable to allow build-time testing of extensions that do not have been installed to their proper location yet."),
++			GUC_SUPERUSER_ONLY
++		},
++		&extension_destdir,
++		"",
++		NULL, NULL, NULL
++	},
++
+ 	{
+ 		{"ssl_library", PGC_INTERNAL, PRESET_OPTIONS,
+ 			gettext_noop("Shows the name of the SSL library."),
+diff --git a/src/backend/utils/misc/postgresql.conf.sample b/src/backend/utils/misc/postgresql.conf.sample
+index 4557ba7ba8..cb068fa537 100644
+--- a/src/backend/utils/misc/postgresql.conf.sample
++++ b/src/backend/utils/misc/postgresql.conf.sample
+@@ -726,6 +726,8 @@
+ # - Other Defaults -
+ 
+ #dynamic_library_path = '$libdir'
++#extension_destdir = ''			# prepend path when loading extensions
++					# and shared objects (added by Debian)
+ #gin_fuzzy_search_limit = 0
+ 
+ 
+diff --git a/src/bin/pg_config/pg_config.c b/src/bin/pg_config/pg_config.c
+index c40bb3282e..aa436e8010 100644
+--- a/src/bin/pg_config/pg_config.c
++++ b/src/bin/pg_config/pg_config.c
+@@ -27,6 +27,8 @@
+ #include "common/config_info.h"
+ #include "port.h"
+ 
++#include "../port/pg_config_paths.h"
++
+ static const char *progname;
+ 
+ /*
+@@ -149,11 +151,7 @@ main(int argc, char **argv)
+ 		}
+ 	}
+ 
+-	if (find_my_exec(argv[0], my_exec_path) < 0)
+-	{
+-		fprintf(stderr, _("%s: could not find own program executable\n"), progname);
+-		exit(1);
+-	}
++	snprintf(my_exec_path, sizeof(my_exec_path), "%s/%s", PGBINDIR, progname);
+ 
+ 	configdata = get_configdata(my_exec_path, &configdata_len);
+ 	/* no arguments -> print everything */
+diff --git a/src/bin/psql/settings.h b/src/bin/psql/settings.h
+index 83f2e6f254..6458990cf4 100644
+--- a/src/bin/psql/settings.h
++++ b/src/bin/psql/settings.h
+@@ -19,8 +19,8 @@
+ #define DEFAULT_EDITOR	"notepad.exe"
+ /* no DEFAULT_EDITOR_LINENUMBER_ARG for Notepad */
+ #else
+-#define DEFAULT_EDITOR	"vi"
+-#define DEFAULT_EDITOR_LINENUMBER_ARG "+"
++#define DEFAULT_EDITOR	"sensible-editor"
++/*#define DEFAULT_EDITOR_LINENUMBER_ARG "+"*/
+ #endif
+ 
+ #define DEFAULT_PROMPT1 "%/%R%x%# "
+diff --git a/src/common/Makefile b/src/common/Makefile
+index 880722fcf5..588001b976 100644
+--- a/src/common/Makefile
++++ b/src/common/Makefile
+@@ -33,7 +33,7 @@ STD_CPPFLAGS := $(filter-out -I$(top_srcdir)/src/include -I$(top_builddir)/src/i
+ STD_LDFLAGS := $(filter-out -L$(top_builddir)/src/common -L$(top_builddir)/src/port,$(LDFLAGS))
+ override CPPFLAGS += -DVAL_CC="\"$(CC)\""
+ override CPPFLAGS += -DVAL_CPPFLAGS="\"$(STD_CPPFLAGS)\""
+-override CPPFLAGS += -DVAL_CFLAGS="\"$(CFLAGS)\""
++override CPPFLAGS += -DVAL_CFLAGS="\"$(filter-out -fdebug-prefix-map=% -ffile-prefix-map=%,$(CFLAGS))\""
+ override CPPFLAGS += -DVAL_CFLAGS_SL="\"$(CFLAGS_SL)\""
+ override CPPFLAGS += -DVAL_LDFLAGS="\"$(STD_LDFLAGS)\""
+ override CPPFLAGS += -DVAL_LDFLAGS_EX="\"$(LDFLAGS_EX)\""
+@@ -122,15 +122,15 @@ distprep: kwlist_d.h
+ 
+ # libpgcommon is needed by some contrib
+ install: all installdirs
+-	$(INSTALL_STLIB) libpgcommon.a '$(DESTDIR)$(libdir)/libpgcommon.a'
+-	$(INSTALL_STLIB) libpgcommon_shlib.a '$(DESTDIR)$(libdir)/libpgcommon_shlib.a'
++	$(INSTALL_STLIB) libpgcommon.a '$(DESTDIR)$(pkglibdir)/libpgcommon.a'
++	$(INSTALL_STLIB) libpgcommon_shlib.a '$(DESTDIR)$(pkglibdir)/libpgcommon_shlib.a'
+ 
+ installdirs:
+-	$(MKDIR_P) '$(DESTDIR)$(libdir)'
++	$(MKDIR_P) '$(DESTDIR)$(pkglibdir)'
+ 
+ uninstall:
+-	rm -f '$(DESTDIR)$(libdir)/libpgcommon.a'
+-	rm -f '$(DESTDIR)$(libdir)/libpgcommon_shlib.a'
++	rm -f '$(DESTDIR)$(pkglibdir)/libpgcommon.a'
++	rm -f '$(DESTDIR)$(pkglibdir)/libpgcommon_shlib.a'
+ 
+ libpgcommon.a: $(OBJS_FRONTEND)
+ 	rm -f $@
+diff --git a/src/fe_utils/Makefile b/src/fe_utils/Makefile
+index 456c441a33..fdf4aafb9b 100644
+--- a/src/fe_utils/Makefile
++++ b/src/fe_utils/Makefile
+@@ -48,13 +48,13 @@ distprep: psqlscan.c
+ 
+ # libpgfeutils could be useful to contrib, so install it
+ install: all installdirs
+-	$(INSTALL_STLIB) libpgfeutils.a '$(DESTDIR)$(libdir)/libpgfeutils.a'
++	$(INSTALL_STLIB) libpgfeutils.a '$(DESTDIR)$(pkglibdir)/libpgfeutils.a'
+ 
+ installdirs:
+-	$(MKDIR_P) '$(DESTDIR)$(libdir)'
++	$(MKDIR_P) '$(DESTDIR)$(pkglibdir)'
+ 
+ uninstall:
+-	rm -f '$(DESTDIR)$(libdir)/libpgfeutils.a'
++	rm -f '$(DESTDIR)$(pkglibdir)/libpgfeutils.a'
+ 
+ clean distclean:
+ 	rm -f libpgfeutils.a $(OBJS) lex.backup
+diff --git a/src/include/fe_utils/print.h b/src/include/fe_utils/print.h
+index 27ccbd5119..2682775e56 100644
+--- a/src/include/fe_utils/print.h
++++ b/src/include/fe_utils/print.h
+@@ -20,7 +20,7 @@
+ 
+ /* This is not a particularly great place for this ... */
+ #ifndef __CYGWIN__
+-#define DEFAULT_PAGER "more"
++#define DEFAULT_PAGER "pager"
+ #else
+ #define DEFAULT_PAGER "less"
+ #endif
+diff --git a/src/include/pg_config_manual.h b/src/include/pg_config_manual.h
+index 614035e215..e5a411a3d0 100644
+--- a/src/include/pg_config_manual.h
++++ b/src/include/pg_config_manual.h
+@@ -207,7 +207,7 @@
+  * support them yet.
+  */
+ #ifndef WIN32
+-#define DEFAULT_PGSOCKET_DIR  "/tmp"
++#define DEFAULT_PGSOCKET_DIR  "/var/run/postgresql"
+ #else
+ #define DEFAULT_PGSOCKET_DIR ""
+ #endif
+diff --git a/src/include/utils/guc.h b/src/include/utils/guc.h
+index a7c3a4958e..edd53a3205 100644
+--- a/src/include/utils/guc.h
++++ b/src/include/utils/guc.h
+@@ -270,6 +270,7 @@ extern PGDLLIMPORT char *ConfigFileName;
+ extern char *HbaFileName;
+ extern char *IdentFileName;
+ extern char *external_pid_file;
++extern char *extension_destdir;
+ 
+ extern PGDLLIMPORT char *application_name;
+ 
+diff --git a/src/interfaces/libpq/pg_service.conf.sample b/src/interfaces/libpq/pg_service.conf.sample
+index 5a1c083538..7ef2ebde70 100644
+--- a/src/interfaces/libpq/pg_service.conf.sample
++++ b/src/interfaces/libpq/pg_service.conf.sample
+@@ -8,8 +8,8 @@
+ # to look up such parameters.  A sample configuration for postgres is
+ # included in this file.  Lines beginning with '#' are comments.
+ #
+-# Copy this to your sysconf directory (typically /usr/local/pgsql/etc) and
+-# rename it pg_service.conf.
++# Copy this to /etc/postgresql-common/ (or select its location with the
++# PGSYSCONFDIR environment variable) and rename it pg_service.conf.
+ #
+ #
+ #[postgres]
+diff --git a/src/port/Makefile b/src/port/Makefile
+index 52dbf5783f..a14c533399 100644
+--- a/src/port/Makefile
++++ b/src/port/Makefile
+@@ -71,15 +71,15 @@ all: libpgport.a libpgport_shlib.a libpgport_srv.a
+ 
+ # libpgport is needed by some contrib
+ install: all installdirs
+-	$(INSTALL_STLIB) libpgport.a '$(DESTDIR)$(libdir)/libpgport.a'
+-	$(INSTALL_STLIB) libpgport_shlib.a '$(DESTDIR)$(libdir)/libpgport_shlib.a'
++	$(INSTALL_STLIB) libpgport.a '$(DESTDIR)$(pkglibdir)/libpgport.a'
++	$(INSTALL_STLIB) libpgport_shlib.a '$(DESTDIR)$(pkglibdir)/libpgport_shlib.a'
+ 
+ installdirs:
+-	$(MKDIR_P) '$(DESTDIR)$(libdir)'
++	$(MKDIR_P) '$(DESTDIR)$(pkglibdir)'
+ 
+ uninstall:
+-	rm -f '$(DESTDIR)$(libdir)/libpgport.a'
+-	rm -f '$(DESTDIR)$(libdir)/libpgport_shlib.a'
++	rm -f '$(DESTDIR)$(pkglibdir)/libpgport.a'
++	rm -f '$(DESTDIR)$(pkglibdir)/libpgport_shlib.a'
+ 
+ libpgport.a: $(OBJS)
+ 	rm -f $@
+diff --git a/src/test/perl/TestLib.pm b/src/test/perl/TestLib.pm
+index 8c533453b4..b50d149c9f 100644
+--- a/src/test/perl/TestLib.pm
++++ b/src/test/perl/TestLib.pm
+@@ -662,6 +662,10 @@ sub check_pg_config
+ 	  or die "could not execute pg_config";
+ 	chomp($stdout);
+ 	$stdout =~ s/\r$//;
++	# Debian's pg_config is not relocatable, manually check for correct location
++	if (-d "../../../build/tmp_install/usr/include/postgresql") {
++		$stdout = "../../../build/tmp_install/usr/include/postgresql";
++	}
+ 
+ 	open my $pg_config_h, '<', "$stdout/pg_config.h" or die "$!";
+ 	my $match = (grep { /^$regexp/ } <$pg_config_h>);
+diff --git a/src/tutorial/README b/src/tutorial/README
+index b137cdfad3..be070c573d 100644
+--- a/src/tutorial/README
++++ b/src/tutorial/README
+@@ -6,8 +6,7 @@ tutorial
+ This directory contains SQL tutorial scripts.  To look at them, first do a
+ 	% make
+ to compile all the scripts and C files for the user-defined functions
+-and types.  (make needs to be GNU make --- it may be named something
+-different on your system, often 'gmake')
++and types. This requires a postgresql-server-dev-* package to be installed.
+ 
+ Then, run psql with the -s (single-step) flag:
+ 	% psql -s
