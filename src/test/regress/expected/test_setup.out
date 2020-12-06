@@ -244,3 +244,5 @@ create function fipshash(text)
     strict immutable parallel safe leakproof
     return substr(encode(sha256($1::bytea), 'hex'), 1, 32);
 CREATE ROLE mdb_admin;
+CREATE ROLE mdb_replication;
+GRANT pg_create_subscription TO mdb_admin;

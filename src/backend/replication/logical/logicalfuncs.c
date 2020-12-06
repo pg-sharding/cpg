@@ -31,6 +31,7 @@
 #include "replication/logical.h"
 #include "replication/message.h"
 #include "storage/fd.h"
+#include "utils/acl.h"
 #include "utils/array.h"
 #include "utils/builtins.h"
 #include "utils/inval.h"
@@ -116,8 +117,7 @@ pg_logical_slot_get_changes_guts(FunctionCallInfo fcinfo, bool confirm, bool bin
 	List	   *options = NIL;
 	DecodingOutputState *p;
 
-	CheckSlotPermissions();
-
+	CheckMDBReplSlotPermissions();
 	CheckLogicalDecodingRequirements();
 
 	if (PG_ARGISNULL(0))
@@ -125,6 +125,8 @@ pg_logical_slot_get_changes_guts(FunctionCallInfo fcinfo, bool confirm, bool bin
 				(errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED),
 				 errmsg("slot name must not be null")));
 	name = PG_GETARG_NAME(0);
+
+	CheckMDBReservedName(NameStr(*name));
 
 	if (PG_ARGISNULL(1))
 		upto_lsn = InvalidXLogRecPtr;
