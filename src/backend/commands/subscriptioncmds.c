@@ -545,7 +545,8 @@ CreateSubscription(ParseState *pstate, CreateSubscriptionStmt *stmt,
 	List	   *publications;
 	bits32		supported_opts;
 	SubOpts		opts = {0};
-
+	Oid         role;
+	
 	/*
 	 * Parse and check options.
 	 *
@@ -567,10 +568,11 @@ CreateSubscription(ParseState *pstate, CreateSubscriptionStmt *stmt,
 	if (opts.create_slot)
 		PreventInTransactionBlock(isTopLevel, "CREATE SUBSCRIPTION ... WITH (create_slot = true)");
 
-	if (!superuser())
+	role = get_role_oid("mdb_admin", true /*if nodoby created mdb_admin role in this database*/);
+	if (!is_member_of_role(GetUserId(), role))
 		ereport(ERROR,
 				(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
-				 errmsg("must be superuser to create subscriptions")));
+				 (errmsg("must be mdb_admin or superuser to create subscriptions"))));
 
 	/*
 	 * If built with appropriate switch, whine when regression-testing
@@ -1685,6 +1687,7 @@ static void
 AlterSubscriptionOwner_internal(Relation rel, HeapTuple tup, Oid newOwnerId)
 {
 	Form_pg_subscription form;
+	Oid role;
 
 	form = (Form_pg_subscription) GETSTRUCT(tup);
 
@@ -1695,13 +1698,24 @@ AlterSubscriptionOwner_internal(Relation rel, HeapTuple tup, Oid newOwnerId)
 		aclcheck_error(ACLCHECK_NOT_OWNER, OBJECT_SUBSCRIPTION,
 					   NameStr(form->subname));
 
-	/* New owner must be a superuser */
-	if (!superuser_arg(newOwnerId))
+	/* Must be able to become new owner */
+	if (!mdb_admin_allow_bypass_owner_checks(GetUserId(), newOwnerId)) {
+		if (!superuser())
+			ereport(ERROR,
+					(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
+					errmsg("permission denied to change owner of subscription \"%s\"",
+							NameStr(form->subname)),
+					errhint("The ownership of a subscription cannot be transfered to this role.")));
+	}
+
+	/* New owner must be a mdb_admin */
+	role = get_role_oid("mdb_admin", true /*if nodoby created mdb_admin role in this database*/);
+	if (!is_member_of_role(newOwnerId, role))
 		ereport(ERROR,
 				(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
-				 errmsg("permission denied to change owner of subscription \"%s\"",
+				errmsg("permission denied to change owner of subscription \"%s\"",
 						NameStr(form->subname)),
-				 errhint("The owner of a subscription must be a superuser.")));
+				errhint("The owner of a subscription must be an mdb_admin or superuser.")));
 
 	form->subowner = newOwnerId;
 	CatalogTupleUpdate(rel, &tup->t_self, tup);

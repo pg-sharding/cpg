@@ -1306,3 +1306,4 @@ GetBackgroundWorkerTypeByPid(pid_t pid)
 
 	return result;
 }
+
