@@ -19,6 +19,7 @@
 
 #include "access/genam.h"
 #include "access/table.h"
+#include "catalog/catalog.h"
 #include "catalog/namespace.h"
 #include "catalog/pg_am_d.h"
 #include "catalog/pg_subscription_rel.h"
@@ -398,6 +399,12 @@ logicalrep_rel_open(LogicalRepRelId remoteid, LOCKMODE lockmode)
 		entry->localrel = table_open(relid, NoLock);
 		entry->localreloid = relid;
 
+		/* Don't allow catalog access */
+		if (IsSystemClass(relid, entry->localrel->rd_rel))
+				ereport(ERROR,
+								(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
+								errmsg("logical replication target relation \"%s.%s\" is a system class",
+												remoterel->nspname, remoterel->relname)));
 		/* Check for supported relkind. */
 		CheckSubscriptionRelkind(entry->localrel->rd_rel->relkind,
 								 remoterel->nspname, remoterel->relname);
