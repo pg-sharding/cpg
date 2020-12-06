@@ -113,6 +113,10 @@ WalSnd	   *MyWalSnd = NULL;
 
 /* Global state */
 bool		am_walsender = false;	/* Am I a walsender process? */
+
+bool		is_repl_role = false;	/* has replication privelege  */
+bool		is_mdb_repl_role = false;	/* mdb_replication member */
+
 bool		am_cascading_walsender = false; /* Am I cascading WAL to another
 											 * standby? */
 bool		am_db_walsender = false;	/* Connected to a database? */
@@ -205,6 +209,40 @@ typedef struct
 
 /* The size of our buffer of time samples. */
 #define LAG_TRACKER_BUFFER_SIZE 8192
+
+static void
+check_permissions(void)
+{
+	if (!is_repl_role && !superuser())
+		ereport(ERROR,
+				(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
+				 (errmsg("must be superuser or replication role to use replication slots"))));
+}
+
+static void
+check_mdb_replication(void)
+{
+	if (!is_repl_role && !is_mdb_repl_role && !superuser())
+		ereport(ERROR,
+				(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
+				 (errmsg("must be superuser or replication role to use replication slots"))));
+}
+
+static void
+check_mdb_reserved_name(const char *name)
+{
+	/* ugly coding for speed (taken from IsReservedName) */
+	if (name[0] == 'm' &&
+			name[1] == 'd' &&
+			name[2] == 'b' &&
+		!is_repl_role && !superuser())
+	{
+		ereport(ERROR,
+				(errcode(ERRCODE_RESERVED_NAME),
+				 errmsg("slot name \"%s\" is reserved", name),
+				 errdetail("Slot names starting with \"mdb\" are reserved.")));
+	}
+}
 
 /* A mechanism for tracking replication lag. */
 typedef struct
@@ -588,6 +626,8 @@ StartReplication(StartReplicationCmd *cmd)
 	StringInfoData buf;
 	XLogRecPtr	FlushPtr;
 
+	check_permissions();
+
 	if (ThisTimeLineID == 0)
 		ereport(ERROR,
 				(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
@@ -952,6 +992,7 @@ CreateReplicationSlot(CreateReplicationSlotCmd *cmd)
 
 	if (cmd->kind == REPLICATION_KIND_PHYSICAL)
 	{
+		check_permissions();
 		ReplicationSlotCreate(cmd->slotname, false,
 							  cmd->temporary ? RS_TEMPORARY : RS_PERSISTENT,
 							  false);
@@ -959,6 +1000,8 @@ CreateReplicationSlot(CreateReplicationSlotCmd *cmd)
 	else
 	{
 		CheckLogicalDecodingRequirements();
+		check_mdb_replication();
+		check_mdb_reserved_name(cmd->slotname);
 
 		/*
 		 * Initially create persistent slot as ephemeral - that allows us to
@@ -1134,6 +1177,7 @@ CreateReplicationSlot(CreateReplicationSlotCmd *cmd)
 static void
 DropReplicationSlot(DropReplicationSlotCmd *cmd)
 {
+	check_mdb_reserved_name(cmd->slotname);
 	ReplicationSlotDrop(cmd->slotname, !cmd->wait);
 }
 
@@ -1146,6 +1190,8 @@ StartLogicalReplication(StartReplicationCmd *cmd)
 {
 	StringInfoData buf;
 	QueryCompletion qc;
+
+	check_mdb_reserved_name(cmd->slotname);
 
 	/* make sure that our requirements are still fulfilled */
 	CheckLogicalDecodingRequirements();
@@ -1668,6 +1714,7 @@ exec_replication_command(const char *cmd_string)
 			break;
 
 		case T_BaseBackupCmd:
+			check_permissions();
 			cmdtag = "BASE_BACKUP";
 			set_ps_display(cmdtag);
 			PreventInTransactionBlock(true, cmdtag);
