@@ -122,6 +122,7 @@
 #include "utils/snapmgr.h"
 #include "utils/syscache.h"
 #include "utils/usercontext.h"
+#include "utils/acl.h"
 
 typedef enum
 {
@@ -1149,6 +1150,7 @@ copy_table(Relation rel)
 	List	   *attnamelist;
 	ParseState *pstate;
 	List	   *options = NIL;
+	AclResult   aclresult;
 
 	/* Get the publisher relation info. */
 	fetch_remote_table_info(get_namespace_name(RelationGetNamespace(rel)),
@@ -1160,6 +1162,11 @@ copy_table(Relation rel)
 	/* Map the publisher relation to local one. */
 	relmapentry = logicalrep_rel_open(lrel.remoteid, NoLock);
 	Assert(rel == relmapentry->localrel);
+
+	/* Check permission on table. */
+	aclresult = pg_class_aclcheck(RelationGetRelid(rel), GetUserId(), ACL_INSERT);
+	if (aclresult != ACLCHECK_OK)
+		aclcheck_error(aclresult, get_relkind_objtype(rel->rd_rel->relkind), RelationGetRelationName(rel));
 
 	/* Start copy on the publisher. */
 	initStringInfo(&cmd);
