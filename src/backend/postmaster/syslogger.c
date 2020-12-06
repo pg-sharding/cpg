@@ -344,6 +344,8 @@ SysLoggerMain(char *startup_data, size_t startup_data_len)
 #ifndef WIN32
 	AddWaitEventToSet(wes, WL_SOCKET_READABLE, syslogPipe[0], NULL, NULL);
 #endif
+	fclose(stderr);
+	fclose(stdout);
 
 	/* main worker loop */
 	for (;;)
