@@ -25,6 +25,35 @@
 #include "utils/inval.h"
 #include "utils/pg_lsn.h"
 #include "utils/resowner.h"
+#include "utils/acl.h"
+
+
+static void
+check_mdb_replication(void)
+{
+	Oid         role;
+	role = get_role_oid("mdb_replication", true);
+	if (!superuser() && !has_rolreplication(GetUserId()) && !is_member_of_role(GetUserId(), role))
+		ereport(ERROR,
+				(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
+				 (errmsg("must be superuser, replication role or mdb_replication to use replication slots"))));
+}
+
+static void
+check_mdb_reserved_name(const char *name)
+{
+	/* ugly coding for speed (taken from IsReservedName) */
+	if (name[0] == 'm' &&
+			name[1] == 'd' &&
+			name[2] == 'b' &&
+		!superuser() && !has_rolreplication(GetUserId()))
+	{
+		ereport(ERROR,
+				(errcode(ERRCODE_RESERVED_NAME),
+				errmsg("slot name \"%s\" is reserved", name),
+				errdetail("Slot names starting with \"mdb\" are reserved.")));
+	}
+}
 
 /*
  * Helper function for creating a new physical replication slot with
@@ -180,7 +209,8 @@ pg_create_logical_replication_slot(PG_FUNCTION_ARGS)
 	if (get_call_result_type(fcinfo, NULL, &tupdesc) != TYPEFUNC_COMPOSITE)
 		elog(ERROR, "return type must be a row type");
 
-	CheckSlotPermissions();
+	check_mdb_reserved_name(NameStr(*name));
+	check_mdb_replication();
 
 	CheckLogicalDecodingRequirements();
 
@@ -216,7 +246,9 @@ pg_drop_replication_slot(PG_FUNCTION_ARGS)
 {
 	Name		name = PG_GETARG_NAME(0);
 
-	CheckSlotPermissions();
+	check_mdb_reserved_name(NameStr(*name));
+
+	check_mdb_replication();
 
 	CheckSlotRequirements();
 
@@ -585,7 +617,8 @@ pg_replication_slot_advance(PG_FUNCTION_ARGS)
 
 	Assert(!MyReplicationSlot);
 
-	CheckSlotPermissions();
+	check_mdb_reserved_name(NameStr(*slotname));
+	check_mdb_replication();
 
 	if (XLogRecPtrIsInvalid(moveto))
 		ereport(ERROR,
