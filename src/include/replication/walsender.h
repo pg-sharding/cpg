@@ -30,6 +30,10 @@ extern PGDLLIMPORT bool am_cascading_walsender;
 extern PGDLLIMPORT bool am_db_walsender;
 extern PGDLLIMPORT bool wake_wal_senders;
 
+/* for mdb permission checks */
+extern PGDLLIMPORT bool role_has_rolreplication;
+extern PGDLLIMPORT bool member_of_mdb_replication;
+
 /* user-settable parameters */
 extern PGDLLIMPORT int max_wal_senders;
 extern PGDLLIMPORT int wal_sender_timeout;
