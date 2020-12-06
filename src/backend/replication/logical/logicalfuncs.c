@@ -96,12 +96,31 @@ LogicalOutputWrite(LogicalDecodingContext *ctx, XLogRecPtr lsn, TransactionId xi
 }
 
 static void
-check_permissions(void)
+check_mdb_reserved_name(const char *name)
 {
-	if (!superuser() && !has_rolreplication(GetUserId()))
+	/* ugly coding for speed (taken from IsReservedName) */
+	if (name[0] == 'm' &&
+			name[1] == 'd' &&
+			name[2] == 'b' &&
+		!superuser() && !has_rolreplication(GetUserId()))
+	{
+		ereport(ERROR,
+			(errcode(ERRCODE_RESERVED_NAME),
+				errmsg("slot name \"%s\" is reserved", name),
+				errdetail("Slot names starting with \"mdb\" are reserved.")));
+	}
+}
+
+static void
+check_mdb_replication(void)
+{
+	Oid         role;
+
+	role = get_role_oid("mdb_replication", true);
+	if (!superuser() && !has_rolreplication(GetUserId()) && !is_member_of_role(GetUserId(), role))
 		ereport(ERROR,
 				(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
-				 errmsg("must be superuser or replication role to use replication slots")));
+				 (errmsg("must be superuser, replication role or mdb_replication to use replication slots"))));
 }
 
 /*
@@ -124,8 +143,7 @@ pg_logical_slot_get_changes_guts(FunctionCallInfo fcinfo, bool confirm, bool bin
 	List	   *options = NIL;
 	DecodingOutputState *p;
 
-	check_permissions();
-
+	check_mdb_replication();
 	CheckLogicalDecodingRequirements();
 
 	if (PG_ARGISNULL(0))
@@ -133,6 +151,8 @@ pg_logical_slot_get_changes_guts(FunctionCallInfo fcinfo, bool confirm, bool bin
 				(errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED),
 				 errmsg("slot name must not be null")));
 	name = PG_GETARG_NAME(0);
+
+	check_mdb_reserved_name(NameStr(*name));
 
 	if (PG_ARGISNULL(1))
 		upto_lsn = InvalidXLogRecPtr;
