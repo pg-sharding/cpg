@@ -580,7 +580,7 @@ CreateSubscription(ParseState *pstate, CreateSubscriptionStmt *stmt,
 	bits32		supported_opts;
 	SubOpts		opts = {0};
 	AclResult	aclresult;
-
+	
 	/*
 	 * Parse and check options.
 	 *
@@ -608,6 +608,7 @@ CreateSubscription(ParseState *pstate, CreateSubscriptionStmt *stmt,
 	 * attempts to access arbitrary network destinations, so require the user
 	 * to have been specifically authorized to create subscriptions.
 	 */
+	/* MDB: mdb_admin need to be granted with pg_create_subscription role  */
 	if (!has_privs_of_role(owner, ROLE_PG_CREATE_SUBSCRIPTION))
 		ereport(ERROR,
 				(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
@@ -1837,8 +1838,11 @@ AlterSubscriptionOwner_internal(Relation rel, HeapTuple tup, Oid newOwnerId)
 				 errmsg("password_required=false is superuser-only"),
 				 errhint("Subscriptions with the password_required option set to false may only be created or modified by the superuser.")));
 
-	/* Must be able to become new owner */
-	check_can_set_role(GetUserId(), newOwnerId);
+	/* if we are mdb_admin, check that we alter ownership to unprivileged role */
+	if (!mdb_admin_allow_bypass_owner_checks(GetUserId(), newOwnerId)) {
+		/* else we must be able to become new owner */
+		check_can_set_role(GetUserId(), newOwnerId);
+	}
 
 	/*
 	 * current owner must have CREATE on database

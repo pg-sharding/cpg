@@ -52,6 +52,7 @@
 #include "storage/proc.h"
 #include "storage/procarray.h"
 #include "utils/builtins.h"
+#include "utils/acl.h"
 
 /*
  * Replication slot on-disk data structure.
@@ -1162,6 +1163,53 @@ CheckSlotPermissions(void)
 				 errmsg("permission denied to use replication slots"),
 				 errdetail("Only roles with the %s attribute may use replication slots.",
 						   "REPLICATION")));
+}
+
+
+
+/*
+ * Check whether the user has privilege to use replication slots.
+ */
+void
+CheckRoleMDBReplSlotPermissions(bool role_has_rolreplication, bool is_member_of_mdb_replication)
+{
+	/* superuser can do it */
+	if (superuser()) {
+		return;
+	}
+
+	/* mdb_replication can do it */
+	if (is_member_of_mdb_replication) {
+		return;
+	}
+
+
+	if (!role_has_rolreplication)
+		ereport(ERROR,
+				(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
+				 errmsg("permission denied to use replication slots"),
+				 errdetail("must be superuser, replication role or mdb_replication to use replication slots")));
+}
+
+
+void
+CheckRoleUseMDBReservedName(const char *name, bool role_has_rolreplication)
+{
+	/* superuser can do it */
+	if (superuser()) {
+		return;
+	}
+	/* ugly coding for speed (taken from IsReservedName) */
+	if (name[0] == 'm' &&
+			name[1] == 'd' &&
+			name[2] == 'b' &&
+		!role_has_rolreplication)
+	{
+		ereport(ERROR,
+				(errcode(ERRCODE_RESERVED_NAME),
+				errmsg("slot name \"%s\" is reserved", name),
+				errdetail("Slot names starting with \"mdb\" are reserved.")));
+	}
 }
 
 /*
