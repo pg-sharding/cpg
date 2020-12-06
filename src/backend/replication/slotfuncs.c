@@ -24,6 +24,8 @@
 #include "utils/builtins.h"
 #include "utils/guc.h"
 #include "utils/pg_lsn.h"
+#include "utils/resowner.h"
+#include "utils/acl.h"
 
 /*
  * Map SlotSyncSkipReason enum values to human-readable names.
@@ -89,6 +91,7 @@ pg_create_physical_replication_slot(PG_FUNCTION_ARGS)
 		elog(ERROR, "return type must be a row type");
 
 	CheckSlotPermissions();
+	CheckMDBReservedName(NameStr(*name));
 
 	CheckSlotRequirements(false);
 
@@ -211,7 +214,8 @@ pg_create_logical_replication_slot(PG_FUNCTION_ARGS)
 	if (get_call_result_type(fcinfo, NULL, &tupdesc) != TYPEFUNC_COMPOSITE)
 		elog(ERROR, "return type must be a row type");
 
-	CheckSlotPermissions();
+	CheckMDBReplSlotPermissions();
+	CheckMDBReservedName(NameStr(*name));
 
 	CheckLogicalDecodingRequirements(false);
 
@@ -248,7 +252,9 @@ pg_drop_replication_slot(PG_FUNCTION_ARGS)
 {
 	Name		name = PG_GETARG_NAME(0);
 
-	CheckSlotPermissions();
+	/* mdb replication allowed */
+	CheckMDBReplSlotPermissions();
+	CheckMDBReservedName(NameStr(*name));
 
 	CheckSlotRequirements(false);
 
@@ -555,7 +561,8 @@ pg_replication_slot_advance(PG_FUNCTION_ARGS)
 
 	Assert(!MyReplicationSlot);
 
-	CheckSlotPermissions();
+	CheckMDBReplSlotPermissions();
+	CheckMDBReservedName(NameStr(*slotname));
 
 	if (!XLogRecPtrIsValid(moveto))
 		ereport(ERROR,
@@ -656,6 +663,8 @@ copy_replication_slot(FunctionCallInfo fcinfo, bool logical_slot)
 		elog(ERROR, "return type must be a row type");
 
 	CheckSlotPermissions();
+	CheckMDBReservedName(NameStr(*src_name));
+	CheckMDBReservedName(NameStr(*dst_name));
 
 	if (logical_slot)
 		CheckLogicalDecodingRequirements(false);

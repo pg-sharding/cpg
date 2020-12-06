@@ -300,6 +300,7 @@
 #include "utils/syscache.h"
 #include "utils/usercontext.h"
 #include "utils/wait_event.h"
+#include "utils/acl.h"
 
 #define NAPTIME_PER_CYCLE 1000	/* max sleep time between cycles (1s) */
 
@@ -2659,6 +2660,7 @@ apply_handle_insert(StringInfo s)
 	TupleTableSlot *remoteslot;
 	MemoryContext oldctx;
 	bool		run_as_owner;
+	AclResult	aclresult;
 
 	/*
 	 * Quick return if we are skipping data modification changes or handling
@@ -2693,6 +2695,11 @@ apply_handle_insert(StringInfo s)
 
 	/* Set relation for error callback */
 	apply_error_callback_arg.rel = rel;
+	aclresult = pg_class_aclcheck(RelationGetRelid(rel->localrel), GetUserId(),
+								ACL_INSERT);
+	if (aclresult != ACLCHECK_OK)
+		aclcheck_error(aclresult, get_relkind_objtype(rel->localrel->rd_rel->relkind),
+						RelationGetRelationName(rel->localrel));
 
 	/* Initialize the executor state. */
 	edata = create_edata_for_relation(rel);
@@ -2819,6 +2826,7 @@ apply_handle_update(StringInfo s)
 	RTEPermissionInfo *target_perminfo;
 	MemoryContext oldctx;
 	bool		run_as_owner;
+	AclResult	aclresult;
 
 	/*
 	 * Quick return if we are skipping data modification changes or handling
@@ -2857,6 +2865,14 @@ apply_handle_update(StringInfo s)
 	run_as_owner = MySubscription->runasowner;
 	if (!run_as_owner)
 		SwitchToUntrustedUser(rel->localrel->rd_rel->relowner, &ucxt);
+
+	/* MDB check acl on relation */
+	aclresult = pg_class_aclcheck(RelationGetRelid(rel->localrel), GetUserId(),
+								ACL_UPDATE);
+	if (aclresult != ACLCHECK_OK)
+		aclcheck_error(aclresult, get_relkind_objtype(rel->localrel->rd_rel->relkind),
+						RelationGetRelationName(rel->localrel));
+
 
 	/* Initialize the executor state. */
 	edata = create_edata_for_relation(rel);
@@ -3043,6 +3059,7 @@ apply_handle_delete(StringInfo s)
 	TupleTableSlot *remoteslot;
 	MemoryContext oldctx;
 	bool		run_as_owner;
+	AclResult	aclresult;
 
 	/*
 	 * Quick return if we are skipping data modification changes or handling
@@ -3069,7 +3086,6 @@ apply_handle_delete(StringInfo s)
 
 	/* Set relation for error callback */
 	apply_error_callback_arg.rel = rel;
-
 	/* Check if we can do the delete. */
 	check_relation_updatable(rel);
 
@@ -3080,6 +3096,12 @@ apply_handle_delete(StringInfo s)
 	run_as_owner = MySubscription->runasowner;
 	if (!run_as_owner)
 		SwitchToUntrustedUser(rel->localrel->rd_rel->relowner, &ucxt);
+
+	aclresult = pg_class_aclcheck(RelationGetRelid(rel->localrel), GetUserId(),
+								ACL_DELETE);
+	if (aclresult != ACLCHECK_OK)
+		aclcheck_error(aclresult, get_relkind_objtype(rel->localrel->rd_rel->relkind),
+						RelationGetRelationName(rel->localrel));
 
 	/* Initialize the executor state. */
 	edata = create_edata_for_relation(rel);
@@ -3679,6 +3701,7 @@ apply_handle_truncate(StringInfo s)
 	List	   *relids_logged = NIL;
 	ListCell   *lc;
 	LOCKMODE	lockmode = AccessExclusiveLock;
+	AclResult	aclresult;
 
 	/*
 	 * Quick return if we are skipping data modification changes or handling
@@ -3707,6 +3730,12 @@ apply_handle_truncate(StringInfo s)
 			logicalrep_rel_close(rel, lockmode);
 			continue;
 		}
+
+		aclresult = pg_class_aclcheck(RelationGetRelid(rel->localrel), GetUserId(),
+								  ACL_TRUNCATE);
+		if (aclresult != ACLCHECK_OK)
+			aclcheck_error(aclresult, get_relkind_objtype(rel->localrel->rd_rel->relkind),
+							RelationGetRelationName(rel->localrel));
 
 		remote_rels = lappend(remote_rels, rel);
 		TargetPrivilegesCheck(rel->localrel, ACL_TRUNCATE);
