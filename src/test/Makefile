@@ -14,6 +14,9 @@ include $(top_builddir)/src/Makefile.global
 
 SUBDIRS = perl postmaster regress isolation modules authentication recovery subscription
 
+# MDB addons 
+SUBDIRS += mdb_admin
+
 ifeq ($(with_icu),yes)
 SUBDIRS += icu
 endif
