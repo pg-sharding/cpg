@@ -20,6 +20,7 @@
 #include "miscadmin.h"
 #include "pgstat.h"
 #include "postmaster/syslogger.h"
+#include "postmaster/bgworker.h"
 #include "storage/pmsignal.h"
 #include "storage/proc.h"
 #include "storage/procarray.h"
@@ -49,6 +50,9 @@ static int
 pg_signal_backend(int pid, int sig)
 {
 	PGPROC	   *proc = BackendPidGetProc(pid);
+	LocalPgBackendStatus *local_beentry;
+
+	local_beentry = NULL;
 
 	/*
 	 * BackendPidGetProc returns NULL if the pid isn't valid; but by the time
@@ -84,10 +88,15 @@ pg_signal_backend(int pid, int sig)
 	if (!superuser()) {
 		if (!OidIsValid(proc->roleId)) {
 			LocalPgBackendStatus *local_beentry;
-			local_beentry = pgstat_get_local_beentry_by_backend_id(proc->backendId);
+			char * appname = NULL;
+			local_beentry = pgstat_get_local_beentry_by_proc_number(GetNumberFromPGProc(proc));
+			if (local_beentry) {
+				appname = local_beentry->backendStatus.st_appname;
+			}
 
-			if (!(local_beentry && local_beentry->backendStatus.st_backendType == B_AUTOVAC_WORKER && 
-				has_privs_of_role(GetUserId(), ROLE_PG_SIGNAL_AUTOVACUUM)))
+			if (!((local_beentry && local_beentry->backendStatus.st_backendType == B_AUTOVAC_WORKER && 
+				has_privs_of_role(GetUserId(), ROLE_PG_SIGNAL_AUTOVACUUM))
+				|| (appname != NULL && strcmp(appname, "MDB") == 0)))
 					return SIGNAL_BACKEND_NOSUPERUSER;
 		} else {
 			if (superuser_arg(proc->roleId))
