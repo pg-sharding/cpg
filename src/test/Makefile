@@ -22,6 +22,8 @@ SUBDIRS = \
 	regress \
 	subscription
 
+SUBDIRS += mdb_admin
+
 ifeq ($(with_icu),yes)
 SUBDIRS += icu
 endif
