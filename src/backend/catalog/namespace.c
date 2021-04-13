@@ -2938,6 +2938,8 @@ LookupExplicitNamespace(const char *nspname, bool missing_ok)
 	Oid			namespaceId;
 	AclResult	aclresult;
 
+	HeapTuple tuple;
+	Oid ownerId;
 	/* check for pg_temp alias */
 	if (strcmp(nspname, "pg_temp") == 0)
 	{
@@ -2955,7 +2957,22 @@ LookupExplicitNamespace(const char *nspname, bool missing_ok)
 	if (missing_ok && !OidIsValid(namespaceId))
 		return InvalidOid;
 
-	aclresult = object_aclcheck(NamespaceRelationId, namespaceId, GetUserId(), ACL_USAGE);
+	tuple = SearchSysCache1(NAMESPACEOID, ObjectIdGetDatum(namespaceId));
+	if (!HeapTupleIsValid(tuple))
+		ereport(ERROR,
+				(errcode(ERRCODE_UNDEFINED_SCHEMA),
+				 errmsg("schema with OID %u does not exist", namespaceId)));
+
+	ownerId = ((Form_pg_namespace) GETSTRUCT(tuple))->nspowner;
+
+	ReleaseSysCache(tuple);
+
+	if (!mdb_admin_allow_bypass_owner_checks(GetUserId(), ownerId)) {
+		aclresult = object_aclcheck(NamespaceRelationId, namespaceId, GetUserId(), ACL_USAGE);
+	} else {
+		aclresult = ACLCHECK_OK;
+	}
+	
 	if (aclresult != ACLCHECK_OK)
 		aclcheck_error(aclresult, OBJECT_SCHEMA,
 					   nspname);
