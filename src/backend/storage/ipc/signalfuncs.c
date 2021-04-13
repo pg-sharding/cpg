@@ -20,6 +20,7 @@
 #include "miscadmin.h"
 #include "pgstat.h"
 #include "postmaster/syslogger.h"
+#include "postmaster/bgworker.h"
 #include "storage/pmsignal.h"
 #include "storage/proc.h"
 #include "storage/procarray.h"
@@ -49,6 +50,8 @@ static int
 pg_signal_backend(int pid, int sig)
 {
 	PGPROC	   *proc = BackendPidGetProc(pid);
+	LocalPgBackendStatus *local_beentry;
+	PgBackendStatus *beentry;
 
 	/*
 	 * BackendPidGetProc returns NULL if the pid isn't valid; but by the time
@@ -74,14 +77,41 @@ pg_signal_backend(int pid, int sig)
 		return SIGNAL_BACKEND_ERROR;
 	}
 
+
+	local_beentry = pgstat_get_local_beentry_by_backend_id(proc->backendId);
+	if (local_beentry != NULL) 
+		beentry = &local_beentry->backendStatus;
 	/*
 	 * Only allow superusers to signal superuser-owned backends.  Any process
 	 * not advertising a role might have the importance of a superuser-owned
 	 * backend, so treat it that way.
 	 */
 	if ((!OidIsValid(proc->roleId) || superuser_arg(proc->roleId)) &&
-		!superuser())
-		return SIGNAL_BACKEND_NOSUPERUSER;
+		!superuser()) {
+		Oid role;
+		char * appname;
+
+		if (local_beentry == NULL) {
+			return SIGNAL_BACKEND_NOSUPERUSER;
+		}
+
+		role = get_role_oid("mdb_admin", true /*if nodoby created mdb_admin role in this database*/);
+		appname = local_beentry->backendStatus.st_appname;
+
+		// only allow mdb_admin to kill su queries
+		if (!is_member_of_role(GetUserId(), role)) {
+			return SIGNAL_BACKEND_NOSUPERUSER;
+		}
+
+		/* mdb admin allowed to kill proc with application name 'MDB' or autovacuum */
+		if (local_beentry->backendStatus.st_backendType == B_AUTOVAC_WORKER) {
+			// ok
+		} else if (appname != NULL && strcmp(appname, "MDB") == 0) {
+			// ok
+		} else {
+			return SIGNAL_BACKEND_NOSUPERUSER;
+		}
+	}
 
 	/* Users can signal backends they have role membership in. */
 	if (!has_privs_of_role(GetUserId(), proc->roleId) &&
