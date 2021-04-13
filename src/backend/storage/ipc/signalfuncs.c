@@ -20,6 +20,7 @@
 #include "miscadmin.h"
 #include "pgstat.h"
 #include "postmaster/syslogger.h"
+#include "postmaster/bgworker.h"
 #include "storage/pmsignal.h"
 #include "storage/proc.h"
 #include "storage/procarray.h"
@@ -51,6 +52,9 @@ static int
 pg_signal_backend(int pid, int sig)
 {
 	PGPROC	   *proc = BackendPidGetProc(pid);
+	LocalPgBackendStatus *local_beentry;
+
+	local_beentry = NULL;
 
 	/*
 	 * BackendPidGetProc returns NULL if the pid isn't valid; but by the time
