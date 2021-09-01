@@ -5,7 +5,7 @@ include /usr/share/dpkg/pkg-info.mk
 include /usr/share/dpkg/vendor.mk
 
 MAJOR_VER := 14
-CASSERT_FLAGS := --enable-cassert
+#CASSERT_FLAGS := --enable-cassert
 
 CATVERSION = $(shell awk '/CATALOG_VERSION_NO/ { print $$3 }' src/include/catalog/catversion.h)
 
@@ -22,7 +22,7 @@ export DPKG_GENSYMBOLS_CHECK_LEVEL=4
 
 # if LLVM is installed, use it
 ifneq ($(wildcard /usr/bin/llvm-config*),)
-LLVM_FLAGS = --with-llvm LLVM_CONFIG=/usr/bin/llvm-config-11 CLANG=/usr/bin/clang-11
+LLVM_FLAGS = --with-llvm LLVM_CONFIG=/usr/bin/llvm-config-6.0 CLANG=/usr/bin/clang-6.0
 endif
 
 # PostgreSQL 9.5+ does not have native spinlock support on alpha
