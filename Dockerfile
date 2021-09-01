@@ -11,7 +11,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc lsb-release libssl-dev gnupg openssl \
     gdb git \
     libpam0g-dev \
-    debhelper debootstrap devscripts make equivs
+    debhelper debootstrap devscripts make equivs debhelper-compat \
+    libz-dev flex libicu-dev libio-pty-perl libipc-run-perl libkrb5-dev \
+    libldap2-dev liblz4-dev libperl-dev libreadline-dev libselinux1-dev \
+    libsystemd-dev libxml2-dev libxml2-utils libxslt1-dev \
+    pkg-config python3-dev systemtap-sdt-dev tcl-dev uuid-dev xsltproc zlib1g-dev \
+    bison dh-exec docbook-xml docbook-xsl
 
 RUN groupadd -g 999 build-user && \
     useradd -r -u 999 -g build-user build-user
