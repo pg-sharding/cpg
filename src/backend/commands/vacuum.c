@@ -34,6 +34,7 @@
 #include "access/tableam.h"
 #include "access/transam.h"
 #include "access/xact.h"
+#include "access/csn_log.h"
 #include "catalog/namespace.h"
 #include "catalog/index.h"
 #include "catalog/pg_database.h"
@@ -61,7 +62,6 @@
 #include "utils/pg_rusage.h"
 #include "utils/snapmgr.h"
 #include "utils/syscache.h"
-
 
 /*
  * GUC parameters
@@ -1932,6 +1932,7 @@ vac_truncate_clog(TransactionId frozenXID,
 	 */
 	TruncateCLOG(frozenXID, oldestxid_datoid);
 	TruncateCommitTs(frozenXID);
+	TruncateCSNLog(frozenXID);
 	TruncateMultiXact(minMulti, minmulti_datoid);
 
 	/*
