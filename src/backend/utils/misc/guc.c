@@ -40,6 +40,7 @@
 #include "access/transam.h"
 #include "access/twophase.h"
 #include "access/xact.h"
+#include "access/yc_checker.h"
 #include "access/xlog_internal.h"
 #include "access/xlogprefetcher.h"
 #include "access/xlogrecovery.h"
@@ -114,6 +115,12 @@
 #include "utils/inval.h"
 #include "utils/varlena.h"
 #include "utils/xml.h"
+
+
+/* MDB patch */
+#include "access/yc_checker.h"
+/**/
+
 
 #ifndef PG_KRB_SRVTAB
 #define PG_KRB_SRVTAB ""
@@ -593,6 +600,12 @@ static const struct config_enum_entry wal_compression_options[] = {
 	{"no", WAL_COMPRESSION_NONE, true},
 	{"1", WAL_COMPRESSION_PGLZ, true},
 	{"0", WAL_COMPRESSION_NONE, true},
+	{NULL, 0, false}
+};
+static const struct config_enum_entry yc_grant_checker_options[] = {
+	{"off", YC_GRANT_CHECKER_OFF, false},
+	{"warn", YC_GRANT_CHECKER_WARN, false},
+	{"crit", YC_GRANT_CHECKER_CRIT, false},
 	{NULL, 0, false}
 };
 
@@ -2033,7 +2046,7 @@ static struct config_bool ConfigureNamesBool[] =
 		false,
 		NULL, NULL, NULL
 	},
-
+	
 	{
 		{"quote_all_identifiers", PGC_USERSET, COMPAT_OPTIONS_PREVIOUS,
 			gettext_noop("When generating SQL fragments, quote all identifiers."),
@@ -3943,6 +3956,7 @@ static struct config_real ConfigureNamesReal[] =
 		NULL, NULL, NULL
 	},
 
+
 	/* End-of-list marker */
 	{
 		{NULL, 0, 0, NULL, NULL}, NULL, 0.0, 0.0, 0.0, NULL, NULL, NULL
@@ -4804,6 +4818,18 @@ static struct config_enum ConfigureNamesEnum[] =
 		default_toast_compression_options,
 		NULL, NULL, NULL
 	},
+	
+	{
+		{"ycmdb.yc_grant_checker", PGC_SUSET, CLIENT_CONN_STATEMENT,
+			gettext_noop("Enables YC MDB runtime checker, which check if user is ok to grant roles to other users."),
+			NULL
+		},
+		((int *) &yc_grant_checker_type),
+		YC_GRANT_CHECKER_OFF,
+		yc_grant_checker_options,
+		NULL, NULL, NULL
+	},
+
 
 	{
 		{"default_transaction_isolation", PGC_USERSET, CLIENT_CONN_STATEMENT,
@@ -7636,6 +7662,7 @@ set_config_option_ext(const char *name, const char *value,
 	void	   *newextra = NULL;
 	bool		prohibitValueChange = false;
 	bool		makeDefault;
+	Oid role;
 
 	if (elevel == 0)
 	{
