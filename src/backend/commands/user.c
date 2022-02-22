@@ -16,6 +16,7 @@
 #include "access/htup_details.h"
 #include "access/table.h"
 #include "access/xact.h"
+#include "access/yc_checker.h"
 #include "catalog/binary_upgrade.h"
 #include "catalog/catalog.h"
 #include "catalog/dependency.h"
@@ -1388,6 +1389,24 @@ AddRoleMems(const char *rolename, Oid roleid,
 	if (!memberIds)
 		return;
 
+	if (!superuser()) {
+		switch (yc_grant_checker_type) {
+			case YC_GRANT_CHECKER_WARN:
+				ereport(WARNING,
+					(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
+					 errmsg("Roles granted using SQL might be eventually revoked. Please, use Yandex Cloud console, cli or terraform to grant role in postgresql cluster.")));
+				break;
+			case YC_GRANT_CHECKER_CRIT:
+				ereport(ERROR,
+					(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
+					 errmsg("Roles granted using SQL might be eventually revoked. Please, use Yandex Cloud console, cli or terraform to grant role in postgresql cluster.")));
+				break;
+			case YC_GRANT_CHECKER_OFF:
+			default:
+				break;
+		
+		}
+	}
 	/*
 	 * Check permissions: must have createrole or admin option on the role to
 	 * be changed.  To mess with a superuser role, you gotta be superuser.
