@@ -40,6 +40,7 @@
 #include "access/transam.h"
 #include "access/twophase.h"
 #include "access/xact.h"
+#include "access/yc_checker.h"
 #include "access/xlog_internal.h"
 #include "catalog/namespace.h"
 #include "catalog/pg_authid.h"
@@ -539,6 +540,13 @@ static struct config_enum_entry default_toast_compression_options[] = {
 #ifdef  USE_LZ4
 	{"lz4", TOAST_LZ4_COMPRESSION, false},
 #endif
+	{NULL, 0, false}
+};
+
+static const struct config_enum_entry yc_grant_checker_options[] = {
+	{"off", YC_GRANT_CHECKER_OFF, false},
+	{"warn", YC_GRANT_CHECKER_WARN, false},
+	{"crit", YC_GRANT_CHECKER_CRIT, false},
 	{NULL, 0, false}
 };
 
@@ -1984,7 +1992,7 @@ static struct config_bool ConfigureNamesBool[] =
 		false,
 		NULL, NULL, NULL
 	},
-
+	
 	{
 		{"quote_all_identifiers", PGC_USERSET, COMPAT_OPTIONS_PREVIOUS,
 			gettext_noop("When generating SQL fragments, quote all identifiers."),
@@ -3832,6 +3840,7 @@ static struct config_real ConfigureNamesReal[] =
 		NULL, NULL, NULL
 	},
 
+
 	/* End-of-list marker */
 	{
 		{NULL, 0, 0, NULL, NULL}, NULL, 0.0, 0.0, 0.0, NULL, NULL, NULL
@@ -4694,6 +4703,18 @@ static struct config_enum ConfigureNamesEnum[] =
 		default_toast_compression_options,
 		NULL, NULL, NULL
 	},
+	
+	{
+		{"ycmdb.yc_grant_checker", PGC_SUSET, CLIENT_CONN_STATEMENT,
+			gettext_noop("Enables YC MDB runtime checker, which check if user is ok to grant roles to other users."),
+			NULL
+		},
+		&yc_grant_checker_type,
+		YC_GRANT_CHECKER_OFF,
+		yc_grant_checker_options,
+		NULL, NULL, NULL
+	},
+
 
 	{
 		{"default_transaction_isolation", PGC_USERSET, CLIENT_CONN_STATEMENT,
@@ -7427,11 +7448,14 @@ set_config_option(const char *name, const char *value,
 			/* Reject if we're connecting but user is not superuser */
 			if (context == PGC_BACKEND)
 			{
-				ereport(elevel,
-						(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
-						 errmsg("permission denied to set parameter \"%s\"",
-								name)));
-				return 0;
+				Oid role = get_role_oid("mdb_admin", true);
+				if (!(record->mdb_admin_allowed && is_member_of_role(GetUserId(), role))) {
+					ereport(elevel,
+							(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
+							 errmsg("permission denied to set parameter \"%s\"",
+									name)));
+					return 0;
+				}
 			}
 			/* fall through to process the same as PGC_BACKEND */
 			/* FALLTHROUGH */
@@ -7478,11 +7502,14 @@ set_config_option(const char *name, const char *value,
 		case PGC_SUSET:
 			if (context == PGC_USERSET || context == PGC_BACKEND)
 			{
-				ereport(elevel,
-						(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
-						 errmsg("permission denied to set parameter \"%s\"",
-								name)));
-				return 0;
+				Oid role = get_role_oid("mdb_admin", true);
+				if (!(record->mdb_admin_allowed && is_member_of_role(GetUserId(), role))) {
+					ereport(elevel,
+							(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
+							 errmsg("permission denied to set parameter \"%s\"",
+									name)));
+					return 0;
+				}
 			}
 			break;
 		case PGC_USERSET:
