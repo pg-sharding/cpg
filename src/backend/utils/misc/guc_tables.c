@@ -39,6 +39,7 @@
 #include "access/xlogprefetcher.h"
 #include "access/xlogrecovery.h"
 #include "access/xlogutils.h"
+#include "access/yc_checker.h"
 #include "archive/archive_module.h"
 #include "catalog/namespace.h"
 #include "catalog/storage.h"
@@ -130,6 +131,13 @@ static const struct config_enum_entry bytea_output_options[] = {
 
 StaticAssertDecl(lengthof(bytea_output_options) == (BYTEA_OUTPUT_HEX + 2),
 				 "array length mismatch");
+
+static const struct config_enum_entry yc_grant_checker_options[] = {
+	{"off", YC_GRANT_CHECKER_OFF, false},
+	{"warn", YC_GRANT_CHECKER_WARN, false},
+	{"crit", YC_GRANT_CHECKER_CRIT, false},
+	{NULL, 0, false}
+};
 
 /*
  * We have different sets for client and server message level options because

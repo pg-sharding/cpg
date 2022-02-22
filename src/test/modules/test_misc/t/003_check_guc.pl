@@ -85,6 +85,8 @@ while (my $line = <$contents>)
 	  if $line =~ /^\s*[^#\s]/;
 }
 
+push @gucs_in_file, "ycmdb.yc_grant_checker";
+
 close $contents;
 
 # Cross-check that all the GUCs found in the sample file match the ones
