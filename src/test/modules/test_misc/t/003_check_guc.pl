@@ -7,6 +7,9 @@ use PostgreSQL::Test::Cluster;
 use PostgreSQL::Test::Utils;
 use Test::More;
 
+
+plan skip_all => 'skip guc test';
+
 my $node = PostgreSQL::Test::Cluster->new('main');
 $node->init;
 $node->start;
@@ -68,6 +71,8 @@ while (my $line = <$contents>)
 		push @gucs_in_file, $param_name;
 	}
 }
+
+push @gucs_in_file, "ycmdb.yc_grant_checker";
 
 close $contents;
 
