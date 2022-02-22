@@ -84,6 +84,10 @@
 #include "utils/inval.h"
 #include "utils/xml.h"
 
+/* MDB patch */
+#include "access/yc_checker.h"
+/**/
+
 /* This value is normally passed in from the Makefile */
 #ifndef PG_KRB_SRVTAB
 #define PG_KRB_SRVTAB ""
@@ -469,6 +473,15 @@ static const struct config_enum_entry wal_compression_options[] = {
 	{"0", WAL_COMPRESSION_NONE, true},
 	{NULL, 0, false}
 };
+
+
+static const struct config_enum_entry yc_grant_checker_options[] = {
+	{"off", YC_GRANT_CHECKER_OFF, false},
+	{"warn", YC_GRANT_CHECKER_WARN, false},
+	{"crit", YC_GRANT_CHECKER_CRIT, false},
+	{NULL, 0, false}
+};
+
 
 /*
  * Options for enum values stored in other modules
@@ -4643,6 +4656,16 @@ struct config_enum ConfigureNamesEnum[] =
 		NULL, NULL, NULL
 	},
 
+	{
+		{"ycmdb.yc_grant_checker", PGC_SUSET, CLIENT_CONN_STATEMENT,
+			gettext_noop("Enables YC MDB runtime checker, which check if user is ok to grant roles to other users."),
+			NULL
+		},
+		((int *) &yc_grant_checker_type),
+		YC_GRANT_CHECKER_OFF,
+		yc_grant_checker_options,
+		NULL, NULL, NULL
+	},
 	{
 		{"default_transaction_isolation", PGC_USERSET, CLIENT_CONN_STATEMENT,
 			gettext_noop("Sets the transaction isolation level of each new transaction."),
