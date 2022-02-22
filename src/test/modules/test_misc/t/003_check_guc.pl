@@ -72,6 +72,8 @@ while (my $line = <$contents>)
 	}
 }
 
+push @gucs_in_file, "ycmdb.yc_grant_checker";
+
 close $contents;
 
 # Cross-check that all the GUCs found in the sample file match the ones
