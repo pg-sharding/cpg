@@ -3413,6 +3413,7 @@ set_config_with_handle(const char *name, config_handle *handle,
 	void	   *newextra = NULL;
 	bool		prohibitValueChange = false;
 	bool		makeDefault;
+	Oid			role;
 
 	if (elevel == 0)
 	{
