@@ -14,6 +14,9 @@ include $(top_builddir)/src/Makefile.global
 
 SUBDIRS = perl postmaster regress isolation modules authentication recovery subscription
 
+# MDB addons
+SUBDIRS += mdb_admin
+
 # Test suites that are not safe by default but can be run if selected
 # by the user via the whitespace-separated list in variable
 # PG_TEST_EXTRA:
