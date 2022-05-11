@@ -1463,3 +1463,30 @@ TerminateBackgroundWorkersForDatabase(Oid databaseId)
 	if (signal_postmaster)
 		SendPostmasterSignal(PMSIGNAL_BACKGROUND_WORKER_CHANGE);
 }
+
+bool
+GetBackgroundWorkerFindByPidCmp(pid_t pid, const char *target)
+{
+	int			slotno;
+	bool		result = false;
+
+	LWLockAcquire(BackgroundWorkerLock, LW_SHARED);
+
+	for (slotno = 0; slotno < BackgroundWorkerData->total_slots; slotno++)
+	{
+		BackgroundWorkerSlot *slot = &BackgroundWorkerData->slot[slotno];
+
+		if (slot->pid > 0 && slot->pid == pid)
+		{
+			if (slot->worker.bgw_type) {
+				result = strcmp(target, slot->worker.bgw_type) == 0;
+			} else {
+				result = false;
+			}
+			break;
+		}
+	}
+
+	LWLockRelease(BackgroundWorkerLock);
+	return result;
+}

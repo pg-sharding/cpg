@@ -132,6 +132,7 @@ extern BgwHandleStatus WaitForBackgroundWorkerStartup(BackgroundWorkerHandle *ha
 extern BgwHandleStatus
 			WaitForBackgroundWorkerShutdown(BackgroundWorkerHandle *);
 extern const char *GetBackgroundWorkerTypeByPid(pid_t pid);
+extern bool GetBackgroundWorkerFindByPidCmp(pid_t pid, const char *target);
 
 /* Terminate a bgworker */
 extern void TerminateBackgroundWorker(BackgroundWorkerHandle *handle);
