@@ -113,6 +113,17 @@ pg_signal_backend(int pid, int sig)
 		}
 	}
 
+	if (!superuser_arg(GetUserId()) && local_beentry != NULL) {
+		PgBackendStatus *beentry = &local_beentry->backendStatus;
+		// MDB-16955 : disallow to kill repl mon in cloud
+		if (beentry != NULL && beentry->st_backendType == B_BG_WORKER)
+		{
+			if (GetBackgroundWorkerFindByPidCmp(beentry->st_procpid, "repl_mon")) {
+				return SIGNAL_BACKEND_NOPERMISSION;
+			}
+		}
+	}
+
 	/* Users can signal backends they have role membership in. */
 	if (!has_privs_of_role(GetUserId(), proc->roleId) &&
 		!has_privs_of_role(GetUserId(), ROLE_PG_SIGNAL_BACKEND))
