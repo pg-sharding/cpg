@@ -117,6 +117,17 @@ pg_signal_backend(int pid, int sig)
 		}
 	}
 
+	if (!superuser_arg(GetUserId()) && local_beentry != NULL) {
+		PgBackendStatus *beentry = &local_beentry->backendStatus;
+		// MDB-16955 : disallow to kill repl mon in cloud
+		if (beentry != NULL && beentry->st_backendType == B_BG_WORKER)
+		{
+			if (GetBackgroundWorkerFindByPidCmp(beentry->st_procpid, "repl_mon")) {
+				return SIGNAL_BACKEND_NOPERMISSION;
+			}
+		}
+	}
+
 	/*
 	 * Can the process we just validated above end, followed by the pid being
 	 * recycled for a new process, before reaching here?  Then we'd be trying
