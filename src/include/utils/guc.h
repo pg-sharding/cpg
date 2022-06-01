@@ -271,6 +271,7 @@ extern PGDLLIMPORT char *ConfigFileName;
 extern char *HbaFileName;
 extern char *IdentFileName;
 extern char *external_pid_file;
+extern char *extension_destdir;
 
 extern PGDLLIMPORT char *application_name;
 
