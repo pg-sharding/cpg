@@ -602,6 +602,7 @@ static const struct config_enum_entry wal_compression_options[] = {
 	{"0", WAL_COMPRESSION_NONE, true},
 	{NULL, 0, false}
 };
+
 static const struct config_enum_entry yc_grant_checker_options[] = {
 	{"off", YC_GRANT_CHECKER_OFF, false},
 	{"warn", YC_GRANT_CHECKER_WARN, false},
@@ -668,6 +669,7 @@ char	   *ConfigFileName;
 char	   *HbaFileName;
 char	   *IdentFileName;
 char	   *external_pid_file;
+char	   *extension_destdir;
 
 char	   *pgstat_temp_directory;
 
@@ -4540,6 +4542,17 @@ static struct config_string ConfigureNamesString[] =
 		&external_pid_file,
 		NULL,
 		check_canonical_path, NULL, NULL
+	},
+
+	{
+		{"extension_destdir", PGC_SUSET, FILE_LOCATIONS,
+			gettext_noop("Path to prepend for extension loading"),
+			gettext_noop("This directory is prepended to paths when loading extensions (control and SQL files), and to the '$libdir' directive when loading modules that back functions. The location is made configurable to allow build-time testing of extensions that do not have been installed to their proper location yet."),
+			GUC_SUPERUSER_ONLY
+		},
+		&extension_destdir,
+		"",
+		NULL, NULL, NULL
 	},
 
 	{
