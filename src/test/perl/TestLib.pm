@@ -705,6 +705,10 @@ sub check_pg_config
 	  or die "could not execute pg_config";
 	chomp($stdout);
 	$stdout =~ s/\r$//;
+	# Debian's pg_config is not relocatable, manually check for correct location
+	if (-d "../../../build/tmp_install/usr/include/postgresql") {
+		$stdout = "../../../build/tmp_install/usr/include/postgresql";
+	}
 
 	open my $pg_config_h, '<', "$stdout/pg_config.h" or die "$!";
 	my $match = (grep { /^$regexp/ } <$pg_config_h>);
