@@ -20,6 +20,7 @@
 #include "miscadmin.h"
 #include "pgstat.h"
 #include "postmaster/syslogger.h"
+#include "postmaster/bgworker.h"
 #include "storage/pmsignal.h"
 #include "storage/proc.h"
 #include "storage/procarray.h"
@@ -76,7 +77,7 @@ pg_signal_backend(int pid, int sig)
 		return SIGNAL_BACKEND_ERROR;
 	}
 
-	local_beentry = pgstat_get_local_beentry_by_backend_id(proc->backendId);
+	local_beentry = pgstat_fetch_stat_local_beentry(proc->backendId);
 
 	/*
 	 * Only allow superusers to signal superuser-owned backends.  Any process
@@ -106,6 +107,17 @@ pg_signal_backend(int pid, int sig)
 			// ok
 		} else {
 			return SIGNAL_BACKEND_NOSUPERUSER;
+		}
+	}
+
+	if (!superuser_arg(GetUserId()) && local_beentry != NULL) {
+		PgBackendStatus *beentry = &local_beentry->backendStatus;
+		// MDB-16955 : disallow to kill repl mon in cloud
+		if (beentry->st_backendType == B_BG_WORKER)
+		{
+			if (GetBackgroundWorkerFindByPidCmp(beentry->st_procpid, "repl_mon")) {
+				return SIGNAL_BACKEND_NOPERMISSION;
+			}
 		}
 	}
 
