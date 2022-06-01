@@ -27,6 +27,8 @@
 #include "common/config_info.h"
 #include "port.h"
 
+#include "../port/pg_config_paths.h"
+
 static const char *progname;
 
 /*
@@ -149,11 +151,7 @@ main(int argc, char **argv)
 		}
 	}
 
-	if (find_my_exec(argv[0], my_exec_path) < 0)
-	{
-		fprintf(stderr, _("%s: could not find own program executable\n"), progname);
-		exit(1);
-	}
+	snprintf(my_exec_path, sizeof(my_exec_path), "%s/%s", PGBINDIR, progname);
 
 	configdata = get_configdata(my_exec_path, &configdata_len);
 	/* no arguments -> print everything */
