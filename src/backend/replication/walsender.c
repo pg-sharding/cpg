@@ -743,6 +743,7 @@ StartReplication(StartReplicationCmd *cmd)
 	XLogRecPtr	FlushPtr;
 	TimeLineID	FlushTLI;
 
+	check_permissions();
 	/* create xlogreader for physical replication */
 	xlogreader =
 		XLogReaderAllocate(wal_segment_size, NULL,

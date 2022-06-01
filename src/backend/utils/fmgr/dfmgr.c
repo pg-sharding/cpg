@@ -34,6 +34,7 @@
 #include "lib/stringinfo.h"
 #include "miscadmin.h"
 #include "storage/shmem.h"
+#include "utils/guc.h"
 #include "utils/hsearch.h"
 
 
@@ -432,7 +433,7 @@ expand_dynamic_library_name(const char *name)
 {
 	bool		have_slash;
 	char	   *new;
-	char	   *full;
+	char	   *full, *full2;
 
 	AssertArg(name);
 
@@ -447,6 +448,19 @@ expand_dynamic_library_name(const char *name)
 	else
 	{
 		full = substitute_libpath_macro(name);
+		/*
+		 * If extension_destdir is set, try to find the file there first
+		 */
+		if (*extension_destdir != '\0')
+		{
+			full2 = psprintf("%s%s", extension_destdir, full);
+			if (file_exists(full2))
+			{
+				pfree(full);
+				return full2;
+			}
+			pfree(full2);
+		}
 		if (file_exists(full))
 			return full;
 		pfree(full);
@@ -465,6 +479,19 @@ expand_dynamic_library_name(const char *name)
 	{
 		full = substitute_libpath_macro(new);
 		pfree(new);
+		/*
+		 * If extension_destdir is set, try to find the file there first
+		 */
+		if (*extension_destdir != '\0')
+		{
+			full2 = psprintf("%s%s", extension_destdir, full);
+			if (file_exists(full2))
+			{
+				pfree(full);
+				return full2;
+			}
+			pfree(full2);
+		}
 		if (file_exists(full))
 			return full;
 		pfree(full);
