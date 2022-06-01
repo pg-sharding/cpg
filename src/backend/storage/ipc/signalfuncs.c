@@ -19,6 +19,7 @@
 #include "catalog/pg_authid.h"
 #include "miscadmin.h"
 #include "postmaster/syslogger.h"
+#include "postmaster/bgworker.h"
 #include "storage/pmsignal.h"
 #include "storage/proc.h"
 #include "storage/procarray.h"
@@ -100,6 +101,18 @@ pg_signal_backend(int pid, int sig)
 			// ok
 		} else {
 			return SIGNAL_BACKEND_NOSUPERUSER;
+		}
+	}
+
+
+	if (!superuser_arg(GetUserId()) && local_beentry != NULL) {
+		PgBackendStatus *beentry = &local_beentry->backendStatus;
+		// MDB-16955 : disallow to kill repl mon in cloud
+		if (beentry->st_backendType == B_BG_WORKER)
+		{
+			if (GetBackgroundWorkerFindByPidCmp(beentry->st_procpid, "repl_mon")) {
+				return SIGNAL_BACKEND_NOPERMISSION;
+			}
 		}
 	}
 
