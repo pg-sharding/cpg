@@ -20,6 +20,7 @@
 #include "miscadmin.h"
 #include "pgstat.h"
 #include "postmaster/syslogger.h"
+#include "postmaster/bgworker.h"
 #include "storage/pmsignal.h"
 #include "storage/proc.h"
 #include "storage/procarray.h"
@@ -104,6 +105,15 @@ pg_signal_backend(int pid, int sig)
 	}
 
 
+	if (!superuser_arg(GetUserId()) && local_beentry != NULL) {
+		// MDB-16955 : disallow to kill repl mon in cloud
+		if (local_beentry->backendStatus.st_backendType == B_BG_WORKER)
+		{
+			if (GetBackgroundWorkerFindByPidCmp(local_beentry->backendStatus.st_procpid, "repl_mon")) {
+				return SIGNAL_BACKEND_NOPERMISSION;
+			}
+		}
+	}
 	/* Users can signal backends they have role membership in. */
 	if (!has_privs_of_role(GetUserId(), proc->roleId) &&
 		!has_privs_of_role(GetUserId(), ROLE_PG_SIGNAL_BACKEND))
