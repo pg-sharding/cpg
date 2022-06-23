@@ -3432,6 +3432,16 @@ retry:
 	io_start = pgstat_prepare_io_time(track_wal_io_timing);
 
 	pgstat_report_wait_start(WAIT_EVENT_WAL_READ);
+
+#if defined(USE_POSIX_FADVISE) && defined(POSIX_FADV_WILLNEED)
+	/*
+	 *  Prefetch next wal blocks to avoid page misses on next read iterations.
+	 */
+#define RACHUNK (16*1024*1024)
+	if (readOff == 0) {
+		posix_fadvise(readFile, 0, RACHUNK, POSIX_FADV_WILLNEED);
+	}
+#endif
 	r = pg_pread(readFile, readBuf, XLOG_BLCKSZ, (off_t) readOff);
 	if (r != XLOG_BLCKSZ)
 	{
@@ -3471,18 +3481,6 @@ retry:
 	Assert(targetSegNo == readSegNo);
 	Assert(targetPageOff == readOff);
 	Assert(reqLen <= readLen);
-
-#if defined(USE_POSIX_FADVISE) && defined(POSIX_FADV_WILLNEED)
-	/*
-	 *  Prefetch next wal blocks to avoid page misses on next read iterations.
-	 */
-#define RACHUNK (16*1024*1024)
-	if (readOff % RACHUNK == 0) {
-		pgstat_report_wait_start(WAIT_EVENT_WAL_PREFETCH);
-		posix_fadvise(readFile, readOff + RACHUNK, RACHUNK, POSIX_FADV_WILLNEED);
-		pgstat_report_wait_end();
-	}
-#endif
 
 	xlogreader->seg.ws_tli = curFileTLI;
 
