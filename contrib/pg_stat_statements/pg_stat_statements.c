@@ -1265,8 +1265,12 @@ pgss_store(const char *query, uint64 queryId,
 	key.queryid = queryId;
 	key.toplevel = (exec_nested_level == 0);
 
-	/* Lookup the hash table entry with shared lock. */
-	LWLockAcquire(pgss->lock, LW_SHARED);
+	/*
+	 * Lookup the hash table entry with shared lock.
+	 * If exclusive lock is taken - just give up.
+	 */
+	if (!LWLockConditionalAcquire(pgss->lock, LW_SHARED))
+		return;
 
 	entry = (pgssEntry *) hash_search(pgss_hash, &key, HASH_FIND, NULL);
 
@@ -1291,7 +1295,13 @@ pgss_store(const char *query, uint64 queryId,
 			norm_query = generate_normalized_query(jstate, query,
 												   query_location,
 												   &query_len);
-			LWLockAcquire(pgss->lock, LW_SHARED);
+			/* exclusive lock may be taken while we were doing this */
+			/* XXX: Andrey: I'm not sure we should drop here shared lock at all */
+			if (!LWLockConditionalAcquire(pgss->lock, LW_SHARED))
+			{
+				pfree(norm_query);
+				return;
+			}
 		}
 
 		/* Append new query text to file with only shared lock held */
@@ -1307,7 +1317,9 @@ pgss_store(const char *query, uint64 queryId,
 
 		/* Need exclusive lock to make a new hashtable entry - promote */
 		LWLockRelease(pgss->lock);
-		LWLockAcquire(pgss->lock, LW_EXCLUSIVE);
+		/* This renders impossible to enter another concurrent query */
+		if (!LWLockConditionalAcquire(pgss->lock, LW_EXCLUSIVE))
+			return;
 
 		/*
 		 * A garbage collection may have occurred while we weren't holding the
