@@ -650,7 +650,10 @@ pg_replication_slot_advance(PG_FUNCTION_ARGS)
 
 	Assert(!MyReplicationSlot);
 
-	check_permissions();
+	/* We do not allow to advance repl slots to any user,
+	 if slot name is (regex) MDB.*, except su or repl_role */
+	check_mdb_reserved_name(NameStr(*slotname));
+	check_mdb_replication();
 
 	if (XLogRecPtrIsInvalid(moveto))
 		ereport(ERROR,
