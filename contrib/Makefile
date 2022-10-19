@@ -49,6 +49,7 @@ SUBDIRS = \
 		tsm_system_rows \
 		tsm_system_time \
 		unaccent	\
+		jsonlog		\
 		vacuumlo
 
 ifeq ($(with_ssl),openssl)
