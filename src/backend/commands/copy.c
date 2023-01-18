@@ -80,12 +80,18 @@ DoCopy(ParseState *pstate, const CopyStmt *stmt,
 	{
 		if (stmt->is_program)
 		{
-			if (!is_member_of_role(GetUserId(), ROLE_PG_EXECUTE_SERVER_PROGRAM))
-				ereport(ERROR,
-						(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
-						 errmsg("must be superuser or a member of the pg_execute_server_program role to COPY to or from an external program"),
-						 errhint("Anyone can COPY to stdout or from stdin. "
-								 "psql's \\copy command also works for anyone.")));
+			/* -- non-upstream patch begin */
+			/*
+			* MDB-21297: forbit usage of COPY TO PROGRAM and COPY FROM PROGRAM to non-su
+			*/
+			
+			ereport(ERROR,
+				(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
+					errmsg("forbidden to COPY to or from an external program or file in Yandex Cloud"),
+					errhint("Anyone can COPY to stdout or from stdin. "
+							"psql's \\copy command also works for anyone.")));
+			
+			/* --- non-upstream patch end */
 		}
 		else
 		{
