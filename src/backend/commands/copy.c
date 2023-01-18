@@ -86,7 +86,7 @@ DoCopy(ParseState *pstate, const CopyStmt *stmt,
 			*/
 			ereport(ERROR,
 					(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
-					 errmsg("must be superuser to COPY to or from an external program in Yandex Cloud"),
+					 errmsg("forbidden to COPY to or from an external program in Yandex Cloud"),
 					 errhint("Anyone can COPY to stdout or from stdin. "
 							 "psql's \\copy command also works for anyone.")));
 			// --- non-upstream patch end
