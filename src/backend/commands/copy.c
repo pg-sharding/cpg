@@ -855,26 +855,30 @@ DoCopy(ParseState *pstate, const CopyStmt *stmt,
 	{
 		if (stmt->is_program)
 		{
-			if (!is_member_of_role(GetUserId(), DEFAULT_ROLE_EXECUTE_SERVER_PROGRAM))
-				ereport(ERROR,
-						(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
-						 errmsg("must be superuser or a member of the pg_execute_server_program role to COPY to or from an external program"),
-						 errhint("Anyone can COPY to stdout or from stdin. "
-								 "psql's \\copy command also works for anyone.")));
+			// -- non-upstream patch begin
+			/*
+			* MDB-21297: forbit usage of COPY TO PROGRAM and COPY FROM PROGRAM to non-su
+			*/
+			ereport(ERROR,
+					(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
+					 errmsg("must be superuser to COPY to or from an external program in Yandex Cloud"),
+					 errhint("Anyone can COPY to stdout or from stdin. "
+							 "psql's \\copy command also works for anyone.")));
+			// --- non-upstream patch end
 		}
 		else
 		{
 			if (is_from && !is_member_of_role(GetUserId(), DEFAULT_ROLE_READ_SERVER_FILES))
 				ereport(ERROR,
 						(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
-						 errmsg("must be superuser or a member of the pg_read_server_files role to COPY from a file"),
+						 errmsg("must be superuser or have privileges of the pg_read_server_files role to COPY from a file"),
 						 errhint("Anyone can COPY to stdout or from stdin. "
 								 "psql's \\copy command also works for anyone.")));
 
 			if (!is_from && !is_member_of_role(GetUserId(), DEFAULT_ROLE_WRITE_SERVER_FILES))
 				ereport(ERROR,
 						(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
-						 errmsg("must be superuser or a member of the pg_write_server_files role to COPY to a file"),
+						 errmsg("must be superuser or have privileges of the pg_write_server_files role to COPY to a file"),
 						 errhint("Anyone can COPY to stdout or from stdin. "
 								 "psql's \\copy command also works for anyone.")));
 		}
