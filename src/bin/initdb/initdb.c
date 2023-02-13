@@ -76,6 +76,7 @@
 #include "getopt_long.h"
 #include "mb/pg_wchar.h"
 #include "miscadmin.h"
+#include "common/mdb_locale.h"
 
 
 /* Ideally this would be in a .h file, but it hardly seems worth the trouble */
@@ -1955,12 +1956,13 @@ locale_date_order(const char *locale)
 
 	result = DATEORDER_MDY;		/* default */
 
-	save = setlocale(LC_TIME, NULL);
+	save = SETLOCALE(LC_TIME, NULL);
+
 	if (!save)
 		return result;
 	save = pg_strdup(save);
 
-	setlocale(LC_TIME, locale);
+    SETLOCALE(LC_TIME, locale);
 
 	memset(&testtime, 0, sizeof(testtime));
 	testtime.tm_mday = 22;
@@ -1969,7 +1971,7 @@ locale_date_order(const char *locale)
 
 	res = my_strftime(buf, sizeof(buf), "%x", &testtime);
 
-	setlocale(LC_TIME, save);
+    SETLOCALE(LC_TIME, save);
 	free(save);
 
 	if (res == 0)
@@ -2013,7 +2015,7 @@ check_locale_name(int category, const char *locale, char **canonname)
 	if (canonname)
 		*canonname = NULL;		/* in case of failure */
 
-	save = setlocale(category, NULL);
+	save = SETLOCALE(category, NULL);
 	if (!save)
 		pg_fatal("setlocale() failed");
 
@@ -2025,14 +2027,14 @@ check_locale_name(int category, const char *locale, char **canonname)
 		locale = "";
 
 	/* set the locale with setlocale, to see if it accepts it. */
-	res = setlocale(category, locale);
+	res = SETLOCALE(category, locale);
 
 	/* save canonical name if requested. */
 	if (res && canonname)
 		*canonname = pg_strdup(res);
 
 	/* restore old value. */
-	if (!setlocale(category, save))
+	if (!SETLOCALE(category, save))
 		pg_fatal("failed to restore old locale \"%s\"", save);
 	free(save);
 
