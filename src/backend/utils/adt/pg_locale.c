@@ -48,6 +48,7 @@
 #include "utils/pg_locale.h"
 #include "utils/relcache.h"
 #include "utils/syscache.h"
+#include "common/mdb_locale.h"
 
 #ifdef WIN32
 #include <shlwapi.h>
@@ -201,7 +202,7 @@ pg_perm_setlocale(int category, const char *locale)
 	const char *envvar;
 
 #ifndef WIN32
-	result = setlocale(category, locale);
+	result = SETLOCALE(category, locale);
 #else
 
 	/*
@@ -219,7 +220,7 @@ pg_perm_setlocale(int category, const char *locale)
 	}
 	else
 #endif
-		result = setlocale(category, locale);
+		result = SETLOCALE(category, locale);
 #endif							/* WIN32 */
 
 	if (result == NULL)
@@ -316,7 +317,7 @@ check_locale(int category, const char *locale, char **canonname)
 	if (canonname)
 		*canonname = NULL;		/* in case of failure */
 
-	save = setlocale(category, NULL);
+	save = SETLOCALE(category, NULL);
 	if (!save)
 		return false;			/* won't happen, we hope */
 
@@ -324,14 +325,14 @@ check_locale(int category, const char *locale, char **canonname)
 	save = pstrdup(save);
 
 	/* set the locale with setlocale, to see if it accepts it. */
-	res = setlocale(category, locale);
+	res = SETLOCALE(category, locale);
 
 	/* save canonical name if requested. */
 	if (res && canonname)
 		*canonname = pstrdup(res);
 
 	/* restore old value. */
-	if (!setlocale(category, save))
+	if (!SETLOCALE(category, save))
 		elog(WARNING, "failed to restore old locale \"%s\"", save);
 	pfree(save);
 
@@ -749,7 +750,7 @@ cache_locale_time(void)
 	if (locale == (locale_t) 0)
 		_dosmaperr(GetLastError());
 #else
-	locale = newlocale(LC_ALL_MASK, locale_time, (locale_t) 0);
+	locale = NEWLOCALE(LC_ALL_MASK, locale_time, (locale_t) 0);
 #endif
 	if (!locale)
 		report_newlocale_failure(locale_time);
