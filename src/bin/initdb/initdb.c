@@ -81,6 +81,7 @@
 #include "getopt_long.h"
 #include "mb/pg_wchar.h"
 #include "miscadmin.h"
+#include "common/mdb_locale.h"
 
 
 /* Ideally this would be in a .h file, but it hardly seems worth the trouble */
@@ -371,7 +372,8 @@ save_global_locale(int category)
 	if (!save)
 		pg_fatal("out of memory");
 #else
-	save = setlocale(category, NULL);
+	save = SETLOCALE(LC_TIME, NULL);
+
 	if (!save)
 		pg_fatal("setlocale() failed");
 	save = pg_strdup(save);
@@ -389,7 +391,8 @@ restore_global_locale(int category, save_locale_t save)
 	if (!_wsetlocale(category, save))
 		pg_fatal("failed to restore old locale");
 #else
-	if (!setlocale(category, save))
+	save = pg_strdup(save);
+	if (!SETLOCALE(category, save))
 		pg_fatal("failed to restore old locale \"%s\"", save);
 #endif
 	free(save);
@@ -2137,7 +2140,7 @@ locale_date_order(const char *locale)
 
 	save = save_global_locale(LC_TIME);
 
-	setlocale(LC_TIME, locale);
+    SETLOCALE(LC_TIME, locale);
 
 	memset(&testtime, 0, sizeof(testtime));
 	testtime.tm_mday = 22;
@@ -2200,7 +2203,7 @@ check_locale_name(int category, const char *locale, char **canonname)
 		locale = "";
 
 	/* set the locale with setlocale, to see if it accepts it. */
-	res = setlocale(category, locale);
+	res = SETLOCALE(category, locale);
 
 	/* save canonical name if requested. */
 	if (res && canonname)
