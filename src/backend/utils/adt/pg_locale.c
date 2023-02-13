@@ -66,6 +66,7 @@
 #include "utils/pg_locale.h"
 #include "utils/relcache.h"
 #include "utils/syscache.h"
+#include <mdblocales.h>
 
 #ifdef USE_ICU
 #include <unicode/ucnv.h>
@@ -147,7 +148,7 @@ pg_perm_setlocale(int category, const char *locale)
 	const char *envvar;
 
 #ifndef WIN32
-	result = setlocale(category, locale);
+	result = mdb_setlocale(category, locale);
 #else
 
 	/*
@@ -252,7 +253,7 @@ check_locale(int category, const char *locale, char **canonname)
 	if (canonname)
 		*canonname = NULL;		/* in case of failure */
 
-	save = setlocale(category, NULL);
+	save = mdb_setlocale(category, NULL);
 	if (!save)
 		return false;			/* won't happen, we hope */
 
@@ -260,7 +261,7 @@ check_locale(int category, const char *locale, char **canonname)
 	save = pstrdup(save);
 
 	/* set the locale with setlocale, to see if it accepts it. */
-	res = setlocale(category, locale);
+	res = mdb_setlocale(category, locale);
 
 	/* save canonical name if requested. */
 	if (res && canonname)
@@ -501,12 +502,12 @@ PGLC_localeconv(void)
 	memset(&worklconv, 0, sizeof(worklconv));
 
 	/* Save prevailing values of monetary and numeric locales */
-	save_lc_monetary = setlocale(LC_MONETARY, NULL);
+	save_lc_monetary = mdb_setlocale(LC_MONETARY, NULL);
 	if (!save_lc_monetary)
 		elog(ERROR, "setlocale(NULL) failed");
 	save_lc_monetary = pstrdup(save_lc_monetary);
 
-	save_lc_numeric = setlocale(LC_NUMERIC, NULL);
+	save_lc_numeric = mdb_setlocale(LC_NUMERIC, NULL);
 	if (!save_lc_numeric)
 		elog(ERROR, "setlocale(NULL) failed");
 	save_lc_numeric = pstrdup(save_lc_numeric);
@@ -773,7 +774,7 @@ cache_locale_time(void)
 	 */
 
 	/* Save prevailing value of time locale */
-	save_lc_time = setlocale(LC_TIME, NULL);
+	save_lc_time = mdb_setlocale(LC_TIME, NULL);
 	if (!save_lc_time)
 		elog(ERROR, "setlocale(NULL) failed");
 	save_lc_time = pstrdup(save_lc_time);
@@ -1225,7 +1226,7 @@ check_strxfrm_bug(void)
 		ereport(ERROR,
 				(errcode(ERRCODE_SYSTEM_ERROR),
 				 errmsg_internal("strxfrm(), in locale \"%s\", writes past the specified array length",
-								 setlocale(LC_COLLATE, NULL)),
+								 mdb_setlocale(LC_COLLATE, NULL)),
 				 errhint("Apply system library package updates.")));
 }
 
@@ -1341,7 +1342,7 @@ lc_collate_is_c(Oid collation)
 
 		if (result >= 0)
 			return (bool) result;
-		localeptr = setlocale(LC_COLLATE, NULL);
+		localeptr = mdb_setlocale(LC_COLLATE, NULL);
 		if (!localeptr)
 			elog(ERROR, "invalid LC_COLLATE setting");
 
@@ -1391,7 +1392,7 @@ lc_ctype_is_c(Oid collation)
 
 		if (result >= 0)
 			return (bool) result;
-		localeptr = setlocale(LC_CTYPE, NULL);
+		localeptr = mdb_setlocale(LC_CTYPE, NULL);
 		if (!localeptr)
 			elog(ERROR, "invalid LC_CTYPE setting");
 
@@ -1516,7 +1517,7 @@ pg_newlocale_from_collation(Oid collid)
 				/* Normal case where they're the same */
 				errno = 0;
 #ifndef WIN32
-				loc = newlocale(LC_COLLATE_MASK | LC_CTYPE_MASK, collcollate,
+				loc = mdb_newlocale(LC_COLLATE_MASK | LC_CTYPE_MASK, collcollate,
 								NULL);
 #else
 				loc = _create_locale(LC_ALL, collcollate);
@@ -1531,11 +1532,11 @@ pg_newlocale_from_collation(Oid collid)
 				locale_t	loc1;
 
 				errno = 0;
-				loc1 = newlocale(LC_COLLATE_MASK, collcollate, NULL);
+				loc1 = mdb_newlocale(LC_COLLATE_MASK, collcollate, NULL);
 				if (!loc1)
 					report_newlocale_failure(collcollate);
 				errno = 0;
-				loc = newlocale(LC_CTYPE_MASK, collctype, loc1);
+				loc = mdb_newlocale(LC_CTYPE_MASK, collctype, loc1);
 				if (!loc)
 					report_newlocale_failure(collctype);
 #else
