@@ -15,6 +15,7 @@
 #include "sql3types.h"
 #include "sqlca.h"
 #include "sqlda.h"
+#include <mdblocales.h>
 
 static void descriptor_free(struct descriptor *desc);
 
@@ -500,8 +501,8 @@ ECPGget_desc(int lineno, const char *desc_name, int index,...)
 #ifdef HAVE__CONFIGTHREADLOCALE
 		stmt.oldthreadlocale = _configthreadlocale(_ENABLE_PER_THREAD_LOCALE);
 #endif
-		stmt.oldlocale = ecpg_strdup(setlocale(LC_NUMERIC, NULL), lineno);
-		setlocale(LC_NUMERIC, "C");
+		stmt.oldlocale = ecpg_strdup(mdb_setlocale(LC_NUMERIC, NULL), lineno);
+                mdb_setlocale(LC_NUMERIC, "C");
 #endif
 
 		/* desperate try to guess something sensible */
@@ -514,7 +515,7 @@ ECPGget_desc(int lineno, const char *desc_name, int index,...)
 #else
 		if (stmt.oldlocale)
 		{
-			setlocale(LC_NUMERIC, stmt.oldlocale);
+			mdb_setlocale(LC_NUMERIC, stmt.oldlocale);
 			ecpg_free(stmt.oldlocale);
 		}
 #ifdef HAVE__CONFIGTHREADLOCALE
