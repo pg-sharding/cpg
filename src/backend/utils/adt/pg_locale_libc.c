@@ -25,6 +25,8 @@
 #include "utils/pg_locale.h"
 #include "utils/syscache.h"
 
+#include "common/mdb_locale.h"
+
 #ifdef __GLIBC__
 #include <gnu/libc-version.h>
 #endif
@@ -505,7 +507,7 @@ make_libc_collator(const char *collate, const char *ctype)
 			/* Normal case where they're the same */
 			errno = 0;
 #ifndef WIN32
-			loc = newlocale(LC_COLLATE_MASK | LC_CTYPE_MASK, collate,
+			loc = NEWLOCALE(LC_COLLATE_MASK | LC_CTYPE_MASK, collate,
 							NULL);
 #else
 			loc = _create_locale(LC_ALL, collate);
@@ -523,7 +525,7 @@ make_libc_collator(const char *collate, const char *ctype)
 		if (strcmp(collate, "C") != 0 && strcmp(collate, "POSIX") != 0)
 		{
 			errno = 0;
-			loc1 = newlocale(LC_COLLATE_MASK, collate, NULL);
+			loc1 = NEWLOCALE(LC_COLLATE_MASK, collate, NULL);
 			if (!loc1)
 				report_newlocale_failure(collate);
 		}
@@ -531,7 +533,7 @@ make_libc_collator(const char *collate, const char *ctype)
 		if (strcmp(ctype, "C") != 0 && strcmp(ctype, "POSIX") != 0)
 		{
 			errno = 0;
-			loc = newlocale(LC_CTYPE_MASK, ctype, loc1);
+			loc = NEWLOCALE(LC_CTYPE_MASK, ctype, loc1);
 			if (!loc)
 			{
 				if (loc1)
@@ -671,7 +673,7 @@ get_collation_actual_version_libc(const char *collcollate)
 		locale_t	loc;
 
 		/* Look up FreeBSD collation version. */
-		loc = newlocale(LC_COLLATE_MASK, collcollate, NULL);
+		loc = NEWLOCALE(LC_COLLATE_MASK, collcollate, NULL);
 		if (loc)
 		{
 			collversion =
