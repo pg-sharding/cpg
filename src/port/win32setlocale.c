@@ -180,7 +180,7 @@ pgwin32_setlocale(int category, const char *locale)
 		argument = map_locale(locale_map_argument, locale);
 
 	/* Call the real setlocale() function */
-	result = setlocale(category, argument);
+	result = SETLOCALE(category, argument);
 
 	/*
 	 * setlocale() is specified to return a "char *" that the caller is
