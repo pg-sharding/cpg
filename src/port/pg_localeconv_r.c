@@ -22,6 +22,8 @@
 
 #include <limits.h>
 
+#include "common/mdb_locale.h"
+
 #ifdef MON_THOUSANDS_SEP
 /*
  * One of glibc's extended langinfo items detected.  Assume that the full set
@@ -262,14 +264,14 @@ pg_localeconv_r(const char *lc_monetary,
 	memset(output, 0, sizeof(*output));
 
 	/* Copy the LC_MONETARY members. */
-	if (!setlocale(LC_ALL, lc_monetary))
+	if (!SETLOCALE(LC_ALL, lc_monetary))
 		goto exit;
 	result = pg_localeconv_copy_members(output, localeconv(), LC_MONETARY);
 	if (result != 0)
 		goto exit;
 
 	/* Copy the LC_NUMERIC members. */
-	if (!setlocale(LC_ALL, lc_numeric))
+	if (!SETLOCALE(LC_ALL, lc_numeric))
 		goto exit;
 	result = pg_localeconv_copy_members(output, localeconv(), LC_NUMERIC);
 
@@ -306,10 +308,10 @@ exit:
 	 * doesn't match.
 	 */
 	errno = ENOENT;
-	monetary_locale = newlocale(LC_ALL_MASK, lc_monetary, 0);
+	monetary_locale = NEWLOCALE(LC_ALL_MASK, lc_monetary, 0);
 	if (monetary_locale == 0)
 		return -1;
-	numeric_locale = newlocale(LC_ALL_MASK, lc_numeric, 0);
+	numeric_locale = NEWLOCALE(LC_ALL_MASK, lc_numeric, 0);
 	if (numeric_locale == 0)
 	{
 		freelocale(monetary_locale);
