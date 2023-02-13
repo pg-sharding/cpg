@@ -151,7 +151,7 @@ main (void)
 
 
 	strcpy(t, "0123456789");
-	setlocale(LC_ALL, "C");
+	SETLOCALE(LC_ALL, "C");
 
 	ECPGdebug(1, stderr);
 

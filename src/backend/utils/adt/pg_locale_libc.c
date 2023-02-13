@@ -671,7 +671,7 @@ get_collation_actual_version_libc(const char *collcollate)
 		locale_t	loc;
 
 		/* Look up FreeBSD collation version. */
-		loc = newlocale(LC_COLLATE_MASK, collcollate, NULL);
+		loc = NEWLOCALE(LC_COLLATE_MASK, collcollate, NULL);
 		if (loc)
 		{
 			collversion =
