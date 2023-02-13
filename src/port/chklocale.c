@@ -18,6 +18,8 @@
 #else
 #include "postgres_fe.h"
 #endif
+#include "common/mdb_locale.h"
+
 
 #ifndef WIN32
 #include <langinfo.h>
@@ -309,7 +311,7 @@ pg_get_encoding_from_locale(const char *ctype, bool write_message)
 
 	/* Get the CODESET property, and also LC_CTYPE if not passed in */
 	if (!ctype)
-		ctype = setlocale(LC_CTYPE, NULL);
+		ctype = SETLOCALE(LC_CTYPE, NULL);
 
 
 	/* If locale is C or POSIX, we can allow all encodings */
@@ -319,7 +321,7 @@ pg_get_encoding_from_locale(const char *ctype, bool write_message)
 
 
 #ifndef WIN32
-	loc = newlocale(LC_CTYPE_MASK, ctype, (locale_t) 0);
+	loc = NEWLOCALE(LC_CTYPE_MASK, ctype, (locale_t) 0);
 	if (loc == (locale_t) 0)
 		return -1;				/* bogus ctype passed in? */
 
