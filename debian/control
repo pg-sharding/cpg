@@ -45,7 +45,7 @@ Build-Depends:
  uuid-dev,
  xsltproc,
  zlib1g-dev | libz-dev,
- libmdblocales-dev (>= 20~)
+ libmdblocales-dev (>= 25~)
 Homepage: http://www.postgresql.org/
 Vcs-Browser: https://salsa.debian.org/postgresql/postgresql
 Vcs-Git: https://salsa.debian.org/postgresql/postgresql.git -b 14
@@ -70,6 +70,8 @@ Package: libpq5
 Architecture: any
 Section: libs
 Depends:
+ libmdblocales1 (>= 25~),
+ mdb-locales (>= 25~),
  ${misc:Depends},
  ${shlibs:Depends},
 Pre-Depends:
@@ -159,7 +161,8 @@ Depends:
  postgresql-common (>= 229~),
  ssl-cert,
  tzdata,
- libmdblocales1 (>= 20~),
+ libmdblocales1 (>= 25~),
+ mdb-locales (>= 25~),
  ${misc:Depends},
  ${shlibs:Depends},
 Provides:
@@ -185,6 +188,8 @@ Depends:
  libpq5 (>= ${source:Upstream-Version}),
  postgresql-client-common (>= 182~),
  sensible-utils,
+ libmdblocales1 (>= 25~),
+ mdb-locales (>= 25~),
  ${misc:Depends},
  ${shlibs:Depends},
 Suggests:
