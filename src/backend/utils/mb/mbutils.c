@@ -42,7 +42,7 @@
 #include "utils/memutils.h"
 #include "utils/relcache.h"
 #include "utils/syscache.h"
-#include <mdblocales.h>
+#include "common/mdb_locale.h"
 
 /*
  * We maintain a simple linked list caching the fmgr lookup info for the
@@ -1306,7 +1306,7 @@ pg_bind_textdomain_codeset(const char *domainname)
 	int			new_msgenc;
 
 #ifndef WIN32
-	const char *ctype = mdb_setlocale(LC_CTYPE, NULL);
+	const char *ctype = SETLOCALE(LC_CTYPE, NULL);
 
 	if (pg_strcasecmp(ctype, "C") == 0 || pg_strcasecmp(ctype, "POSIX") == 0)
 #endif
