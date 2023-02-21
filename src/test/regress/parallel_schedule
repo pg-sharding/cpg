@@ -5,14 +5,19 @@
 # this limits the number of connections needed to run the tests.
 # ----------
 
+# run tablespace by itself, and first, because it forces a checkpoint;
+# we'd prefer not to have checkpoints later in the tests because that
+# interferes with crash-recovery testing.
+
+test: test_setup
+
+test: tablespace
+
 # mdb admin simple checks
 
 test: mdb_admin
 
-# run tablespace by itself, and first, because it forces a checkpoint;
-# we'd prefer not to have checkpoints later in the tests because that
-# interferes with crash-recovery testing.
-test: tablespace
+test: mdb_superuser
 
 # ----------
 # The first group of parallel tests
