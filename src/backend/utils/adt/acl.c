@@ -5320,7 +5320,7 @@ roles_is_member_of(Oid roleid, enum RoleRecurseType type,
 * This is basically original postgresql privs-check function
 */
 
-static bool
+bool
 has_privs_of_role_strict(Oid member, Oid role)
 {
 	/* Fast path for simple case */
@@ -5342,7 +5342,7 @@ has_privs_of_role_strict(Oid member, Oid role)
 
 /*
 * Check that role is either one of "dangerous" system role
-* or has "strict" (not through mdb_admin) 
+* or has "strict" (not through mdb_admin or mdb_superuser) 
 * privs of this role
 */
 
@@ -5370,6 +5370,8 @@ has_privs_of_unwanted_system_role(Oid role) {
 bool
 has_privs_of_role(Oid member, Oid role)
 {
+	Oid mdb_superuser_roleoid;
+
 	/* Fast path for simple case */
 	if (member == role)
 		return true;
@@ -5377,6 +5379,23 @@ has_privs_of_role(Oid member, Oid role)
 	/* Superusers have every privilege, so are part of every role */
 	if (superuser_arg(member))
 		return true;
+
+	mdb_superuser_roleoid = get_role_oid("mdb_superuser", true /*if nodoby created mdb_superuser role in this database*/);
+
+	if (is_member_of_role(member, mdb_superuser_roleoid)) {
+		/* if target role is superuser, disallow */
+		if (!superuser_arg(role)) {
+			/* we want mdb_roles_admin to bypass
+			* has_priv_of_roles test
+			* if target role is neither superuser nor
+			* some dangerous system role
+			*/
+			if (!has_privs_of_unwanted_system_role(role)) {
+				return true;
+			}
+		}
+	}
+	
 
 	/*
 	 * Find all the roles that member has the privileges of, including
@@ -5386,6 +5405,8 @@ has_privs_of_role(Oid member, Oid role)
 											  InvalidOid, NULL),
 						   role);
 }
+
+// -- mdb_superuser patch
 
 // -- non-upstream patch begin
 /*
@@ -5679,6 +5700,7 @@ select_best_grantor(const RoleSpec *grantedBy, AclMode privileges,
 	List	   *roles_list;
 	int			nrights;
 	ListCell   *l;
+	Oid			mdb_superuser_roleoid;
 
 	/*
 	 * If we have GRANTED BY, resolve it and verify current user is allowed to
@@ -5710,6 +5732,16 @@ select_best_grantor(const RoleSpec *grantedBy, AclMode privileges,
 	{
 		*grantorId = ownerId;
 		*grantOptions = needed_goptions;
+		return;
+	}
+
+	mdb_superuser_roleoid = get_role_oid("mdb_superuser", true /*if nodoby created mdb_superuser role in this database*/);
+
+	if (is_member_of_role(GetUserId(), mdb_superuser_roleoid)
+	&& has_privs_of_role(GetUserId(), ownerId)) {
+		*grantorId = ownerId;
+		AclMode mdb_superuser_allowed_privs = needed_goptions;
+		*grantOptions = mdb_superuser_allowed_privs;
 		return;
 	}
 
