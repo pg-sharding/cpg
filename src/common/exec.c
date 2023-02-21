@@ -24,7 +24,8 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
-#include <mdblocales.h>
+#include "common/mdb_locale.h"
+
 
 #ifdef EXEC_BACKEND
 #if defined(HAVE_SYS_PERSONALITY_H)
@@ -452,7 +453,7 @@ set_pglocale_pgservice(const char *argv0, const char *app)
 	/* don't set LC_ALL in the backend */
 	if (strcmp(app, PG_TEXTDOMAIN("postgres")) != 0)
 	{
-		mdb_setlocale(LC_ALL, "");
+		SETLOCALE(LC_ALL, "");
 
 		/*
 		 * One could make a case for reproducing here PostmasterMain()'s test
