@@ -375,7 +375,7 @@ CreateSubscription(CreateSubscriptionStmt *stmt, bool isTopLevel)
 	if (create_slot)
 		PreventInTransactionBlock(isTopLevel, "CREATE SUBSCRIPTION ... WITH (create_slot = true)");
 
-	role = get_role_oid("mdb_admin", true);
+	role = get_role_oid("mdb_admin", true /*if nodoby created mdb_admin role in this database*/);
 	if (!is_member_of_role(GetUserId(), role))
 		ereport(ERROR,
 				(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
@@ -1393,7 +1393,7 @@ AlterSubscriptionOwner_internal(Relation rel, HeapTuple tup, Oid newOwnerId)
 		aclcheck_error(ACLCHECK_NOT_OWNER, OBJECT_SUBSCRIPTION,
 					   NameStr(form->subname));
 
-	role = get_role_oid("mdb_admin", true);
+	role = get_role_oid("mdb_admin", true /*if nodoby created mdb_admin role in this database*/);
 	/* New owner must be a mdb_admin */
 	if (!is_member_of_role(newOwnerId, role))
 		ereport(ERROR,
