@@ -7537,7 +7537,8 @@ set_config_option(const char *name, const char *value,
 		case PGC_SUSET:
 			if (context == PGC_USERSET || context == PGC_BACKEND)
 			{
-				Oid role = get_role_oid("mdb_admin", true);
+				Oid role;
+				role = get_role_oid("mdb_admin", true /*if nodoby created mdb_admin role in this database*/);
 				if (!(record->mdb_admin_allowed && is_member_of_role(GetUserId(), role))) {
 					ereport(elevel,
 							(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
