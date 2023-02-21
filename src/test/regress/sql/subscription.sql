@@ -6,7 +6,6 @@ CREATE ROLE regress_subscription_user LOGIN SUPERUSER;
 CREATE ROLE regress_subscription_user2;
 CREATE ROLE regress_subscription_user_dummy LOGIN NOSUPERUSER;
 CREATE ROLE regress_subscription_user3 LOGIN NOSUPERUSER;
-CREATE ROLE mdb_admin;
 
 GRANT mdb_admin to regress_subscription_user3;
 SET SESSION AUTHORIZATION 'regress_subscription_user';
@@ -228,4 +227,3 @@ DROP ROLE regress_subscription_user2;
 DROP ROLE regress_subscription_user_dummy;
 REVOKE mdb_admin FROM regress_subscription_user3;
 DROP ROLE regress_subscription_user3;
-DROP ROLE mdb_admin;
