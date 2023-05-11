@@ -373,6 +373,8 @@ struct pg_conn
 	/* Type of connection to make.  Possible values: any, read-write. */
 	char	   *target_session_attrs;
 
+	char       *service_auth_role; /* MDB-23247: option for service log-in */
+
 	/* Optional file to write trace info to */
 	FILE	   *Pfdebug;
 
