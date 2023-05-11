@@ -361,6 +361,12 @@ static const internalPQconninfoOption PQconninfoOptions[] = {
 		"Load-Balance-Hosts", "", 8,	/* sizeof("disable") = 8 */
 	offsetof(struct pg_conn, load_balance_hosts)},
 
+	/* CLOUD_SERVICE_AUTH: option for service log-in */
+	{"_pq_.service_auth_role", "PGSERVICEAUTHROLE",
+		"", NULL,
+		"_pg__service_auth_role", "", 20,
+	offsetof(struct pg_conn, service_auth_role)},
+
 	/* Terminating entry --- MUST BE LAST */
 	{NULL, NULL, NULL, NULL,
 	NULL, NULL, 0}
@@ -4462,6 +4468,9 @@ freePGconn(PGconn *conn)
 	free(conn->rowBuf);
 	free(conn->target_session_attrs);
 	free(conn->load_balance_hosts);
+	if (conn->service_auth_role) {
+		free(conn->service_auth_role);
+	}
 	termPQExpBuffer(&conn->errorMessage);
 	termPQExpBuffer(&conn->workBuffer);
 

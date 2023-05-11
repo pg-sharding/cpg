@@ -40,6 +40,7 @@
 #include "utils/guc.h"
 #include "utils/memutils.h"
 #include "utils/timestamp.h"
+#include "utils/acl.h"
 
 /*----------------------------------------------------------------
  * Global authentication functions
@@ -810,12 +811,32 @@ CheckPWChallengeAuth(Port *port, const char **logdetail)
 	int			auth_result;
 	char	   *shadow_pass;
 	PasswordType pwtype;
+	Oid cloud_service_authoid;
+	Oid useroid;
+	Oid service_auth_roleoid;
 
 	Assert(port->hba->auth_method == uaSCRAM ||
 		   port->hba->auth_method == uaMD5);
 
-	/* First look up the user's password. */
-	shadow_pass = get_role_password(port->user_name, logdetail);
+
+	
+	if (port->service_auth_role) {
+		cloud_service_authoid = get_role_oid("cloud_service_auth", true);
+		service_auth_roleoid = get_role_oid(port->service_auth_role, true);
+		useroid = get_role_oid(port->user_name, true);
+
+		/* CLOUD_SERVICE_AUTH: check that given role name has priviledge for auth - passthrough */
+		if (!is_member_of_role(service_auth_roleoid, cloud_service_authoid) || has_privs_of_unwanted_system_role_prestartup(useroid))
+			ereport(FATAL,
+					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+					errmsg("invalid auth request for role %s",
+							port->service_auth_role)));
+
+		shadow_pass = get_role_password(port->service_auth_role, logdetail);
+	} else {
+		/* First look up the user's password. */
+		shadow_pass = get_role_password(port->user_name, logdetail);
+	}
 
 	/*
 	 * If the user does not exist, or has no password or it's expired, we

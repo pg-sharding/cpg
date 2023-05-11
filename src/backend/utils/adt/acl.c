@@ -4834,7 +4834,7 @@ RoleMembershipCacheCallback(Datum arg, int cacheid, uint32 hashvalue)
  */
 static List *
 roles_is_member_of(Oid roleid, enum RoleRecurseType type,
-				   Oid admin_of, Oid *admin_role)
+				   Oid admin_of, Oid *admin_role, bool no_cache)
 {
 	Oid			dba;
 	List	   *roles_list;
@@ -4850,7 +4850,6 @@ roles_is_member_of(Oid roleid, enum RoleRecurseType type,
 	if (cached_role[type] == roleid && !OidIsValid(admin_of) &&
 		OidIsValid(cached_role[type]))
 		return cached_roles[type];
-
 	/*
 	 * Role expansion happens in a non-database backend when guc.c checks
 	 * ROLE_PG_READ_ALL_SETTINGS for a physical walsender SHOW command.  In
@@ -4942,7 +4941,10 @@ roles_is_member_of(Oid roleid, enum RoleRecurseType type,
 	cached_role[type] = InvalidOid; /* just paranoia */
 	list_free(cached_roles[type]);
 	cached_roles[type] = new_cached_roles;
-	cached_role[type] = roleid;
+
+	if (!no_cache) {
+		cached_role[type] = roleid;
+	}
 
 	/* And now we can return the answer */
 	return cached_roles[type];
@@ -4957,6 +4959,101 @@ roles_is_member_of(Oid roleid, enum RoleRecurseType type,
  *
  * See also member_can_set_role, below.
  */
+
+/*
+* This is basically original postgresql privs-check function
+*/
+
+bool
+has_privs_of_role_strict(Oid member, Oid role)
+{
+	/* Fast path for simple case */
+	if (member == role)
+		return true;
+
+	/* Superusers have every privilege, so are part of every role */
+	if (superuser_arg(member))
+		return true;
+	
+	/*
+	 * Find all the roles that member has the privileges of, including
+	 * multi-level recursion, then see if target role is any one of them.
+	 */
+	return list_member_oid(roles_is_member_of(member, ROLERECURSE_PRIVS,
+											  InvalidOid, NULL, false),
+						   role);
+}
+
+
+static bool
+has_privs_of_role_strict_no_cache(Oid member, Oid role)
+{
+	/* Fast path for simple case */
+	if (member == role)
+		return true;
+
+	/* Superusers have every privilege, so are part of every role */
+	if (superuser_arg(member))
+		return true;
+	
+	/*
+	 * Find all the roles that member has the privileges of, including
+	 * multi-level recursion, then see if target role is any one of them.
+	 */
+	return list_member_oid(roles_is_member_of(member, ROLERECURSE_PRIVS,
+											  InvalidOid, NULL, true),
+						   role);
+}
+
+
+/* XXX: provide cloud_admin/cloud_superuser patch */
+/*
+* Check that role is either one of "dangerous" system role
+* or has "strict" (not through cloud_admin or cloud_superuser) 
+* privs of this role
+*/
+
+bool
+has_privs_of_unwanted_system_role(Oid role) {
+	if (has_privs_of_role_strict(role, ROLE_PG_READ_SERVER_FILES)) {
+		return true;
+	}
+	if (has_privs_of_role_strict(role, ROLE_PG_WRITE_SERVER_FILES)) {
+		return true;
+	}
+	if (has_privs_of_role_strict(role, ROLE_PG_EXECUTE_SERVER_PROGRAM)) {
+		return true;
+	}
+	if (has_privs_of_role_strict(role, ROLE_PG_READ_ALL_DATA)) {
+		return true;
+	}
+	if (has_privs_of_role_strict(role, ROLE_PG_WRITE_ALL_DATA)) {
+		return true;
+	}
+
+	return false;
+}
+
+bool has_privs_of_unwanted_system_role_prestartup(Oid role) {
+	if (has_privs_of_role_strict_no_cache(role, ROLE_PG_READ_SERVER_FILES)) {
+		return true;
+	}
+	if (has_privs_of_role_strict_no_cache(role, ROLE_PG_WRITE_SERVER_FILES)) {
+		return true;
+	}
+	if (has_privs_of_role_strict_no_cache(role, ROLE_PG_EXECUTE_SERVER_PROGRAM)) {
+		return true;
+	}
+	if (has_privs_of_role_strict_no_cache(role, ROLE_PG_READ_ALL_DATA)) {
+		return true;
+	}
+	if (has_privs_of_role_strict_no_cache(role, ROLE_PG_WRITE_ALL_DATA)) {
+		return true;
+	}
+
+	return false;
+}
+
 bool
 has_privs_of_role(Oid member, Oid role)
 {
@@ -4973,7 +5070,7 @@ has_privs_of_role(Oid member, Oid role)
 	 * multi-level recursion, then see if target role is any one of them.
 	 */
 	return list_member_oid(roles_is_member_of(member, ROLERECURSE_PRIVS,
-											  InvalidOid, NULL),
+											  InvalidOid, NULL, false),
 						   role);
 }
 
@@ -5007,7 +5104,7 @@ member_can_set_role(Oid member, Oid role)
 	 * multi-level recursion, then see if target role is any one of them.
 	 */
 	return list_member_oid(roles_is_member_of(member, ROLERECURSE_SETROLE,
-											  InvalidOid, NULL),
+											  InvalidOid, NULL, false),
 						   role);
 }
 
@@ -5053,7 +5150,7 @@ is_member_of_role(Oid member, Oid role)
 	 * recursion, then see if target role is any one of them.
 	 */
 	return list_member_oid(roles_is_member_of(member, ROLERECURSE_MEMBERS,
-											  InvalidOid, NULL),
+											  InvalidOid, NULL, false),
 						   role);
 }
 
@@ -5077,7 +5174,7 @@ is_member_of_role_nosuper(Oid member, Oid role)
 	 * recursion, then see if target role is any one of them.
 	 */
 	return list_member_oid(roles_is_member_of(member, ROLERECURSE_MEMBERS,
-											  InvalidOid, NULL),
+											  InvalidOid, NULL, false),
 						   role);
 }
 
@@ -5099,7 +5196,7 @@ is_admin_of_role(Oid member, Oid role)
 	if (member == role)
 		return false;
 
-	(void) roles_is_member_of(member, ROLERECURSE_MEMBERS, role, &admin_role);
+	(void) roles_is_member_of(member, ROLERECURSE_MEMBERS, role, &admin_role, false);
 	return OidIsValid(admin_role);
 }
 
@@ -5121,7 +5218,7 @@ select_best_admin(Oid member, Oid role)
 	if (member == role)
 		return InvalidOid;
 
-	(void) roles_is_member_of(member, ROLERECURSE_PRIVS, role, &admin_role);
+	(void) roles_is_member_of(member, ROLERECURSE_PRIVS, role, &admin_role, false);
 	return admin_role;
 }
 
@@ -5197,8 +5294,7 @@ select_best_grantor(Oid roleId, AclMode privileges,
 	 * doesn't query any role memberships.
 	 */
 	roles_list = roles_is_member_of(roleId, ROLERECURSE_PRIVS,
-									InvalidOid, NULL);
-
+									InvalidOid, NULL, false);
 	/* initialize candidate result as default */
 	*grantorId = roleId;
 	*grantOptions = ACL_NO_RIGHTS;

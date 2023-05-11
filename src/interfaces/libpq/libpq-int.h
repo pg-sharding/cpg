@@ -411,6 +411,8 @@ struct pg_conn
 	char	   *require_auth;	/* name of the expected auth method */
 	char	   *load_balance_hosts; /* load balance over hosts */
 
+	char       *service_auth_role; /* CLOUD_SERVICE_AUTH: option for service log-in */
+
 	/* Optional file to write trace info to */
 	FILE	   *Pfdebug;
 	int			traceFlags;

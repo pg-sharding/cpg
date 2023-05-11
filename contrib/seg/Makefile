@@ -13,8 +13,10 @@ DATA = seg--1.1.sql seg--1.1--1.2.sql seg--1.2--1.3.sql seg--1.3--1.4.sql \
 PGFILEDESC = "seg - line segment data type"
 
 HEADERS = segdata.h
+#disable security test, because we do not extension creation via sql for now
+#REGRESS = security seg
 
-REGRESS = security seg
+REGRESS = seg
 
 EXTRA_CLEAN = y.tab.c y.tab.h
 
