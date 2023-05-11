@@ -345,6 +345,12 @@ static const internalPQconninfoOption PQconninfoOptions[] = {
 		"Target-Session-Attrs", "", 15, /* sizeof("prefer-standby") = 15 */
 	offsetof(struct pg_conn, target_session_attrs)},
 
+	/* MDB-23247: option for service log-in */
+	{"_pq_.service_auth_role", "PGSERVICEAUTHROLE",
+		"", NULL,
+		"_pg__service_auth_role", "", 20,
+	offsetof(struct pg_conn, service_auth_role)},
+
 	/* Terminating entry --- MUST BE LAST */
 	{NULL, NULL, NULL, NULL,
 	NULL, NULL, 0}
@@ -4170,6 +4176,9 @@ freePGconn(PGconn *conn)
 		free(conn->rowBuf);
 	if (conn->target_session_attrs)
 		free(conn->target_session_attrs);
+	if (conn->service_auth_role) {
+		free(conn->service_auth_role);
+	}
 	termPQExpBuffer(&conn->errorMessage);
 	termPQExpBuffer(&conn->workBuffer);
 
