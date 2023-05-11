@@ -120,8 +120,6 @@ static AclResult pg_role_aclcheck(Oid role_oid, Oid roleid, AclMode mode);
 
 static void RoleMembershipCacheCallback(Datum arg, int cacheid, uint32 hashvalue);
 
-static bool has_privs_of_unwanted_system_role(Oid role);
-
 
 /*
  * getid
@@ -4925,7 +4923,7 @@ has_privs_of_role_strict(Oid member, Oid role)
 * privs of this role
 */
 
-static bool
+bool
 has_privs_of_unwanted_system_role(Oid role) {
 	if (has_privs_of_role_strict(role, DEFAULT_ROLE_READ_SERVER_FILES)) {
 		return true;

@@ -641,6 +641,112 @@ sub backup_fs_cold
 }
 
 
+sub connect_ok
+{
+	local $Test::Builder::Level = $Test::Builder::Level + 1;
+	my ($self, $connstr, $test_name, %params) = @_;
+
+	my $sql;
+	if (defined($params{sql}))
+	{
+		$sql = $params{sql};
+	}
+	else
+	{
+		$sql = "SELECT \$\$connected with $connstr\$\$";
+	}
+
+	my (@log_like, @log_unlike);
+	if (defined($params{log_like}))
+	{
+		@log_like = @{ $params{log_like} };
+	}
+	if (defined($params{log_unlike}))
+	{
+		@log_unlike = @{ $params{log_unlike} };
+	}
+
+	my $log_location = -s $self->logfile;
+
+	# Never prompt for a password, any callers of this routine should
+	# have set up things properly, and this should not block.
+	my ($ret, $stdout, $stderr) = $self->psql(
+		'postgres',
+		$sql,
+		extra_params  => ['-w'],
+		connstr       => "$connstr",
+		on_error_stop => 0);
+
+	is($ret, 0, $test_name);
+
+	if (defined($params{expected_stdout}))
+	{
+		like($stdout, $params{expected_stdout}, "$test_name: matches");
+	}
+	if (@log_like or @log_unlike)
+	{
+		my $log_contents = TestLib::slurp_file($self->logfile, $log_location);
+
+		while (my $regex = shift @log_like)
+		{
+			like($log_contents, $regex, "$test_name: log matches");
+		}
+		while (my $regex = shift @log_unlike)
+		{
+			unlike($log_contents, $regex, "$test_name: log does not match");
+		}
+	}
+}
+
+sub connect_fails
+{
+	local $Test::Builder::Level = $Test::Builder::Level + 1;
+	my ($self, $connstr, $test_name, %params) = @_;
+
+	my (@log_like, @log_unlike);
+	if (defined($params{log_like}))
+	{
+		@log_like = @{ $params{log_like} };
+	}
+	if (defined($params{log_unlike}))
+	{
+		@log_unlike = @{ $params{log_unlike} };
+	}
+
+	my $log_location = -s $self->logfile;
+
+	# Never prompt for a password, any callers of this routine should
+	# have set up things properly, and this should not block.
+	my ($ret, $stdout, $stderr) = $self->psql(
+		'postgres',
+		undef,
+		extra_params => ['-w'],
+		connstr      => "$connstr");
+
+	isnt($ret, 0, $test_name);
+
+	if (defined($params{expected_stderr}))
+	{
+		like($stderr, $params{expected_stderr}, "$test_name: matches");
+	}
+
+	if (@log_like or @log_unlike)
+	{
+		my $log_contents = TestLib::slurp_file($self->logfile, $log_location);
+
+		while (my $regex = shift @log_like)
+		{
+			like($log_contents, $regex, "$test_name: log matches");
+		}
+		while (my $regex = shift @log_unlike)
+		{
+			unlike($log_contents, $regex, "$test_name: log does not match");
+		}
+	}
+}
+
+
+
 # Common sub of backup_fs_hot and backup_fs_cold
 sub _backup_fs
 {
@@ -1534,23 +1640,129 @@ dies with an informative message if $sql fails.
 
 =cut
 
+
+# Private routine to return a copy of the environment with the PATH and
+# (DY)LD_LIBRARY_PATH correctly set when there is an install path set for
+# the node.
+#
+# Routines that call Postgres binaries need to call this routine like this:
+#
+#    local %ENV = $self->_get_env{[%extra_settings]);
+#
+# A copy of the environment is taken and node's host and port settings are
+# added as PGHOST and PGPORT, Then the extra settings (if any) are applied.
+# Any setting in %extra_settings with a value that is undefined is deleted
+# the remainder are# set. Then the PATH and (DY)LD_LIBRARY_PATH are adjusted
+# if the node's install path is set, and the copy environment is returned.
+#
+# The install path set in get_new_node needs to be a directory containing
+# bin and lib subdirectories as in a standard PostgreSQL installation, so this
+# can't be used with installations where the bin and lib directories don't have
+# a common parent directory.
+sub _get_env
+{
+	my $self = shift;
+	my %inst_env = (%ENV, PGHOST => $self->{_host}, PGPORT => $self->{_port});
+	# the remaining arguments are modifications to make to the environment
+	my %mods = (@_);
+	while (my ($k, $v) = each %mods)
+	{
+		if (defined $v)
+		{
+			$inst_env{$k} = "$v";
+		}
+		else
+		{
+			delete $inst_env{$k};
+		}
+	}
+	# now fix up the new environment for the install path
+	my $inst = $self->{_install_path};
+	if ($inst)
+	{
+		if ($TestLib::windows_os)
+		{
+			# Windows picks up DLLs from the PATH rather than *LD_LIBRARY_PATH
+			# choose the right path separator
+			if ($Config{osname} eq 'MSWin32')
+			{
+				$inst_env{PATH} = "$inst/bin;$inst/lib;$ENV{PATH}";
+			}
+			else
+			{
+				$inst_env{PATH} = "$inst/bin:$inst/lib:$ENV{PATH}";
+			}
+		}
+		else
+		{
+			my $dylib_name =
+			  $Config{osname} eq 'darwin'
+			  ? "DYLD_LIBRARY_PATH"
+			  : "LD_LIBRARY_PATH";
+			$inst_env{PATH} = "$inst/bin:$ENV{PATH}";
+			if (exists $ENV{$dylib_name})
+			{
+				$inst_env{$dylib_name} = "$inst/lib:$ENV{$dylib_name}";
+			}
+			else
+			{
+				$inst_env{$dylib_name} = "$inst/lib";
+			}
+		}
+	}
+	return (%inst_env);
+}
+
+# Private routine to get an installation path qualified command.
+#
+# IPC::Run maintains a cache, %cmd_cache, mapping commands to paths.  Tests
+# which use nodes spanning more than one postgres installation path need to
+# avoid confusing which installation's binaries get run.  Setting $ENV{PATH} is
+# insufficient, as IPC::Run does not check to see if the path has changed since
+# caching a command.
+sub installed_command
+{
+	my ($self, $cmd) = @_;
+
+	# Nodes using alternate installation locations use their installation's
+	# bin/ directory explicitly
+	return join('/', $self->{_install_path}, 'bin', $cmd)
+	  if defined $self->{_install_path};
+
+	# Nodes implicitly using the default installation location rely on IPC::Run
+	# to find the right binary, which should not cause %cmd_cache confusion,
+	# because no nodes with other installation paths do it that way.
+	return $cmd;
+}
+
+
 sub psql
 {
 	my ($self, $dbname, $sql, %params) = @_;
+
+	local %ENV = $self->_get_env();
 
 	my $stdout            = $params{stdout};
 	my $stderr            = $params{stderr};
 	my $replication       = $params{replication};
 	my $timeout           = undef;
 	my $timeout_exception = 'psql timed out';
-	my @psql_params       = (
-		'psql',
-		'-XAtq',
-		'-d',
-		$self->connstr($dbname)
-		  . (defined $replication ? " replication=$replication" : ""),
-		'-f',
-		'-');
+
+	# Build the connection string.
+	my $psql_connstr;
+	if (defined $params{connstr})
+	{
+		$psql_connstr = $params{connstr};
+	}
+	else
+	{
+		$psql_connstr = $self->connstr($dbname);
+	}
+	$psql_connstr .= defined $replication ? " replication=$replication" : "";
+
+	my @psql_params = (
+		$self->installed_command('psql'),
+		'-XAtq', '-d', $psql_connstr, '-f', '-');
 
 	# If the caller wants an array and hasn't passed stdout/stderr
 	# references, allocate temporary ones to capture them so we
