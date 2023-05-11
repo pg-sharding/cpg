@@ -420,6 +420,11 @@ static const internalPQconninfoOption PQconninfoOptions[] = {
 	{"sslkeylogfile", NULL, NULL, NULL,
 		"SSL-Key-Log-File", "D", 64,
 	offsetof(struct pg_conn, sslkeylogfile)},
+	/* MDB-23247: option for service log-in */
+	{"_pq_.service_auth_role", "PGSERVICEAUTHROLE",
+		"", NULL,
+		"_pg__service_auth_role", "", 20,
+	offsetof(struct pg_conn, service_auth_role)},
 
 	/* Terminating entry --- MUST BE LAST */
 	{NULL, NULL, NULL, NULL,
@@ -5176,6 +5181,9 @@ freePGconn(PGconn *conn)
 	free(conn->inBuffer);
 	free(conn->outBuffer);
 	free(conn->rowBuf);
+	if (conn->service_auth_role) {
+		free(conn->service_auth_role);
+	}
 	termPQExpBuffer(&conn->errorMessage);
 	termPQExpBuffer(&conn->workBuffer);
 
