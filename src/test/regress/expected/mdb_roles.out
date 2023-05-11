@@ -1,0 +1,24 @@
+CREATE ROLE regress_mdb_roles_user1;
+CREATE ROLE regress_mdb_roles_user2;
+GRANT mdb_admin, mdb_superuser TO regress_mdb_roles_user1 WITH ADMIN OPTION;
+GRANT CREATE ON DATABASE regression TO regress_mdb_roles_user1;
+SET ROLE regress_mdb_roles_user1;
+CREATE TABLE t();
+ALTER TABLE t OWNER TO mdb_admin; --ok
+ALTER TABLE t OWNER TO mdb_superuser; --ok
+ALTER TABLE t OWNER TO mdb_replication; --ok
+ALTER TABLE t OWNER TO mdb_service_auth; --should fail
+ERROR:  forbidden to transfer ownership to this system role in Cloud
+GRANT mdb_service_auth to regress_mdb_roles_user1;
+ERROR:  must have admin option on role "mdb_service_auth"
+GRANT mdb_service_auth to regress_mdb_roles_user2;
+ERROR:  must have admin option on role "mdb_service_auth"
+GRANT mdb_superuser to regress_mdb_roles_user1;
+NOTICE:  role "regress_mdb_roles_user1" is already a member of role "mdb_superuser"
+GRANT mdb_superuser to regress_mdb_roles_user2;
+-- cleanup
+RESET SESSION AUTHORIZATION;
+REVOKE CREATE ON DATABASE regression FROM regress_mdb_roles_user1;
+DROP TABLE t;
+DROP ROLE regress_mdb_roles_user1;
+DROP ROLE regress_mdb_roles_user2;
