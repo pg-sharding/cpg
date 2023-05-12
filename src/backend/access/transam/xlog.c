@@ -12675,6 +12675,18 @@ retry:
 	}
 	pgstat_report_wait_end();
 
+#if defined(USE_POSIX_FADVISE) && defined(POSIX_FADV_WILLNEED)
+	/*
+	 *  Prefetch next wal blocks to avoid page misses on next read iterations.
+	 */
+#define RACHUNK (1 << 17 /* 128 kibibyte */ )
+	if (readOff % RACHUNK == 0) {
+		pgstat_report_wait_start(WAIT_EVENT_WAL_PREFETCH);
+		posix_fadvise(readFile, readOff + RACHUNK, RACHUNK, POSIX_FADV_WILLNEED);
+		pgstat_report_wait_end();
+	}
+#endif
+
 	Assert(targetSegNo == readSegNo);
 	Assert(targetPageOff == readOff);
 	Assert(reqLen <= readLen);
