@@ -25,7 +25,7 @@ typedef enum
 
 /* GUC variables */
 
-YCGrantCheckerType yc_grant_checker_type;
+extern PGDLLIMPORT YCGrantCheckerType yc_grant_checker_type;
 
 
 #endif /* PG_YC_CHECKER_H */
