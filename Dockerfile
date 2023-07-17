@@ -1,4 +1,11 @@
-FROM ubuntu:bionic
+ARG codename
+FROM ubuntu:${codename:-bionic}
+
+ARG codename
+ENV CODE_NAME=${codename:-bionic}
+
+ARG pgdg
+ENV PGDG_VER=${pgdg:-242-2-pgdg18.04+1+yandex220}
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=Europe/Moskow
@@ -8,19 +15,30 @@ RUN sed -i 's/archive.ubuntu.com/mirror.yandex.ru/g' /etc/apt/sources.list &&\
     apt-get update && apt-get install -y --no-install-recommends \
     sudo build-essential \
     gcc lsb-release libssl-dev gnupg openssl \
+    gdb git curl
+
+RUN echo "deb http://dist.yandex.ru/mdb-${CODE_NAME}-secure stable/all/" >> /etc/apt/sources.list
+RUN echo "deb http://dist.yandex.ru/mdb-${CODE_NAME}-secure stable/\$(ARCH)/" >> /etc/apt/sources.list
+
+RUN curl -s 'http://keyserver.ubuntu.com/pks/lookup?op=get&search=0xafc3ce0d00e3c45a357e9e637fcd11186050cd1a' | \
+    gpg --dearmour -o /etc/apt/trusted.gpg.d/yandex.gpg
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    sudo build-essential \
+    gcc lsb-release libssl-dev gnupg openssl \
     gdb git \
     libpam0g-dev \
     debhelper debootstrap devscripts make equivs debhelper-compat \
     libz-dev flex libicu-dev libio-pty-perl libipc-run-perl libkrb5-dev \
-    libldap2-dev liblz4-dev libperl-dev libreadline-dev libselinux1-dev \
+    libldap2-dev liblz4-dev liblz4-tool zstd libperl-dev libreadline-dev libselinux1-dev llvm-dev \
     libsystemd-dev libxml2-dev libxml2-utils libxslt1-dev \
     pkg-config python3-dev systemtap-sdt-dev tcl-dev uuid-dev xsltproc zlib1g-dev \
     bison dh-exec docbook-xml docbook-xsl
 
-RUN echo 'deb http://dist.yandex.ru/mdb-bionic-secure stable/all/' | tee -a /etc/apt/sources.list &&\
-    echo 'deb http://dist.yandex.ru/mdb-bionic-secure stable/amd64/' | tee -a /etc/apt/sources.list &&\
-    apt-get update -o Acquire::AllowInsecureRepositories=true &&\
-    apt-get install -y --no-install-recommends --allow-unauthenticated libmdblocales1 libmdblocales-dev
+RUN apt-get install -y \
+    libmdblocales1 libmdblocales-dev \
+    postgresql-client-common=${PGDG_VER} \
+    postgresql-common=${PGDG_VER}
 
 RUN groupadd -g 999 build-user && \
     useradd -r -u 999 -g build-user build-user
