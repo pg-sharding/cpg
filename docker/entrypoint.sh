@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -ex
 
 export DEBIAN_FRONTEND=noninteractive
 export TZ=Europe/Moskow
@@ -13,7 +14,8 @@ cat debian/changelog
 
 sudo mk-build-deps  --build-dep --install --tool='apt-get -o Debug::pkgProblemResolver=yes --no-install-recommends --yes' debian/control
 
-dpkg-buildpackage -us -uc
+dpkg-buildpackage -b -rfakeroot -us -uc
+#dpkg-buildpackage -us -uc
 
 cd /home
 rm -fr build-user
