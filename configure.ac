@@ -903,18 +903,6 @@ PGAC_ARG_BOOL(with, python, no, [build Python modules (PL/Python)])
 AC_MSG_RESULT([$with_python])
 AC_SUBST(with_python)
 
-#
-# GSSAPI
-#
-AC_MSG_CHECKING([whether to build with GSSAPI support])
-PGAC_ARG_BOOL(with, gssapi, no, [build with GSSAPI support],
-[
-  AC_DEFINE(ENABLE_GSS, 1, [Define to build with GSSAPI support. (--with-gssapi)])
-  krb_srvtab="FILE:\$(sysconfdir)/krb5.keytab"
-])
-AC_MSG_RESULT([$with_gssapi])
-AC_SUBST(with_gssapi)
-
 
 AC_SUBST(krb_srvtab)
 
