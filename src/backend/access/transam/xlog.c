@@ -8992,6 +8992,22 @@ CreateCheckPoint(int flags)
 			END_CRIT_SECTION();
 			ereport(DEBUG1,
 					(errmsg("checkpoint skipped because system is idle")));
+
+			/*
+			 * We still might want to remove some old xlog files. For example,
+			 * if there was a temporary archiving problem so we could not remove
+			 * them at the previous checkpoint but now we can actually do that.
+			 */
+			XLByteToSeg(last_important_lsn, _logSegNo, wal_segment_size);
+			KeepLogSeg(last_important_lsn, &_logSegNo);
+			_logSegNo--;
+			RemoveOldXlogFiles(_logSegNo, RedoRecPtr, last_important_lsn);
+
+			/*
+			 * Make more log segments if needed.  (Do this after recycling old log
+			 * segments, since that may supply some of the needed files.)
+			 */
+			PreallocXlogFiles(last_important_lsn);
 			return;
 		}
 	}
