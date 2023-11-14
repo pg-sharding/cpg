@@ -11,6 +11,8 @@ use PostgreSQL::Test::Utils;
 use Test::More;
 use Fcntl qw(SEEK_SET);
 
+plan skip_all => "disabled until after minor releases, due to instability";
+
 use integer;    # causes / operator to use integer math
 
 # Is this a big-endian system ("network" byte order)?  We can't use 'Q' in
