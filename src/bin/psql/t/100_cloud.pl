@@ -10,7 +10,7 @@ use Test::More;
 
 # Initialize primary node. Force UTF-8 encoding, so that we can use non-ASCII
 # characters in the passwords below.
-my $node = get_new_node('primary');
+my $node = PostgreSQL::Test::Cluster->new('primary');
 $node->init(extra => [ '--locale=C', '--encoding=UTF8' ]);
 $node->start;
 
