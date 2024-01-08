@@ -3785,7 +3785,7 @@ create_cursor(ForeignScanState *node)
 	 * We don't use a PG_TRY block here, so be careful not to throw error
 	 * without releasing the PGresult.
 	 */
-	res = pgfdw_get_result(conn, buf.data);
+	res = pgfdw_get_result(conn);
 	if (PQresultStatus(res) != PGRES_COMMAND_OK)
 		pgfdw_report_error(ERROR, res, conn, true, fsstate->query);
 	PQclear(res);
@@ -3835,7 +3835,7 @@ fetch_more_data(ForeignScanState *node)
 			 * The query was already sent by an earlier call to
 			 * fetch_more_data_begin.  So now we just fetch the result.
 			 */
-			res = pgfdw_get_result(conn, fsstate->query);
+			res = pgfdw_get_result(conn);
 			/* On error, report the original query, not the FETCH. */
 			if (PQresultStatus(res) != PGRES_TUPLES_OK)
 				pgfdw_report_error(ERROR, res, conn, false, fsstate->query);
@@ -4184,7 +4184,7 @@ execute_foreign_modify(EState *estate,
 	 * We don't use a PG_TRY block here, so be careful not to throw error
 	 * without releasing the PGresult.
 	 */
-	res = pgfdw_get_result(fmstate->conn, fmstate->query);
+	res = pgfdw_get_result(fmstate->conn);
 	if (PQresultStatus(res) !=
 		(fmstate->has_returning ? PGRES_TUPLES_OK : PGRES_COMMAND_OK))
 		pgfdw_report_error(ERROR, res, fmstate->conn, true, fmstate->query);
@@ -4254,7 +4254,7 @@ prepare_foreign_modify(PgFdwModifyState *fmstate)
 	 * We don't use a PG_TRY block here, so be careful not to throw error
 	 * without releasing the PGresult.
 	 */
-	res = pgfdw_get_result(fmstate->conn, fmstate->query);
+	res = pgfdw_get_result(fmstate->conn);
 	if (PQresultStatus(res) != PGRES_COMMAND_OK)
 		pgfdw_report_error(ERROR, res, fmstate->conn, true, fmstate->query);
 	PQclear(res);
@@ -4598,7 +4598,7 @@ execute_dml_stmt(ForeignScanState *node)
 	 * The callback is already registered, just need to fill in its arg.
 	 */
 	Assert(dmstate->result == NULL);
-	dmstate->result = pgfdw_get_result(dmstate->conn, dmstate->query);
+	dmstate->result = pgfdw_get_result(dmstate->conn);
 	dmstate->result_cb.arg = dmstate->result;
 
 	if (PQresultStatus(dmstate->result) !=
