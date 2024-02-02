@@ -42,9 +42,9 @@ Build-Depends:
  xsltproc,
  zlib1g-dev | libz-dev,
  libmdblocales-dev (>= 25~)
-Homepage: http://www.postgresql.org/
-Vcs-Browser: https://salsa.debian.org/postgresql/postgresql
-Vcs-Git: https://salsa.debian.org/postgresql/postgresql.git -b 13
+Homepage: <http://www.postgresql.org/>
+Vcs-Browser: <https://salsa.debian.org/postgresql/postgresql>
+Vcs-Git: <https://salsa.debian.org/postgresql/postgresql.git> -b 13
 
 Package: libpq-dev
 Architecture: any
@@ -146,7 +146,9 @@ Depends:
  mdb-locales (>= 25~),
  ${misc:Depends},
  ${shlibs:Depends}
-Provides: postgresql-contrib-13
+Provides:
+ postgresql-contrib-13,
+ postgresql-13-jit-llvm (= 14),
 Recommends: sysstat
 Description: object-relational SQL database, version 13 server
  PostgreSQL is a powerful, open source object-relational database
@@ -162,15 +164,23 @@ Description: object-relational SQL database, version 13 server
  This package provides the database server for PostgreSQL 13.
 XB-Postgresql-Catversion: ${postgresql:Catversion}
 
-#dbg#Package: postgresql-13-dbg
-#dbg#Section: debug
-#dbg#Priority: optional
-#dbg#Architecture: any
-#dbg#Depends: postgresql-13 (= ${binary:Version}), ${misc:Depends}
-#dbg#Description: debug symbols for postgresql-13
-#dbg# This package provides detached debugging symbols for PostgreSQL 13.
-#dbg# .
-#dbg# PostgreSQL is an object-relational SQL database management system.
+# dbg#Package: postgresql-13-dbg
+
+# dbg#Section: debug
+
+# dbg#Priority: optional
+
+# dbg#Architecture: any
+
+# dbg#Depends: postgresql-13 (= ${binary:Version}), ${misc:Depends}
+
+# dbg#Description: debug symbols for postgresql-13
+
+# dbg# This package provides detached debugging symbols for PostgreSQL 13
+
+# dbg #
+
+# dbg# PostgreSQL is an object-relational SQL database management system
 
 Package: postgresql-client-13
 Architecture: any
