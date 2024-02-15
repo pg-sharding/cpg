@@ -105,6 +105,7 @@
 #include "utils/ps_status.h"
 #include "utils/queryjumble.h"
 #include "utils/rls.h"
+#include "utils/timeout.h"
 #include "utils/snapmgr.h"
 #include "utils/tzparser.h"
 #include "utils/inval.h"
@@ -236,6 +237,7 @@ static bool check_recovery_target_lsn(char **newval, void **extra, GucSource sou
 static void assign_recovery_target_lsn(const char *newval, void *extra);
 static bool check_primary_slot_name(char **newval, void **extra, GucSource source);
 static bool check_default_with_oids(bool *newval, void **extra, GucSource source);
+extern void assign_transaction_timeout(int newval, void *extra);
 
 /* Private functions in guc-file.l that need to be called from guc.c */
 static ConfigVariable *ProcessConfigFileInternal(GucContext context,
@@ -2629,6 +2631,17 @@ static struct config_int ConfigureNamesInt[] =
 		&IdleInTransactionSessionTimeout,
 		0, 0, INT_MAX,
 		NULL, NULL, NULL
+	},
+
+	{
+		{"transaction_timeout", PGC_USERSET, CLIENT_CONN_STATEMENT,
+			gettext_noop("Sets the maximum allowed time in a transaction with a session (not a prepared transaction)."),
+			gettext_noop("A value of 0 turns off the timeout."),
+			GUC_UNIT_MS
+		},
+		&TransactionTimeout,
+		0, 0, INT_MAX,
+		NULL, assign_transaction_timeout, NULL
 	},
 
 	{
@@ -12271,6 +12284,23 @@ check_application_name(char **newval, void **extra, GucSource source)
 	pg_clean_ascii(*newval);
 
 	return true;
+}
+
+/* GUC assign hook for transaction_timeout */
+void
+assign_transaction_timeout(int newval, void *extra)
+{
+	if (IsTransactionState())
+	{
+		/*
+		 * If transaction_timeout GUC has changes within the transaction block
+		 * enable or disable the timer correspondingly.
+		 */
+		if (newval > 0 && !get_timeout_active(TRANSACTION_TIMEOUT))
+			enable_timeout_after(TRANSACTION_TIMEOUT, newval);
+		else if (newval <= 0 && get_timeout_active(TRANSACTION_TIMEOUT))
+			disable_timeout(TRANSACTION_TIMEOUT, false);
+	}
 }
 
 static void
