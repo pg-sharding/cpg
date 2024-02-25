@@ -33,6 +33,7 @@
 #include "access/transam.h"
 #include "access/twophase.h"
 #include "access/xact.h"
+#include "access/yc_checker.h"
 #include "access/xlog_internal.h"
 #include "catalog/namespace.h"
 #include "catalog/pg_authid.h"
@@ -501,6 +502,13 @@ static struct config_enum_entry shared_memory_options[] = {
 #ifdef WIN32
 	{"windows", SHMEM_TYPE_WINDOWS, false},
 #endif
+	{NULL, 0, false}
+};
+
+static const struct config_enum_entry yc_grant_checker_options[] = {
+	{"off", YC_GRANT_CHECKER_OFF, false},
+	{"warn", YC_GRANT_CHECKER_WARN, false},
+	{"crit", YC_GRANT_CHECKER_CRIT, false},
 	{NULL, 0, false}
 };
 
@@ -1903,7 +1911,7 @@ static struct config_bool ConfigureNamesBool[] =
 		false,
 		NULL, NULL, NULL
 	},
-
+	
 	{
 		{"operator_precedence_warning", PGC_USERSET, COMPAT_OPTIONS_PREVIOUS,
 			gettext_noop("Emit a warning for constructs that changed meaning since PostgreSQL 9.4."),
@@ -3403,6 +3411,17 @@ static struct config_int ConfigureNamesInt[] =
 		NULL, assign_tcp_user_timeout, show_tcp_user_timeout
 	},
 
+	{
+		{"max_log_size", PGC_SIGHUP, LOGGING_WHAT,
+			gettext_noop("Sets max size of logged statement."),
+			NULL
+		},
+		&max_log_size,
+		5 * (1024 * 1024),
+		0, INT_MAX,
+		NULL, NULL, NULL
+	},
+
 	/* End-of-list marker */
 	{
 		{NULL, 0, 0, NULL, NULL}, NULL, 0, 0, 0, NULL, NULL, NULL
@@ -3682,6 +3701,7 @@ static struct config_real ConfigureNamesReal[] =
 		0.0, 0.0, 1.0,
 		NULL, NULL, NULL
 	},
+
 
 	/* End-of-list marker */
 	{
@@ -4516,6 +4536,18 @@ static struct config_enum ConfigureNamesEnum[] =
 	},
 
 	{
+		{"ycmdb.yc_grant_checker", PGC_SUSET, CLIENT_CONN_STATEMENT,
+			gettext_noop("Enables YC MDB runtime checker, which check if user is ok to grant roles to other users."),
+			NULL
+		},
+		&yc_grant_checker_type,
+		YC_GRANT_CHECKER_OFF,
+		yc_grant_checker_options,
+		NULL, NULL, NULL
+	},
+
+
+	{
 		{"default_transaction_isolation", PGC_USERSET, CLIENT_CONN_STATEMENT,
 			gettext_noop("Sets the transaction isolation level of each new transaction."),
 			NULL
@@ -4607,7 +4639,7 @@ static struct config_enum ConfigureNamesEnum[] =
 	{
 		{"session_replication_role", PGC_SUSET, CLIENT_CONN_STATEMENT,
 			gettext_noop("Sets the session's behavior for triggers and rewrite rules."),
-			NULL
+			NULL, 0, 0, 0, 0, 0, 0, 0, 0, NULL, NULL, 0, true,
 		},
 		&SessionReplicationRole,
 		SESSION_REPLICATION_ROLE_ORIGIN, session_replication_role_options,
@@ -7083,11 +7115,14 @@ set_config_option(const char *name, const char *value,
 			/* Reject if we're connecting but user is not superuser */
 			if (context == PGC_BACKEND)
 			{
-				ereport(elevel,
-						(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
-						 errmsg("permission denied to set parameter \"%s\"",
-								name)));
-				return 0;
+				Oid role = get_role_oid("mdb_admin", true);
+				if (!(record->mdb_admin_allowed && is_member_of_role(GetUserId(), role))) {
+					ereport(elevel,
+							(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
+							 errmsg("permission denied to set parameter \"%s\"",
+									name)));
+					return 0;
+				}
 			}
 			/* fall through to process the same as PGC_BACKEND */
 			/* FALLTHROUGH */
@@ -7134,11 +7169,15 @@ set_config_option(const char *name, const char *value,
 		case PGC_SUSET:
 			if (context == PGC_USERSET || context == PGC_BACKEND)
 			{
-				ereport(elevel,
-						(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
-						 errmsg("permission denied to set parameter \"%s\"",
-								name)));
-				return 0;
+				Oid role;
+				role = get_role_oid("mdb_admin", true /*if nodoby created mdb_admin role in this database*/);
+				if (!(record->mdb_admin_allowed && is_member_of_role(GetUserId(), role))) {
+					ereport(elevel,
+							(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
+							 errmsg("permission denied to set parameter \"%s\"",
+									name)));
+					return 0;
+				}
 			}
 			break;
 		case PGC_USERSET:
