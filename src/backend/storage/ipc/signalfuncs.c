@@ -78,15 +78,27 @@ pg_signal_backend(int pid, int sig)
 	 * Only allow superusers to signal superuser-owned backends.  Any process
 	 * not advertising a role might have the importance of a superuser-owned
 	 * backend, so treat it that way.
+	 * In later case, check if pid is actually autovacuum_worker, and allow
+	 * to signal if role has proper priviledge.
 	 */
-	if ((!OidIsValid(proc->roleId) || superuser_arg(proc->roleId)) &&
-		!superuser())
-		return SIGNAL_BACKEND_NOSUPERUSER;
+	if (!superuser()) {
+		if (!OidIsValid(proc->roleId)) {
+			LocalPgBackendStatus *local_beentry;
+			local_beentry = pgstat_get_local_beentry_by_backend_id(proc->backendId);
 
-	/* Users can signal backends they have role membership in. */
-	if (!has_privs_of_role(GetUserId(), proc->roleId) &&
-		!has_privs_of_role(GetUserId(), ROLE_PG_SIGNAL_BACKEND))
-		return SIGNAL_BACKEND_NOPERMISSION;
+			if (!(local_beentry && local_beentry->backendStatus.st_backendType == B_AUTOVAC_WORKER && 
+				has_privs_of_role(GetUserId(), ROLE_PG_SIGNAL_AUTOVACUUM)))
+					return SIGNAL_BACKEND_NOSUPERUSER;
+		} else {
+			if (superuser_arg(proc->roleId))
+				return SIGNAL_BACKEND_NOSUPERUSER;
+
+			/* Users can signal backends they have role membership in. */
+			if (!has_privs_of_role(GetUserId(), proc->roleId) &&
+				!has_privs_of_role(GetUserId(), ROLE_PG_SIGNAL_BACKEND))
+				return SIGNAL_BACKEND_NOPERMISSION;
+		}
+	}
 
 	/*
 	 * Can the process we just validated above end, followed by the pid being
