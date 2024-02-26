@@ -119,7 +119,7 @@ libdir := @libdir@
 pkglibdir = $(libdir)
 ifeq "$(findstring pgsql, $(pkglibdir))" ""
 ifeq "$(findstring postgres, $(pkglibdir))" ""
-override pkglibdir := $(pkglibdir)/postgresql
+override pkglibdir := /usr/lib/postgresql/@PG_MAJORVERSION@/lib
 endif
 endif
 
@@ -167,7 +167,7 @@ endif # PGXS
 
 # These derived path variables aren't separately configurable.
 
-includedir_server = $(pkgincludedir)/server
+includedir_server = $(pkgincludedir)/@PG_MAJORVERSION@/server
 includedir_internal = $(pkgincludedir)/internal
 pgxsdir = $(pkglibdir)/pgxs
 bitcodedir = $(pkglibdir)/bitcode
@@ -605,7 +605,7 @@ libpq_pgport = $(libpq)
 # done if they don't, since they will have satisfied all their references
 # from these libraries.)
 ifdef PGXS
-libpq_pgport_shlib = -L$(libdir) -lpgcommon_shlib -lpgport_shlib $(libpq)
+libpq_pgport_shlib = -L$(pkglibdir) -lpgcommon_shlib -lpgport_shlib $(libpq)
 else
 libpq_pgport_shlib = -L$(top_builddir)/src/common -lpgcommon_shlib -L$(top_builddir)/src/port -lpgport_shlib $(libpq)
 endif

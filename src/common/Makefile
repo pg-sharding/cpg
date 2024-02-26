@@ -33,7 +33,7 @@ STD_CPPFLAGS := $(filter-out -I$(top_srcdir)/src/include -I$(top_builddir)/src/i
 STD_LDFLAGS := $(filter-out -L$(top_builddir)/src/common -L$(top_builddir)/src/port,$(LDFLAGS))
 override CPPFLAGS += -DVAL_CC="\"$(CC)\""
 override CPPFLAGS += -DVAL_CPPFLAGS="\"$(STD_CPPFLAGS)\""
-override CPPFLAGS += -DVAL_CFLAGS="\"$(CFLAGS)\""
+override CPPFLAGS += -DVAL_CFLAGS="\"$(filter-out -fdebug-prefix-map=% -ffile-prefix-map=%,$(CFLAGS))\""
 override CPPFLAGS += -DVAL_CFLAGS_SL="\"$(CFLAGS_SL)\""
 override CPPFLAGS += -DVAL_LDFLAGS="\"$(STD_LDFLAGS)\""
 override CPPFLAGS += -DVAL_LDFLAGS_EX="\"$(LDFLAGS_EX)\""
@@ -124,15 +124,15 @@ all: libpgcommon.a libpgcommon_shlib.a libpgcommon_srv.a
 
 # libpgcommon is needed by some contrib
 install: all installdirs
-	$(INSTALL_STLIB) libpgcommon.a '$(DESTDIR)$(libdir)/libpgcommon.a'
-	$(INSTALL_STLIB) libpgcommon_shlib.a '$(DESTDIR)$(libdir)/libpgcommon_shlib.a'
+	$(INSTALL_STLIB) libpgcommon.a '$(DESTDIR)$(pkglibdir)/libpgcommon.a'
+	$(INSTALL_STLIB) libpgcommon_shlib.a '$(DESTDIR)$(pkglibdir)/libpgcommon_shlib.a'
 
 installdirs:
-	$(MKDIR_P) '$(DESTDIR)$(libdir)'
+	$(MKDIR_P) '$(DESTDIR)$(pkglibdir)'
 
 uninstall:
-	rm -f '$(DESTDIR)$(libdir)/libpgcommon.a'
-	rm -f '$(DESTDIR)$(libdir)/libpgcommon_shlib.a'
+	rm -f '$(DESTDIR)$(pkglibdir)/libpgcommon.a'
+	rm -f '$(DESTDIR)$(pkglibdir)/libpgcommon_shlib.a'
 
 libpgcommon.a: $(OBJS_FRONTEND)
 	rm -f $@

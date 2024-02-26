@@ -27,6 +27,7 @@ AC_COPYRIGHT([Copyright (c) 1996-2024, PostgreSQL Global Development Group])
 AC_CONFIG_SRCDIR([src/backend/access/common/heaptuple.c])
 AC_CONFIG_AUX_DIR(config)
 AC_PREFIX_DEFAULT(/usr/local/pgsql)
+[ac_configure_args=$(echo "$ac_configure_args" | sed -e "s/ -f\(debug\|file\)-prefix-map=[^' ]*//g")]
 AC_DEFINE_UNQUOTED(CONFIGURE_ARGS, ["$ac_configure_args"], [Saved arguments from configure])
 
 [PG_MAJORVERSION=`expr "$PACKAGE_VERSION" : '\([0-9][0-9]*\)'`]
@@ -585,6 +586,10 @@ if test "$GCC" = yes -a "$ICC" = no; then
   PGAC_PROG_CC_VAR_OPT(NOT_THE_CFLAGS, [-Wcast-function-type-strict])
   if test -n "$NOT_THE_CFLAGS"; then
     CFLAGS="$CFLAGS -Wno-cast-function-type-strict"
+  fi
+  if test x"$host_cpu" == x"aarch64"; then
+    PGAC_PROG_CC_CFLAGS_OPT([-moutline-atomics])
+    PGAC_PROG_CXX_CFLAGS_OPT([-moutline-atomics])
   fi
 elif test "$ICC" = yes; then
   # Intel's compiler has a bug/misoptimization in checking for
