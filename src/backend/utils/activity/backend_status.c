@@ -1214,3 +1214,18 @@ pgstat_clip_activity(const char *raw_activity)
 
 	return activity;
 }
+
+/* ----------
+ * pgstat_get_backend_type_by_backend_id() -
+ *
+ * Return backend type of given backend ID.
+ * ----------
+ */
+BackendType
+pgstat_get_backend_type_by_backend_id(BackendId beid)
+{
+	LocalPgBackendStatus *local_beentry;
+	local_beentry = pgstat_get_local_beentry_by_backend_id(beid);
+
+	return local_beentry ? local_beentry->backendStatus.st_backendType : B_INVALID;
+}

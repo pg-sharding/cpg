@@ -662,6 +662,10 @@ DROP ROLE doomed_role;
        <entry>Signal another backend to cancel a query or terminate its session.</entry>
       </row>
       <row>
+       <entry>pg_signal_autovacuum</entry>
+       <entry>Signal autovacuum process to cancel or terminate its session.</entry>
+      </row>
+      <row>
        <entry>pg_read_server_files</entry>
        <entry>Allow reading files from any location the database can access on the server with COPY and
        other file-access functions.</entry>
@@ -725,6 +729,14 @@ DROP ROLE doomed_role;
   canceling a query on another backend or terminating its session. A user
   granted this role cannot however send signals to a backend owned by a
   superuser.  See <xref linkend="functions-admin-signal"/>.
+  </para>
+
+  <para>
+  The <literal>pg_signal_autovacuum</literal> role is intended to allow
+  administrators to enable trusted, but non-superuser, roles to send signals
+  to autovacuum backends. Currently this role enables sending of signals for
+  canceling a autovacuum backend or terminating its session.
+  See <xref linkend="functions-admin-signal"/>.
   </para>
 
   <para>

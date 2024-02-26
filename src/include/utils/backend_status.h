@@ -337,6 +337,7 @@ extern PgBackendStatus *pgstat_get_beentry_by_backend_id(BackendId beid);
 extern LocalPgBackendStatus *pgstat_get_local_beentry_by_backend_id(BackendId beid);
 extern LocalPgBackendStatus *pgstat_get_local_beentry_by_index(int idx);
 extern char *pgstat_clip_activity(const char *raw_activity);
+extern BackendType pgstat_get_backend_type_by_backend_id(BackendId beid);
 
 
 #endif							/* BACKEND_STATUS_H */
