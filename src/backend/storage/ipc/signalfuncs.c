@@ -45,6 +45,7 @@
 #define SIGNAL_BACKEND_ERROR 1
 #define SIGNAL_BACKEND_NOPERMISSION 2
 #define SIGNAL_BACKEND_NOSUPERUSER 3
+#define SIGNAL_BACKEND_NOAUTOVACUUM 4
 static int
 pg_signal_backend(int pid, int sig)
 {
@@ -75,18 +76,31 @@ pg_signal_backend(int pid, int sig)
 	}
 
 	/*
+	 * If the backend is autovacuum worker, allow user with the privileges of
+	 * pg_signal_autovacuum_worker role to signal the backend.
+	 */
+	if ((!OidIsValid(proc->roleId) || superuser_arg(proc->roleId))
+		&& pgstat_get_backend_type(GetNumberFromPGProc(proc)) == B_AUTOVAC_WORKER)
+	{
+		if (!has_privs_of_role(GetUserId(), ROLE_PG_SIGNAL_AUTOVACUUM_WORKER))
+			return SIGNAL_BACKEND_NOAUTOVACUUM;
+	}
+	/*
 	 * Only allow superusers to signal superuser-owned backends.  Any process
 	 * not advertising a role might have the importance of a superuser-owned
 	 * backend, so treat it that way.
-	 */
-	if ((!OidIsValid(proc->roleId) || superuser_arg(proc->roleId)) &&
-		!superuser())
+	*/
+	else if ((!OidIsValid(proc->roleId) || superuser_arg(proc->roleId)) &&
+			!superuser())
+	{
 		return SIGNAL_BACKEND_NOSUPERUSER;
-
+	}
 	/* Users can signal backends they have role membership in. */
-	if (!has_privs_of_role(GetUserId(), proc->roleId) &&
-		!has_privs_of_role(GetUserId(), ROLE_PG_SIGNAL_BACKEND))
+	else if (!has_privs_of_role(GetUserId(), proc->roleId) &&
+			!has_privs_of_role(GetUserId(), ROLE_PG_SIGNAL_BACKEND))
+	{
 		return SIGNAL_BACKEND_NOPERMISSION;
+	}
 
 	/*
 	 * Can the process we just validated above end, followed by the pid being
@@ -136,6 +150,13 @@ pg_cancel_backend(PG_FUNCTION_ARGS)
 				 errmsg("permission denied to cancel query"),
 				 errdetail("Only roles with privileges of the role whose query is being canceled or with privileges of the \"%s\" role may cancel this query.",
 						   "pg_signal_backend")));
+
+	if (r == SIGNAL_BACKEND_NOAUTOVACUUM)
+		ereport(ERROR,
+				(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
+				 errmsg("permission denied to cancel autovacuum worker backend"),
+				 errdetail("Only roles with the %s attribute or with privileges of the \"%s\" role may cancel autovacuum worker backend",
+						   "SUPERUSER", "pg_signal_autovacuum_worker")));
 
 	PG_RETURN_BOOL(r == SIGNAL_BACKEND_SUCCESS);
 }
@@ -242,6 +263,13 @@ pg_terminate_backend(PG_FUNCTION_ARGS)
 				 errmsg("permission denied to terminate process"),
 				 errdetail("Only roles with privileges of the role whose process is being terminated or with privileges of the \"%s\" role may terminate this process.",
 						   "pg_signal_backend")));
+
+	if (r == SIGNAL_BACKEND_NOAUTOVACUUM)
+		ereport(ERROR,
+				(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
+				 errmsg("permission denied to terminate autovacuum worker backend"),
+				 errdetail("Only roles with the %s attribute or with privileges of the \"%s\" role may terminate autovacuum worker backend",
+						   "SUPERUSER", "pg_signal_autovacuum_worker")));
 
 	/* Wait only on success and if actually requested */
 	if (r == SIGNAL_BACKEND_SUCCESS && timeout > 0)

@@ -1039,6 +1039,25 @@ pgstat_get_my_query_id(void)
 }
 
 /* ----------
+ * pgstat_get_backend_type() -
+ *
+ * Return the backend type of the backend for the given proc number.
+ * ----------
+ */
+BackendType
+pgstat_get_backend_type(ProcNumber procNumber)
+{
+	PgBackendStatus *ret;
+
+	ret = pgstat_get_beentry_by_proc_number(procNumber);
+
+	if (!ret)
+		return B_INVALID;
+
+	return ret->st_backendType;
+}
+
+/* ----------
  * cmp_lbestatus
  *
  *	Comparison function for bsearch() on an array of LocalPgBackendStatus.
