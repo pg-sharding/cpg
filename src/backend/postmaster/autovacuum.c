@@ -100,6 +100,7 @@
 #include "utils/fmgroids.h"
 #include "utils/fmgrprotos.h"
 #include "utils/guc_hooks.h"
+#include "utils/injection_point.h"
 #include "utils/lsyscache.h"
 #include "utils/memutils.h"
 #include "utils/ps_status.h"
@@ -1888,6 +1889,8 @@ do_autovacuum(void)
 	bool		did_vacuum = false;
 	bool		found_concurrent_worker = false;
 	int			i;
+
+	INJECTION_POINT("autovacuum-worker-start");
 
 	/*
 	 * StartTransactionCommand and CommitTransactionCommand will automatically
