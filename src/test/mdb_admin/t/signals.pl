@@ -1,7 +1,7 @@
 
 # Copyright (c) 2024-2024, MDB, Mother Russia
 
-# Minimal test testing streaming replication
+# Minimal test testing mdb_admin role
 use strict;
 use warnings;
 use PostgreSQL::Test::Cluster;
