@@ -872,6 +872,15 @@ dropdb(const char *dbname, bool missing_ok, bool force)
 		aclcheck_error(ACLCHECK_NOT_OWNER, OBJECT_DATABASE,
 					   dbname);
 
+	/* -- MDB kostyl begin
+	* remove this when feature will be supported
+	*/
+	if (!superuser())
+		aclcheck_error(ACLCHECK_NO_PRIV, OBJECT_DATABASE,
+					   dbname);
+
+	/* MDB kostyl end */
+
 	/* DROP hook for the database being removed */
 	InvokeObjectDropHook(DatabaseRelationId, db_id, 0);
 
