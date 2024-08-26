@@ -340,6 +340,12 @@ VACUUM (SKIP_LOCKED, FULL) vactst;
 ANALYZE (SKIP_LOCKED) vactst;
 RESET client_min_messages;
 
+-- FORCE option
+ANALYZE (FORCE) vactst;
+VACUUM (ANALYZE, FORCE) vactst;
+VACUUM (FORCE) vactst;
+VACUUM (ANALYZE, FORCE, SKIP_LOCKED) vactst;
+
 -- ensure VACUUM and ANALYZE don't have a problem with serializable
 SET default_transaction_isolation = serializable;
 VACUUM vactst;
