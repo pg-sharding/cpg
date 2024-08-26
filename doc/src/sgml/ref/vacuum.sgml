@@ -34,6 +34,7 @@ VACUUM [ ( <replaceable class="parameter">option</replaceable> [, ...] ) ] [ <re
     INDEX_CLEANUP { AUTO | ON | OFF }
     PROCESS_MAIN [ <replaceable class="parameter">boolean</replaceable> ]
     PROCESS_TOAST [ <replaceable class="parameter">boolean</replaceable> ]
+    FORCE [ <replaceable class="parameter">boolean</replaceable> ]
     TRUNCATE [ <replaceable class="parameter">boolean</replaceable> ]
     PARALLEL <replaceable class="parameter">integer</replaceable>
     SKIP_DATABASE_STATS [ <replaceable class="parameter">boolean</replaceable> ]
@@ -180,6 +181,16 @@ VACUUM [ ( <replaceable class="parameter">option</replaceable> [, ...] ) ] [ <re
       specified partitioned tables, this option will cause
       <command>VACUUM</command> to skip all partitions if there is a
       conflicting lock on the partitioned table.
+     </para>
+    </listitem>
+   </varlistentry>
+
+   <varlistentry>
+    <term><literal>FORCE</literal></term>
+    <listitem>
+     <para>
+      Specifies that <command>VACUUM</command> should terminate all backends 
+      holding conflicting lock.
      </para>
     </listitem>
    </varlistentry>
