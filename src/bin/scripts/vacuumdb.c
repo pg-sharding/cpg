@@ -47,6 +47,7 @@ typedef struct vacuumingOptions
 	bool		process_toast;
 	bool		skip_database_stats;
 	char	   *buffer_usage_limit;
+	bool		force;
 } vacuumingOptions;
 
 /* object filter options */
@@ -127,6 +128,7 @@ main(int argc, char *argv[])
 		{"no-process-toast", no_argument, NULL, 11},
 		{"no-process-main", no_argument, NULL, 12},
 		{"buffer-usage-limit", required_argument, NULL, 13},
+		{"force", no_argument, NULL, 14},
 		{NULL, 0, NULL, 0}
 	};
 
@@ -274,6 +276,9 @@ main(int argc, char *argv[])
 			case 13:
 				vacopts.buffer_usage_limit = escape_quotes(optarg);
 				break;
+			case 14:
+				vacopts.force = true;
+				break;
 			default:
 				/* getopt_long already emitted a complaint */
 				pg_log_error_hint("Try \"%s --help\" for more information.", progname);
@@ -358,6 +363,7 @@ main(int argc, char *argv[])
 	if (vacopts.buffer_usage_limit && vacopts.full && !vacopts.and_analyze)
 		pg_fatal("cannot use the \"%s\" option with the \"%s\" option",
 				 "buffer-usage-limit", "full");
+
 
 	/* fill cparams except for dbname, which is set below */
 	cparams.pghost = host;
@@ -1005,6 +1011,13 @@ prepare_vacuum_command(PQExpBuffer sql, int serverVersion,
 				appendPQExpBuffer(sql, "%sSKIP_LOCKED", sep);
 				sep = comma;
 			}
+			if (vacopts->force)
+			{
+				///* FORCE is supported since v12 */
+				Assert(serverVersion >= 120000);
+				appendPQExpBuffer(sql, "%sFORCE", sep);
+				sep = comma;
+			}
 			if (vacopts->verbose)
 			{
 				appendPQExpBuffer(sql, "%sVERBOSE", sep);
@@ -1089,6 +1102,13 @@ prepare_vacuum_command(PQExpBuffer sql, int serverVersion,
 				/* SKIP_LOCKED is supported since v12 */
 				Assert(serverVersion >= 120000);
 				appendPQExpBuffer(sql, "%sSKIP_LOCKED", sep);
+				sep = comma;
+			}
+			if (vacopts->force)
+			{
+				///* FORCE is supported since v12 */
+				Assert(serverVersion >= 120000);
+				appendPQExpBuffer(sql, "%sFORCE", sep);
 				sep = comma;
 			}
 			if (vacopts->full)
@@ -1200,6 +1220,7 @@ help(const char *progname)
 	printf(_("  -P, --parallel=PARALLEL_WORKERS use this many background workers for vacuum, if available\n"));
 	printf(_("  -q, --quiet                     don't write any messages\n"));
 	printf(_("      --skip-locked               skip relations that cannot be immediately locked\n"));
+	printf(_("      --force                     terminate backends holding conflicting lock\n"));
 	printf(_("  -t, --table='TABLE[(COLUMNS)]'  vacuum specific table(s) only\n"));
 	printf(_("  -v, --verbose                   write a lot of output\n"));
 	printf(_("  -V, --version                   output version information, then exit\n"));
