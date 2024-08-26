@@ -327,6 +327,12 @@ VACUUM (SKIP_LOCKED) vactst;
 VACUUM (SKIP_LOCKED, FULL) vactst;
 ANALYZE (SKIP_LOCKED) vactst;
 RESET client_min_messages;
+-- FORCE option
+ANALYZE (FORCE) vactst;
+VACUUM (ANALYZE, FORCE) vactst;
+VACUUM (FORCE) vactst;
+VACUUM (ANALYZE, FORCE, SKIP_LOCKED) vactst;
+ERROR:  VACUUM option FORCE cannot be used with SKIP_LOCKED
 -- ensure VACUUM and ANALYZE don't have a problem with serializable
 SET default_transaction_isolation = serializable;
 VACUUM vactst;
