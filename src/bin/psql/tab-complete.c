@@ -2721,8 +2721,8 @@ psql_completion(const char *text, int start, int end)
 		 * one word, so the above test is correct.
 		 */
 		if (ends_with(prev_wd, '(') || ends_with(prev_wd, ','))
-			COMPLETE_WITH("VERBOSE", "SKIP_LOCKED", "BUFFER_USAGE_LIMIT");
-		else if (TailMatches("VERBOSE|SKIP_LOCKED"))
+			COMPLETE_WITH("VERBOSE", "SKIP_LOCKED", "BUFFER_USAGE_LIMIT", "FORCE");
+		else if (TailMatches("VERBOSE|SKIP_LOCKED|FORCE"))
 			COMPLETE_WITH("ON", "OFF");
 	}
 	else if (HeadMatches("ANALYZE") && TailMatches("("))
@@ -4764,8 +4764,8 @@ psql_completion(const char *text, int start, int end)
 						  "DISABLE_PAGE_SKIPPING", "SKIP_LOCKED",
 						  "INDEX_CLEANUP", "PROCESS_MAIN", "PROCESS_TOAST",
 						  "TRUNCATE", "PARALLEL", "SKIP_DATABASE_STATS",
-						  "ONLY_DATABASE_STATS", "BUFFER_USAGE_LIMIT");
-		else if (TailMatches("FULL|FREEZE|ANALYZE|VERBOSE|DISABLE_PAGE_SKIPPING|SKIP_LOCKED|PROCESS_MAIN|PROCESS_TOAST|TRUNCATE|SKIP_DATABASE_STATS|ONLY_DATABASE_STATS"))
+						  "ONLY_DATABASE_STATS", "BUFFER_USAGE_LIMIT", "FORCE");
+		else if (TailMatches("FULL|FREEZE|ANALYZE|VERBOSE|DISABLE_PAGE_SKIPPING|SKIP_LOCKED|PROCESS_MAIN|PROCESS_TOAST|TRUNCATE|SKIP_DATABASE_STATS|ONLY_DATABASE_STATS|FORCE"))
 			COMPLETE_WITH("ON", "OFF");
 		else if (TailMatches("INDEX_CLEANUP"))
 			COMPLETE_WITH("AUTO", "ON", "OFF");
