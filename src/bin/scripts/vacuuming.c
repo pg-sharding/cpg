@@ -896,6 +896,12 @@ prepare_vacuum_command(PGconn *conn, PQExpBuffer sql,
 				appendPQExpBuffer(sql, "%sSKIP_LOCKED", sep);
 				sep = comma;
 			}
+			if (vacopts->force)
+			{
+				/* FORCE is supported since MDB fork */
+				appendPQExpBuffer(sql, "%sFORCE", sep);
+				sep = comma;
+			}
 			if (vacopts->verbose)
 			{
 				appendPQExpBuffer(sql, "%sVERBOSE", sep);
@@ -984,6 +990,12 @@ prepare_vacuum_command(PGconn *conn, PQExpBuffer sql,
 				/* SKIP_LOCKED is supported since v12 */
 				Assert(serverVersion >= 120000);
 				appendPQExpBuffer(sql, "%sSKIP_LOCKED", sep);
+				sep = comma;
+			}
+			if (vacopts->force)
+			{
+				/* FORCE is supported since MDB fork */
+				appendPQExpBuffer(sql, "%sFORCE", sep);
 				sep = comma;
 			}
 			if (vacopts->full)
