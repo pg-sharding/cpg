@@ -49,6 +49,8 @@ typedef enum
 	PROCSIG_RECOVERY_CONFLICT_LAST = PROCSIG_RECOVERY_CONFLICT_STARTUP_DEADLOCK,
 
 	PROCSIG_SLOTSYNC_MESSAGE,	/* ask slot synchronization to stop */
+	/* MDB additions  */
+	PROCSIG_CONFLICT_RVR_FORCE,
 
 	NUM_PROCSIGNALS				/* Must be last! */
 } ProcSignalReason;

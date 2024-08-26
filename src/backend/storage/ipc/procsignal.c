@@ -687,5 +687,9 @@ procsignal_sigusr1_handler(SIGNAL_ARGS)
 	if (CheckProcSignal(PROCSIG_RECOVERY_CONFLICT_BUFFERPIN))
 		HandleRecoveryConflictInterrupt(PROCSIG_RECOVERY_CONFLICT_BUFFERPIN);
 
+	/* MDB additions */
+	if (CheckProcSignal(PROCSIG_CONFLICT_RVR_FORCE))
+		HandleRvrInterrupt();
+
 	SetLatch(MyLatch);
 }
