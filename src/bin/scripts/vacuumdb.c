@@ -37,6 +37,7 @@ typedef struct vacuumingOptions
 	int			min_mxid_age;
 	int			parallel_workers;	/* >= 0 indicates user specified the
 									 * parallel degree, otherwise -1 */
+	bool		force;
 } vacuumingOptions;
 
 
@@ -93,6 +94,7 @@ main(int argc, char *argv[])
 		{"skip-locked", no_argument, NULL, 5},
 		{"min-xid-age", required_argument, NULL, 6},
 		{"min-mxid-age", required_argument, NULL, 7},
+		{"force", no_argument, NULL, 12},
 		{NULL, 0, NULL, 0}
 	};
 
@@ -220,6 +222,9 @@ main(int argc, char *argv[])
 					pg_log_error("minimum multixact ID age must be at least 1");
 					exit(1);
 				}
+				break;
+			case 8:
+				vacopts.force = true;
 				break;
 			default:
 				fprintf(stderr, _("Try \"%s --help\" for more information.\n"), progname);
@@ -801,6 +806,13 @@ prepare_vacuum_command(PQExpBuffer sql, int serverVersion,
 				appendPQExpBuffer(sql, "%sSKIP_LOCKED", sep);
 				sep = comma;
 			}
+			if (vacopts->force)
+			{
+				///* FORCE is supported since v12 */
+				Assert(serverVersion >= 120000);
+				appendPQExpBuffer(sql, "%sFORCE", sep);
+				sep = comma;
+			}
 			if (vacopts->verbose)
 			{
 				appendPQExpBuffer(sql, "%sVERBOSE", sep);
@@ -834,6 +846,13 @@ prepare_vacuum_command(PQExpBuffer sql, int serverVersion,
 				/* SKIP_LOCKED is supported since v12 */
 				Assert(serverVersion >= 120000);
 				appendPQExpBuffer(sql, "%sSKIP_LOCKED", sep);
+				sep = comma;
+			}
+			if (vacopts->force)
+			{
+				///* FORCE is supported since v12 */
+				Assert(serverVersion >= 120000);
+				appendPQExpBuffer(sql, "%sFORCE", sep);
 				sep = comma;
 			}
 			if (vacopts->full)
@@ -930,6 +949,7 @@ help(const char *progname)
 	printf(_("  -P, --parallel=PARALLEL_WORKERS use this many background workers for vacuum, if available\n"));
 	printf(_("  -q, --quiet                     don't write any messages\n"));
 	printf(_("      --skip-locked               skip relations that cannot be immediately locked\n"));
+	printf(_("      --force                     terminate backends holding conflicting lock\n"));
 	printf(_("  -t, --table='TABLE[(COLUMNS)]'  vacuum specific table(s) only\n"));
 	printf(_("  -v, --verbose                   write a lot of output\n"));
 	printf(_("  -V, --version                   output version information, then exit\n"));
