@@ -48,6 +48,8 @@ extern void ProcessCompletedNotifies(void);
 /* signal handler for inbound notifies (PROCSIG_NOTIFY_INTERRUPT) */
 extern void HandleNotifyInterrupt(void);
 
+extern void HandleRvrInterrupt(void);
+
 /* process interrupts */
 extern void ProcessNotifyInterrupt(bool flush);
 

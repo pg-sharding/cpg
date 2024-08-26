@@ -1878,6 +1878,33 @@ HandleNotifyInterrupt(void)
 	SetLatch(MyLatch);
 }
 
+
+
+/*
+ * HandleRvrInterrupt
+ *
+ *		Signal handler portion of interrupt handling. Let the backend know
+ *		that there's a pending notify interrupt. If we're currently reading
+ *		from the client, this will interrupt the read and
+ *		ProcessClientReadInterrupt() will call ProcessNotifyInterrupt().
+ */
+void
+HandleRvrInterrupt(void)
+{
+	/*
+	 * Note: this is called by a SIGNAL HANDLER. You must be very wary what
+	 * you do here.
+	 */
+
+	/* signal that work needs to be done */
+	QueryCancelPending = true;
+	InterruptPending = true;
+	ProcDiePending = true;
+
+	/* make sure the event is processed in due course */
+	SetLatch(MyLatch);
+}
+
 /*
  * ProcessNotifyInterrupt
  *
