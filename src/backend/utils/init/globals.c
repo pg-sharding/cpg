@@ -46,6 +46,9 @@ volatile uint32 CritSectionCount = 0;
 volatile int ProcDieSenderPid = 0;
 volatile int ProcDieSenderUid = 0;
 
+/* MDB additions */
+volatile sig_atomic_t QueryConflictForceVacuumPending = false;
+
 int			MyProcPid;
 pg_time_t	MyStartTime;
 TimestampTz MyStartTimestamp;

@@ -51,6 +51,7 @@ typedef struct vacuumingOptions
 	bool		skip_database_stats;
 	char	   *buffer_usage_limit;
 	bool		missing_stats_only;
+	bool		force;
 	bool		echo;
 	bool		quiet;
 	bool		dry_run;
