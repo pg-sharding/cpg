@@ -6,7 +6,7 @@ use warnings;
 
 use PostgresNode;
 use TestLib;
-use Test::More tests => 58;
+use Test::More tests => 60;
 
 program_help_ok('vacuumdb');
 program_version_ok('vacuumdb');
@@ -48,6 +48,10 @@ $node->issues_sql_like(
 	[ 'vacuumdb', '--skip-locked', '--analyze-only', 'postgres' ],
 	qr/statement: ANALYZE \(SKIP_LOCKED\).*;/,
 	'vacuumdb --skip-locked --analyze-only');
+$node->issues_sql_like(
+	[ 'vacuumdb', '--force', '--analyze-only', 'postgres' ],
+	qr/statement: ANALYZE \(FORCE\).*;/,
+	'vacuumdb --force --analyze-only');
 $node->command_fails(
 	[ 'vacuumdb', '--analyze-only', '--disable-page-skipping', 'postgres' ],
 	'--analyze-only and --disable-page-skipping specified together');

@@ -31,6 +31,7 @@
 #include "access/tableam.h"
 #include "access/transam.h"
 #include "access/xact.h"
+#include "catalog/catalog.h"
 #include "catalog/namespace.h"
 #include "catalog/pg_database.h"
 #include "catalog/pg_inherits.h"
@@ -104,6 +105,7 @@ ExecVacuum(ParseState *pstate, VacuumStmt *vacstmt, bool isTopLevel)
 	VacuumParams params;
 	bool		verbose = false;
 	bool		skip_locked = false;
+	bool 		force = false;
 	bool		analyze = false;
 	bool		freeze = false;
 	bool		full = false;
@@ -128,6 +130,8 @@ ExecVacuum(ParseState *pstate, VacuumStmt *vacstmt, bool isTopLevel)
 			verbose = defGetBoolean(opt);
 		else if (strcmp(opt->defname, "skip_locked") == 0)
 			skip_locked = defGetBoolean(opt);
+		else if (strcmp(opt->defname, "force") == 0)
+			force = defGetBoolean(opt);
 		else if (!vacstmt->is_vacuumcmd)
 			ereport(ERROR,
 					(errcode(ERRCODE_SYNTAX_ERROR),
@@ -211,7 +215,8 @@ ExecVacuum(ParseState *pstate, VacuumStmt *vacstmt, bool isTopLevel)
 		(freeze ? VACOPT_FREEZE : 0) |
 		(full ? VACOPT_FULL : 0) |
 		(disable_page_skipping ? VACOPT_DISABLE_PAGE_SKIPPING : 0) |
-		(process_toast ? VACOPT_PROCESS_TOAST : 0);
+		(process_toast ? VACOPT_PROCESS_TOAST : 0) | 
+		(force ? VACOPT_FORCE : 0);
 
 	/* sanity checks on options */
 	Assert(params.options & (VACOPT_VACUUM | VACOPT_ANALYZE));
@@ -329,6 +334,15 @@ vacuum(List *relations, VacuumParams *params,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 				 errmsg("%s cannot be executed from VACUUM or ANALYZE",
 						stmttype)));
+
+	/* sanity check for FORCE */
+	if ((params->options & VACOPT_FORCE) != 0)
+	{
+		if ((params->options & VACOPT_SKIP_LOCKED) != 0)
+			ereport(ERROR,
+				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+				errmsg("VACUUM option FORCE cannot be used with SKIP_LOCKED")));
+	}
 
 	/*
 	 * Sanity check DISABLE_PAGE_SKIPPING option.
@@ -644,7 +658,7 @@ Relation
 vacuum_open_relation(Oid relid, RangeVar *relation, bits32 options,
 					 bool verbose, LOCKMODE lmode)
 {
-	Relation	rel;
+	Relation	rel = NULL;
 	bool		rel_lock = true;
 	int			elevel;
 
@@ -663,6 +677,42 @@ vacuum_open_relation(Oid relid, RangeVar *relation, bits32 options,
 		rel = try_relation_open(relid, lmode);
 	else if (ConditionalLockRelationOid(relid, lmode))
 		rel = try_relation_open(relid, NoLock);
+	else if (options & VACOPT_FORCE)
+	{
+		LOCKTAG tag;
+		Oid		dbid;
+
+		if (IsSharedRelation(relid))
+			dbid = InvalidOid;
+		else
+			dbid = MyDatabaseId;
+
+		SET_LOCKTAG_RELATION(tag, dbid, relid);
+
+		while (rel == NULL)
+		{
+			VirtualTransactionId* backends = GetLockConflicts(&tag, lmode, NULL);
+			
+			/*
+			* Send signals to all the backends holding the conflicting locks
+			*/
+			while (VirtualTransactionIdIsValid(*backends))
+			{
+				SignalVirtualTransaction(*backends,
+										PROCSIG_CONFLICT_RVR_FORCE,
+										false);
+				backends++;
+			}
+			rel = try_relation_open(relid, lmode);
+			if (rel == NULL)
+			{
+				ereport(NOTICE,
+						(errcode(ERRCODE_LOCK_NOT_AVAILABLE),
+						errmsg("retrying attemts of acquiring lock for \"%s\" --- lock not available",
+								relation->relname)));
+			}
+		}
+	}
 	else
 	{
 		rel = NULL;
@@ -785,7 +835,7 @@ expand_vacuum_rel(VacuumRelation *vrel, int options)
 		 * below, as well as find_all_inheritors's expectation that the caller
 		 * holds some lock on the starting relation.
 		 */
-		rvr_opts = (options & VACOPT_SKIP_LOCKED) ? RVR_SKIP_LOCKED : 0;
+		rvr_opts = ((options & VACOPT_SKIP_LOCKED) ? RVR_SKIP_LOCKED : 0);
 		relid = RangeVarGetRelidExtended(vrel->relation,
 										 AccessShareLock,
 										 rvr_opts,
