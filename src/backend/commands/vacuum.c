@@ -165,6 +165,7 @@ ExecVacuum(ParseState *pstate, VacuumStmt *vacstmt, bool isTopLevel)
 	BufferAccessStrategy bstrategy = NULL;
 	bool		verbose = false;
 	bool		skip_locked = false;
+	bool 		force = false;
 	bool		analyze = false;
 	bool		freeze = false;
 	bool		full = false;
@@ -228,6 +229,8 @@ ExecVacuum(ParseState *pstate, VacuumStmt *vacstmt, bool isTopLevel)
 
 			ring_size = result;
 		}
+		else if (strcmp(opt->defname, "force") == 0)
+			force = defGetBoolean(opt);
 		else if (!vacstmt->is_vacuumcmd)
 			ereport(ERROR,
 					(errcode(ERRCODE_SYNTAX_ERROR),
@@ -322,7 +325,8 @@ ExecVacuum(ParseState *pstate, VacuumStmt *vacstmt, bool isTopLevel)
 		(process_main ? VACOPT_PROCESS_MAIN : 0) |
 		(process_toast ? VACOPT_PROCESS_TOAST : 0) |
 		(skip_database_stats ? VACOPT_SKIP_DATABASE_STATS : 0) |
-		(only_database_stats ? VACOPT_ONLY_DATABASE_STATS : 0);
+		(only_database_stats ? VACOPT_ONLY_DATABASE_STATS : 0) |
+		(force ? VACOPT_FORCE : 0);
 
 	/* sanity checks on options */
 	Assert(params.options & (VACOPT_VACUUM | VACOPT_ANALYZE));
@@ -536,6 +540,15 @@ vacuum(List *relations, VacuumParams *params, BufferAccessStrategy bstrategy,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 				 errmsg("%s cannot be executed from VACUUM or ANALYZE",
 						stmttype)));
+
+	/* sanity check for FORCE */
+	if ((params->options & VACOPT_FORCE) != 0)
+	{
+		if ((params->options & VACOPT_SKIP_LOCKED) != 0)
+			ereport(ERROR,
+				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+				errmsg("VACUUM option FORCE cannot be used with SKIP_LOCKED")));
+	}
 
 	/*
 	 * Build list of relation(s) to process, putting any new data in
@@ -806,6 +819,42 @@ vacuum_open_relation(Oid relid, RangeVar *relation, bits32 options,
 		rel = try_relation_open(relid, lmode);
 	else if (ConditionalLockRelationOid(relid, lmode))
 		rel = try_relation_open(relid, NoLock);
+	else if (options & VACOPT_FORCE)
+	{
+		LOCKTAG tag;
+		Oid		dbid;
+
+		if (IsSharedRelation(relid))
+			dbid = InvalidOid;
+		else
+			dbid = MyDatabaseId;
+
+		SET_LOCKTAG_RELATION(tag, dbid, relid);
+
+		while (rel == NULL)
+		{
+			VirtualTransactionId* backends = GetLockConflicts(&tag, lmode, NULL);
+			
+			/*
+			* Send signals to all the backends holding the conflicting locks
+			*/
+			while (VirtualTransactionIdIsValid(*backends))
+			{
+				SignalVirtualTransaction(*backends,
+										PROCSIG_CONFLICT_RVR_FORCE,
+										false);
+				backends++;
+			}
+			rel = try_relation_open(relid, lmode);
+			if (rel == NULL)
+			{
+				ereport(NOTICE,
+						(errcode(ERRCODE_LOCK_NOT_AVAILABLE),
+						errmsg("retrying attemts of acquiring lock for \"%s\" --- lock not available",
+								relation->relname)));
+			}
+		}
+	}
 	else
 	{
 		rel = NULL;
@@ -933,7 +982,7 @@ expand_vacuum_rel(VacuumRelation *vrel, MemoryContext vac_context,
 		 * below, as well as find_all_inheritors's expectation that the caller
 		 * holds some lock on the starting relation.
 		 */
-		rvr_opts = (options & VACOPT_SKIP_LOCKED) ? RVR_SKIP_LOCKED : 0;
+		rvr_opts = ((options & VACOPT_SKIP_LOCKED) ? RVR_SKIP_LOCKED : 0);
 		relid = RangeVarGetRelidExtended(vrel->relation,
 										 AccessShareLock,
 										 rvr_opts,

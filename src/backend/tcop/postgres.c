@@ -3350,6 +3350,11 @@ ProcessInterrupts(void)
 
 			proc_exit(0);
 		}
+		else if (QueryConflictForceVacuumPending) {
+			ereport(FATAL,
+					(errcode(ERRCODE_ADMIN_SHUTDOWN),
+					 errmsg("terminating connection due to conflict with force vacuum")));
+		}
 		else
 			ereport(FATAL,
 					(errcode(ERRCODE_ADMIN_SHUTDOWN),

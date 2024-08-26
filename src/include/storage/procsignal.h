@@ -37,6 +37,9 @@ typedef enum
 	PROCSIG_LOG_MEMORY_CONTEXT, /* ask backend to log the memory contexts */
 	PROCSIG_PARALLEL_APPLY_MESSAGE, /* Message from parallel apply workers */
 
+	/* MDB additions  */
+	PROCSIG_CONFLICT_RVR_FORCE,
+
 	/* Recovery conflict reasons */
 	PROCSIG_RECOVERY_CONFLICT_FIRST,
 	PROCSIG_RECOVERY_CONFLICT_DATABASE = PROCSIG_RECOVERY_CONFLICT_FIRST,
