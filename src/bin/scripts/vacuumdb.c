@@ -44,6 +44,7 @@ typedef struct vacuumingOptions
 	bool		force_index_cleanup;
 	bool		do_truncate;
 	bool		process_toast;
+	bool		force;
 } vacuumingOptions;
 
 
@@ -104,6 +105,7 @@ main(int argc, char *argv[])
 		{"force-index-cleanup", no_argument, NULL, 9},
 		{"no-truncate", no_argument, NULL, 10},
 		{"no-process-toast", no_argument, NULL, 11},
+		{"force", no_argument, NULL, 12},
 		{NULL, 0, NULL, 0}
 	};
 
@@ -235,6 +237,9 @@ main(int argc, char *argv[])
 				break;
 			case 11:
 				vacopts.process_toast = false;
+				break;
+			case 12:
+				vacopts.force = true;
 				break;
 			default:
 				/* getopt_long already emitted a complaint */
@@ -834,6 +839,13 @@ prepare_vacuum_command(PQExpBuffer sql, int serverVersion,
 				appendPQExpBuffer(sql, "%sSKIP_LOCKED", sep);
 				sep = comma;
 			}
+			if (vacopts->force)
+			{
+				///* FORCE is supported since v12 */
+				Assert(serverVersion >= 120000);
+				appendPQExpBuffer(sql, "%sFORCE", sep);
+				sep = comma;
+			}
 			if (vacopts->verbose)
 			{
 				appendPQExpBuffer(sql, "%sVERBOSE", sep);
@@ -897,6 +909,13 @@ prepare_vacuum_command(PQExpBuffer sql, int serverVersion,
 				/* SKIP_LOCKED is supported since v12 */
 				Assert(serverVersion >= 120000);
 				appendPQExpBuffer(sql, "%sSKIP_LOCKED", sep);
+				sep = comma;
+			}
+			if (vacopts->force)
+			{
+				///* FORCE is supported since v12 */
+				Assert(serverVersion >= 120000);
+				appendPQExpBuffer(sql, "%sFORCE", sep);
 				sep = comma;
 			}
 			if (vacopts->full)
@@ -997,6 +1016,7 @@ help(const char *progname)
 	printf(_("  -P, --parallel=PARALLEL_WORKERS use this many background workers for vacuum, if available\n"));
 	printf(_("  -q, --quiet                     don't write any messages\n"));
 	printf(_("      --skip-locked               skip relations that cannot be immediately locked\n"));
+	printf(_("      --force                     terminate backends holding conflicting lock\n"));
 	printf(_("  -t, --table='TABLE[(COLUMNS)]'  vacuum specific table(s) only\n"));
 	printf(_("  -v, --verbose                   write a lot of output\n"));
 	printf(_("  -V, --version                   output version information, then exit\n"));
