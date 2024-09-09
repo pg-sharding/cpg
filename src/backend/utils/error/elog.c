@@ -112,6 +112,7 @@ int			Log_destination = LOG_DESTINATION_STDERR;
 char	   *Log_destination_string = NULL;
 bool		syslog_sequence_numbers = true;
 bool		syslog_split_messages = true;
+int			max_log_size = 0;
 
 #ifdef HAVE_SYSLOG
 
@@ -1513,6 +1514,13 @@ EmitErrorReport(void)
 	recursion_depth++;
 	CHECK_STACK_DEPTH();
 	oldcontext = MemoryContextSwitchTo(edata->assoc_context);
+
+	if (max_log_size != 0 && debug_query_string != NULL)
+	{
+		char* str = debug_query_string;
+		str[pg_mbcliplen(str, strlen(str), max_log_size)] = '\0';
+		debug_query_string = str;
+	}
 
 	/*
 	 * Call hook before sending message to log.  The hook function is allowed
