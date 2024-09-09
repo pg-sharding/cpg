@@ -6,7 +6,7 @@ use warnings;
 
 use PostgresNode;
 use TestLib;
-use Test::More tests => 5;
+use Test::More tests => 6;
 use Time::HiRes qw(usleep);
 
 # Set up node with logging collector
@@ -18,6 +18,7 @@ logging_collector = on
 # these ensure stability of test results:
 log_rotation_age = 0
 lc_messages = 'C'
+max_log_size = 32
 ));
 
 $node->start();
@@ -107,5 +108,17 @@ like(
 	$second_logfile,
 	qr/syntax error/,
 	'found expected log file content in new log file');
+
+$node->psql('postgres', 'INSERT INTO SOME_NON_EXISTANT_TABLE VALUES (TEST)');
+for (my $attempts = 0; $attempts < $max_attempts; $attempts++)
+{
+	$second_logfile = slurp_file($node->data_dir . '/' . $lfname);
+	last if $second_logfile =~ m/syntax error/;
+	usleep(100_000);
+}
+like(
+	$second_logfile,
+	qr/INSERT INTO SOME_NON_EXISTANT_TA(?!(BLE VALUES \(TEST\)))/,
+	'found expected log file content in log file');
 
 $node->stop();
