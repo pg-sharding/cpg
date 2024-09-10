@@ -1202,16 +1202,10 @@ CheckSlotPermissions(void)
 void
 CheckRoleMDBReplSlotPermissions(bool role_has_rolreplication, bool is_member_of_mdb_replication)
 {
-	/* superuser can do it */
-	if (superuser()) {
-		return;
-	}
-
 	/* mdb_replication can do it */
 	if (is_member_of_mdb_replication) {
 		return;
 	}
-
 
 	if (!role_has_rolreplication)
 		ereport(ERROR,
@@ -1224,10 +1218,6 @@ CheckRoleMDBReplSlotPermissions(bool role_has_rolreplication, bool is_member_of_
 void
 CheckRoleUseMDBReservedName(const char *name, bool role_has_rolreplication)
 {
-	/* superuser can do it */
-	if (superuser()) {
-		return;
-	}
 	/* ugly coding for speed (taken from IsReservedName) */
 	if (name[0] == 'm' &&
 			name[1] == 'd' &&
