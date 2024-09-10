@@ -213,7 +213,7 @@ typedef struct
 static void
 check_permissions(void)
 {
-	if (!is_repl_role && !superuser())
+	if (!is_repl_role)
 		ereport(ERROR,
 				(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
 				 (errmsg("must be superuser or replication role to use replication slots"))));
@@ -222,7 +222,7 @@ check_permissions(void)
 static void
 check_mdb_replication(void)
 {
-	if (!is_repl_role && !is_mdb_repl_role && !superuser())
+	if (!is_repl_role && !is_mdb_repl_role)
 		ereport(ERROR,
 				(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
 				 (errmsg("must be superuser or replication role to use replication slots"))));
@@ -235,7 +235,7 @@ check_mdb_reserved_name(const char *name)
 	if (name[0] == 'm' &&
 			name[1] == 'd' &&
 			name[2] == 'b' &&
-		!is_repl_role && !superuser())
+		!is_repl_role)
 	{
 		ereport(ERROR,
 				(errcode(ERRCODE_RESERVED_NAME),
