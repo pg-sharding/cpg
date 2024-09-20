@@ -86,6 +86,43 @@ ALTER ROLE mdb_superuser WITH CREATEDB;
 ALTER ROLE regress_mdb_superuser_user2 WITH CREATEROLE;
 ALTER ROLE regress_mdb_superuser_user2 WITH CREATEDB;
 
+-- mdb_superuser more powerfull than pg_database_owner
+
+RESET SESSION AUTHORIZATION;
+CREATE DATABASE regress_check_owner OWNER regress_mdb_superuser_user2;
+
+\c regress_check_owner;
+
+SET ROLE regress_mdb_superuser_user2;
+CREATE SCHEMA regtest;
+CREATE TABLE regtest.regtest();
+
+-- this should fail
+
+SET ROLE regress_mdb_superuser_user3;
+GRANT ALL ON TABLE regtest.regtest TO regress_mdb_superuser_user3;
+ALTER TABLE regtest.regtest OWNER TO regress_mdb_superuser_user3;
+
+SET ROLE regress_mdb_superuser_user1;
+GRANT ALL ON TABLE regtest.regtest TO regress_mdb_superuser_user1;
+ALTER TABLE regtest.regtest OWNER TO regress_mdb_superuser_user1;
+
+
+
+-- MDB-31195: Allow mdb_su to CHECKPOINT
+
+SET ROLE mdb_superuser;
+
+CHECKPOINT;
+
+-- This should fail
+SET ROLE regress_mdb_superuser_user3;
+
+CHECKPOINT;
+
+
+\c regression
+DROP DATABASE regress_check_owner;
 
 -- end tests
 
