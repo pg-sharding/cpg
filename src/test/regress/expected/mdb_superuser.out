@@ -91,6 +91,14 @@ ERROR:  permission denied for schema regtest
 SET ROLE regress_mdb_superuser_user1;
 GRANT ALL ON TABLE regtest.regtest TO regress_mdb_superuser_user1;
 ALTER TABLE regtest.regtest OWNER TO regress_mdb_superuser_user1;
+-- MDB-31195: Allow mdb_su to CHECKPOINT
+SET ROLE mdb_superuser;
+CHECKPOINT;
+-- This should fail
+SET ROLE regress_mdb_superuser_user3;
+CHECKPOINT;
+ERROR:  permission denied to execute CHECKPOINT command
+DETAIL:  Only roles with privileges of the "mdb_supuseruser" role may execute this command.
 \c regression
 DROP DATABASE regress_check_owner;
 -- end tests

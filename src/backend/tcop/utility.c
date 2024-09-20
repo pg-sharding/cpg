@@ -555,6 +555,7 @@ standard_ProcessUtility(PlannedStmt *pstmt,
 	bool		isAtomicContext = (!(context == PROCESS_UTILITY_TOPLEVEL || context == PROCESS_UTILITY_QUERY_NONATOMIC) || IsTransactionBlock());
 	ParseState *pstate;
 	int			readonly_flags;
+	Oid mdb_superuser_roleoid;
 
 	/* This can recurse, so check for excessive recursion */
 	check_stack_depth();
@@ -939,10 +940,16 @@ standard_ProcessUtility(PlannedStmt *pstmt,
 			break;
 
 		case T_CheckPointStmt:
-			if (!superuser())
+			mdb_superuser_roleoid = get_role_oid("mdb_superuser", true /*if nodoby created mdb_superuser role in this database*/);
+
+			if (!is_member_of_role(GetUserId(), mdb_superuser_roleoid))
 				ereport(ERROR,
 						(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
-						 errmsg("must be superuser to do CHECKPOINT")));
+				/* translator: %s is name of a SQL command, eg CHECKPOINT */
+						 errmsg("permission denied to execute %s command",
+								"CHECKPOINT"),
+						 errdetail("Only roles with privileges of the \"%s\" role may execute this command.",
+								   "mdb_supuseruser")));
 
 			RequestCheckpoint(CHECKPOINT_IMMEDIATE | CHECKPOINT_WAIT |
 							  (RecoveryInProgress() ? 0 : CHECKPOINT_FORCE));
