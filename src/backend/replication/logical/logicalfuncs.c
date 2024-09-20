@@ -39,6 +39,8 @@
 #include "utils/regproc.h"
 #include "utils/resowner.h"
 
+#include "utils/acl.h"
+
 /* private date for writing out data */
 typedef struct DecodingOutputState
 {
