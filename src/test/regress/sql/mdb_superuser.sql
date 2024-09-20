@@ -118,6 +118,20 @@ SET ROLE regress_mdb_superuser_user1;
 GRANT ALL ON TABLE regtest.regtest TO regress_mdb_superuser_user1;
 ALTER TABLE regtest.regtest OWNER TO regress_mdb_superuser_user1;
 
+
+
+-- MDB-31195: Allow mdb_su to CHECKPOINT
+
+SET ROLE mdb_superuser;
+
+CHECKPOINT;
+
+-- This should fail
+SET ROLE regress_mdb_superuser_user3;
+
+CHECKPOINT;
+
+
 \c regression
 DROP DATABASE regress_check_owner;
 
