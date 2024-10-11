@@ -601,6 +601,16 @@ LANGUAGE internal
 STRICT IMMUTABLE PARALLEL SAFE
 AS 'unicode_is_normalized';
 
+CREATE OR REPLACE FUNCTION
+  pg_set_relation_stats(relation regclass,
+                        relpages integer DEFAULT NULL,
+                        reltuples real DEFAULT NULL,
+                        relallvisible integer DEFAULT NULL)
+RETURNS bool
+LANGUAGE INTERNAL
+CALLED ON NULL INPUT VOLATILE
+AS 'pg_set_relation_stats';
+
 --
 -- The default permissions for functions mean that anyone can execute them.
 -- A number of functions shouldn't be executable by just anyone, but rather
