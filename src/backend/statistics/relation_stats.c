@@ -99,6 +99,11 @@ relation_statistics_update(FunctionCallInfo fcinfo, int elevel)
 	{
 		int32		relpages = PG_GETARG_INT32(RELPAGES_ARG);
 
+		/*
+		 * Partitioned tables may have relpages=-1. Note: for relations with
+		 * no storage, relpages=-1 is not used consistently, but must be
+		 * supported here.
+		 */
 		if (relpages < -1)
 		{
 			ereport(elevel,
