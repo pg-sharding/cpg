@@ -30,7 +30,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpam0g-dev \
     debhelper debootstrap devscripts make equivs debhelper-compat \
     libz-dev flex libicu-dev libio-pty-perl libipc-run-perl libkrb5-dev \
-    libldap2-dev liblz4-dev liblz4-tool zstd libperl-dev libreadline-dev libselinux1-dev llvm-dev \
+    libldap2-dev liblz4-dev liblz4-tool zstd libperl-dev libreadline-dev libselinux1-dev llvm-18-dev \
     libsystemd-dev libxml2-dev libxml2-utils libxslt1-dev \
     python3-dev systemtap-sdt-dev tcl-dev uuid-dev xsltproc zlib1g-dev \
     bison dh-exec docbook-xml docbook-xsl \
