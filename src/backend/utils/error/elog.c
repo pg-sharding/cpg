@@ -1694,12 +1694,9 @@ EmitErrorReport(void)
 	CHECK_STACK_DEPTH();
 	oldcontext = MemoryContextSwitchTo(edata->assoc_context);
 
-	if (max_log_size != 0 && debug_query_string != NULL)
-	{
-		char* str = debug_query_string;
-		str[pg_mbcliplen(str, strlen(str), max_log_size)] = '\0';
-		debug_query_string = str;
-	}
+	const char* old_query_string = debug_query_string;
+	bool copied = false;
+	debug_query_string = build_query_log(debug_query_string, &copied);
 
 	/*
 	 * Reset the formatted timestamp fields before emitting any logs.  This
@@ -1741,6 +1738,12 @@ EmitErrorReport(void)
 
 	MemoryContextSwitchTo(oldcontext);
 	recursion_depth--;
+
+	if (debug_query_string && copied)
+	{
+		pfree(debug_query_string);
+		debug_query_string = old_query_string;
+	}
 }
 
 /*
@@ -3787,4 +3790,25 @@ vwrite_stderr(const char *fmt, va_list ap)
 		fflush(stderr);
 	}
 #endif
+}
+
+char*
+build_query_log(const char* query, bool *copied)
+{
+	*copied = false;
+	if (!query)
+		return NULL;
+
+	size_t query_len = strlen(query);
+	if (max_log_size == 0 || query_len < max_log_size)
+	{
+		return query;
+	}
+
+	*copied = true;
+	size_t query_log_len = pg_mbcliplen(query, query_len, max_log_size);
+	char* query_log = (char*)palloc(query_log_len+1);
+	memcpy(query_log, query, query_log_len);
+	query_log[query_log_len] = '\0';
+	return query_log;
 }
