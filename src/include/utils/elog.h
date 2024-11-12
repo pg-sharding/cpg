@@ -443,6 +443,7 @@ extern PGDLLIMPORT int max_log_size;
 extern void DebugFileOpen(void);
 extern char *unpack_sql_state(int sql_state);
 extern bool in_error_recursion_trouble(void);
+char* build_query_log(const char* query, bool *copied);
 
 /* Common functions shared across destinations */
 extern void reset_formatted_start_time(void);
