@@ -931,11 +931,14 @@ exec_simple_query(const char *query_string)
 	bool		was_logged = false;
 	bool		use_implicit_block;
 	char		msec_str[32];
+	char* 		query_log;
 
 	/*
 	 * Report query to various monitoring facilities.
 	 */
 	debug_query_string = query_string;
+	bool copied = false;
+	query_log = build_query_log(query_string, &copied);
 
 	pgstat_report_activity(STATE_RUNNING, query_string);
 
@@ -980,7 +983,7 @@ exec_simple_query(const char *query_string)
 	if (check_log_statement(parsetree_list))
 	{
 		ereport(LOG,
-				(errmsg("statement: %s", query_string),
+				(errmsg("statement: %s", query_log),
 				 errhidestmt(true),
 				 errdetail_execute(parsetree_list)));
 		was_logged = true;
@@ -1276,7 +1279,7 @@ exec_simple_query(const char *query_string)
 		case 2:
 			ereport(LOG,
 					(errmsg("duration: %s ms  statement: %s",
-							msec_str, query_string),
+							msec_str, query_log),
 					 errhidestmt(true),
 					 errdetail_execute(parsetree_list)));
 			break;
@@ -1287,6 +1290,8 @@ exec_simple_query(const char *query_string)
 
 	TRACE_POSTGRESQL_QUERY_DONE(query_string);
 
+	if (query_log && copied)
+		pfree(query_log);
 	debug_query_string = NULL;
 }
 
