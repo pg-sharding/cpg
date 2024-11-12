@@ -12634,6 +12634,17 @@ retry:
 	readOff = targetPageOff;
 
 	pgstat_report_wait_start(WAIT_EVENT_WAL_READ);
+
+#if defined(USE_POSIX_FADVISE) && defined(POSIX_FADV_WILLNEED)
+	/*
+	 *  Prefetch next wal blocks to avoid page misses on next read iterations.
+	 */
+#define RACHUNK (16*1024*1024)
+	if (readOff == 0) {
+		posix_fadvise(readFile, 0, RACHUNK, POSIX_FADV_WILLNEED);
+	}
+#endif
+
 	r = pg_pread(readFile, readBuf, XLOG_BLCKSZ, (off_t) readOff);
 	if (r != XLOG_BLCKSZ)
 	{
