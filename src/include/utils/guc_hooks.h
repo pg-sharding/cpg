@@ -89,6 +89,7 @@ extern bool check_max_worker_processes(int *newval, void **extra,
 									   GucSource source);
 extern bool check_max_stack_depth(int *newval, void **extra, GucSource source);
 extern void assign_max_stack_depth(int newval, void *extra);
+extern void assign_num_buffer_partitions_log2(int newval, void *extra);
 extern bool check_primary_slot_name(char **newval, void **extra,
 									GucSource source);
 extern bool check_random_seed(double *newval, void **extra, GucSource source);
