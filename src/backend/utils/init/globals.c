@@ -149,3 +149,6 @@ int			VacuumCostBalance = 0;	/* working state for vacuum */
 bool		VacuumCostActive = false;
 
 double		vacuum_cleanup_index_scale_factor;
+/* shared buffers partitions number and mask */
+int			num_buffer_partitions_log2 = 7;
+int			num_buffer_partitions_mask = 127;
