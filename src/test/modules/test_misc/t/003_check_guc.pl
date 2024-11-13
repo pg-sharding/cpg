@@ -73,6 +73,7 @@ while (my $line = <$contents>)
 }
 
 push @gucs_in_file, "ycmdb.yc_grant_checker";
+push @gucs_in_file, "ycmdb.num_buffer_partitions_log2";
 
 close $contents;
 
