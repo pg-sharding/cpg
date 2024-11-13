@@ -154,3 +154,7 @@ int64		VacuumPageDirty = 0;
 
 int			VacuumCostBalance = 0;	/* working state for vacuum */
 bool		VacuumCostActive = false;
+
+/* shared buffers partitions number and mask */
+int			num_buffer_partitions_log2 = 7;
+int			num_buffer_partitions_mask = 127;
