@@ -249,6 +249,7 @@ extern void TestForOldSnapshot_impl(Snapshot snapshot, Relation relation);
 extern BufferAccessStrategy GetAccessStrategy(BufferAccessStrategyType btype);
 extern void FreeAccessStrategy(BufferAccessStrategy strategy);
 
+extern void assign_num_buffer_partitions_log2(int newval, void *extra);
 
 /* inline functions */
 
