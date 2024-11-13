@@ -124,13 +124,12 @@ typedef struct buftag
  * hash code with BufTableHashCode(), then apply BufMappingPartitionLock().
  * NB: NUM_BUFFER_PARTITIONS must be a power of 2!
  */
-#define BufTableHashPartition(hashcode) \
-	((hashcode) % NUM_BUFFER_PARTITIONS)
-#define BufMappingPartitionLock(hashcode) \
-	(&MainLWLockArray[BUFFER_MAPPING_LWLOCK_OFFSET + \
-		BufTableHashPartition(hashcode)].lock)
-#define BufMappingPartitionLockByIndex(i) \
-	(&MainLWLockArray[BUFFER_MAPPING_LWLOCK_OFFSET + (i)].lock)
+static inline LWLock *
+BufMappingPartitionLock(uint32 hashcode)
+{
+	return &MainLWLockArray[BUFFER_MAPPING_LWLOCK_OFFSET +
+							(hashcode & num_buffer_partitions_mask)].lock;
+}
 
 /*
  *	BufferDesc -- shared descriptor/state data for a single shared buffer.
