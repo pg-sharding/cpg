@@ -3,7 +3,7 @@ use warnings;
 
 use PostgresNode;
 use TestLib;
-use Test::More tests => 49;
+use Test::More tests => 51;
 
 program_help_ok('vacuumdb');
 program_version_ok('vacuumdb');
