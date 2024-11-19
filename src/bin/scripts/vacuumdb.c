@@ -94,7 +94,7 @@ main(int argc, char *argv[])
 		{"skip-locked", no_argument, NULL, 5},
 		{"min-xid-age", required_argument, NULL, 6},
 		{"min-mxid-age", required_argument, NULL, 7},
-		{"force", no_argument, NULL, 12},
+		{"force", no_argument, NULL, 8},
 		{NULL, 0, NULL, 0}
 	};
 
