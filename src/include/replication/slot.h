@@ -305,11 +305,11 @@ extern void CheckRoleMDBReplSlotPermissions(bool role_has_rolreplication, bool i
 */
 extern void CheckRoleUseMDBReservedName(const char* name, bool role_has_rolreplication);
 
-inline void CheckMDBReservedName(const char* name) {
+static inline void CheckMDBReservedName(const char* name) {
 	CheckRoleUseMDBReservedName(name, has_rolreplication(GetUserId()));
 }
 
-inline void CheckMDBReplSlotPermissions(void) {
+static inline void CheckMDBReplSlotPermissions(void) {
 	Oid         role;
 	role = get_role_oid("mdb_replication", /* missing ok*/ true);
 	return CheckRoleMDBReplSlotPermissions(has_rolreplication(GetUserId()), is_member_of_role(GetUserId(), role));
