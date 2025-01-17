@@ -5726,7 +5726,7 @@ select_best_grantor(Oid roleId, AclMode privileges,
 
 	if (is_member_of_role(GetUserId(), mdb_superuser_roleoid)
 	&& has_privs_of_role(GetUserId(), ownerId)) {
-		*grantorId = mdb_superuser_roleoid;
+		*grantorId = ownerId;
 		AclMode mdb_superuser_allowed_privs = needed_goptions;
 		*grantOptions = mdb_superuser_allowed_privs;
 		return;
