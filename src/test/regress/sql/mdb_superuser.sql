@@ -111,6 +111,8 @@ SET ROLE regress_mdb_superuser_user2;
 CREATE SCHEMA regtest;
 CREATE TABLE regtest.regtest();
 
+GRANT CREATE ON SCHEMA regtest TO regress_mdb_su_role_o2;
+
 -- this should fail
 
 SET ROLE regress_mdb_superuser_user3;
@@ -125,11 +127,11 @@ ALTER TABLE regtest.regtest OWNER TO regress_mdb_superuser_user1;
 
 SET ROLE regress_mdb_su_role_o2;
 
-CREATE TABLE public.role_o2_t();
+CREATE TABLE regtest.role_o2_t();
 
 SET ROLE mdb_superuser;
 
-GRANT SELECT ON public.role_o2_t TO regress_mdb_su_role_o1;
+GRANT SELECT ON regtest.role_o2_t TO regress_mdb_su_role_o1;
 
 SELECT
  grantor
