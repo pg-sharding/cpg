@@ -4,9 +4,6 @@ FROM ubuntu:${codename:-bionic}
 ARG codename
 ENV CODE_NAME=${codename:-bionic}
 
-ARG pgdg
-ENV PGDG_VER=${pgdg:-242-2-pgdg18.04+1+yandex220}
-
 ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=Europe/Moskow
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
@@ -40,5 +37,8 @@ RUN chown build-user:build-user /home -R && usermod -aG sudo build-user
 RUN echo 'build-user ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
 
 USER build-user
+WORKDIR /home/build-user
 
-ENTRYPOINT ["/home/build-user/docker/regress/run_tests.sh"]
+RUN CFLAGS="" ./configure --prefix=/home/build-user/pgbin  --without-mdblocales  --enable-depend --enable-cassert --enable-debug --enable-tap-tests && \
+    make -j8 && \
+    sudo make install
