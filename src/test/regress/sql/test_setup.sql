@@ -5,4 +5,8 @@
 CREATE ROLE mdb_admin;
 CREATE ROLE mdb_superuser;
 CREATE ROLE mdb_service_auth;
+CREATE ROLE mdb_read_all_data;
+CREATE ROLE mdb_write_all_data;
 CREATE ROLE mdb_replication;
+
+GRANT mdb_admin TO mdb_superuser;
