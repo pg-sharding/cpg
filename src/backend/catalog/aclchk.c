@@ -4057,6 +4057,8 @@ pg_class_aclmask_ext(Oid table_oid, Oid roleid, AclMode mask,
 	bool		isNull;
 	Acl		   *acl;
 	Oid			ownerId;
+	Oid			mdb_read_all_data_oid;
+	Oid			mdb_write_all_data_oid;
 
 	/*
 	 * Must get the relation's tuple from pg_class
@@ -4107,6 +4109,9 @@ pg_class_aclmask_ext(Oid table_oid, Oid roleid, AclMode mask,
 	 */
 	ownerId = classForm->relowner;
 
+	mdb_read_all_data_oid = get_role_oid("mdb_read_all_data", true);
+	mdb_write_all_data_oid = get_role_oid("mdb_write_all_data", true);
+
 	aclDatum = SysCacheGetAttr(RELOID, tuple, Anum_pg_class_relacl,
 							   &isNull);
 	if (isNull)
@@ -4146,6 +4151,17 @@ pg_class_aclmask_ext(Oid table_oid, Oid roleid, AclMode mask,
 		has_privs_of_role(roleid, ROLE_PG_READ_ALL_DATA))
 		result |= ACL_SELECT;
 
+
+	/*
+	 * Check if ACL_SELECT is being checked and, if so, and not set already as
+	 * part of the result, then check if the user is a member of the
+	 * mdb_read_all_data role, and this is not some dangerous relation to grant SELECT to
+	 */
+	if (mask & ACL_SELECT && !(result & ACL_SELECT) &&
+		has_privs_of_role(roleid, mdb_read_all_data_oid) && 
+		!has_privs_of_unwanted_system_role(ownerId))
+		result |= ACL_SELECT;
+
 	/*
 	 * Check if ACL_INSERT, ACL_UPDATE, or ACL_DELETE is being checked and, if
 	 * so, and not set already as part of the result, then check if the user
@@ -4156,6 +4172,18 @@ pg_class_aclmask_ext(Oid table_oid, Oid roleid, AclMode mask,
 	if (mask & (ACL_INSERT | ACL_UPDATE | ACL_DELETE) &&
 		!(result & (ACL_INSERT | ACL_UPDATE | ACL_DELETE)) &&
 		has_privs_of_role(roleid, ROLE_PG_WRITE_ALL_DATA))
+		result |= (mask & (ACL_INSERT | ACL_UPDATE | ACL_DELETE));
+
+	/*
+	 * Check if ACL_INSERT, ACL_UPDATE, or ACL_DELETE is being checked and, if
+	 * so, and not set already as part of the result, then check if the user
+	 * is a member of the mdb_write_all_data role, and this is not some 
+	 * dangerous relation to grant write access.
+	 */
+	if (mask & (ACL_INSERT | ACL_UPDATE | ACL_DELETE) &&
+		!(result & (ACL_INSERT | ACL_UPDATE | ACL_DELETE)) &&
+		has_privs_of_role(roleid, mdb_write_all_data_oid) &&
+		!has_privs_of_unwanted_system_role(ownerId))
 		result |= (mask & (ACL_INSERT | ACL_UPDATE | ACL_DELETE));
 
 	return result;
