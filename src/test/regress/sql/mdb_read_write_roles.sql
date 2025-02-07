@@ -1,0 +1,102 @@
+CREATE ROLE regress_mdb_superuser_user1;
+CREATE ROLE regress_mdb_superuser_user2;
+CREATE ROLE regress_mdb_superuser_user3;
+
+CREATE ROLE regress_superuser WITH SUPERUSER;
+
+GRANT mdb_superuser TO regress_mdb_superuser_user1;
+
+GRANT CREATE ON DATABASE regression TO regress_mdb_superuser_user2;
+
+SET ROLE regress_superuser;
+CREATE TABLE regress_superuser_table();
+
+SET ROLE pg_read_server_files;
+CREATE TABLE regress_pgrsf_table();
+
+SET ROLE pg_write_server_files;
+CREATE TABLE regress_pgwsf_table();
+
+SET ROLE pg_execute_server_program;
+CREATE TABLE regress_pgxsp_table();
+
+SET ROLE pg_read_all_data;
+CREATE TABLE regress_pgrad_table();
+
+SET ROLE pg_write_all_data;
+CREATE TABLE regress_pgrwd_table();
+
+SET ROLE regress_mdb_superuser_user1;
+CREATE TABLE regress_mdbsu_table();
+CREATE SCHEMA regress_schema CREATE TABLE regress_mdbsu_table();
+
+SET ROLE regress_mdb_superuser_user2;
+CREATE TABLE regress_mdbsu_table2();
+CREATE SCHEMA regress_schema2 CREATE TABLE regress_mdbsu_table2();
+
+SET ROLE mdb_read_all_data;
+-- cannot read all data (fail)
+TABLE pg_authid;
+TABLE regress_superuser_table;
+TABLE regress_pgrsf_table;
+TABLE regress_pgwsf_table;
+TABLE regress_pgxsp_table;
+TABLE regress_pgrad_table;
+TABLE regress_pgwsf_table;
+
+
+-- is allow to read all other data
+
+TABLE regress_mdbsu_table;
+TABLE regress_mdbsu_table2;
+
+-- check USAGE of schema
+TABLE regress_schema.regress_mdbsu_table;
+TABLE regress_schema2.regress_mdbsu_table2;
+
+SET ROLE mdb_write_all_data;
+CREATE TABLE regress_tt_dat();
+-- cannot read all data (fail)
+INSERT INTO regress_superuser_table TABLE regress_tt_dat;
+INSERT INTO regress_pgrsf_table TABLE regress_tt_dat;
+INSERT INTO regress_pgwsf_table TABLE regress_tt_dat;
+INSERT INTO regress_pgxsp_table TABLE regress_tt_dat;
+INSERT INTO regress_pgrad_table TABLE regress_tt_dat;
+INSERT INTO regress_pgwsf_table TABLE regress_tt_dat;
+
+
+-- is allow to read all other data
+
+INSERT INTO regress_mdbsu_table TABLE regress_tt_dat;
+INSERT INTO regress_mdbsu_table2 TABLE regress_tt_dat;
+
+-- end tests
+
+RESET SESSION AUTHORIZATION;
+--
+
+DROP TABLE regress_pgrsf_table;
+DROP TABLE regress_pgwsf_table;
+DROP TABLE regress_pgxsp_table;
+DROP TABLE regress_pgrad_table;
+DROP TABLE regress_pgrwd_table;
+
+DROP TABLE regress_mdbsu_table;
+DROP TABLE regress_mdbsu_table2;
+
+DROP TABLE regress_schema.regress_mdbsu_table;
+DROP TABLE regress_schema2.regress_mdbsu_table2;
+
+DROP SCHEMA regress_schema;
+DROP SCHEMA regress_schema2;
+
+DROP TABLE regress_superuser_table;
+DROP TABLE regress_tt_dat;
+
+REVOKE CREATE ON DATABASE regression FROM regress_mdb_superuser_user2;
+REVOKE CREATE ON DATABASE regression FROM regress_mdb_superuser_user3;
+
+DROP ROLE regress_mdb_superuser_user1;
+DROP ROLE regress_mdb_superuser_user2;
+DROP ROLE regress_mdb_superuser_user3;
+DROP ROLE regress_superuser;
