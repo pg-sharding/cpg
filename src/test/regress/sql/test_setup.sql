@@ -283,4 +283,8 @@ create operator class part_test_text_ops for type text using hash as
 
 CREATE ROLE mdb_admin;
 CREATE ROLE mdb_superuser;
+CREATE ROLE mdb_read_all_data;
+CREATE ROLE mdb_write_all_data;
 CREATE ROLE mdb_replication;
+
+GRANT mdb_admin TO mdb_superuser;
