@@ -7,8 +7,6 @@ CREATE ROLE regress_mdb_su_role_o2;
 
 GRANT mdb_superuser TO regress_mdb_su_role_o1;
 
-GRANT mdb_admin TO mdb_superuser;
-
 CREATE ROLE regress_superuser WITH SUPERUSER;
 
 GRANT mdb_superuser TO regress_mdb_superuser_user1;
@@ -90,7 +88,7 @@ DROP TABLE regress_pgrad_table;
 DROP TABLE regress_pgrwd_table;
 
 
--- does allowed to creare database, role or extension
+-- does NOT allowed to create database, role or extension
 -- or grant such priviledge 
 
 CREATE DATABASE regress_db_fail;
@@ -168,7 +166,6 @@ DROP ROLE regress_mdb_su_role_o2;
 DROP VIEW regress_mdb_superuser_view;
 DROP FUNCTION regress_mdb_superuser_add;
 DROP TABLE regress_mdb_superuser_schema.regress_mdb_superuser_table;
-DROP TABLE regress_mdb_superuser_table;
 DROP SCHEMA regress_mdb_superuser_schema;
 DROP ROLE regress_mdb_superuser_user1;
 DROP ROLE regress_mdb_superuser_user2;
@@ -179,3 +176,4 @@ DROP TABLE regress_pgwsf_table;
 DROP TABLE regress_pgxsp_table;
 DROP TABLE regress_pgrad_table;
 DROP TABLE regress_pgrwd_table;
+DROP ROLE regress_superuser;
