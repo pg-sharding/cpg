@@ -241,5 +241,8 @@ create function fipshash(text)
     return substr(encode(sha256($1::bytea), 'hex'), 1, 32);
 CREATE ROLE mdb_admin;
 CREATE ROLE mdb_superuser;
+CREATE ROLE mdb_read_all_data;
+CREATE ROLE mdb_write_all_data;
 CREATE ROLE mdb_replication;
+GRANT mdb_admin TO mdb_superuser;
 GRANT pg_create_subscription TO mdb_admin;
