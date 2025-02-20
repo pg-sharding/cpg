@@ -66,7 +66,7 @@ my %pgdump_runs = (
 			'--format=custom',
 			"--file=$tempdir/binary_upgrade.dump",
 			'-w',
-			'--schema-only',
+			'--no-data',
 			'--binary-upgrade',
 			'-d', 'postgres',    # alternative way to specify database
 		],
@@ -677,6 +677,34 @@ my %pgdump_runs = (
 
 			'--schema=dump_test', '-b', '-B', '--no-sync', 'postgres',
 		],
+	},
+	no_statistics => {
+		dump_cmd => [
+			'pg_dump', '--no-sync',
+			"--file=$tempdir/no_statistics.sql", '--no-statistics',
+			'postgres',
+		],
+	},
+	no_data_no_schema => {
+		dump_cmd => [
+			'pg_dump', '--no-sync',
+			"--file=$tempdir/no_data_no_schema.sql", '--no-data',
+			'--no-schema', 'postgres',
+		],
+	},
+	statistics_only => {
+		dump_cmd => [
+			'pg_dump', '--no-sync',
+			"--file=$tempdir/statistics_only.sql", '--statistics-only',
+			'postgres',
+		],
+	},
+	no_schema => {
+		dump_cmd => [
+			'pg_dump', '--no-sync',
+			"--file=$tempdir/no_schema.sql", '--no-schema',
+			'postgres',
+		],
 	},);
 
 ###############################################################
@@ -745,6 +773,7 @@ my %full_runs = (
 	no_privs => 1,
 	no_subscriptions => 1,
 	no_subscriptions_restore => 1,
+	no_statistics => 1,
 	no_table_access_method => 1,
 	pg_dumpall_dbprivs => 1,
 	pg_dumpall_exclude => 1,
@@ -956,6 +985,7 @@ my %tests = (
 			column_inserts => 1,
 			data_only => 1,
 			inserts => 1,
+			no_schema => 1,
 			section_data => 1,
 			test_schema_plus_large_objects => 1,
 		},
@@ -1333,6 +1363,7 @@ my %tests = (
 			column_inserts => 1,
 			data_only => 1,
 			inserts => 1,
+			no_schema => 1,
 			section_data => 1,
 			test_schema_plus_large_objects => 1,
 		},
@@ -1354,6 +1385,7 @@ my %tests = (
 			column_inserts => 1,
 			data_only => 1,
 			inserts => 1,
+			no_schema => 1,
 			section_data => 1,
 			test_schema_plus_large_objects => 1,
 		},
@@ -1375,6 +1407,7 @@ my %tests = (
 			column_inserts => 1,
 			data_only => 1,
 			inserts => 1,
+			no_schema => 1,
 			section_data => 1,
 			test_schema_plus_large_objects => 1,
 		},
@@ -1541,6 +1574,7 @@ my %tests = (
 			column_inserts => 1,
 			data_only => 1,
 			inserts => 1,
+			no_schema => 1,
 			section_data => 1,
 			test_schema_plus_large_objects => 1,
 		},
@@ -1698,6 +1732,7 @@ my %tests = (
 			%full_runs,
 			%dump_test_schema_runs,
 			data_only => 1,
+			no_schema => 1,
 			only_dump_test_table => 1,
 			section_data => 1,
 		},
@@ -1725,6 +1760,7 @@ my %tests = (
 			data_only => 1,
 			exclude_test_table => 1,
 			exclude_test_table_data => 1,
+			no_schema => 1,
 			section_data => 1,
 		},
 		unlike => {
@@ -1745,7 +1781,10 @@ my %tests = (
 			\QCOPY dump_test.fk_reference_test_table (col1) FROM stdin;\E
 			\n(?:\d\n){5}\\\.\n
 			/xms,
-		like => { data_only => 1, },
+		like => {
+			data_only => 1,
+			no_schema => 1,
+		},
 	},
 
 	'COPY test_second_table' => {
@@ -1761,6 +1800,7 @@ my %tests = (
 			%full_runs,
 			%dump_test_schema_runs,
 			data_only => 1,
+			no_schema => 1,
 			section_data => 1,
 		},
 		unlike => {
@@ -1783,6 +1823,7 @@ my %tests = (
 			%full_runs,
 			%dump_test_schema_runs,
 			data_only => 1,
+			no_schema => 1,
 			section_data => 1,
 		},
 		unlike => {
@@ -1806,6 +1847,7 @@ my %tests = (
 			%full_runs,
 			%dump_test_schema_runs,
 			data_only => 1,
+			no_schema => 1,
 			section_data => 1,
 		},
 		unlike => {
@@ -1828,6 +1870,7 @@ my %tests = (
 			%full_runs,
 			%dump_test_schema_runs,
 			data_only => 1,
+			no_schema => 1,
 			section_data => 1,
 		},
 		unlike => {
@@ -1850,6 +1893,7 @@ my %tests = (
 			%full_runs,
 			%dump_test_schema_runs,
 			data_only => 1,
+			no_schema => 1,
 			section_data => 1,
 		},
 		unlike => {
@@ -3295,6 +3339,7 @@ my %tests = (
 		like => {
 			%full_runs,
 			data_only => 1,
+			no_schema => 1,
 			section_data => 1,
 			only_dump_test_schema => 1,
 			test_schema_plus_large_objects => 1,
@@ -3465,6 +3510,7 @@ my %tests = (
 			%full_runs,
 			%dump_test_schema_runs,
 			data_only => 1,
+			no_schema => 1,
 			only_dump_measurement => 1,
 			section_data => 1,
 			only_dump_test_schema => 1,
@@ -4345,6 +4391,7 @@ my %tests = (
 			column_inserts => 1,
 			data_only => 1,
 			inserts => 1,
+			no_schema => 1,
 			section_data => 1,
 			test_schema_plus_large_objects => 1,
 			binary_upgrade => 1,
@@ -4643,6 +4690,61 @@ my %tests = (
 			no_table_access_method => 1,
 			only_dump_measurement => 1,
 		},
+	},
+
+	#
+	# TABLE and MATVIEW stats will end up in SECTION_DATA.
+	# INDEX stats (expression columns only) will end up in SECTION_POST_DATA.
+	#
+	'statistics_import' => {
+		create_sql => '
+			CREATE TABLE dump_test.has_stats
+			AS SELECT g.g AS x, g.g / 2 AS y FROM generate_series(1,100) AS g(g);
+			CREATE MATERIALIZED VIEW dump_test.has_stats_mv AS SELECT * FROM dump_test.has_stats;
+			CREATE INDEX dup_test_post_data_ix ON dump_test.has_stats((x - 1));
+			ANALYZE dump_test.has_stats, dump_test.has_stats_mv;',
+		regexp => qr/pg_catalog.pg_restore_attribute_stats/,
+		like => {
+			%full_runs,
+			%dump_test_schema_runs,
+			no_data_no_schema => 1,
+			no_schema => 1,
+			section_data => 1,
+			section_post_data => 1,
+			statistics_only => 1,
+			},
+		unlike => {
+			exclude_dump_test_schema => 1,
+			no_statistics => 1,
+			only_dump_measurement => 1,
+			schema_only => 1,
+			},
+	},
+
+	#
+	# While attribute stats (aka pg_statistic stats) only appear for tables
+	# that have been analyzed, all tables will have relation stats because
+	# those come from pg_class.
+	#
+	'relstats_on_unanalyzed_tables' => {
+		regexp => qr/pg_catalog.pg_restore_relation_stats/,
+
+		like => {
+			%full_runs,
+			%dump_test_schema_runs,
+			no_data_no_schema => 1,
+			no_schema => 1,
+			only_dump_test_table => 1,
+			role => 1,
+			role_parallel => 1,
+			section_data => 1,
+			section_post_data => 1,
+			statistics_only => 1,
+			},
+		unlike => {
+			no_statistics => 1,
+			schema_only => 1,
+			},
 	},
 
 	# CREATE TABLE with partitioned table and various AMs.  One
