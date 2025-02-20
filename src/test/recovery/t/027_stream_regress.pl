@@ -105,15 +105,19 @@ $node_primary->wait_for_replay_catchup($node_standby_1);
 # Perform a logical dump of primary and standby, and check that they match
 command_ok(
 	[
-		'pg_dumpall', '-f', $outputdir . '/primary.dump',
-		'--no-sync', '-p', $node_primary->port,
-		'--no-unlogged-table-data'    # if unlogged, standby has schema only
+		'pg_dumpall',
+		'--file' => $outputdir . '/primary.dump',
+		'--no-sync', '--no-statistics',
+		'--port' => $node_primary->port,
+		'--no-unlogged-table-data',    # if unlogged, standby has schema only
 	],
 	'dump primary server');
 command_ok(
 	[
-		'pg_dumpall', '-f', $outputdir . '/standby.dump',
-		'--no-sync', '-p', $node_standby_1->port
+		'pg_dumpall',
+		'--file' => $outputdir . '/standby.dump',
+		'--no-sync', '--no-statistics',
+		'--port' => $node_standby_1->port,
 	],
 	'dump standby server');
 command_ok(
