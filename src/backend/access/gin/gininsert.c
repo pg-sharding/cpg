@@ -164,14 +164,6 @@ typedef struct
 	 * build callback etc.
 	 */
 	Tuplesortstate *bs_sortstate;
-
-	/*
-	 * The sortstate used only within a single worker for the first merge pass
-	 * happening there. In principle it doesn't need to be part of the build
-	 * state and we could pass it around directly, but it's more convenient
-	 * this way. And it's part of the build state, after all.
-	 */
-	Tuplesortstate *bs_worker_sort;
 } GinBuildState;
 
 
@@ -195,8 +187,7 @@ static Datum _gin_parse_tuple_key(GinTuple *a);
 
 static GinTuple *_gin_build_tuple(OffsetNumber attrnum, unsigned char category,
 								  Datum key, int16 typlen, bool typbyval,
-								  ItemPointerData *items, uint32 nitems,
-								  Size *len);
+								  ItemPointerData *items, uint32 nitems);
 
 /*
  * Adds array of item pointers to tuple's posting list, or
@@ -503,16 +494,15 @@ ginFlushBuildState(GinBuildState *buildstate, Relation index)
 
 		/* GIN tuple and tuple length */
 		GinTuple   *tup;
-		Size		tuplen;
 
 		/* there could be many entries, so be willing to abort here */
 		CHECK_FOR_INTERRUPTS();
 
 		tup = _gin_build_tuple(attnum, category,
 							   key, attr->attlen, attr->attbyval,
-							   list, nlist, &tuplen);
+							   list, nlist);
 
-		tuplesort_putgintuple(buildstate->bs_worker_sort, tup, tuplen);
+		tuplesort_putgintuple(buildstate->bs_sortstate, tup);
 
 		pfree(tup);
 	}
@@ -1148,8 +1138,14 @@ _gin_parallel_heapscan(GinBuildState *state)
  * during the initial table scan (and detecting when the scan wraps around),
  * and during merging (where we do mergesort).
  */
-typedef struct GinBuffer
+struct GinBuffer
 {
+	/*
+	 * The memory context holds the dynamic allocation of items, key, and any
+	 * produced GinTuples.
+	 */
+	MemoryContext context;
+	GinTuple   *cached;			/* copy of previous GIN tuple */
 	OffsetNumber attnum;
 	GinNullCategory category;
 	Datum		key;			/* 0 if no key (and keylen == 0) */
@@ -1167,7 +1163,7 @@ typedef struct GinBuffer
 	int			nfrozen;
 	SortSupport ssup;			/* for sorting/comparing keys */
 	ItemPointerData *items;
-} GinBuffer;
+};
 
 /*
  * Check that TID array contains valid values, and that it's sorted (if we
@@ -1178,8 +1174,7 @@ AssertCheckItemPointers(GinBuffer *buffer)
 {
 #ifdef USE_ASSERT_CHECKING
 	/* we should not have a buffer with no TIDs to sort */
-	Assert(buffer->items != NULL);
-	Assert(buffer->nitems > 0);
+	Assert(buffer->nitems == 0 || buffer->items != NULL);
 
 	for (int i = 0; i < buffer->nitems; i++)
 	{
@@ -1205,7 +1200,7 @@ AssertCheckGinBuffer(GinBuffer *buffer)
 {
 #ifdef USE_ASSERT_CHECKING
 	/* if we have any items, the array must exist */
-	Assert(!((buffer->nitems > 0) && (buffer->items == NULL)));
+	Assert((buffer->nitems == 0) || (buffer->items != NULL));
 
 	/*
 	 * The buffer may be empty, in which case we must not call the check of
@@ -1229,7 +1224,7 @@ AssertCheckGinBuffer(GinBuffer *buffer)
  *
  * Initializes sort support procedures for all index attributes.
  */
-static GinBuffer *
+GinBuffer *
 GinBufferInit(Relation index)
 {
 	GinBuffer  *buffer = palloc0(sizeof(GinBuffer));
@@ -1292,15 +1287,18 @@ GinBufferInit(Relation index)
 
 		PrepareSortSupportComparisonShim(cmpFunc, sortKey);
 	}
+	buffer->context = GenerationContextCreate(CurrentMemoryContext,
+											  "Gin Buffer",
+											  ALLOCSET_DEFAULT_SIZES);
 
 	return buffer;
 }
 
 /* Is the buffer empty, i.e. has no TID values in the array? */
-static bool
+bool
 GinBufferIsEmpty(GinBuffer *buffer)
 {
-	return (buffer->nitems == 0);
+	return (buffer->nitems == 0 && buffer->cached == NULL);
 }
 
 /*
@@ -1316,37 +1314,71 @@ GinBufferIsEmpty(GinBuffer *buffer)
 static bool
 GinBufferKeyEquals(GinBuffer *buffer, GinTuple *tup)
 {
+	MemoryContext prev;
 	int			r;
+	AttrNumber	attnum;
 	Datum		tupkey;
+	Datum		bufkey;
 
 	AssertCheckGinBuffer(buffer);
+	if (buffer->cached)
+	{
+		GinTuple   *cached = buffer->cached;
 
-	if (tup->attrnum != buffer->attnum)
-		return false;
+		if (tup->attrnum != cached->attrnum)
+			return false;
 
-	/* same attribute should have the same type info */
-	Assert(tup->typbyval == buffer->typbyval);
-	Assert(tup->typlen == buffer->typlen);
+		Assert(tup->typbyval == cached->typbyval);
+		Assert(tup->typlen == cached->typlen);
 
-	if (tup->category != buffer->category)
-		return false;
+		if (tup->category != cached->category)
+			return false;
 
-	/*
-	 * For NULL/empty keys, this means equality, for normal keys we need to
-	 * compare the actual key value.
-	 */
-	if (buffer->category != GIN_CAT_NORM_KEY)
-		return true;
+		/*
+		 * For NULL/empty keys, this means equality, for normal keys we need
+		 * to compare the actual key value.
+		 */
+		if (cached->category != GIN_CAT_NORM_KEY)
+			return true;
+
+		attnum = cached->attrnum;
+		bufkey = _gin_parse_tuple_key(cached);
+	}
+	else
+	{
+		if (tup->attrnum != buffer->attnum)
+			return false;
+
+		/* same attribute should have the same type info */
+		Assert(tup->typbyval == buffer->typbyval);
+		Assert(tup->typlen == buffer->typlen);
+
+		if (tup->category != buffer->category)
+			return false;
+
+		/*
+		 * For NULL/empty keys, this means equality, for normal keys we need
+		 * to compare the actual key value.
+		 */
+		if (buffer->category != GIN_CAT_NORM_KEY)
+			return true;
+		attnum = buffer->attnum;
+		bufkey = buffer->key;
+	}
 
 	/*
 	 * For the tuple, get either the first sizeof(Datum) bytes for byval
 	 * types, or a pointer to the beginning of the data array.
 	 */
-	tupkey = (buffer->typbyval) ? *(Datum *) tup->data : PointerGetDatum(tup->data);
+	tupkey = _gin_parse_tuple_key(tup);
 
-	r = ApplySortComparator(buffer->key, false,
+	prev = MemoryContextSwitchTo(buffer->context);
+
+	r = ApplySortComparator(bufkey, false,
 							tupkey, false,
-							&buffer->ssup[buffer->attnum - 1]);
+							&buffer->ssup[attnum - 1]);
+
+	MemoryContextSwitchTo(prev);
 
 	return (r == 0);
 }
@@ -1393,6 +1425,56 @@ GinBufferShouldTrim(GinBuffer *buffer, GinTuple *tup)
 	return true;
 }
 
+static void
+GinBufferUnpackCached(GinBuffer *buffer, int reserve_space)
+{
+	Datum		key;
+	ItemPointer items;
+	GinTuple   *cached;
+	int			totitems;
+
+	cached = buffer->cached;
+	totitems = cached->nitems + reserve_space;
+	key = _gin_parse_tuple_key(cached);
+
+	buffer->category = cached->category;
+	buffer->keylen = cached->keylen;
+	buffer->attnum = cached->attrnum;
+
+	buffer->typlen = cached->typlen;
+	buffer->typbyval = cached->typbyval;
+
+	if (cached->category == GIN_CAT_NORM_KEY)
+		buffer->key = datumCopy(key, buffer->typbyval, buffer->typlen);
+	else
+		buffer->key = (Datum) 0;
+
+	items = _gin_parse_tuple_items(cached);
+
+	if (buffer->items == NULL)
+	{
+		buffer->items = palloc0(totitems * sizeof(ItemPointerData));
+		buffer->maxitems = totitems;
+	}
+	else if (buffer->maxitems < totitems)
+	{
+		buffer->items = repalloc(buffer->items,
+								 totitems * sizeof(ItemPointerData));
+		buffer->maxitems = totitems;
+	}
+	else
+	{
+		Assert((buffer->items != NULL) &&
+			   buffer->maxitems >= totitems);
+	}
+	memcpy(buffer->items, items, buffer->nitems * sizeof(ItemPointerData));
+	buffer->nitems = cached->nitems;
+
+	buffer->cached = NULL;
+	pfree(cached);
+	pfree(items);
+}
+
 /*
  * GinBufferStoreTuple
  *		Add data (especially TID list) from a GIN tuple to the buffer.
@@ -1416,32 +1498,29 @@ GinBufferShouldTrim(GinBuffer *buffer, GinTuple *tup)
  * workers. But the workers merge the items as much as possible, so there
  * should not be too many.
  */
-static void
-GinBufferStoreTuple(GinBuffer *buffer, GinTuple *tup)
+void
+GinBufferMergeTuple(GinBuffer *buffer, GinTuple *tup)
 {
+	MemoryContext prev;
 	ItemPointerData *items;
-	Datum		key;
 
+	prev = MemoryContextSwitchTo(buffer->context);
 	AssertCheckGinBuffer(buffer);
-
-	key = _gin_parse_tuple_key(tup);
-	items = _gin_parse_tuple_items(tup);
 
 	/* if the buffer is empty, set the fields (and copy the key) */
 	if (GinBufferIsEmpty(buffer))
 	{
-		buffer->category = tup->category;
-		buffer->keylen = tup->keylen;
-		buffer->attnum = tup->attrnum;
+		GinTuple   *tuple = palloc(tup->tuplen);
 
-		buffer->typlen = tup->typlen;
-		buffer->typbyval = tup->typbyval;
-
-		if (tup->category == GIN_CAT_NORM_KEY)
-			buffer->key = datumCopy(key, buffer->typbyval, buffer->typlen);
-		else
-			buffer->key = (Datum) 0;
+		memcpy(tuple, tup, tup->tuplen);
+		buffer->cached = tuple;
 	}
+	else if (buffer->cached != NULL)
+	{
+		GinBufferUnpackCached(buffer, tup->nitems);
+	}
+
+	items = _gin_parse_tuple_items(tup);
 
 	/*
 	 * Try freeze TIDs at the beginning of the list, i.e. exclude them from
@@ -1519,20 +1598,54 @@ GinBufferStoreTuple(GinBuffer *buffer, GinTuple *tup)
 
 	/* free the decompressed TID list */
 	pfree(items);
+
+	MemoryContextSwitchTo(prev);
+}
+
+GinTuple *
+GinBufferBuildTuple(GinBuffer *buffer)
+{
+	MemoryContext prev = MemoryContextSwitchTo(buffer->context);
+	GinTuple   *result;
+
+	if (buffer->cached)
+	{
+		result = buffer->cached;
+		buffer->cached = NULL;
+	}
+	else
+	{
+		result = _gin_build_tuple(buffer->attnum, buffer->category,
+								  buffer->key, buffer->typlen,
+								  buffer->typbyval, buffer->items,
+								  buffer->nitems);
+	}
+
+	GinBufferReset(buffer);
+
+	MemoryContextSwitchTo(prev);
+	return result;
 }
 
 /*
  * GinBufferReset
  *		Reset the buffer into a state as if it contains no data.
  */
-static void
+void
 GinBufferReset(GinBuffer *buffer)
 {
 	Assert(!GinBufferIsEmpty(buffer));
 
-	/* release byref values, do nothing for by-val ones */
-	if ((buffer->category == GIN_CAT_NORM_KEY) && !buffer->typbyval)
-		pfree(DatumGetPointer(buffer->key));
+	/* release cached buffer tuple, if present */
+	if (buffer->cached)
+		pfree(buffer->cached);
+	else
+	{
+		/* release byref values, do nothing for by-val ones */
+		if ((buffer->category == GIN_CAT_NORM_KEY) && !buffer->typbyval
+			&& DatumGetPointer(buffer->key) != NULL)
+			pfree(DatumGetPointer(buffer->key));
+	}
 
 	/*
 	 * Not required, but makes it more likely to trigger NULL dereference if
@@ -1548,6 +1661,7 @@ GinBufferReset(GinBuffer *buffer)
 
 	buffer->typlen = 0;
 	buffer->typbyval = 0;
+	/* Note that we don't reset the memory context, this is deliberate */
 }
 
 /*
@@ -1571,7 +1685,7 @@ GinBufferTrim(GinBuffer *buffer)
  * GinBufferFree
  *		Release memory associated with the GinBuffer (including TID array).
  */
-static void
+void
 GinBufferFree(GinBuffer *buffer)
 {
 	if (buffer->items)
@@ -1582,6 +1696,7 @@ GinBufferFree(GinBuffer *buffer)
 		(buffer->category == GIN_CAT_NORM_KEY) && !buffer->typbyval)
 		pfree(DatumGetPointer(buffer->key));
 
+	MemoryContextDelete(buffer->context);
 	pfree(buffer);
 }
 
@@ -1591,7 +1706,7 @@ GinBufferFree(GinBuffer *buffer)
  *
  * Returns true if the buffer is either empty or for the same index key.
  */
-static bool
+bool
 GinBufferCanAddKey(GinBuffer *buffer, GinTuple *tup)
 {
 	/* empty buffer can accept data for any key */
@@ -1690,6 +1805,7 @@ _gin_parallel_merge(GinBuildState *state)
 			 * GinTuple.
 			 */
 			AssertCheckItemPointers(buffer);
+			Assert(buffer->cached == NULL);
 
 			oldCtx = MemoryContextSwitchTo(state->tmpCtx);
 
@@ -1721,6 +1837,7 @@ _gin_parallel_merge(GinBuildState *state)
 			 * GinTuple.
 			 */
 			AssertCheckItemPointers(buffer);
+			Assert(buffer->cached == NULL);
 
 			oldCtx = MemoryContextSwitchTo(state->tmpCtx);
 
@@ -1739,7 +1856,10 @@ _gin_parallel_merge(GinBuildState *state)
 		 * Remember data for the current tuple (either remember the new key,
 		 * or append if to the existing data).
 		 */
-		GinBufferStoreTuple(buffer, tup);
+		GinBufferMergeTuple(buffer, tup);
+
+		if (buffer->cached)
+			GinBufferUnpackCached(buffer, 0);
 
 		/* Report progress */
 		pgstat_progress_update_param(PROGRESS_CREATEIDX_TUPLES_DONE,
@@ -1750,6 +1870,7 @@ _gin_parallel_merge(GinBuildState *state)
 	if (!GinBufferIsEmpty(buffer))
 	{
 		AssertCheckItemPointers(buffer);
+		Assert(buffer->cached == NULL);
 
 		ginEntryInsert(&state->ginstate,
 					   buffer->attnum, buffer->key, buffer->category,
@@ -1803,158 +1924,6 @@ _gin_leader_participate_as_worker(GinBuildState *buildstate, Relation heap, Rela
 	_gin_parallel_scan_and_build(buildstate, ginleader->ginshared,
 								 ginleader->sharedsort, heap, index,
 								 sortmem, true);
-}
-
-/*
- * _gin_process_worker_data
- *		First phase of the key merging, happening in the worker.
- *
- * Depending on the number of distinct keys, the TID lists produced by the
- * callback may be very short (due to frequent evictions in the callback).
- * But combining many tiny lists is expensive, so we try to do as much as
- * possible in the workers and only then pass the results to the leader.
- *
- * We read the tuples sorted by the key, and merge them into larger lists.
- * At the moment there's no memory limit, so this will just produce one
- * huge (sorted) list per key in each worker. Which means the leader will
- * do a very limited number of mergesorts, which is good.
- */
-static void
-_gin_process_worker_data(GinBuildState *state, Tuplesortstate *worker_sort,
-						 bool progress)
-{
-	GinTuple   *tup;
-	Size		tuplen;
-
-	GinBuffer  *buffer;
-
-	/*
-	 * Initialize buffer to combine entries for the same key.
-	 *
-	 * The workers are limited to the same amount of memory as during the sort
-	 * in ginBuildCallbackParallel. But this probably should be the 32MB used
-	 * during planning, just like there.
-	 */
-	buffer = GinBufferInit(state->ginstate.index);
-
-	/* sort the raw per-worker data */
-	if (progress)
-		pgstat_progress_update_param(PROGRESS_CREATEIDX_SUBPHASE,
-									 PROGRESS_GIN_PHASE_PERFORMSORT_1);
-
-	tuplesort_performsort(state->bs_worker_sort);
-
-	/* reset the number of GIN tuples produced by this worker */
-	state->bs_numtuples = 0;
-
-	if (progress)
-		pgstat_progress_update_param(PROGRESS_CREATEIDX_SUBPHASE,
-									 PROGRESS_GIN_PHASE_MERGE_1);
-
-	/*
-	 * Read the GIN tuples from the shared tuplesort, sorted by the key, and
-	 * merge them into larger chunks for the leader to combine.
-	 */
-	while ((tup = tuplesort_getgintuple(worker_sort, &tuplen, true)) != NULL)
-	{
-
-		CHECK_FOR_INTERRUPTS();
-
-		/*
-		 * If the buffer can accept the new GIN tuple, just store it there and
-		 * we're done. If it's a different key (or maybe too much data) flush
-		 * the current contents into the index first.
-		 */
-		if (!GinBufferCanAddKey(buffer, tup))
-		{
-			GinTuple   *ntup;
-			Size		ntuplen;
-
-			/*
-			 * Buffer is not empty and it's storing a different key - flush
-			 * the data into the insert, and start a new entry for current
-			 * GinTuple.
-			 */
-			AssertCheckItemPointers(buffer);
-
-			ntup = _gin_build_tuple(buffer->attnum, buffer->category,
-									buffer->key, buffer->typlen, buffer->typbyval,
-									buffer->items, buffer->nitems, &ntuplen);
-
-			tuplesort_putgintuple(state->bs_sortstate, ntup, ntuplen);
-			state->bs_numtuples++;
-
-			pfree(ntup);
-
-			/* discard the existing data */
-			GinBufferReset(buffer);
-		}
-
-		/*
-		 * We're about to add a GIN tuple to the buffer - check the memory
-		 * limit first, and maybe write out some of the data into the index
-		 * first, if needed (and possible). We only flush the part of the TID
-		 * list that we know won't change, and only if there's enough data for
-		 * compression to work well.
-		 */
-		if (GinBufferShouldTrim(buffer, tup))
-		{
-			GinTuple   *ntup;
-			Size		ntuplen;
-
-			Assert(buffer->nfrozen > 0);
-
-			/*
-			 * Buffer is not empty and it's storing a different key - flush
-			 * the data into the insert, and start a new entry for current
-			 * GinTuple.
-			 */
-			AssertCheckItemPointers(buffer);
-
-			ntup = _gin_build_tuple(buffer->attnum, buffer->category,
-									buffer->key, buffer->typlen, buffer->typbyval,
-									buffer->items, buffer->nfrozen, &ntuplen);
-
-			tuplesort_putgintuple(state->bs_sortstate, ntup, ntuplen);
-
-			pfree(ntup);
-
-			/* truncate the data we've just discarded */
-			GinBufferTrim(buffer);
-		}
-
-		/*
-		 * Remember data for the current tuple (either remember the new key,
-		 * or append if to the existing data).
-		 */
-		GinBufferStoreTuple(buffer, tup);
-	}
-
-	/* flush data remaining in the buffer (for the last key) */
-	if (!GinBufferIsEmpty(buffer))
-	{
-		GinTuple   *ntup;
-		Size		ntuplen;
-
-		AssertCheckItemPointers(buffer);
-
-		ntup = _gin_build_tuple(buffer->attnum, buffer->category,
-								buffer->key, buffer->typlen, buffer->typbyval,
-								buffer->items, buffer->nitems, &ntuplen);
-
-		tuplesort_putgintuple(state->bs_sortstate, ntup, ntuplen);
-		state->bs_numtuples++;
-
-		pfree(ntup);
-
-		/* discard the existing data */
-		GinBufferReset(buffer);
-	}
-
-	/* relase all the memory */
-	GinBufferFree(buffer);
-
-	tuplesort_end(worker_sort);
 }
 
 /*
@@ -2023,12 +1992,6 @@ _gin_parallel_scan_and_build(GinBuildState *state,
 													coordinate,
 													TUPLESORT_NONE);
 
-	/* Local per-worker sort of raw-data */
-	state->bs_worker_sort = tuplesort_begin_index_gin(heap, index,
-													  state->work_mem,
-													  NULL,
-													  TUPLESORT_NONE);
-
 	/* Join parallel scan */
 	indexInfo = BuildIndexInfo(index);
 	indexInfo->ii_Concurrent = ginshared->isconcurrent;
@@ -2041,13 +2004,6 @@ _gin_parallel_scan_and_build(GinBuildState *state,
 
 	/* write remaining accumulated entries */
 	ginFlushBuildState(state, index);
-
-	/*
-	 * Do the first phase of in-worker processing - sort the data produced by
-	 * the callback, and combine them into much larger chunks and place that
-	 * into the shared tuplestore for leader to process.
-	 */
-	_gin_process_worker_data(state, state->bs_worker_sort, progress);
 
 	/* sort the GIN tuples built by this worker */
 	tuplesort_performsort(state->bs_sortstate);
@@ -2206,8 +2162,7 @@ typedef struct
 static GinTuple *
 _gin_build_tuple(OffsetNumber attrnum, unsigned char category,
 				 Datum key, int16 typlen, bool typbyval,
-				 ItemPointerData *items, uint32 nitems,
-				 Size *len)
+				 ItemPointerData *items, uint32 nitems)
 {
 	GinTuple   *tuple;
 	char	   *ptr;
@@ -2274,8 +2229,6 @@ _gin_build_tuple(OffsetNumber attrnum, unsigned char category,
 	 * only SHORTALIGN).
 	 */
 	tuplen = SHORTALIGN(offsetof(GinTuple, data) + keylen) + compresslen;
-
-	*len = tuplen;
 
 	/*
 	 * Allocate space for the whole GIN tuple.
