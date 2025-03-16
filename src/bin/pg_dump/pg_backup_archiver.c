@@ -200,6 +200,7 @@ dumpOptionsFromRestoreOptions(RestoreOptions *ropt)
 	dopt->disable_dollar_quoting = ropt->disable_dollar_quoting;
 	dopt->dump_inserts = ropt->dump_inserts;
 	dopt->no_comments = ropt->no_comments;
+	dopt->no_policies = ropt->no_policies;
 	dopt->no_publications = ropt->no_publications;
 	dopt->no_security_labels = ropt->no_security_labels;
 	dopt->no_subscriptions = ropt->no_subscriptions;
@@ -2865,6 +2866,12 @@ _tocEntryRequired(TocEntry *te, teSection curSection, ArchiveHandle *AH)
 
 	/* If it's a comment, maybe ignore it */
 	if (ropt->no_comments && strcmp(te->desc, "COMMENT") == 0)
+		return 0;
+
+	/* If it's a policy, maybe ignore it */
+	if (ropt->no_policies &&
+		(strcmp(te->desc, "POLICY") == 0 ||
+		 strcmp(te->desc, "ROW SECURITY") == 0))
 		return 0;
 
 	/*

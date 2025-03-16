@@ -244,6 +244,14 @@ my %pgdump_runs = (
 			'postgres',
 		],
 	},
+	no_policies => {
+		dump_cmd => [
+			'pg_dump', '--no-sync',
+			'--file' => "$tempdir/no_policies.sql",
+			'--no-policies',
+			'postgres',
+		],
+	},
 	no_privs => {
 		dump_cmd => [
 			'pg_dump',                      '--no-sync',
@@ -423,6 +431,7 @@ my %full_runs = (
 	createdb                 => 1,
 	defaults                 => 1,
 	exclude_dump_test_schema => 1,
+<<<<<<< HEAD
 	exclude_test_table       => 1,
 	exclude_test_table_data  => 1,
 	no_blobs                 => 1,
@@ -433,6 +442,22 @@ my %full_runs = (
 	pg_dumpall_dbprivs       => 1,
 	pg_dumpall_exclude       => 1,
 	schema_only              => 1,);
+=======
+	exclude_test_table => 1,
+	exclude_test_table_data => 1,
+	exclude_measurement => 1,
+	exclude_measurement_data => 1,
+	no_toast_compression => 1,
+	no_large_objects => 1,
+	no_owner => 1,
+	no_policies => 1,
+	no_privs => 1,
+	no_statistics => 1,
+	no_table_access_method => 1,
+	pg_dumpall_dbprivs => 1,
+	pg_dumpall_exclude => 1,
+	schema_only => 1,);
+>>>>>>> cd3c45125d2 (pg_dump, pg_dumpall, pg_restore: Add --no-policies option.)
 
 # This is where the actual tests are defined.
 my %tests = (
@@ -875,7 +900,13 @@ my %tests = (
 		},
 		unlike => {
 			exclude_dump_test_schema => 1,
+<<<<<<< HEAD
 			exclude_test_table       => 1,
+=======
+			exclude_test_table => 1,
+			no_policies => 1,
+			only_dump_measurement => 1,
+>>>>>>> cd3c45125d2 (pg_dump, pg_dumpall, pg_restore: Add --no-policies option.)
 		},
 	},
 
@@ -2214,7 +2245,13 @@ my %tests = (
 		},
 		unlike => {
 			exclude_dump_test_schema => 1,
+<<<<<<< HEAD
 			exclude_test_table       => 1,
+=======
+			exclude_test_table => 1,
+			no_policies => 1,
+			only_dump_measurement => 1,
+>>>>>>> cd3c45125d2 (pg_dump, pg_dumpall, pg_restore: Add --no-policies option.)
 		},
 	},
 
@@ -2234,7 +2271,13 @@ my %tests = (
 		},
 		unlike => {
 			exclude_dump_test_schema => 1,
+<<<<<<< HEAD
 			exclude_test_table       => 1,
+=======
+			exclude_test_table => 1,
+			no_policies => 1,
+			only_dump_measurement => 1,
+>>>>>>> cd3c45125d2 (pg_dump, pg_dumpall, pg_restore: Add --no-policies option.)
 		},
 	},
 
@@ -2254,7 +2297,13 @@ my %tests = (
 		},
 		unlike => {
 			exclude_dump_test_schema => 1,
+<<<<<<< HEAD
 			exclude_test_table       => 1,
+=======
+			exclude_test_table => 1,
+			no_policies => 1,
+			only_dump_measurement => 1,
+>>>>>>> cd3c45125d2 (pg_dump, pg_dumpall, pg_restore: Add --no-policies option.)
 		},
 	},
 
@@ -2274,7 +2323,13 @@ my %tests = (
 		},
 		unlike => {
 			exclude_dump_test_schema => 1,
+<<<<<<< HEAD
 			exclude_test_table       => 1,
+=======
+			exclude_test_table => 1,
+			no_policies => 1,
+			only_dump_measurement => 1,
+>>>>>>> cd3c45125d2 (pg_dump, pg_dumpall, pg_restore: Add --no-policies option.)
 		},
 	},
 
@@ -2294,7 +2349,8 @@ my %tests = (
 		},
 		unlike => {
 			exclude_dump_test_schema => 1,
-			exclude_test_table       => 1,
+			exclude_test_table => 1,
+			no_policies => 1,
 		},
 	},
 
@@ -2315,6 +2371,8 @@ my %tests = (
 		unlike => {
 			exclude_dump_test_schema => 1,
 			exclude_test_table       => 1,
+			exclude_test_table => 1,
+			no_policies => 1,
 		},
 	},
 
