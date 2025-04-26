@@ -4178,6 +4178,7 @@ pg_namespace_aclmask(Oid nsp_oid, Oid roleid,
 	bool		isNull;
 	Acl		   *acl;
 	Oid			ownerId;
+	Oid			mdb_read_all_data_oid;
 
 	/* Superusers bypass all permission checking. */
 	if (superuser_arg(roleid))
@@ -4222,6 +4223,8 @@ pg_namespace_aclmask(Oid nsp_oid, Oid roleid,
 
 	ownerId = ((Form_pg_namespace) GETSTRUCT(tuple))->nspowner;
 
+	mdb_read_all_data_oid = get_role_oid("mdb_read_all_data", true);
+
 	aclDatum = SysCacheGetAttr(NAMESPACEOID, tuple, Anum_pg_namespace_nspacl,
 							   &isNull);
 	if (isNull)
@@ -4243,6 +4246,17 @@ pg_namespace_aclmask(Oid nsp_oid, Oid roleid,
 		pfree(acl);
 
 	ReleaseSysCache(tuple);
+
+	/*
+	 * Check if ACL_USAGE is being checked and, if so, and not set already as
+	 * part of the result, then check if the user is a member of the
+	 * pg_read_all_data or pg_write_all_data roles, which allow usage access
+	 * to all schemas.
+	 */
+	if (mask & ACL_USAGE && !(result & ACL_USAGE) &&
+		has_privs_of_role(roleid, mdb_read_all_data_oid) && 
+		!has_privs_of_unwanted_system_role(ownerId))
+		result |= ACL_USAGE;
 
 	return result;
 }
