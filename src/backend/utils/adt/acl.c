@@ -5005,7 +5005,9 @@ has_privs_of_role_strict_no_cache(Oid member, Oid role)
 */
 
 bool
-has_privs_of_unwanted_system_role(Oid role) {
+has_privs_of_unwanted_system_role(Oid role, bool check_mdb_service_auth) {
+	Oid mdb_service_authoid;
+
 	if (has_privs_of_role_strict(role, ROLE_PG_READ_SERVER_FILES)) {
 		return true;
 	}
@@ -5020,6 +5022,14 @@ has_privs_of_unwanted_system_role(Oid role) {
 	}
 	if (has_privs_of_role_strict(role, ROLE_PG_WRITE_ALL_DATA)) {
 		return true;
+	}
+
+	if (check_mdb_service_auth) {
+		mdb_service_authoid = get_role_oid("mdb_service_auth", true);
+
+		if (has_privs_of_role_strict(role, mdb_service_authoid)) {
+			return true;
+		}
 	}
 
 	return false;
@@ -5068,7 +5078,7 @@ has_privs_of_role(Oid member, Oid role)
 			* if target role is neither superuser nor
 			* some dangerous system role
 			*/
-			if (!has_privs_of_unwanted_system_role(role)) {
+			if (!has_privs_of_unwanted_system_role(role, true)) {
 				return true;
 			}
 		}
@@ -5123,7 +5133,7 @@ mdb_admin_allow_bypass_owner_checks(Oid userId,  Oid ownerId)
 	*/
 
 	/* All checks passed, hope will not be hacked here (again) */
-	return !has_privs_of_unwanted_system_role(ownerId);
+	return !has_privs_of_unwanted_system_role(ownerId, true);
 }
 
 // -- non-upstream patch end
@@ -5197,7 +5207,7 @@ check_mdb_admin_is_member_of_role(Oid member, Oid role)
 							GetUserNameFromId(role, false))));
 		}
 
-		if (has_privs_of_unwanted_system_role(role)) {			
+		if (has_privs_of_unwanted_system_role(role, true)) {			
 			ereport(ERROR,
 					(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
 					errmsg("forbidden to transfer ownership to this system role in Cloud")));
