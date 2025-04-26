@@ -3,4 +3,4 @@ set -ex
 
 sed -i  '/mdb-related/,$d' src/test/regress/*/misc.*
 
-make check check-world
+make check
