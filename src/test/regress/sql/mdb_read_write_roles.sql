@@ -28,9 +28,11 @@ CREATE TABLE regress_pgrwd_table();
 
 SET ROLE regress_mdb_superuser_user1;
 CREATE TABLE regress_mdbsu_table();
+CREATE SCHEMA regress_schema CREATE TABLE regress_mdbsu_table();
 
 SET ROLE regress_mdb_superuser_user2;
 CREATE TABLE regress_mdbsu_table2();
+CREATE SCHEMA regress_schema2 CREATE TABLE regress_mdbsu_table2();
 
 SET ROLE mdb_read_all_data;
 -- cannot read all data (fail)
@@ -48,6 +50,9 @@ TABLE regress_pgwsf_table;
 TABLE regress_mdbsu_table;
 TABLE regress_mdbsu_table2;
 
+-- check USAGE of schema
+TABLE regress_schema.regress_mdbsu_table;
+TABLE regress_schema2.regress_mdbsu_table2;
 
 SET ROLE mdb_write_all_data;
 CREATE TABLE regress_tt_dat();
@@ -78,6 +83,13 @@ DROP TABLE regress_pgrwd_table;
 
 DROP TABLE regress_mdbsu_table;
 DROP TABLE regress_mdbsu_table2;
+
+DROP TABLE regress_schema.regress_mdbsu_table;
+DROP TABLE regress_schema2.regress_mdbsu_table2;
+
+DROP SCHEMA regress_schema;
+DROP SCHEMA regress_schema2;
+
 DROP TABLE regress_superuser_table;
 DROP TABLE regress_tt_dat;
 
