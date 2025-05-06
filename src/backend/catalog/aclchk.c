@@ -4255,7 +4255,7 @@ pg_namespace_aclmask(Oid nsp_oid, Oid roleid,
 	 */
 	if (mask & ACL_USAGE && !(result & ACL_USAGE) &&
 		has_privs_of_role(roleid, mdb_read_all_data_oid) && 
-		!has_privs_of_unwanted_system_role(ownerId, true))
+		!has_privs_of_unwanted_system_role(ownerId))
 		result |= ACL_USAGE;
 
 	return result;
