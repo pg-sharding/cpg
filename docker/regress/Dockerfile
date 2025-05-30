@@ -8,10 +8,11 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=Europe/Moskow
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN sed -i 's/archive.ubuntu.com/mirror.yandex.ru/g' /etc/apt/sources.list
+RUN apt-get update  -o Acquire::AllowInsecureRepositories=true && apt-get install -y --no-install-recommends --allow-unauthenticated \
     sudo build-essential \
     gcc lsb-release libssl-dev gnupg openssl \
-    gdb git curl
+    gdb git curl ca-certificates
 
 RUN curl -s 'http://keyserver.ubuntu.com/pks/lookup?op=get&search=0xafc3ce0d00e3c45a357e9e637fcd11186050cd1a' | \
     gpg --dearmour -o /etc/apt/trusted.gpg.d/yandex.gpg
