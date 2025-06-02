@@ -8,7 +8,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=Europe/Moskow
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
-RUN apy update && apt install -y ca-certificates
+RUN apt update && apt install -y ca-certificates
 RUN sed -i 's/archive.ubuntu.com/mirror.yandex.ru/g' /etc/apt/sources.list
 RUN apt-get update && apt-get install -y --no-install-recommends \
     sudo build-essential \
