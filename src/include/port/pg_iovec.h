@@ -19,6 +19,11 @@
 #include <sys/uio.h>			/* IWYU pragma: export */
 #include <unistd.h>
 
+/* POSIX requires at least 16 as a maximum iovcnt. */
+#ifndef IOV_MAX
+#define IOV_MAX 16
+#endif
+
 #else
 
 /* Define our own POSIX-compatible iovec struct. */
