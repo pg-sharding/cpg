@@ -1,0 +1,49 @@
+Work around a Linux bug in move_pages
+
+In 32-bit mode on 64-bit kernels, move_pages() does not correctly advance to
+the next chunk. Work around by not asking for more than 16 pages at once so
+move_pages() internal loop is not executed more than once.
+
+https://www.postgresql.org/message-id/flat/a3a4fe3d-1a80-4e03-aa8e-150ee15f6c35%40vondra.me#6abe7eaa802b5b07bb70cc3229e63a9f
+https://marc.info/?l=linux-mm&m=175077821909222&w=2
+
+--- a/contrib/pg_buffercache/pg_buffercache_pages.c
++++ b/contrib/pg_buffercache/pg_buffercache_pages.c
+@@ -390,8 +390,15 @@ pg_buffercache_numa_pages(PG_FUNCTION_AR
+ 		memset(os_page_status, 0xff, sizeof(int) * os_page_count);
+ 
+ 		/* Query NUMA status for all the pointers */
+-		if (pg_numa_query_pages(0, os_page_count, os_page_ptrs, os_page_status) == -1)
+-			elog(ERROR, "failed NUMA pages inquiry: %m");
++#define NUMA_QUERY_CHUNK_SIZE 16  /* has to be <= DO_PAGES_STAT_CHUNK_NR (do_pages_stat())*/
++		for (uint64 chunk_start = 0; chunk_start < os_page_count; chunk_start += NUMA_QUERY_CHUNK_SIZE) {
++			uint64 chunk_size = Min(NUMA_QUERY_CHUNK_SIZE, os_page_count - chunk_start);
++
++			if (pg_numa_query_pages(0, chunk_size, &os_page_ptrs[chunk_start],
++						&os_page_status[chunk_start]) == -1)
++				elog(ERROR, "failed NUMA pages inquiry status: %m");
++		}
++#undef NUMA_QUERY_CHUNK_SIZE
+ 
+ 		/* Initialize the multi-call context, load entries about buffers */
+ 
+--- a/src/backend/storage/ipc/shmem.c
++++ b/src/backend/storage/ipc/shmem.c
+@@ -689,8 +689,15 @@ pg_get_shmem_allocations_numa(PG_FUNCTIO
+ 			CHECK_FOR_INTERRUPTS();
+ 		}
+ 
+-		if (pg_numa_query_pages(0, shm_ent_page_count, page_ptrs, pages_status) == -1)
+-			elog(ERROR, "failed NUMA pages inquiry status: %m");
++#define NUMA_QUERY_CHUNK_SIZE 16  /* has to be <= DO_PAGES_STAT_CHUNK_NR (do_pages_stat())*/
++		for (uint64 chunk_start = 0; chunk_start < shm_ent_page_count; chunk_start += NUMA_QUERY_CHUNK_SIZE) {
++			uint64 chunk_size = Min(NUMA_QUERY_CHUNK_SIZE, shm_ent_page_count - chunk_start);
++
++			if (pg_numa_query_pages(0, chunk_size, &page_ptrs[chunk_start],
++						&pages_status[chunk_start]) == -1)
++				elog(ERROR, "failed NUMA pages inquiry status: %m");
++		}
++#undef NUMA_QUERY_CHUNK_SIZE
+ 
+ 		/* Count number of NUMA nodes used for this shared memory entry */
+ 		memset(nodes, 0, sizeof(Size) * (max_nodes + 1));
