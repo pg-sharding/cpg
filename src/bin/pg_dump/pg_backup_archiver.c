@@ -30,6 +30,9 @@
 #include <io.h>
 #endif
 
+#include "catalog/pg_class_d.h"
+#include "catalog/pg_largeobject_metadata_d.h"
+#include "catalog/pg_shdepend_d.h"
 #include "common/string.h"
 #include "dumputils.h"
 #include "fe_utils/string_utils.h"
@@ -2842,6 +2845,19 @@ _tocEntryRequired(TocEntry *te, teSection curSection, ArchiveHandle *AH)
 {
 	int			res = REQ_SCHEMA | REQ_DATA;
 	RestoreOptions *ropt = AH->public.ropt;
+
+	/*
+	 * For binary upgrade mode, dump pg_largeobject_metadata and the
+	 * associated pg_shdepend rows. This is faster to restore than the
+	 * equivalent set of large object commands.  We can only do this for
+	 * upgrades from v12 and newer; in older versions, pg_largeobject_metadata
+	 * was created WITH OIDS, so the OID column is hidden and won't be dumped.
+	 */
+	if (ropt->binary_upgrade && AH->public.remoteVersion >= 120000 &&
+		strcmp(te->desc, "TABLE DATA") == 0 &&
+		(te->catalogId.oid == LargeObjectMetadataRelationId ||
+		 te->catalogId.oid == SharedDependRelationId))
+		return REQ_DATA;
 
 	/* These items are treated specially */
 	if (strcmp(te->desc, "ENCODING") == 0 ||
