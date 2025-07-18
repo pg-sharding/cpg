@@ -4181,8 +4181,7 @@ GlobalVisUpdate(void)
  * See comment for GlobalVisState for details.
  */
 bool
-GlobalVisTestIsRemovableFullXid(GlobalVisState *state,
-								FullTransactionId fxid)
+GlobalVisFullXidVisibleToAll(GlobalVisState *state, FullTransactionId fxid)
 {
 	/*
 	 * If fxid is older than maybe_needed bound, it definitely is visible to
@@ -4216,14 +4215,14 @@ GlobalVisTestIsRemovableFullXid(GlobalVisState *state,
 }
 
 /*
- * Wrapper around GlobalVisTestIsRemovableFullXid() for 32bit xids.
+ * Wrapper around GlobalVisFullXidVisibleToAll() for 32bit xids.
  *
  * It is crucial that this only gets called for xids from a source that
  * protects against xid wraparounds (e.g. from a table and thus protected by
  * relfrozenxid).
  */
 bool
-GlobalVisTestIsRemovableXid(GlobalVisState *state, TransactionId xid)
+GlobalVisXidVisibleToAll(GlobalVisState *state, TransactionId xid)
 {
 	FullTransactionId fxid;
 
@@ -4237,12 +4236,12 @@ GlobalVisTestIsRemovableXid(GlobalVisState *state, TransactionId xid)
 	 */
 	fxid = FullXidRelativeTo(state->definitely_needed, xid);
 
-	return GlobalVisTestIsRemovableFullXid(state, fxid);
+	return GlobalVisFullXidVisibleToAll(state, fxid);
 }
 
 /*
  * Convenience wrapper around GlobalVisTestFor() and
- * GlobalVisTestIsRemovableFullXid(), see their comments.
+ * GlobalVisFullXidVisibleToAll(), see their comments.
  */
 bool
 GlobalVisCheckRemovableFullXid(Relation rel, FullTransactionId fxid)
@@ -4251,12 +4250,12 @@ GlobalVisCheckRemovableFullXid(Relation rel, FullTransactionId fxid)
 
 	state = GlobalVisTestFor(rel);
 
-	return GlobalVisTestIsRemovableFullXid(state, fxid);
+	return GlobalVisFullXidVisibleToAll(state, fxid);
 }
 
 /*
  * Convenience wrapper around GlobalVisTestFor() and
- * GlobalVisTestIsRemovableXid(), see their comments.
+ * GlobalVisTestIsVisibleXid(), see their comments.
  */
 bool
 GlobalVisCheckRemovableXid(Relation rel, TransactionId xid)
@@ -4265,7 +4264,7 @@ GlobalVisCheckRemovableXid(Relation rel, TransactionId xid)
 
 	state = GlobalVisTestFor(rel);
 
-	return GlobalVisTestIsRemovableXid(state, xid);
+	return GlobalVisXidVisibleToAll(state, xid);
 }
 
 /*
