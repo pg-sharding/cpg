@@ -276,8 +276,7 @@ typedef struct PruneFreezeParams
 	/*
 	 * cutoffs contains the freeze cutoffs, established by VACUUM at the
 	 * beginning of vacuuming the relation.  Required if HEAP_PRUNE_FREEZE
-	 * option is set. cutoffs->OldestXmin is also used to determine if dead
-	 * tuples are HEAPTUPLE_RECENTLY_DEAD or HEAPTUPLE_DEAD.
+	 * option is set.
 	 */
 	struct VacuumCutoffs *cutoffs;
 } PruneFreezeParams;
@@ -444,7 +443,7 @@ extern void heap_vacuum_rel(Relation rel,
 
 #ifdef USE_ASSERT_CHECKING
 extern bool heap_page_is_all_visible(Relation rel, Buffer buf,
-									 TransactionId OldestXmin,
+									 GlobalVisState *vistest,
 									 bool *all_frozen,
 									 TransactionId *visibility_cutoff_xid,
 									 OffsetNumber *logging_offnum);
@@ -457,6 +456,8 @@ extern TM_Result HeapTupleSatisfiesUpdate(HeapTuple htup, CommandId curcid,
 										  Buffer buffer);
 extern HTSV_Result HeapTupleSatisfiesVacuum(HeapTuple htup, TransactionId OldestXmin,
 											Buffer buffer);
+extern HTSV_Result HeapTupleSatisfiesVacuumGlobalVis(HeapTuple htup,
+													 GlobalVisState *vistest, Buffer buffer);
 extern HTSV_Result HeapTupleSatisfiesVacuumHorizon(HeapTuple htup, Buffer buffer,
 												   TransactionId *dead_after);
 extern void HeapTupleSetHintBits(HeapTupleHeader tuple, Buffer buffer,

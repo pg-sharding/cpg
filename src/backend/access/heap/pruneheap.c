@@ -712,11 +712,12 @@ heap_page_prune_and_freeze(PruneFreezeParams *params,
 
 	/*
 	 * The visibility cutoff xid is the newest xmin of live, committed tuples
-	 * older than OldestXmin on the page. This field is only kept up-to-date
-	 * if the page is all-visible. As soon as a tuple is encountered that is
-	 * not visible to all, this field is unmaintained. As long as it is
-	 * maintained, it can be used to calculate the snapshot conflict horizon
-	 * when updating the VM and/or freezing all the tuples on the page.
+	 * on the page older than the visibility horizon represented in the
+	 * GlobalVisState. This field is only kept up-to-date if the page is
+	 * all-visible. As soon as a tuple is encountered that is not visible to
+	 * all, this field is unmaintained. As long as it is maintained, it can be
+	 * used to calculate the snapshot conflict horizon when updating the VM
+	 * and/or freezing all the tuples on the page.
 	 */
 	prstate.visibility_cutoff_xid = InvalidTransactionId;
 
@@ -913,6 +914,16 @@ heap_page_prune_and_freeze(PruneFreezeParams *params,
 		prstate.nunused > 0;
 
 	/*
+	 * After processing all the live tuples on the page, if the newest xmin
+	 * amongst them is not visible to everyone, the page cannot be
+	 * all-visible.
+	 */
+	if (prstate.all_visible &&
+		TransactionIdIsNormal(prstate.visibility_cutoff_xid) &&
+		!GlobalVisXidVisibleToAll(prstate.vistest, prstate.visibility_cutoff_xid))
+		prstate.all_visible = prstate.all_frozen = false;
+
+	/*
 	 * Even if we don't prune anything, if we found a new value for the
 	 * pd_prune_xid field or the page was marked full, we will update the hint
 	 * bit.
@@ -1084,10 +1095,9 @@ heap_page_prune_and_freeze(PruneFreezeParams *params,
 		bool		debug_all_frozen;
 
 		Assert(prstate.lpdead_items == 0);
-		Assert(prstate.cutoffs);
 
 		if (!heap_page_is_all_visible(params->relation, buffer,
-									  prstate.cutoffs->OldestXmin,
+									  prstate.vistest,
 									  &debug_all_frozen,
 									  &debug_cutoff, off_loc))
 			Assert(false);
@@ -1614,19 +1624,6 @@ heap_prune_record_unchanged_lp_normal(Page page, PruneState *prstate, OffsetNumb
 				 * running, and if so, we don't consider the page all-visible.
 				 */
 				xmin = HeapTupleHeaderGetXmin(htup);
-
-				/*
-				 * For now always use prstate->cutoffs for this test, because
-				 * we only update 'all_visible' when freezing is requested. We
-				 * could use GlobalVisXidVisibleToAll() instead, if a
-				 * non-freezing caller wanted to set the VM bit.
-				 */
-				Assert(prstate->cutoffs);
-				if (!TransactionIdPrecedes(xmin, prstate->cutoffs->OldestXmin))
-				{
-					prstate->all_visible = prstate->all_frozen = false;
-					break;
-				}
 
 				/* Track newest xmin on page. */
 				if (TransactionIdFollows(xmin, prstate->visibility_cutoff_xid) &&
