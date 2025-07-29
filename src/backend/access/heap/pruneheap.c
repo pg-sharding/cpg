@@ -188,7 +188,9 @@ static bool heap_page_will_set_vis(Relation relation,
 								   Buffer heap_buf,
 								   Buffer vmbuffer,
 								   bool blk_known_av,
-								   const PruneState *prstate,
+								   PruneReason reason,
+								   bool do_prune, bool do_freeze,
+								   PruneState *prstate,
 								   uint8 *vmflags,
 								   bool *do_set_pd_vis);
 
@@ -203,9 +205,13 @@ static bool heap_page_will_set_vis(Relation relation,
  * if there's not any use in pruning.
  *
  * Caller must have pin on the buffer, and must *not* have a lock on it.
+ *
+ * If vmbuffer is not NULL, it is okay for pruning to set the visibility map if
+ * the page is all-visible. We will take care of pinning and, if needed,
+ * reading in the page of the visibility map.
  */
 void
-heap_page_prune_opt(Relation relation, Buffer buffer)
+heap_page_prune_opt(Relation relation, Buffer buffer, Buffer *vmbuffer)
 {
 	Page		page = BufferGetPage(buffer);
 	TransactionId prune_xid;
@@ -271,12 +277,21 @@ heap_page_prune_opt(Relation relation, Buffer buffer)
 			PruneFreezeParams params;
 			PruneFreezeResult presult;
 
+			params.options = 0;
+			params.vmbuffer = InvalidBuffer;
+
+			if (vmbuffer)
+			{
+				visibilitymap_pin(relation, BufferGetBlockNumber(buffer), vmbuffer);
+				params.options = HEAP_PAGE_PRUNE_UPDATE_VIS;
+				params.vmbuffer = *vmbuffer;
+			}
+
 			params.relation = relation;
 			params.buffer = buffer;
 			params.reason = PRUNE_ON_ACCESS;
 			params.vistest = vistest;
 			params.cutoffs = NULL;
-			params.vmbuffer = InvalidBuffer;
 			params.blk_known_av = false;
 
 			/*
@@ -456,6 +471,9 @@ heap_page_will_freeze(Relation relation, Buffer buffer,
  * have examined this page’s VM bits (e.g., VACUUM in the previous
  * heap_vac_scan_next_block() call) and can pass that along.
  *
+ * This should be called only after do_freeze has been decided (and do_prune
+ * has been set), as these factor into our heuristic-based decision.
+ *
  * Returns true if one or both VM bits should be set, along with the desired
  * flags in *vmflags. Also indicates via do_set_pd_vis whether PD_ALL_VISIBLE
  * should be set on the heap page.
@@ -466,7 +484,9 @@ heap_page_will_set_vis(Relation relation,
 					   Buffer heap_buf,
 					   Buffer vmbuffer,
 					   bool blk_known_av,
-					   const PruneState *prstate,
+					   PruneReason reason,
+					   bool do_prune, bool do_freeze,
+					   PruneState *prstate,
 					   uint8 *vmflags,
 					   bool *do_set_pd_vis)
 {
@@ -479,6 +499,23 @@ heap_page_will_set_vis(Relation relation,
 	{
 		Assert(!prstate->all_visible && !prstate->all_frozen);
 		Assert(*vmflags == 0);
+		return false;
+	}
+
+	/*
+	 * If this is an on-access call and we're not actually pruning, avoid
+	 * setting the visibility map if it would newly dirty the heap page or, if
+	 * the page is already dirty, if doing so would require including a
+	 * full-page image (FPI) of the heap page in the WAL. This situation
+	 * should be rare, as on-access pruning is only attempted when
+	 * pd_prune_xid is valid.
+	 */
+	if (reason == PRUNE_ON_ACCESS &&
+		prstate->all_visible &&
+		!do_prune && !do_freeze &&
+		(!BufferIsDirty(heap_buf) || XLogCheckBufferNeedsBackup(heap_buf)))
+	{
+		prstate->all_visible = prstate->all_frozen = false;
 		return false;
 	}
 
@@ -505,6 +542,11 @@ heap_page_will_set_vis(Relation relation,
 	 * page-level bit is clear.  However, it's possible that in vacuum the bit
 	 * got cleared after heap_vac_scan_next_block() was called, so we must
 	 * recheck with buffer lock before concluding that the VM is corrupt.
+	 *
+	 * This will never trigger for on-access pruning because it couldn't have
+	 * done a previous visibility map lookup and thus will always pass
+	 * blk_known_av as false. A future vacuum will have to take care of fixing
+	 * the corruption.
 	 */
 	else if (blk_known_av && !PageIsAllVisible(heap_page) &&
 			 visibilitymap_get_status(relation, heap_blk, &vmbuffer) != 0)
@@ -914,6 +956,14 @@ heap_page_prune_and_freeze(PruneFreezeParams *params,
 		prstate.nunused > 0;
 
 	/*
+	 * Even if we don't prune anything, if we found a new value for the
+	 * pd_prune_xid field or the page was marked full, we will update the hint
+	 * bit.
+	 */
+	do_hint_prune = ((PageHeader) page)->pd_prune_xid != prstate.new_prune_xid ||
+		PageIsFull(page);
+
+	/*
 	 * After processing all the live tuples on the page, if the newest xmin
 	 * amongst them is not visible to everyone, the page cannot be
 	 * all-visible.
@@ -922,14 +972,6 @@ heap_page_prune_and_freeze(PruneFreezeParams *params,
 		TransactionIdIsNormal(prstate.visibility_cutoff_xid) &&
 		!GlobalVisXidVisibleToAll(prstate.vistest, prstate.visibility_cutoff_xid))
 		prstate.all_visible = prstate.all_frozen = false;
-
-	/*
-	 * Even if we don't prune anything, if we found a new value for the
-	 * pd_prune_xid field or the page was marked full, we will update the hint
-	 * bit.
-	 */
-	do_hint_prune = ((PageHeader) page)->pd_prune_xid != prstate.new_prune_xid ||
-		PageIsFull(page);
 
 	/*
 	 * Decide if we want to go ahead with freezing according to the freeze
@@ -974,6 +1016,7 @@ heap_page_prune_and_freeze(PruneFreezeParams *params,
 	 */
 	do_set_vm = heap_page_will_set_vis(params->relation,
 									   blockno, buffer, vmbuffer, params->blk_known_av,
+									   params->reason, do_prune, do_freeze,
 									   &prstate, &new_vmbits, &do_set_pd_vis);
 
 	/* We should only set the VM if PD_ALL_VISIBLE is set or will be */
@@ -2250,7 +2293,7 @@ heap_log_freeze_plan(HeapTupleFreeze *tuples, int ntuples,
 
 /*
  * Calculate the conflict horizon for the whole XLOG_HEAP2_PRUNE_VACUUM_SCAN
- * record.
+ * or XLOG_HEAP2_PRUNE_ON_ACCESS record.
  */
 static TransactionId
 get_conflict_xid(bool do_prune, bool do_freeze, bool do_set_vm,
@@ -2319,8 +2362,8 @@ get_conflict_xid(bool do_prune, bool do_freeze, bool do_set_vm,
  * - Reaping: During vacuum phase III, items that are already LP_DEAD are
  *   marked as unused.
  *
- * - VM updates: After vacuum phases I and III, the heap page may be marked
- *   all-visible and all-frozen.
+ * - VM updates: After vacuum phases I and III and on-access, the heap page
+ *   may be marked all-visible and all-frozen.
  *
  * These changes all happen together, so we use a single WAL record for them
  * all.
