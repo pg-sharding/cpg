@@ -34,7 +34,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libsystemd-dev libxml2-dev libxml2-utils libxslt1-dev \
     python3-dev systemtap-sdt-dev tcl-dev uuid-dev xsltproc zlib1g-dev \
     bison dh-exec docbook-xml docbook-xsl \
-    clang libcurl4-openssl-dev libnuma-dev liburing-dev libzstd-dev pkgconf tzdata
+    clang-18 libcurl4-openssl-dev libnuma-dev liburing-dev libzstd-dev pkgconf tzdata
 RUN apt-get install -y \
     libmdblocales1 libmdblocales-dev \
     postgresql-client-common=${PGDG_VER} \
