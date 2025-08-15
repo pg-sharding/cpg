@@ -69,6 +69,9 @@ ALTER TABLE regress_mdb_admin_schema.regress_mdb_admin_table OWNER TO pg_read_al
 ALTER TABLE regress_mdb_admin_table OWNER TO pg_read_all_data;
 ALTER SCHEMA regress_mdb_admin_schema OWNER TO pg_read_all_data;
 
+SELECT pg_has_role('mdb_admin', 'pg_signal_autovacuum', 'usage');
+SELECT pg_has_role('mdb_superuser', 'pg_signal_autovacuum', 'usage');
+
 -- end tests
 
 RESET SESSION AUTHORIZATION;
