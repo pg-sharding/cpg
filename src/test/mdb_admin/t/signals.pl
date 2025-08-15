@@ -18,7 +18,6 @@ $node_primary->safe_psql('postgres',
 	"
     CREATE DATABASE regress;
     CREATE ROLE mdb_admin;
-    GRANT pg_signal_autovacuum TO mdb_admin;
     CREATE ROLE mdb_reg_lh_1;
     CREATE ROLE mdb_reg_lh_2;
     GRANT pg_signal_backend TO mdb_admin;
