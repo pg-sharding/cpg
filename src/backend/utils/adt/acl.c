@@ -5257,6 +5257,7 @@ bool
 has_privs_of_role(Oid member, Oid role)
 {
 	Oid mdb_superuser_roleoid;
+	Oid mdb_admin_roleoid;
 
 	/* Fast path for simple case */
 	if (member == role)
@@ -5269,6 +5270,10 @@ has_privs_of_role(Oid member, Oid role)
 	mdb_superuser_roleoid = get_role_oid("mdb_superuser", true /*if nodoby created mdb_superuser role in this database*/);
 
 	if (is_member_of_role(member, mdb_superuser_roleoid)) {
+		/* mdb superuser is member of role pg_signal_autovacuum */
+		if (role == ROLE_PG_SIGNAL_AUTOVACUUM) {
+			return true;
+		}
 		/* if target role is superuser, disallow */
 		if (!superuser_arg(role)) {
 			/* we want mdb_roles_admin to bypass
@@ -5279,6 +5284,15 @@ has_privs_of_role(Oid member, Oid role)
 			if (!has_privs_of_unwanted_system_role(role, true)) {
 				return true;
 			}
+		}
+	}
+
+	mdb_admin_roleoid = get_role_oid("mdb_admin", true /*if nodoby created mdb_superuser role in this database*/);
+
+	if (is_member_of_role(member, mdb_admin_roleoid)) {
+		/* mdb admin is member of role pg_signal_autovacuum */
+		if (role == ROLE_PG_SIGNAL_AUTOVACUUM) {
+			return true;
 		}
 	}
 	
