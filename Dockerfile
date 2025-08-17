@@ -23,6 +23,8 @@ RUN echo "deb http://dist.yandex.ru/mdb-${CODE_NAME}-secure stable/\$(ARCH)/" >>
 RUN curl -s 'http://keyserver.ubuntu.com/pks/lookup?op=get&search=0xafc3ce0d00e3c45a357e9e637fcd11186050cd1a' | \
     gpg --dearmour -o /etc/apt/trusted.gpg.d/yandex.gpg
 
+RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys FF5F4D0E27393420
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
     sudo build-essential \
     gcc lsb-release libssl-dev gnupg openssl \
