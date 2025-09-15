@@ -15,7 +15,9 @@ RUN sed -i 's/archive.ubuntu.com/mirror.yandex.ru/g' /etc/apt/sources.list &&\
     apt-get update && apt-get install -y --no-install-recommends \
     sudo build-essential \
     gcc lsb-release libssl-dev gnupg openssl \
-    gdb git curl
+    gdb git curl gnupg
+
+RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys FF5F4D0E27393420
 
 RUN echo "deb http://dist.yandex.ru/mdb-${CODE_NAME}-secure stable/all/" >> /etc/apt/sources.list
 RUN echo "deb http://dist.yandex.ru/mdb-${CODE_NAME}-secure stable/\$(ARCH)/" >> /etc/apt/sources.list
