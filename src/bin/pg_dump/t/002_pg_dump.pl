@@ -252,6 +252,23 @@ my %pgdump_runs = (
 			'postgres',
 		],
 	},
+	no_policies_restore => {
+		dump_cmd => [
+			'pg_dump', '--no-sync',
+			'--format' => 'custom',
+			'--file' => "$tempdir/no_policies_restore.dump",
+			'--statistics',
+			'postgres',
+		],
+		restore_cmd => [
+			'pg_restore',
+			'--format' => 'custom',
+			'--file' => "$tempdir/no_policies_restore.sql",
+			'--no-policies',
+			'--statistics',
+			"$tempdir/no_policies_restore.dump",
+		],
+	},
 	no_privs => {
 		dump_cmd => [
 			'pg_dump',                      '--no-sync',
@@ -431,7 +448,6 @@ my %full_runs = (
 	createdb                 => 1,
 	defaults                 => 1,
 	exclude_dump_test_schema => 1,
-<<<<<<< HEAD
 	exclude_test_table       => 1,
 	exclude_test_table_data  => 1,
 	no_blobs                 => 1,
@@ -442,22 +458,6 @@ my %full_runs = (
 	pg_dumpall_dbprivs       => 1,
 	pg_dumpall_exclude       => 1,
 	schema_only              => 1,);
-=======
-	exclude_test_table => 1,
-	exclude_test_table_data => 1,
-	exclude_measurement => 1,
-	exclude_measurement_data => 1,
-	no_toast_compression => 1,
-	no_large_objects => 1,
-	no_owner => 1,
-	no_policies => 1,
-	no_privs => 1,
-	no_statistics => 1,
-	no_table_access_method => 1,
-	pg_dumpall_dbprivs => 1,
-	pg_dumpall_exclude => 1,
-	schema_only => 1,);
->>>>>>> cd3c45125d2 (pg_dump, pg_dumpall, pg_restore: Add --no-policies option.)
 
 # This is where the actual tests are defined.
 my %tests = (
@@ -900,13 +900,9 @@ my %tests = (
 		},
 		unlike => {
 			exclude_dump_test_schema => 1,
-<<<<<<< HEAD
-			exclude_test_table       => 1,
-=======
 			exclude_test_table => 1,
 			no_policies => 1,
-			only_dump_measurement => 1,
->>>>>>> cd3c45125d2 (pg_dump, pg_dumpall, pg_restore: Add --no-policies option.)
+			no_policies_restore => 1,
 		},
 	},
 
@@ -1149,6 +1145,27 @@ my %tests = (
 		unlike => {
 			no_blobs    => 1,
 			schema_only => 1,
+		},
+	},
+
+	'COMMENT ON POLICY p1' => {
+		create_order => 55,
+		create_sql => 'COMMENT ON POLICY p1 ON dump_test.test_table
+					   IS \'comment on policy\';',
+		regexp =>
+		  qr/^COMMENT ON POLICY p1 ON dump_test.test_table IS 'comment on policy';/m,
+		like => {
+			%full_runs,
+			%dump_test_schema_runs,
+			only_dump_test_table => 1,
+			section_post_data => 1,
+		},
+		unlike => {
+			exclude_dump_test_schema => 1,
+			exclude_test_table => 1,
+			no_policies => 1,
+			no_policies_restore => 1,
+			only_dump_measurement => 1,
 		},
 	},
 
@@ -2245,13 +2262,9 @@ my %tests = (
 		},
 		unlike => {
 			exclude_dump_test_schema => 1,
-<<<<<<< HEAD
-			exclude_test_table       => 1,
-=======
 			exclude_test_table => 1,
 			no_policies => 1,
-			only_dump_measurement => 1,
->>>>>>> cd3c45125d2 (pg_dump, pg_dumpall, pg_restore: Add --no-policies option.)
+			no_policies_restore => 1,
 		},
 	},
 
@@ -2271,13 +2284,9 @@ my %tests = (
 		},
 		unlike => {
 			exclude_dump_test_schema => 1,
-<<<<<<< HEAD
-			exclude_test_table       => 1,
-=======
 			exclude_test_table => 1,
 			no_policies => 1,
-			only_dump_measurement => 1,
->>>>>>> cd3c45125d2 (pg_dump, pg_dumpall, pg_restore: Add --no-policies option.)
+			no_policies_restore => 1,
 		},
 	},
 
@@ -2297,13 +2306,9 @@ my %tests = (
 		},
 		unlike => {
 			exclude_dump_test_schema => 1,
-<<<<<<< HEAD
-			exclude_test_table       => 1,
-=======
 			exclude_test_table => 1,
 			no_policies => 1,
-			only_dump_measurement => 1,
->>>>>>> cd3c45125d2 (pg_dump, pg_dumpall, pg_restore: Add --no-policies option.)
+			no_policies_restore => 1,
 		},
 	},
 
@@ -2323,13 +2328,9 @@ my %tests = (
 		},
 		unlike => {
 			exclude_dump_test_schema => 1,
-<<<<<<< HEAD
-			exclude_test_table       => 1,
-=======
 			exclude_test_table => 1,
 			no_policies => 1,
-			only_dump_measurement => 1,
->>>>>>> cd3c45125d2 (pg_dump, pg_dumpall, pg_restore: Add --no-policies option.)
+			no_policies_restore => 1,
 		},
 	},
 
@@ -2351,6 +2352,7 @@ my %tests = (
 			exclude_dump_test_schema => 1,
 			exclude_test_table => 1,
 			no_policies => 1,
+			no_policies_restore => 1,
 		},
 	},
 
@@ -2373,6 +2375,7 @@ my %tests = (
 			exclude_test_table       => 1,
 			exclude_test_table => 1,
 			no_policies => 1,
+			no_policies_restore => 1,
 		},
 	},
 
