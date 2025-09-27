@@ -1031,9 +1031,9 @@ heap_page_prune_and_freeze(PruneFreezeParams *params,
 		{
 			Assert(PageIsAllVisible(page));
 
-			old_vmbits = visibilitymap_set_vmbits(blockno,
-												  vmbuffer, new_vmbits,
-												  params->relation->rd_locator);
+			old_vmbits = visibilitymap_set(blockno,
+										   vmbuffer, new_vmbits,
+										   params->relation->rd_locator);
 			if (old_vmbits == new_vmbits)
 			{
 				LockBuffer(vmbuffer, BUFFER_LOCK_UNLOCK);
@@ -2308,14 +2308,18 @@ get_conflict_xid(bool do_prune, bool do_freeze, bool do_set_vm,
  *
  * This is used for several different page maintenance operations:
  *
- * - Page pruning, in VACUUM's 1st pass or on access: Some items are
+ * - Page pruning, in vacuum phase I or on-access: Some items are
  *   redirected, some marked dead, and some removed altogether.
  *
- * - Freezing: Items are marked as 'frozen'.
+ * - Freezing: During vacuum phase I, items are marked as 'frozen'
  *
- * - Vacuum, 2nd pass: Items that are already LP_DEAD are marked as unused.
+ * - Reaping: During vacuum phase III, items that are already LP_DEAD are
+ *   marked as unused.
  *
- * They have enough commonalities that we use a single WAL record for them
+ * - VM updates: After vacuum phases I and III, the heap page may be marked
+ *   all-visible and all-frozen.
+ *
+ * These changes all happen together, so we use a single WAL record for them
  * all.
  *
  * If replaying the record requires a cleanup lock, pass cleanup_lock = true.

@@ -60,7 +60,6 @@
 #define XLOG_HEAP2_PRUNE_ON_ACCESS		0x10
 #define XLOG_HEAP2_PRUNE_VACUUM_SCAN	0x20
 #define XLOG_HEAP2_PRUNE_VACUUM_CLEANUP	0x30
-#define XLOG_HEAP2_VISIBLE		0x40
 #define XLOG_HEAP2_MULTI_INSERT 0x50
 #define XLOG_HEAP2_LOCK_UPDATED 0x60
 #define XLOG_HEAP2_NEW_CID		0x70
@@ -294,7 +293,13 @@ typedef struct xl_heap_prune
 
 #define SizeOfHeapPrune (offsetof(xl_heap_prune, flags) + sizeof(uint16))
 
-/* to handle recovery conflict during logical decoding on standby */
+/*
+ * To handle recovery conflict during logical decoding on standby, we must know
+ * if the table is a catalog table. Note that in visibilitymapdefs.h
+ * VISIBLITYMAP_XLOG_CATALOG_REL is also defined as (1 << 2). xl_heap_prune
+ * records should use XLHP_IS_CATALOG_REL, not VISIBILIYTMAP_XLOG_CATALOG_REL --
+ * even if they only contain updates to the VM.
+ */
 #define		XLHP_IS_CATALOG_REL			(1 << 1)
 
 /*
@@ -443,20 +448,6 @@ typedef struct xl_heap_inplace
 
 #define MinSizeOfHeapInplace	(offsetof(xl_heap_inplace, nmsgs) + sizeof(int))
 
-/*
- * This is what we need to know about setting a visibility map bit
- *
- * Backup blk 0: visibility map buffer
- * Backup blk 1: heap buffer
- */
-typedef struct xl_heap_visible
-{
-	TransactionId snapshotConflictHorizon;
-	uint8		flags;
-} xl_heap_visible;
-
-#define SizeOfHeapVisible (offsetof(xl_heap_visible, flags) + sizeof(uint8))
-
 typedef struct xl_heap_new_cid
 {
 	/*
@@ -499,11 +490,6 @@ extern void heap2_redo(XLogReaderState *record);
 extern void heap2_desc(StringInfo buf, XLogReaderState *record);
 extern const char *heap2_identify(uint8 info);
 extern void heap_xlog_logical_rewrite(XLogReaderState *r);
-
-extern XLogRecPtr log_heap_visible(Relation rel, Buffer heap_buffer,
-								   Buffer vm_buffer,
-								   TransactionId snapshotConflictHorizon,
-								   uint8 vmflags);
 
 /* in heapdesc.c, so it can be shared between frontend/backend code */
 extern void heap_xlog_deserialize_prune_and_freeze(char *cursor, uint16 flags,
