@@ -104,6 +104,8 @@ heap_xlog_prune_freeze(XLogReaderState *record)
 		OffsetNumber *frz_offsets;
 		char	   *dataptr = XLogRecGetBlockData(record, 0, &datalen);
 		bool		do_prune;
+		bool		set_lsn = false;
+		bool		mark_buffer_dirty = false;
 
 		heap_xlog_deserialize_prune_and_freeze(dataptr, xlrec.flags,
 											   &nplans, &plans, &frz_offsets,
@@ -157,17 +159,36 @@ heap_xlog_prune_freeze(XLogReaderState *record)
 		/* There should be no more data */
 		Assert((char *) frz_offsets == dataptr + datalen);
 
-		if (vmflags & VISIBILITYMAP_VALID_BITS)
-			PageSetAllVisible(page);
-
-		MarkBufferDirty(buffer);
+		if (do_prune || nplans > 0)
+			mark_buffer_dirty = set_lsn = true;
 
 		/*
-		 * See log_heap_prune_and_freeze() for commentary on when we set the
-		 * heap page LSN.
+		 * The critical integrity requirement here is that we must never end
+		 * up with with the visibility map bit set and the page-level
+		 * PD_ALL_VISIBLE bit clear.  If that were to occur, a subsequent page
+		 * modification would fail to clear the visibility map bit.
+		 *
+		 * vmflags may be nonzero with PD_ALL_VISIBLE already set (e.g. when
+		 * marking an all-visible page all-frozen). If only the VM is updated,
+		 * the heap page need not be dirtied.
 		 */
-		if (do_prune || nplans > 0 ||
-			((vmflags & VISIBILITYMAP_VALID_BITS) && XLogHintBitIsNeeded()))
+		if ((vmflags & VISIBILITYMAP_VALID_BITS) && !PageIsAllVisible(page))
+		{
+			PageSetAllVisible(page);
+			mark_buffer_dirty = true;
+
+			/*
+			 * See log_heap_prune_and_freeze() for commentary on when we set
+			 * the heap page LSN.
+			 */
+			if (XLogHintBitIsNeeded())
+				set_lsn = true;
+		}
+
+		if (mark_buffer_dirty)
+			MarkBufferDirty(buffer);
+
+		if (set_lsn)
 			PageSetLSN(page, lsn);
 
 		/*

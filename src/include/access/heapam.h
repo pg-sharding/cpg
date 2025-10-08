@@ -42,6 +42,7 @@
 /* "options" flag bits for heap_page_prune_and_freeze */
 #define HEAP_PAGE_PRUNE_MARK_UNUSED_NOW		(1 << 0)
 #define HEAP_PAGE_PRUNE_FREEZE				(1 << 1)
+#define HEAP_PAGE_PRUNE_UPDATE_VIS			(1 << 2)
 
 typedef struct BulkInsertStateData *BulkInsertState;
 typedef struct GlobalVisState GlobalVisState;
@@ -239,6 +240,16 @@ typedef struct PruneFreezeParams
 	Buffer		buffer;			/* buffer to be pruned */
 
 	/*
+	 *
+	 * vmbuffer is the buffer that must already contain contain the required
+	 * block of the visibility map if we are to update it. blk_known_av is the
+	 * visibility status of the heap block as of the last call to
+	 * find_next_unskippable_block().
+	 */
+	Buffer		vmbuffer;
+	bool		blk_known_av;
+
+	/*
 	 * The reason pruning was performed.  It is used to set the WAL record
 	 * opcode which is used for debugging and analysis purposes.
 	 */
@@ -250,8 +261,9 @@ typedef struct PruneFreezeParams
 	 * MARK_UNUSED_NOW indicates that dead items can be set LP_UNUSED during
 	 * pruning.
 	 *
-	 * FREEZE indicates that we will also freeze tuples, and will return
-	 * 'all_visible', 'all_frozen' flags to the caller.
+	 * FREEZE indicates that we will also freeze tuples
+	 *
+	 * UPDATE_VIS indicates that we will set the page's status in the VM.
 	 */
 	int			options;
 
@@ -284,19 +296,15 @@ typedef struct PruneFreezeResult
 	int			recently_dead_tuples;
 
 	/*
-	 * all_visible and all_frozen indicate if the all-visible and all-frozen
-	 * bits in the visibility map can be set for this page, after pruning.
+	 * old_vmbits are the state of the all-visible and all-frozen bits in the
+	 * visibility map before updating it during phase I of vacuuming.
+	 * new_vmbits are the state of those bits after phase I of vacuuming.
 	 *
-	 * vm_conflict_horizon is the newest xmin of live tuples on the page.  The
-	 * caller can use it as the conflict horizon when setting the VM bits.  It
-	 * is only valid if we froze some tuples (nfrozen > 0), and all_frozen is
-	 * true.
-	 *
-	 * These are only set if the HEAP_PRUNE_FREEZE option is set.
+	 * These are only set if the HEAP_PAGE_PRUNE_UPDATE_VIS option is set and
+	 * we have attempted to update the VM.
 	 */
-	bool		all_visible;
-	bool		all_frozen;
-	TransactionId vm_conflict_horizon;
+	uint8		new_vmbits;
+	uint8		old_vmbits;
 
 	/*
 	 * Whether or not the page makes rel truncation unsafe.  This is set to
@@ -423,6 +431,7 @@ extern void log_heap_prune_and_freeze(Relation relation, Buffer buffer,
 									  Buffer vmbuffer, uint8 vmflags,
 									  TransactionId conflict_xid,
 									  bool cleanup_lock,
+									  bool set_pd_all_vis,
 									  PruneReason reason,
 									  HeapTupleFreeze *frozen, int nfrozen,
 									  OffsetNumber *redirected, int nredirected,
@@ -432,6 +441,14 @@ extern void log_heap_prune_and_freeze(Relation relation, Buffer buffer,
 /* in heap/vacuumlazy.c */
 extern void heap_vacuum_rel(Relation rel,
 							const VacuumParams params, BufferAccessStrategy bstrategy);
+
+#ifdef USE_ASSERT_CHECKING
+extern bool heap_page_is_all_visible(Relation rel, Buffer buf,
+									 TransactionId OldestXmin,
+									 bool *all_frozen,
+									 TransactionId *visibility_cutoff_xid,
+									 OffsetNumber *logging_offnum);
+#endif
 
 /* in heap/heapam_visibility.c */
 extern bool HeapTupleSatisfiesVisibility(HeapTuple htup, Snapshot snapshot,

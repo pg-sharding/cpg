@@ -464,13 +464,6 @@ static void dead_items_add(LVRelState *vacrel, BlockNumber blkno, OffsetNumber *
 static void dead_items_reset(LVRelState *vacrel);
 static void dead_items_cleanup(LVRelState *vacrel);
 
-#ifdef USE_ASSERT_CHECKING
-static bool heap_page_is_all_visible(Relation rel, Buffer buf,
-									 TransactionId OldestXmin,
-									 bool *all_frozen,
-									 TransactionId *visibility_cutoff_xid,
-									 OffsetNumber *logging_offnum);
-#endif
 static bool heap_page_would_be_all_visible(Relation rel, Buffer buf,
 										   TransactionId OldestXmin,
 										   OffsetNumber *deadoffsets,
@@ -1973,6 +1966,8 @@ lazy_scan_prune(LVRelState *vacrel,
 	params.reason = PRUNE_VACUUM_SCAN;
 	params.cutoffs = &vacrel->cutoffs;
 	params.vistest = vacrel->vistest;
+	params.vmbuffer = vmbuffer;
+	params.blk_known_av = all_visible_according_to_vm;
 
 	/*
 	 * Prune all HOT-update chains and potentially freeze tuples on this page.
@@ -1989,7 +1984,7 @@ lazy_scan_prune(LVRelState *vacrel,
 	 * tuples. Pruning will have determined whether or not the page is
 	 * all-visible.
 	 */
-	params.options = HEAP_PAGE_PRUNE_FREEZE;
+	params.options = HEAP_PAGE_PRUNE_FREEZE | HEAP_PAGE_PRUNE_UPDATE_VIS;
 	if (vacrel->nindexes == 0)
 		params.options |= HEAP_PAGE_PRUNE_MARK_UNUSED_NOW;
 
@@ -2011,33 +2006,6 @@ lazy_scan_prune(LVRelState *vacrel,
 		 */
 		vacrel->new_frozen_tuple_pages++;
 	}
-
-	/*
-	 * VACUUM will call heap_page_is_all_visible() during the second pass over
-	 * the heap to determine all_visible and all_frozen for the page -- this
-	 * is a specialized version of the logic from this function.  Now that
-	 * we've finished pruning and freezing, make sure that we're in total
-	 * agreement with heap_page_is_all_visible() using an assertion.
-	 */
-#ifdef USE_ASSERT_CHECKING
-	if (presult.all_visible)
-	{
-		TransactionId debug_cutoff;
-		bool		debug_all_frozen;
-
-		Assert(presult.lpdead_items == 0);
-
-		if (!heap_page_is_all_visible(vacrel->rel, buf,
-									  vacrel->cutoffs.OldestXmin, &debug_all_frozen,
-									  &debug_cutoff, &vacrel->offnum))
-			Assert(false);
-
-		Assert(presult.all_frozen == debug_all_frozen);
-
-		Assert(!TransactionIdIsValid(debug_cutoff) ||
-			   debug_cutoff == presult.vm_conflict_horizon);
-	}
-#endif
 
 	/*
 	 * Now save details of the LP_DEAD items from the page in vacrel
@@ -2072,168 +2040,26 @@ lazy_scan_prune(LVRelState *vacrel,
 	/* Did we find LP_DEAD items? */
 	*has_lpdead_items = (presult.lpdead_items > 0);
 
-	Assert(!presult.all_visible || !(*has_lpdead_items));
-	Assert(!presult.all_frozen || presult.all_visible);
-
 	/*
-	 * Handle setting visibility map bit based on information from the VM (as
-	 * of last heap_vac_scan_next_block() call), and from all_visible and
-	 * all_frozen variables
+	 * For the purposes of logging, count whether or not the page was newly
+	 * set all-visible and, potentially, all-frozen.
 	 */
-	if (!all_visible_according_to_vm && presult.all_visible)
+	if ((presult.old_vmbits & VISIBILITYMAP_ALL_VISIBLE) == 0 &&
+		(presult.new_vmbits & VISIBILITYMAP_ALL_VISIBLE) != 0)
 	{
-		uint8		old_vmbits;
-		uint8		flags = VISIBILITYMAP_ALL_VISIBLE;
-
-		if (presult.all_frozen)
+		vacrel->vm_new_visible_pages++;
+		if ((presult.new_vmbits & VISIBILITYMAP_ALL_FROZEN) != 0)
 		{
-			Assert(!TransactionIdIsValid(presult.vm_conflict_horizon));
-			flags |= VISIBILITYMAP_ALL_FROZEN;
-		}
-
-		/*
-		 * It should never be the case that the visibility map page is set
-		 * while the page-level bit is clear, but the reverse is allowed (if
-		 * checksums are not enabled).  Regardless, set both bits so that we
-		 * get back in sync.
-		 *
-		 * NB: If the heap page is all-visible but the VM bit is not set, we
-		 * don't need to dirty the heap page.  However, if checksums are
-		 * enabled, we do need to make sure that the heap page is dirtied
-		 * before passing it to visibilitymap_set(), because it may be logged.
-		 * Given that this situation should only happen in rare cases after a
-		 * crash, it is not worth optimizing.
-		 */
-		PageSetAllVisible(page);
-		MarkBufferDirty(buf);
-		old_vmbits = visibilitymap_set(vacrel->rel, blkno, buf,
-									   InvalidXLogRecPtr,
-									   vmbuffer, presult.vm_conflict_horizon,
-									   flags);
-
-		/*
-		 * If the page wasn't already set all-visible and/or all-frozen in the
-		 * VM, count it as newly set for logging.
-		 */
-		if ((old_vmbits & VISIBILITYMAP_ALL_VISIBLE) == 0)
-		{
-			vacrel->vm_new_visible_pages++;
-			if (presult.all_frozen)
-			{
-				vacrel->vm_new_visible_frozen_pages++;
-				*vm_page_frozen = true;
-			}
-		}
-		else if ((old_vmbits & VISIBILITYMAP_ALL_FROZEN) == 0 &&
-				 presult.all_frozen)
-		{
-			vacrel->vm_new_frozen_pages++;
-			*vm_page_frozen = true;
-		}
-	}
-
-	/*
-	 * As of PostgreSQL 9.2, the visibility map bit should never be set if the
-	 * page-level bit is clear.  However, it's possible that the bit got
-	 * cleared after heap_vac_scan_next_block() was called, so we must recheck
-	 * with buffer lock before concluding that the VM is corrupt.
-	 */
-	else if (all_visible_according_to_vm && !PageIsAllVisible(page) &&
-			 visibilitymap_get_status(vacrel->rel, blkno, &vmbuffer) != 0)
-	{
-		ereport(WARNING,
-				(errcode(ERRCODE_DATA_CORRUPTED),
-				 errmsg("page is not marked all-visible but visibility map bit is set in relation \"%s\" page %u",
-						vacrel->relname, blkno)));
-
-		visibilitymap_clear(vacrel->rel, blkno, vmbuffer,
-							VISIBILITYMAP_VALID_BITS);
-	}
-
-	/*
-	 * It's possible for the value returned by
-	 * GetOldestNonRemovableTransactionId() to move backwards, so it's not
-	 * wrong for us to see tuples that appear to not be visible to everyone
-	 * yet, while PD_ALL_VISIBLE is already set. The real safe xmin value
-	 * never moves backwards, but GetOldestNonRemovableTransactionId() is
-	 * conservative and sometimes returns a value that's unnecessarily small,
-	 * so if we see that contradiction it just means that the tuples that we
-	 * think are not visible to everyone yet actually are, and the
-	 * PD_ALL_VISIBLE flag is correct.
-	 *
-	 * There should never be LP_DEAD items on a page with PD_ALL_VISIBLE set,
-	 * however.
-	 */
-	else if (presult.lpdead_items > 0 && PageIsAllVisible(page))
-	{
-		ereport(WARNING,
-				(errcode(ERRCODE_DATA_CORRUPTED),
-				 errmsg("page containing LP_DEAD items is marked as all-visible in relation \"%s\" page %u",
-						vacrel->relname, blkno)));
-
-		PageClearAllVisible(page);
-		MarkBufferDirty(buf);
-		visibilitymap_clear(vacrel->rel, blkno, vmbuffer,
-							VISIBILITYMAP_VALID_BITS);
-	}
-
-	/*
-	 * If the all-visible page is all-frozen but not marked as such yet, mark
-	 * it as all-frozen.
-	 */
-	else if (all_visible_according_to_vm && presult.all_frozen &&
-			 !VM_ALL_FROZEN(vacrel->rel, blkno, &vmbuffer))
-	{
-		uint8		old_vmbits;
-
-		/*
-		 * Avoid relying on all_visible_according_to_vm as a proxy for the
-		 * page-level PD_ALL_VISIBLE bit being set, since it might have become
-		 * stale -- even when all_visible is set
-		 */
-		if (!PageIsAllVisible(page))
-		{
-			PageSetAllVisible(page);
-			MarkBufferDirty(buf);
-		}
-
-		/*
-		 * Set the page all-frozen (and all-visible) in the VM.
-		 *
-		 * We can pass InvalidTransactionId as our cutoff_xid, since a
-		 * snapshotConflictHorizon sufficient to make everything safe for REDO
-		 * was logged when the page's tuples were frozen.
-		 */
-		Assert(!TransactionIdIsValid(presult.vm_conflict_horizon));
-		old_vmbits = visibilitymap_set(vacrel->rel, blkno, buf,
-									   InvalidXLogRecPtr,
-									   vmbuffer, InvalidTransactionId,
-									   VISIBILITYMAP_ALL_VISIBLE |
-									   VISIBILITYMAP_ALL_FROZEN);
-
-		/*
-		 * The page was likely already set all-visible in the VM. However,
-		 * there is a small chance that it was modified sometime between
-		 * setting all_visible_according_to_vm and checking the visibility
-		 * during pruning. Check the return value of old_vmbits anyway to
-		 * ensure the visibility map counters used for logging are accurate.
-		 */
-		if ((old_vmbits & VISIBILITYMAP_ALL_VISIBLE) == 0)
-		{
-			vacrel->vm_new_visible_pages++;
 			vacrel->vm_new_visible_frozen_pages++;
 			*vm_page_frozen = true;
 		}
-
-		/*
-		 * We already checked that the page was not set all-frozen in the VM
-		 * above, so we don't need to test the value of old_vmbits.
-		 */
-		else
-		{
-			vacrel->vm_new_frozen_pages++;
-			*vm_page_frozen = true;
-		}
+	}
+	else if ((presult.old_vmbits & VISIBILITYMAP_ALL_FROZEN) == 0 &&
+			 (presult.new_vmbits & VISIBILITYMAP_ALL_FROZEN) != 0)
+	{
+		Assert((presult.new_vmbits & VISIBILITYMAP_ALL_VISIBLE) != 0);
+		vacrel->vm_new_frozen_pages++;
+		*vm_page_frozen = true;
 	}
 
 	return presult.ndeleted;
@@ -2955,6 +2781,7 @@ lazy_vacuum_heap_page(LVRelState *vacrel, BlockNumber blkno, Buffer buffer,
 								  vmflags,
 								  conflict_xid,
 								  false,	/* no cleanup lock required */
+								  (vmflags & VISIBILITYMAP_VALID_BITS) != 0,
 								  PRUNE_VACUUM_CLEANUP,
 								  NULL, 0,	/* frozen */
 								  NULL, 0,	/* redirected */
@@ -3642,7 +3469,7 @@ dead_items_cleanup(LVRelState *vacrel)
  * that expect no LP_DEAD on the page. Currently assert-only, but there is no
  * reason not to use it outside of asserts.
  */
-static bool
+bool
 heap_page_is_all_visible(Relation rel, Buffer buf,
 						 TransactionId OldestXmin,
 						 bool *all_frozen,
