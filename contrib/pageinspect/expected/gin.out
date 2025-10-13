@@ -1,6 +1,7 @@
-CREATE TABLE test1 (x int, y int[]);
-INSERT INTO test1 VALUES (1, ARRAY[11, 111]);
+CREATE TABLE test1 (x int, y int[], z text[]);
+INSERT INTO test1 VALUES (1, ARRAY[11, 111], ARRAY['a', 'b', 'c']);
 CREATE INDEX test1_y_idx ON test1 USING gin (y) WITH (fastupdate = off);
+CREATE INDEX test2_y_z_idx ON test1 USING gin (y, z) WITH (fastupdate = off);
 \x
 SELECT * FROM gin_metapage_info(get_raw_page('test1_y_idx', 0));
 -[ RECORD 1 ]----+-----------
@@ -27,6 +28,45 @@ flags     | {leaf}
 SELECT * FROM gin_leafpage_items(get_raw_page('test1_y_idx', 1));
 ERROR:  input page is not a compressed GIN data leaf page
 DETAIL:  Flags 0002, expected 0083
+SELECT * FROM gin_entrypage_items(get_raw_page('test1_y_idx', 1), 'test1_y_idx'::regclass);
+-[ RECORD 1 ]--------------
+itemoffset | 1
+downlink   | (2147483664,1)
+tids       | {"(0,1)"}
+keys       | y=11
+-[ RECORD 2 ]--------------
+itemoffset | 2
+downlink   | (2147483664,1)
+tids       | {"(0,1)"}
+keys       | y=111
+
+SELECT * FROM gin_entrypage_items(get_raw_page('test2_y_z_idx', 1), 'test2_y_z_idx'::regclass);
+-[ RECORD 1 ]--------------
+itemoffset | 1
+downlink   | (2147483664,1)
+tids       | {"(0,1)"}
+keys       | y=11
+-[ RECORD 2 ]--------------
+itemoffset | 2
+downlink   | (2147483664,1)
+tids       | {"(0,1)"}
+keys       | y=111
+-[ RECORD 3 ]--------------
+itemoffset | 3
+downlink   | (2147483664,1)
+tids       | {"(0,1)"}
+keys       | z=a
+-[ RECORD 4 ]--------------
+itemoffset | 4
+downlink   | (2147483664,1)
+tids       | {"(0,1)"}
+keys       | z=b
+-[ RECORD 5 ]--------------
+itemoffset | 5
+downlink   | (2147483664,1)
+tids       | {"(0,1)"}
+keys       | z=c
+
 INSERT INTO test1 SELECT x, ARRAY[1,10] FROM generate_series(2,10000) x;
 SELECT COUNT(*) > 0
 FROM gin_leafpage_items(get_raw_page('test1_y_idx',
