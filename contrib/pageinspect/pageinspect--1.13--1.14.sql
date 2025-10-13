@@ -18,3 +18,26 @@ CREATE FUNCTION bt_page_items(IN relname text, IN blkno int8,
 RETURNS SETOF record
 AS 'MODULE_PATHNAME', 'bt_page_items_1_9'
 LANGUAGE C STRICT PARALLEL SAFE;
+
+--
+-- gin_entrypage_items()
+--
+CREATE FUNCTION gin_entrypage_items(IN page bytea, IN reloid OID,
+    OUT itemoffset smallint,
+    OUT downlink tid,
+    OUT tids tid[],
+    OUT keys text)
+RETURNS SETOF record
+AS 'MODULE_PATHNAME', 'gin_entrypage_items'
+LANGUAGE C STRICT PARALLEL SAFE;
+
+--
+-- gin_datapage_items()
+--
+CREATE FUNCTION gin_datapage_items(IN page bytea,
+    OUT itemoffset smallint,
+    OUT downlink int,
+    OUT item_tid tid)
+RETURNS SETOF record
+AS 'MODULE_PATHNAME', 'gin_datapage_items'
+LANGUAGE C STRICT PARALLEL SAFE;
