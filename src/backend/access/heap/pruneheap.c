@@ -143,10 +143,6 @@ typedef struct
 	 * whether to freeze the page or not.  The all_visible and all_frozen
 	 * values returned to the caller are adjusted to include LP_DEAD items at
 	 * the end.
-	 *
-	 * all_frozen should only be considered valid if all_visible is also set;
-	 * we don't bother to clear the all_frozen flag every time we clear the
-	 * all_visible flag.
 	 */
 	bool		all_visible;
 	bool		all_frozen;
@@ -361,8 +357,10 @@ heap_page_will_freeze(Relation relation, Buffer buffer,
 		 * anymore.  The opportunistic freeze heuristic must be improved;
 		 * however, for now, try to approximate the old logic.
 		 */
-		if (prstate->all_visible && prstate->all_frozen && prstate->nfrozen > 0)
+		if (prstate->all_frozen && prstate->nfrozen > 0)
 		{
+			Assert(prstate->all_visible);
+
 			/*
 			 * Freezing would make the page all-frozen.  Have already emitted
 			 * an FPI or will do so anyway?
@@ -784,6 +782,8 @@ heap_page_prune_and_freeze(PruneFreezeParams *params,
 									  do_hint_prune,
 									  &prstate);
 
+	Assert(!prstate.all_frozen || prstate.all_visible);
+
 	/* Any error while applying the changes is critical */
 	START_CRIT_SECTION();
 
@@ -853,7 +853,7 @@ heap_page_prune_and_freeze(PruneFreezeParams *params,
 			 */
 			if (do_freeze)
 			{
-				if (prstate.all_visible && prstate.all_frozen)
+				if (prstate.all_frozen)
 					frz_conflict_horizon = prstate.visibility_cutoff_xid;
 				else
 				{
@@ -1418,7 +1418,7 @@ heap_prune_record_unchanged_lp_normal(Page page, PruneState *prstate, OffsetNumb
 
 				if (!HeapTupleHeaderXminCommitted(htup))
 				{
-					prstate->all_visible = false;
+					prstate->all_visible = prstate->all_frozen = false;
 					break;
 				}
 
@@ -1440,7 +1440,7 @@ heap_prune_record_unchanged_lp_normal(Page page, PruneState *prstate, OffsetNumb
 				Assert(prstate->cutoffs);
 				if (!TransactionIdPrecedes(xmin, prstate->cutoffs->OldestXmin))
 				{
-					prstate->all_visible = false;
+					prstate->all_visible = prstate->all_frozen = false;
 					break;
 				}
 
@@ -1453,7 +1453,7 @@ heap_prune_record_unchanged_lp_normal(Page page, PruneState *prstate, OffsetNumb
 
 		case HEAPTUPLE_RECENTLY_DEAD:
 			prstate->recently_dead_tuples++;
-			prstate->all_visible = false;
+			prstate->all_visible = prstate->all_frozen = false;
 
 			/*
 			 * This tuple will soon become DEAD.  Update the hint field so
@@ -1472,7 +1472,7 @@ heap_prune_record_unchanged_lp_normal(Page page, PruneState *prstate, OffsetNumb
 			 * assumption is a bit shaky, but it is what acquire_sample_rows()
 			 * does, so be consistent.
 			 */
-			prstate->all_visible = false;
+			prstate->all_visible = prstate->all_frozen = false;
 
 			/*
 			 * If we wanted to optimize for aborts, we might consider marking
@@ -1490,7 +1490,7 @@ heap_prune_record_unchanged_lp_normal(Page page, PruneState *prstate, OffsetNumb
 			 * will commit and update the counters after we report.
 			 */
 			prstate->live_tuples++;
-			prstate->all_visible = false;
+			prstate->all_visible = prstate->all_frozen = false;
 
 			/*
 			 * This tuple may soon become DEAD.  Update the hint field so that
