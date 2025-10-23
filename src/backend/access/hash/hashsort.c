@@ -61,6 +61,8 @@ _h_spoolinit(Relation heap, Relation index, uint32 num_buckets)
 {
 	HSpool	   *hspool = (HSpool *) palloc0(sizeof(HSpool));
 
+	elog(WARNING, "spool init");
+
 	hspool->index = index;
 
 	/*
@@ -146,7 +148,7 @@ _h_indexbuild(HSpool *hspool, Relation heapRel)
 #endif
 
 		/* the tuples are sorted by hashkey, so pass 'sorted' as true */
-		_hash_doinsert(hspool->index, itup, heapRel, true);
+		_hash_doinsert(hspool->index, itup, heapRel, true, true);
 
 		/* allow insertion phase to be interrupted, and track progress */
 		CHECK_FOR_INTERRUPTS();

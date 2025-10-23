@@ -394,7 +394,7 @@ extern StrategyNumber hashtranslatecmptype(CompareType cmptype, Oid opfamily);
 
 /* hashinsert.c */
 extern void _hash_doinsert(Relation rel, IndexTuple itup, Relation heapRel,
-						   bool sorted);
+						   bool sorted, bool isbuild);
 extern OffsetNumber _hash_pgaddtup(Relation rel, Buffer buf,
 								   Size itemsize, IndexTuple itup,
 								   bool appendtup);
@@ -402,15 +402,15 @@ extern void _hash_pgaddmultitup(Relation rel, Buffer buf, IndexTuple *itups,
 								OffsetNumber *itup_offsets, uint16 nitups);
 
 /* hashovfl.c */
-extern Buffer _hash_addovflpage(Relation rel, Buffer metabuf, Buffer buf, bool retain_pin);
+extern Buffer _hash_addovflpage(Relation rel, Buffer metabuf, Buffer buf, bool retain_pin, bool isbuild);
 extern BlockNumber _hash_freeovflpage(Relation rel, Buffer bucketbuf, Buffer ovflbuf,
 									  Buffer wbuf, IndexTuple *itups, OffsetNumber *itup_offsets,
-									  Size *tups_size, uint16 nitups, BufferAccessStrategy bstrategy);
+									  Size *tups_size, uint16 nitups, BufferAccessStrategy bstrategy, bool isbuild);
 extern void _hash_initbitmapbuffer(Buffer buf, uint16 bmsize, bool initpage);
 extern void _hash_squeezebucket(Relation rel,
 								Bucket bucket, BlockNumber bucket_blkno,
 								Buffer bucket_buf,
-								BufferAccessStrategy bstrategy);
+								BufferAccessStrategy bstrategy, bool isbuild);
 extern uint32 _hash_ovflblkno_to_bitno(HashMetaPage metap, BlockNumber ovflblkno);
 
 /* hashpage.c */
@@ -435,11 +435,11 @@ extern void _hash_relbuf(Relation rel, Buffer buf);
 extern void _hash_dropbuf(Relation rel, Buffer buf);
 extern void _hash_dropscanbuf(Relation rel, HashScanOpaque so);
 extern uint32 _hash_init(Relation rel, double num_tuples,
-						 ForkNumber forkNum);
+						 ForkNumber forkNum, bool skip_wal);
 extern void _hash_init_metabuffer(Buffer buf, double num_tuples,
 								  RegProcedure procid, uint16 ffactor, bool initpage);
 extern void _hash_pageinit(Page page, Size size);
-extern void _hash_expandtable(Relation rel, Buffer metabuf);
+extern void _hash_expandtable(Relation rel, Buffer metabuf, bool isbuild);
 extern void _hash_finish_split(Relation rel, Buffer metabuf, Buffer obuf,
 							   Bucket obucket, uint32 maxbucket, uint32 highmask,
 							   uint32 lowmask);
@@ -485,6 +485,6 @@ extern void hashbucketcleanup(Relation rel, Bucket cur_bucket,
 							  uint32 maxbucket, uint32 highmask, uint32 lowmask,
 							  double *tuples_removed, double *num_index_tuples,
 							  bool split_cleanup,
-							  IndexBulkDeleteCallback callback, void *callback_state);
+							  IndexBulkDeleteCallback callback, void *callback_state, bool isbuild);
 
 #endif							/* HASH_H */

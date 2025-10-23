@@ -141,7 +141,7 @@ hashbuild(Relation heap, Relation index, IndexInfo *indexInfo)
 	estimate_rel_size(heap, NULL, &relpages, &reltuples, &allvisfrac);
 
 	/* Initialize the hash index metadata page and initial buckets */
-	num_buckets = _hash_init(index, reltuples, MAIN_FORKNUM);
+	num_buckets = _hash_init(index, reltuples, MAIN_FORKNUM, true);
 
 	/*
 	 * If we just insert the tuples into the index in scan order, then
@@ -190,6 +190,11 @@ hashbuild(Relation heap, Relation index, IndexInfo *indexInfo)
 		_h_spooldestroy(buildstate.spool);
 	}
 
+	if (RelationNeedsWAL(index))
+		log_newpage_range(index, MAIN_FORKNUM,
+								  0, RelationGetNumberOfBlocks(index),
+								  true);
+
 	/*
 	 * Return statistics
 	 */
@@ -207,7 +212,7 @@ hashbuild(Relation heap, Relation index, IndexInfo *indexInfo)
 void
 hashbuildempty(Relation index)
 {
-	_hash_init(index, 0, INIT_FORKNUM);
+	_hash_init(index, 0, INIT_FORKNUM, false);
 }
 
 /*
@@ -241,7 +246,7 @@ hashbuildCallback(Relation index,
 		itup = index_form_tuple(RelationGetDescr(index),
 								index_values, index_isnull);
 		itup->t_tid = *tid;
-		_hash_doinsert(index, itup, buildstate->heapRel, false);
+		_hash_doinsert(index, itup, buildstate->heapRel, false, true);
 		pfree(itup);
 	}
 
@@ -275,7 +280,7 @@ hashinsert(Relation rel, Datum *values, bool *isnull,
 	itup = index_form_tuple(RelationGetDescr(rel), index_values, index_isnull);
 	itup->t_tid = *ht_ctid;
 
-	_hash_doinsert(rel, itup, heapRel, false);
+	_hash_doinsert(rel, itup, heapRel, false, false);
 
 	pfree(itup);
 
@@ -556,7 +561,7 @@ loop_top:
 						  cachedmetap->hashm_highmask,
 						  cachedmetap->hashm_lowmask, &tuples_removed,
 						  &num_index_tuples, split_cleanup,
-						  callback, callback_state);
+						  callback, callback_state, false);
 
 		_hash_dropbuf(rel, bucket_buf);
 
@@ -692,7 +697,8 @@ hashbucketcleanup(Relation rel, Bucket cur_bucket, Buffer bucket_buf,
 				  uint32 maxbucket, uint32 highmask, uint32 lowmask,
 				  double *tuples_removed, double *num_index_tuples,
 				  bool split_cleanup,
-				  IndexBulkDeleteCallback callback, void *callback_state)
+				  IndexBulkDeleteCallback callback, void *callback_state,
+				  bool isbuild)
 {
 	BlockNumber blkno;
 	Buffer		buf;
@@ -719,6 +725,7 @@ hashbucketcleanup(Relation rel, Bucket cur_bucket, Buffer bucket_buf,
 		bool		retain_pin = false;
 		bool		clear_dead_marking = false;
 
+		/* XXX: what if isbuild = true ? */
 		vacuum_delay_point(false);
 
 		page = BufferGetPage(buf);
@@ -817,7 +824,7 @@ hashbucketcleanup(Relation rel, Bucket cur_bucket, Buffer bucket_buf,
 			MarkBufferDirty(buf);
 
 			/* XLOG stuff */
-			if (RelationNeedsWAL(rel))
+			if (RelationNeedsWAL(rel) && !isbuild)
 			{
 				xl_hash_delete xlrec;
 				XLogRecPtr	recptr;
@@ -903,7 +910,7 @@ hashbucketcleanup(Relation rel, Bucket cur_bucket, Buffer bucket_buf,
 		MarkBufferDirty(bucket_buf);
 
 		/* XLOG stuff */
-		if (RelationNeedsWAL(rel))
+		if (RelationNeedsWAL(rel) && !isbuild)
 		{
 			XLogRecPtr	recptr;
 
@@ -924,7 +931,7 @@ hashbucketcleanup(Relation rel, Bucket cur_bucket, Buffer bucket_buf,
 	 */
 	if (bucket_dirty && IsBufferCleanupOK(bucket_buf))
 		_hash_squeezebucket(rel, cur_bucket, bucket_blkno, bucket_buf,
-							bstrategy);
+							bstrategy, isbuild);
 	else
 		LockBuffer(bucket_buf, BUFFER_LOCK_UNLOCK);
 }

@@ -35,7 +35,7 @@ static void _hash_vacuum_one_page(Relation rel, Relation hrel,
  * order.
  */
 void
-_hash_doinsert(Relation rel, IndexTuple itup, Relation heapRel, bool sorted)
+_hash_doinsert(Relation rel, IndexTuple itup, Relation heapRel, bool sorted, bool isbuild)
 {
 	Buffer		buf = InvalidBuffer;
 	Buffer		bucket_buf;
@@ -178,7 +178,7 @@ restart_insert:
 			LockBuffer(buf, BUFFER_LOCK_UNLOCK);
 
 			/* chain to a new overflow page */
-			buf = _hash_addovflpage(rel, metabuf, buf, (buf == bucket_buf));
+			buf = _hash_addovflpage(rel, metabuf, buf, (buf == bucket_buf), isbuild);
 			page = BufferGetPage(buf);
 
 			/* should fit now, given test above */
@@ -213,7 +213,7 @@ restart_insert:
 	MarkBufferDirty(metabuf);
 
 	/* XLOG stuff */
-	if (RelationNeedsWAL(rel))
+	if (RelationNeedsWAL(rel) && !isbuild)
 	{
 		xl_hash_insert xlrec;
 		XLogRecPtr	recptr;
@@ -249,7 +249,7 @@ restart_insert:
 
 	/* Attempt to split if a split is needed */
 	if (do_expand)
-		_hash_expandtable(rel, metabuf);
+		_hash_expandtable(rel, metabuf, isbuild);
 
 	/* Finally drop our pin on the metapage */
 	_hash_dropbuf(rel, metabuf);

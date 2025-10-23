@@ -45,7 +45,7 @@ static void _hash_splitbucket(Relation rel, Buffer metabuf,
 							  Buffer nbuf,
 							  HTAB *htab,
 							  uint32 maxbucket,
-							  uint32 highmask, uint32 lowmask);
+							  uint32 highmask, uint32 lowmask, bool isbuild);
 static void log_split_page(Relation rel, Buffer buf);
 
 
@@ -324,7 +324,7 @@ _hash_dropscanbuf(Relation rel, HashScanOpaque so)
  * multiple buffer locks is ignored.
  */
 uint32
-_hash_init(Relation rel, double num_tuples, ForkNumber forkNum)
+_hash_init(Relation rel, double num_tuples, ForkNumber forkNum, bool skip_wal)
 {
 	Buffer		metabuf;
 	Buffer		buf;
@@ -349,7 +349,7 @@ _hash_init(Relation rel, double num_tuples, ForkNumber forkNum)
 	 * init fork.  Init forks for unlogged relations always need to be WAL
 	 * logged.
 	 */
-	use_wal = RelationNeedsWAL(rel) || forkNum == INIT_FORKNUM;
+	use_wal = !skip_wal && (RelationNeedsWAL(rel) || forkNum == INIT_FORKNUM);
 
 	/*
 	 * Determine the target fill factor (in tuples per bucket) for this index.
@@ -611,7 +611,7 @@ _hash_pageinit(Page page, Size size)
  * The buffer is returned in the same state.
  */
 void
-_hash_expandtable(Relation rel, Buffer metabuf)
+_hash_expandtable(Relation rel, Buffer metabuf, bool isbuild)
 {
 	HashMetaPage metap;
 	Bucket		old_bucket;
@@ -759,7 +759,7 @@ restart_expand:
 
 		hashbucketcleanup(rel, old_bucket, buf_oblkno, start_oblkno, NULL,
 						  maxbucket, highmask, lowmask, NULL, NULL, true,
-						  NULL, NULL);
+						  NULL, NULL, isbuild);
 
 		_hash_dropbuf(rel, buf_oblkno);
 
@@ -897,7 +897,7 @@ restart_expand:
 	MarkBufferDirty(buf_nblkno);
 
 	/* XLOG stuff */
-	if (RelationNeedsWAL(rel))
+	if (RelationNeedsWAL(rel) && !isbuild)
 	{
 		xl_hash_split_allocate_page xlrec;
 		XLogRecPtr	recptr;
@@ -948,7 +948,7 @@ restart_expand:
 	_hash_splitbucket(rel, metabuf,
 					  old_bucket, new_bucket,
 					  buf_oblkno, buf_nblkno, NULL,
-					  maxbucket, highmask, lowmask);
+					  maxbucket, highmask, lowmask, isbuild);
 
 	/* all done, now release the pins on primary buckets. */
 	_hash_dropbuf(rel, buf_oblkno);
@@ -1079,7 +1079,8 @@ _hash_splitbucket(Relation rel,
 				  HTAB *htab,
 				  uint32 maxbucket,
 				  uint32 highmask,
-				  uint32 lowmask)
+				  uint32 lowmask,
+				  bool isbuild)
 {
 	Buffer		bucket_obuf;
 	Buffer		bucket_nbuf;
@@ -1186,7 +1187,8 @@ _hash_splitbucket(Relation rel,
 					_hash_pgaddmultitup(rel, nbuf, itups, itup_offsets, nitups);
 					MarkBufferDirty(nbuf);
 					/* log the split operation before releasing the lock */
-					log_split_page(rel, nbuf);
+					if (RelationNeedsWAL(rel) && !isbuild)
+						log_split_page(rel, nbuf);
 
 					END_CRIT_SECTION();
 
@@ -1200,7 +1202,7 @@ _hash_splitbucket(Relation rel,
 					all_tups_size = 0;
 
 					/* chain to a new overflow page */
-					nbuf = _hash_addovflpage(rel, metabuf, nbuf, (nbuf == bucket_nbuf));
+					nbuf = _hash_addovflpage(rel, metabuf, nbuf, (nbuf == bucket_nbuf), isbuild);
 					npage = BufferGetPage(nbuf);
 					nopaque = HashPageGetOpaque(npage);
 				}
@@ -1237,7 +1239,9 @@ _hash_splitbucket(Relation rel,
 			_hash_pgaddmultitup(rel, nbuf, itups, itup_offsets, nitups);
 			MarkBufferDirty(nbuf);
 			/* log the split operation before releasing the lock */
-			log_split_page(rel, nbuf);
+
+			if (RelationNeedsWAL(rel) && !isbuild)
+				log_split_page(rel, nbuf);
 
 			END_CRIT_SECTION();
 
@@ -1294,7 +1298,7 @@ _hash_splitbucket(Relation rel,
 	MarkBufferDirty(bucket_obuf);
 	MarkBufferDirty(bucket_nbuf);
 
-	if (RelationNeedsWAL(rel))
+	if (RelationNeedsWAL(rel) && !isbuild)
 	{
 		XLogRecPtr	recptr;
 		xl_hash_split_complete xlrec;
@@ -1331,7 +1335,7 @@ _hash_splitbucket(Relation rel,
 		hashbucketcleanup(rel, obucket, bucket_obuf,
 						  BufferGetBlockNumber(bucket_obuf), NULL,
 						  maxbucket, highmask, lowmask, NULL, NULL, true,
-						  NULL, NULL);
+						  NULL, NULL, isbuild);
 	}
 	else
 	{
@@ -1455,7 +1459,7 @@ _hash_finish_split(Relation rel, Buffer metabuf, Buffer obuf, Bucket obucket,
 
 	_hash_splitbucket(rel, metabuf, obucket,
 					  nbucket, obuf, bucket_nbuf, tidhtab,
-					  maxbucket, highmask, lowmask);
+					  maxbucket, highmask, lowmask, false);
 
 	_hash_dropbuf(rel, bucket_nbuf);
 	hash_destroy(tidhtab);

@@ -109,7 +109,7 @@ _hash_ovflblkno_to_bitno(HashMetaPage metap, BlockNumber ovflblkno)
  * pages might have been added to the bucket chain in between.
  */
 Buffer
-_hash_addovflpage(Relation rel, Buffer metabuf, Buffer buf, bool retain_pin)
+_hash_addovflpage(Relation rel, Buffer metabuf, Buffer buf, bool retain_pin, bool isbuild)
 {
 	Buffer		ovflbuf;
 	Page		page;
@@ -379,7 +379,7 @@ found:
 	MarkBufferDirty(buf);
 
 	/* XLOG stuff */
-	if (RelationNeedsWAL(rel))
+	if (RelationNeedsWAL(rel) && !isbuild)
 	{
 		XLogRecPtr	recptr;
 		xl_hash_add_ovfl_page xlrec;
@@ -490,7 +490,7 @@ BlockNumber
 _hash_freeovflpage(Relation rel, Buffer bucketbuf, Buffer ovflbuf,
 				   Buffer wbuf, IndexTuple *itups, OffsetNumber *itup_offsets,
 				   Size *tups_size, uint16 nitups,
-				   BufferAccessStrategy bstrategy)
+				   BufferAccessStrategy bstrategy, bool isbuild)
 {
 	HashMetaPage metap;
 	Buffer		metabuf;
@@ -575,7 +575,7 @@ _hash_freeovflpage(Relation rel, Buffer bucketbuf, Buffer ovflbuf,
 	LockBuffer(metabuf, BUFFER_LOCK_EXCLUSIVE);
 
 	/* This operation needs to log multiple tuples, prepare WAL for that */
-	if (RelationNeedsWAL(rel))
+	if (RelationNeedsWAL(rel) && !isbuild)
 		XLogEnsureRecordSpace(HASH_XLOG_FREE_OVFL_BUFS, 4 + nitups);
 
 	START_CRIT_SECTION();
@@ -642,7 +642,7 @@ _hash_freeovflpage(Relation rel, Buffer bucketbuf, Buffer ovflbuf,
 	}
 
 	/* XLOG stuff */
-	if (RelationNeedsWAL(rel))
+	if (RelationNeedsWAL(rel) && !isbuild)
 	{
 		xl_hash_squeeze_page xlrec;
 		XLogRecPtr	recptr;
@@ -843,7 +843,8 @@ _hash_squeezebucket(Relation rel,
 					Bucket bucket,
 					BlockNumber bucket_blkno,
 					Buffer bucket_buf,
-					BufferAccessStrategy bstrategy)
+					BufferAccessStrategy bstrategy,
+					bool isbuild)
 {
 	BlockNumber wblkno;
 	BlockNumber rblkno;
@@ -965,7 +966,7 @@ readpage:
 					 * This operation needs to log multiple tuples, prepare
 					 * WAL for that.
 					 */
-					if (RelationNeedsWAL(rel))
+					if (RelationNeedsWAL(rel) && !isbuild)
 						XLogEnsureRecordSpace(0, 3 + nitups);
 
 					START_CRIT_SECTION();
@@ -984,7 +985,7 @@ readpage:
 					MarkBufferDirty(rbuf);
 
 					/* XLOG stuff */
-					if (RelationNeedsWAL(rel))
+					if (RelationNeedsWAL(rel) && !isbuild)
 					{
 						XLogRecPtr	recptr;
 						xl_hash_move_page_contents xlrec;
@@ -1094,7 +1095,7 @@ readpage:
 
 		/* free this overflow page (releases rbuf) */
 		_hash_freeovflpage(rel, bucket_buf, rbuf, wbuf, itups, itup_offsets,
-						   tups_size, nitups, bstrategy);
+						   tups_size, nitups, bstrategy, isbuild);
 
 		/* be tidy */
 		for (i = 0; i < nitups; i++)
