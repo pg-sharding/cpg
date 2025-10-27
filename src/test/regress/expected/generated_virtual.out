@@ -514,6 +514,7 @@ COPY gtest3 (a, b) TO stdout;
 ERROR:  column "b" is a generated column
 DETAIL:  Generated columns cannot be used in COPY.
 COPY gtest3 FROM stdin;
+COPY gtest3 FROM stdin WHERE (b <> 15);
 COPY gtest3 (a, b) FROM stdin;
 ERROR:  column "b" is a generated column
 DETAIL:  Generated columns cannot be used in COPY.
@@ -524,7 +525,8 @@ SELECT * FROM gtest3 ORDER BY a;
  2 |  6
  3 |  9
  4 | 12
-(4 rows)
+ 6 | 18
+(5 rows)
 
 -- null values
 CREATE TABLE gtest2 (a int PRIMARY KEY, b int GENERATED ALWAYS AS (NULL) VIRTUAL);
@@ -1028,6 +1030,16 @@ SELECT tableoid::regclass, * FROM gtest_parent ORDER BY 1, 2, 3;
  gtest_child2 | 08-15-2016 |  3 |  6
  gtest_child3 | 09-13-2016 |  1 |  2
 (3 rows)
+
+COPY gtest_parent FROM STDIN WITH DELIMITER ',' WHERE f3 <> 2;
+SELECT tableoid::regclass, * FROM gtest_parent ORDER BY 1, 2, 3;
+   tableoid   |     f1     | f2 | f3 
+--------------+------------+----+----
+ gtest_child  | 07-15-2016 |  2 |  4
+ gtest_child  | 07-16-2016 |  4 |  8
+ gtest_child2 | 08-15-2016 |  3 |  6
+ gtest_child3 | 09-13-2016 |  1 |  2
+(4 rows)
 
 -- we leave these tables around for purposes of testing dump/reload/upgrade
 -- generated columns in partition key (not allowed)

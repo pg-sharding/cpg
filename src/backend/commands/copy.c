@@ -33,6 +33,7 @@
 #include "parser/parse_collate.h"
 #include "parser/parse_expr.h"
 #include "parser/parse_relation.h"
+#include "rewrite/rewriteHandler.h"
 #include "utils/acl.h"
 #include "utils/builtins.h"
 #include "utils/lsyscache.h"
@@ -147,6 +148,9 @@ DoCopy(ParseState *pstate, const CopyStmt *stmt,
 
 			/* we have to fix its collations too */
 			assign_expr_collations(pstate, whereClause);
+
+			/* Expand virtual generated columns in the expr */
+			whereClause = expand_generated_columns_in_expr(whereClause, rel, 1);
 
 			pull_varattnos(whereClause, 1, &attnums);
 

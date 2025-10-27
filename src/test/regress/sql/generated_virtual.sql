@@ -231,6 +231,12 @@ COPY gtest3 FROM stdin;
 4
 \.
 
+COPY gtest3 FROM stdin WHERE (b <> 15);
+5
+6
+\.
+
+
 COPY gtest3 (a, b) FROM stdin;
 
 SELECT * FROM gtest3 ORDER BY a;
@@ -539,6 +545,13 @@ ALTER TABLE gtest_parent ALTER COLUMN f3 SET EXPRESSION AS (f2 * 2);
 \d gtest_child2
 \d gtest_child3
 SELECT tableoid::regclass, * FROM gtest_parent ORDER BY 1, 2, 3;
+
+COPY gtest_parent FROM STDIN WITH DELIMITER ',' WHERE f3 <> 2;
+2016-07-15,1
+2016-07-16,4
+\.
+SELECT tableoid::regclass, * FROM gtest_parent ORDER BY 1, 2, 3;
+
 -- we leave these tables around for purposes of testing dump/reload/upgrade
 
 -- generated columns in partition key (not allowed)

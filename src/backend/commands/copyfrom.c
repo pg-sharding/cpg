@@ -798,6 +798,7 @@ CopyFrom(CopyFromState cstate)
 	int64		excluded = 0;
 	bool		has_before_insert_row_trig;
 	bool		has_instead_insert_row_trig;
+	bool		has_stored_generated = false;
 	bool		leafpart_use_multi_insert = false;
 
 	Assert(cstate->rel);
@@ -906,6 +907,37 @@ CopyFrom(CopyFromState cstate)
 					 errmsg("cannot perform COPY FREEZE because the table was not created or truncated in the current subtransaction")));
 
 		ti_options |= TABLE_INSERT_FROZEN;
+	}
+
+	if (cstate->whereClause)
+	{
+		TupleDesc	tupDesc;
+		tupDesc = RelationGetDescr(cstate->rel);
+
+		if (tupDesc->constr && tupDesc->constr->has_generated_stored)
+		{
+			Bitmapset  *attnums = NULL;
+			int			k = -1;
+
+			pull_varattnos(cstate->whereClause, 1, &attnums);
+			while ((k = bms_next_member(attnums, k)) >= 0)
+			{
+				Form_pg_attribute col;
+				AttrNumber	attnum = k + FirstLowInvalidHeapAttributeNumber;
+
+				col = TupleDescAttr(tupDesc, attnum - 1);
+				if (col->attgenerated == ATTRIBUTE_GENERATED_STORED)
+				{
+					/*
+					 * The COPY WHERE clause have generated column references,
+					 * we need to compute the stored generated column while
+					 * evaluating the COPY WHERE clause later.
+					 */
+					has_stored_generated = true;
+					break;
+				}
+			}
+		}
 	}
 
 	/*
@@ -1188,6 +1220,10 @@ CopyFrom(CopyFromState cstate)
 
 		if (cstate->whereClause)
 		{
+			if (has_stored_generated)
+				ExecComputeStoredGenerated(resultRelInfo, estate, myslot,
+										   CMD_INSERT);
+
 			econtext->ecxt_scantuple = myslot;
 			/* Skip items that don't match COPY's WHERE clause */
 			if (!ExecQual(cstate->qualexpr, econtext))
