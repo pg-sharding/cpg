@@ -133,6 +133,9 @@ DoCopy(ParseState *pstate, const CopyStmt *stmt,
 
 		if (stmt->whereClause)
 		{
+			Bitmapset  *attnums = NULL;
+			int			k;
+
 			/* add nsitem to query namespace */
 			addNSItemToQuery(pstate, nsitem, false, true, true);
 
@@ -144,6 +147,20 @@ DoCopy(ParseState *pstate, const CopyStmt *stmt,
 
 			/* we have to fix its collations too */
 			assign_expr_collations(pstate, whereClause);
+
+			pull_varattnos(whereClause, 1, &attnums);
+
+			k = -1;
+			while ((k = bms_next_member(attnums, k)) >= 0)
+			{
+				AttrNumber	attnum = k + FirstLowInvalidHeapAttributeNumber;
+
+				/* Disallow expressions referencing system attributes. */
+				if (attnum <= 0 && attnum != TableOidAttributeNumber)
+					ereport(ERROR,
+							errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+							errmsg("COPY FROM WHERE on system columns is not supported"));
+			}
 
 			whereClause = eval_const_expressions(NULL, whereClause);
 

@@ -136,6 +136,10 @@ COPY x from stdin WITH DELIMITER AS ':' NULL AS E'\\X' ENCODING 'sql_ascii';
 4008:8:Delimiter:\::\:
 \.
 
+COPY x from stdin WHERE xmin IS NULL; --error
+COPY x from stdin WHERE tableoid IS NULL; --ok
+\.
+
 COPY x TO stdout WHERE a = 1;
 COPY x from stdin WHERE a = 50004;
 50003	24	34	44	54
