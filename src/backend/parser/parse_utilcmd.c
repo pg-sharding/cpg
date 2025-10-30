@@ -85,6 +85,7 @@ typedef struct
 	List	   *fkconstraints;	/* FOREIGN KEY constraints */
 	List	   *ixconstraints;	/* index-creating constraints */
 	List	   *likeclauses;	/* LIKE clauses that need post-processing */
+	List	   *options;		/* options from WITH clause, table AM specific parameters */
 	List	   *blist;			/* "before list" of things to do before
 								 * creating the table */
 	List	   *alist;			/* "after list" of things to do after creating
@@ -245,6 +246,7 @@ transformCreateStmt(CreateStmt *stmt, const char *queryString)
 	cxt.fkconstraints = NIL;
 	cxt.ixconstraints = NIL;
 	cxt.likeclauses = NIL;
+	cxt.options = stmt->options;
 	cxt.blist = NIL;
 	cxt.alist = NIL;
 	cxt.pkey = NULL;
@@ -369,6 +371,7 @@ transformCreateStmt(CreateStmt *stmt, const char *queryString)
 	stmt->tableElts = cxt.columns;
 	stmt->constraints = cxt.ckconstraints;
 	stmt->nnconstraints = cxt.nnconstraints;
+	stmt->options = cxt.options;
 
 	result = lappend(cxt.blist, stmt);
 	result = list_concat(result, cxt.alist);
@@ -1265,6 +1268,66 @@ transformTableLikeClause(CreateStmtContext *cxt, TableLikeClause *table_like_cla
 			stmt->comment = comment;
 
 			cxt->alist = lappend(cxt->alist, stmt);
+		}
+	}
+
+	/* Likewise, copy paramters if requested */
+	if ((table_like_clause->options & CREATE_TABLE_LIKE_PARAMETERS) &&
+		!cxt->isforeign)
+	{
+		HeapTuple	tuple;
+		Datum		reloptions;
+		bool		isnull;
+		Oid			relid;
+		List		*oldoptions = NIL;
+		List		*oldtoastoptions = NIL;
+
+		relid = RelationGetRelid(relation);
+		tuple = SearchSysCache1(RELOID, ObjectIdGetDatum(relid));
+
+		if (!HeapTupleIsValid(tuple))
+			elog(ERROR, "cache lookup failed for relation %u", relid);
+
+		reloptions = SysCacheGetAttr(RELOID, tuple,
+									 Anum_pg_class_reloptions, &isnull);
+
+		if (!isnull)
+		{
+			oldoptions = untransformRelOptions(reloptions);
+
+			foreach_node(DefElem, option, oldoptions)
+				cxt->options = lappend(cxt->options, option);
+		}
+		ReleaseSysCache(tuple);
+
+		/* get the toast relation reloptions */
+		if (OidIsValid(relation->rd_rel->reltoastrelid))
+		{
+			Relation	toastrel;
+
+			Oid			toastid = relation->rd_rel->reltoastrelid;
+
+			toastrel = table_open(toastid, AccessShareLock);
+
+			/* Fetch heap tuple */
+			tuple = SearchSysCache1(RELOID, ObjectIdGetDatum(toastid));
+
+			if (!HeapTupleIsValid(tuple))
+				elog(ERROR, "cache lookup failed for toast relation %u", toastid);
+
+			/* Get the toast reloptions */
+			reloptions = SysCacheGetAttr(RELOID, tuple, Anum_pg_class_reloptions,
+										 &isnull);
+			if (!isnull)
+			{
+				oldtoastoptions = untransformRelOptionsExtended(reloptions, "toast");
+
+				foreach_node(DefElem, option, oldtoastoptions)
+					cxt->options = lappend(cxt->options, option);
+			}
+			ReleaseSysCache(tuple);
+
+			table_close(toastrel, NoLock);
 		}
 	}
 
@@ -3575,6 +3638,7 @@ transformAlterTableStmt(Oid relid, AlterTableStmt *stmt,
 	cxt.fkconstraints = NIL;
 	cxt.ixconstraints = NIL;
 	cxt.likeclauses = NIL;
+	cxt.options = NIL;
 	cxt.blist = NIL;
 	cxt.alist = NIL;
 	cxt.pkey = NULL;

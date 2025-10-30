@@ -1393,6 +1393,56 @@ untransformRelOptions(Datum options)
 }
 
 /*
+ * Convert the reloptions from text-array format into a List of DefElem.  This
+ * is the reverse operation of transformRelOptions().
+ *
+ * If any option includes a namespace qualification, create the DefElem in that
+ * namespace, otherwise this behave the same as untransformRelOptions.
+ */
+List *
+untransformRelOptionsExtended(Datum options, char* nameSpace)
+{
+	List	   *result = NIL;
+	ArrayType  *array;
+	Datum	   *optiondatums;
+	int			noptions;
+	int			i;
+
+	/* Nothing to do if no options */
+	if (DatumGetPointer(options) == NULL)
+		return result;
+
+	array = DatumGetArrayTypeP(options);
+
+	deconstruct_array_builtin(array, TEXTOID, &optiondatums, NULL, &noptions);
+
+	for (i = 0; i < noptions; i++)
+	{
+		char	   *s;
+		char	   *p;
+		Node	   *val = NULL;
+
+		s = TextDatumGetCString(optiondatums[i]);
+		p = strchr(s, '=');
+		if (p)
+		{
+			*p++ = '\0';
+			val = (Node *) makeString(p);
+		}
+
+		if (nameSpace == NULL)
+			result = lappend(result, makeDefElem(s, val, -1));
+		else
+			result = lappend(result, makeDefElemExtended(nameSpace, s, val,
+														 DEFELEM_UNSPEC,
+														 -1));
+	}
+
+	return result;
+}
+
+
+/*
  * Extract and parse reloptions from a pg_class tuple.
  *
  * This is a low-level routine, expected to be used by relcache code and

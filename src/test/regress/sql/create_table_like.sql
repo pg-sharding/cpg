@@ -280,3 +280,31 @@ DROP TABLE ctl_table;
 DROP FOREIGN TABLE ctl_foreign_table1;
 DROP FOREIGN TABLE ctl_foreign_table2;
 DROP FOREIGN DATA WRAPPER ctl_dummy CASCADE;
+
+--CREATE TABLE LIKE with PARAMETERS
+create table t_storage(a text) with (
+    fillfactor = 100,
+    toast_tuple_target = 128,
+    vacuum_index_cleanup = auto,
+    toast.vacuum_index_cleanup = auto,
+    vacuum_truncate = true,
+    toast.vacuum_truncate = false,
+    log_autovacuum_min_duration = 100,
+    toast.log_autovacuum_min_duration = 100);
+
+create table t1(like t_storage including parameters) with (fillfactor = 100); --error
+create table t_storage1(like t_storage excluding parameters) with (fillfactor = 100); --ok
+\d+ t_storage1
+
+create table t_storage2(like t_storage including parameters) with (
+  parallel_workers = 3,
+  toast.autovacuum_vacuum_threshold = 101,
+  toast.autovacuum_vacuum_scale_factor = 0.3);
+
+select    c.relname, c.reloptions, tc.reloptions as toast_options
+from      pg_catalog.pg_class c
+left join pg_catalog.pg_class tc ON (c.reltoastrelid = tc.oid)
+where     c.relname in ('t_storage', 't_storage2')
+order by  c.relname \gx
+
+drop table t_storage, t_storage1, t_storage2;
