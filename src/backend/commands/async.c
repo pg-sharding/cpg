@@ -1837,6 +1837,7 @@ HandleRvrInterrupt(void)
 	QueryCancelPending = true;
 	InterruptPending = true;
 	ProcDiePending = true;
+	QueryConflictForceVacuumPending = true;
 
 	/* make sure the event is processed in due course */
 	SetLatch(MyLatch);
