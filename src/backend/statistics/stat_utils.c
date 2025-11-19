@@ -154,14 +154,9 @@ stats_lock_check_privileges(Oid reloid)
 
 	if (!object_ownercheck(DatabaseRelationId, MyDatabaseId, GetUserId()))
 	{
-		AclResult	aclresult = pg_class_aclcheck(RelationGetRelid(rel),
-												  GetUserId(),
-												  ACL_MAINTAIN);
-
-		if (aclresult != ACLCHECK_OK)
-			aclcheck_error(aclresult,
-						   get_relkind_objtype(rel->rd_rel->relkind),
-						   NameStr(rel->rd_rel->relname));
+		aclcheck_error(ACLCHECK_NOT_OWNER,
+						get_relkind_objtype(rel->rd_rel->relkind),
+						NameStr(rel->rd_rel->relname));
 	}
 
 	relation_close(rel, NoLock);
