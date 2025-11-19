@@ -606,16 +606,6 @@ CREATE OR REPLACE FUNCTION
                         relpages integer DEFAULT NULL,
                         reltuples real DEFAULT NULL,
                         relallvisible integer DEFAULT NULL)
-RETURNS bool
-LANGUAGE INTERNAL
-CALLED ON NULL INPUT VOLATILE
-AS 'pg_set_relation_stats';
-
-CREATE OR REPLACE FUNCTION
-  pg_set_relation_stats(relation regclass,
-                        relpages integer DEFAULT NULL,
-                        reltuples real DEFAULT NULL,
-                        relallvisible integer DEFAULT NULL)
 RETURNS void
 LANGUAGE INTERNAL
 CALLED ON NULL INPUT VOLATILE
