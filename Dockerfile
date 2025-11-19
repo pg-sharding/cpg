@@ -40,7 +40,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN apt-get install -y \
     libmdblocales1 libmdblocales-dev \
     postgresql-client-common=${PGDG_VER} \
-    postgresql-common=${PGDG_VER}
+    postgresql-common=${PGDG_VER} \
+    postgresql-common-dev=${PGDG_VER}
 
 RUN groupadd -g 999 build-user && \
     useradd -r -u 999 -g build-user build-user
