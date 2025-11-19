@@ -22,6 +22,7 @@
 #include "catalog/pg_collation.h"
 #include "catalog/pg_operator.h"
 #include "nodes/nodeFuncs.h"
+#include "nodes/miscnodes.h"
 #include "statistics/statistics.h"
 #include "statistics/stat_utils.h"
 #include "utils/array.h"
@@ -29,6 +30,7 @@
 #include "utils/fmgroids.h"
 #include "utils/lsyscache.h"
 #include "utils/syscache.h"
+#include "utils/typcache.h"
 
 #define DEFAULT_NULL_FRAC      Float4GetDatum(0.0)
 #define DEFAULT_AVG_WIDTH      Int32GetDatum(0) /* unknown */
