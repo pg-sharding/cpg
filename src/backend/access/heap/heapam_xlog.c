@@ -259,9 +259,6 @@ heap_xlog_prune_freeze(XLogReaderState *record)
 
 	if (BufferIsValid(vmbuffer))
 		UnlockReleaseBuffer(vmbuffer);
-
-	if (freespace > 0)
-		XLogRecordPageWithFreeSpace(rlocator, blkno, freespace);
 }
 
 /*
@@ -472,18 +469,6 @@ heap_xlog_insert(XLogReaderState *record)
 	}
 	if (BufferIsValid(buffer))
 		UnlockReleaseBuffer(buffer);
-
-	/*
-	 * If the page is running low on free space, update the FSM as well.
-	 * Arbitrarily, our definition of "low" is less than 20%. We can't do much
-	 * better than that without knowing the fill-factor for the table.
-	 *
-	 * XXX: Don't do this if the page was restored from full page image. We
-	 * don't bother to update the FSM in that case, it doesn't need to be
-	 * totally accurate anyway.
-	 */
-	if (action == BLK_NEEDS_REDO && freespace < BLCKSZ / 5)
-		XLogRecordPageWithFreeSpace(target_locator, blkno, freespace);
 }
 
 /*
@@ -667,18 +652,6 @@ heap_xlog_multi_insert(XLogReaderState *record)
 
 	if (BufferIsValid(vmbuffer))
 		UnlockReleaseBuffer(vmbuffer);
-
-	/*
-	 * If the page is running low on free space, update the FSM as well.
-	 * Arbitrarily, our definition of "low" is less than 20%. We can't do much
-	 * better than that without knowing the fill-factor for the table.
-	 *
-	 * XXX: Don't do this if the page was restored from full page image. We
-	 * don't bother to update the FSM in that case, it doesn't need to be
-	 * totally accurate anyway.
-	 */
-	if (action == BLK_NEEDS_REDO && freespace < BLCKSZ / 5)
-		XLogRecordPageWithFreeSpace(rlocator, blkno, freespace);
 }
 
 /*
@@ -936,24 +909,6 @@ heap_xlog_update(XLogReaderState *record, bool hot_update)
 		UnlockReleaseBuffer(nbuffer);
 	if (BufferIsValid(obuffer))
 		UnlockReleaseBuffer(obuffer);
-
-	/*
-	 * If the new page is running low on free space, update the FSM as well.
-	 * Arbitrarily, our definition of "low" is less than 20%. We can't do much
-	 * better than that without knowing the fill-factor for the table.
-	 *
-	 * However, don't update the FSM on HOT updates, because after crash
-	 * recovery, either the old or the new tuple will certainly be dead and
-	 * prunable. After pruning, the page will have roughly as much free space
-	 * as it did before the update, assuming the new tuple is about the same
-	 * size as the old one.
-	 *
-	 * XXX: Don't do this if the page was restored from full page image. We
-	 * don't bother to update the FSM in that case, it doesn't need to be
-	 * totally accurate anyway.
-	 */
-	if (newaction == BLK_NEEDS_REDO && !hot_update && freespace < BLCKSZ / 5)
-		XLogRecordPageWithFreeSpace(rlocator, newblk, freespace);
 }
 
 /*

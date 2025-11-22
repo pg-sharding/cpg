@@ -24,6 +24,8 @@
 #include "postgres.h"
 
 #include "access/htup_details.h"
+#include "access/fsm_xlog.h"
+#include "access/xlogreader.h"
 #include "access/xloginsert.h"
 #include "access/xlogutils.h"
 #include "miscadmin.h"
@@ -204,39 +206,6 @@ RecordPageWithFreeSpace(Relation rel, BlockNumber heapBlk, Size spaceAvail)
 }
 
 /*
- * XLogRecordPageWithFreeSpace - like RecordPageWithFreeSpace, for use in
- *		WAL replay
- */
-void
-XLogRecordPageWithFreeSpace(RelFileLocator rlocator, BlockNumber heapBlk,
-							Size spaceAvail)
-{
-	int			new_cat = fsm_space_avail_to_cat(spaceAvail);
-	FSMAddress	addr;
-	uint16		slot;
-	BlockNumber blkno;
-	Buffer		buf;
-	Page		page;
-
-	/* Get the location of the FSM byte representing the heap block */
-	addr = fsm_get_location(heapBlk, &slot);
-	blkno = fsm_logical_to_physical(addr);
-
-	/* If the page doesn't exist already, extend */
-	buf = XLogReadBufferExtended(rlocator, FSM_FORKNUM, blkno,
-								 RBM_ZERO_ON_ERROR, InvalidBuffer);
-	LockBuffer(buf, BUFFER_LOCK_EXCLUSIVE);
-
-	page = BufferGetPage(buf);
-	if (PageIsNew(page))
-		PageInit(page, BLCKSZ, 0);
-
-	if (fsm_set_avail(page, slot, new_cat))
-		MarkBufferDirtyHint(buf, false);
-	UnlockReleaseBuffer(buf);
-}
-
-/*
  * GetRecordedFreeSpace - return the amount of free space on a particular page,
  *		according to the FSM.
  */
@@ -332,7 +301,7 @@ FreeSpaceMapPrepareTruncateRel(Relation rel, BlockNumber nblocks)
 		 * not changed, and our fork remains valid.  If we crash after that
 		 * flush, redo will return here.
 		 */
-		if (changed && !InRecovery && RelationNeedsWAL(rel) && XLogHintBitIsNeeded())
+		if (changed && !InRecovery && RelationNeedsWAL(rel))
 			log_newpage_buffer(buf, false);
 
 		END_CRIT_SECTION();
@@ -651,24 +620,27 @@ fsm_set_and_search(Relation rel, FSMAddress addr, uint16 slot,
 				   uint8 newValue, uint8 minValue)
 {
 	Buffer		buf;
-	Page		page;
 	int			newslot = -1;
 
 	buf = fsm_readbuf(rel, addr, true);
+
 	LockBuffer(buf, BUFFER_LOCK_EXCLUSIVE);
 
-	page = BufferGetPage(buf);
+	if (RelationNeedsWAL(rel))
+		START_CRIT_SECTION();
 
-	if (fsm_set_avail(page, slot, newValue))
-		MarkBufferDirtyHint(buf, false);
+	fsm_set_avail(buf, slot, newValue, RelationNeedsWAL(rel));
 
 	if (minValue != 0)
 	{
 		/* Search while we still hold the lock */
 		newslot = fsm_search_avail(buf, minValue,
 								   addr.level == FSM_BOTTOM_LEVEL,
-								   true);
+								   true, RelationNeedsWAL(rel));
 	}
+
+	if (RelationNeedsWAL(rel))
+		END_CRIT_SECTION();
 
 	UnlockReleaseBuffer(buf);
 
@@ -699,7 +671,7 @@ fsm_search(Relation rel, uint8 min_cat)
 			LockBuffer(buf, BUFFER_LOCK_SHARE);
 			slot = fsm_search_avail(buf, min_cat,
 									(addr.level == FSM_BOTTOM_LEVEL),
-									false);
+									false, RelationNeedsWAL(rel));
 			if (slot == -1)
 			{
 				max_avail = fsm_get_max_avail(BufferGetPage(buf));
@@ -723,7 +695,6 @@ fsm_search(Relation rel, uint8 min_cat)
 			if (addr.level == FSM_BOTTOM_LEVEL)
 			{
 				BlockNumber blkno = fsm_get_heap_blk(addr, slot);
-				Page		page;
 
 				if (fsm_does_block_exist(rel, blkno))
 				{
@@ -739,11 +710,20 @@ fsm_search(Relation rel, uint8 min_cat)
 				 * on the same FSM page, but don't bet on the benefits of that
 				 * optimization justifying its compiled code bulk.
 				 */
-				page = BufferGetPage(buf);
+
+
 				LockBuffer(buf, BUFFER_LOCK_EXCLUSIVE);
-				fsm_set_avail(page, slot, 0);
-				MarkBufferDirtyHint(buf, false);
+
+				if (RelationNeedsWAL(rel))
+					START_CRIT_SECTION();
+
+				fsm_set_avail(buf, slot, 0, RelationNeedsWAL(rel));
+
+				if (RelationNeedsWAL(rel))
+					END_CRIT_SECTION();
+				
 				UnlockReleaseBuffer(buf);
+
 				if (restarts++ > 10000) /* same rationale as below */
 					return InvalidBlockNumber;
 				addr = FSM_ROOT_ADDRESS;
@@ -847,6 +827,7 @@ fsm_vacuum_page(Relation rel, FSMAddress addr,
 					start_slot,
 					end_slot;
 		bool		eof = false;
+		bool		use_wal;
 
 		/*
 		 * Compute the range of slots we need to update on this page, given
@@ -857,6 +838,8 @@ fsm_vacuum_page(Relation rel, FSMAddress addr,
 		 */
 		fsm_start = fsm_get_location(start, &fsm_start_slot);
 		fsm_end = fsm_get_location(end - 1, &fsm_end_slot);
+
+		use_wal = RelationNeedsWAL(rel) && !RecoveryInProgress();
 
 		while (fsm_start.level < addr.level)
 		{
@@ -897,8 +880,16 @@ fsm_vacuum_page(Relation rel, FSMAddress addr,
 			if (fsm_get_avail(page, slot) != child_avail)
 			{
 				LockBuffer(buf, BUFFER_LOCK_EXCLUSIVE);
-				fsm_set_avail(page, slot, child_avail);
-				MarkBufferDirtyHint(buf, false);
+
+				if (use_wal)
+					START_CRIT_SECTION();
+				
+
+				fsm_set_avail(buf, slot, child_avail, use_wal);
+
+				if (use_wal)
+					END_CRIT_SECTION();
+
 				LockBuffer(buf, BUFFER_LOCK_UNLOCK);
 			}
 		}
@@ -941,4 +932,60 @@ fsm_does_block_exist(Relation rel, BlockNumber blknumber)
 	return ((BlockNumberIsValid(smgr->smgr_cached_nblocks[MAIN_FORKNUM]) &&
 			 blknumber < smgr->smgr_cached_nblocks[MAIN_FORKNUM]) ||
 			blknumber < RelationGetNumberOfBlocks(rel));
+}
+
+
+static void
+fsm_xlog_update(XLogReaderState *record)
+{
+	XLogRecPtr	lsn = record->EndRecPtr;
+	xl_fsm_update *xldata;
+	Buffer		buffer;
+	Page		page;
+	XLogRedoAction action;
+	int				i;
+	uint32			nodeno, value;
+	FSMPage			fsmpage;
+
+	xldata = (xl_fsm_update *) XLogRecGetData(record);
+
+	action = XLogReadBufferForRedoExtended(record, 0, RBM_NORMAL, true, &buffer);
+
+	if (action == BLK_NEEDS_REDO)
+	{
+		page = BufferGetPage(buffer);
+		fsmpage = (FSMPage) PageGetContents(page);
+
+		for (i = 0; i < xldata->nchanges; ++ i) {
+			nodeno = xldata->ev[2 * i];
+			value = xldata->ev[2 * i + 1];
+			fsmpage->fp_nodes[nodeno] = value;
+		}
+
+
+		PageSetLSN(page, lsn);
+		MarkBufferDirty(buffer);
+	}
+
+	if (BufferIsValid(buffer))
+		UnlockReleaseBuffer(buffer);
+}
+
+
+/*
+ * Redo is basically just noop for logical decoding messages.
+ */
+void
+fsm_redo(XLogReaderState *record)
+{
+	uint8		info = XLogRecGetInfo(record) & ~XLR_INFO_MASK;
+
+	switch (info)
+	{
+		case XLOG_FSM_UPDATE:
+			fsm_xlog_update(record);
+			break;
+		default:
+			elog(PANIC, "fsm_redo: unknown op code %u", info);
+	}
 }
