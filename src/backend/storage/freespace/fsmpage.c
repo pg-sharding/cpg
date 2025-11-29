@@ -22,8 +22,11 @@
  */
 #include "postgres.h"
 
+#include "access/fsm_xlog.h"
+#include "access/xloginsert.h"
 #include "storage/bufmgr.h"
 #include "storage/fsm_internals.h"
+#include "miscadmin.h"
 
 /* Macros to navigate the tree within a page. Root has index zero. */
 #define leftchild(x)	(2 * (x) + 1)
@@ -60,21 +63,31 @@ rightneighbor(int x)
  * The caller must hold an exclusive lock on the page.
  */
 bool
-fsm_set_avail(Page page, int slot, uint8 value)
+fsm_set_avail(Buffer buf, int slot, uint8 value, bool use_wal)
 {
 	int			nodeno = NonLeafNodesPerPage + slot;
+	Page 		page = BufferGetPage(buf);
 	FSMPage		fsmpage = (FSMPage) PageGetContents(page);
 	uint8		oldvalue;
+	uint32		nchanges;
+	static uint32 fsmpageChangesBuf[2 * BLCKSZ];
 
 	Assert(slot < LeafNodesPerPage);
 
 	oldvalue = fsmpage->fp_nodes[nodeno];
+
+	nchanges = 0;
 
 	/* If the value hasn't changed, we don't need to do anything */
 	if (oldvalue == value && value <= fsmpage->fp_nodes[0])
 		return false;
 
 	fsmpage->fp_nodes[nodeno] = value;
+
+	if (use_wal) {
+		fsmpageChangesBuf[nchanges++] = nodeno;
+		fsmpageChangesBuf[nchanges++] = value;
+	}
 
 	/*
 	 * Propagate up, until we hit the root or a node that doesn't need to be
@@ -100,14 +113,47 @@ fsm_set_avail(Page page, int slot, uint8 value)
 			break;
 
 		fsmpage->fp_nodes[nodeno] = newvalue;
+
+		if (use_wal) {
+			fsmpageChangesBuf[nchanges++] = nodeno;
+			fsmpageChangesBuf[nchanges++] = newvalue;
+		}
+
 	} while (nodeno > 0);
+
+
+	if (use_wal) {
+		MarkBufferDirty(buf);
+	} else {
+		MarkBufferDirtyHint(buf, false);
+	}
 
 	/*
 	 * sanity check: if the new value is (still) higher than the value at the
 	 * top, the tree is corrupt.  If so, rebuild.
 	 */
-	if (value > fsmpage->fp_nodes[0])
+	if (value > fsmpage->fp_nodes[0]) {
 		fsm_rebuild_page(page);
+		if (use_wal)
+			log_newpage_buffer(buf, false);
+	} else if (use_wal) {
+		uint8		info;
+		XLogRecPtr	recptr;
+		xl_fsm_update	xlrec;
+
+		xlrec.nchanges = nchanges / 2;
+		XLogBeginInsert();
+		
+		info = XLOG_FSM_UPDATE;
+		XLogRegisterBuffer(0, buf, 0);
+
+		XLogRegisterData(&xlrec, SizeOfFSMUpdate);
+		XLogRegisterData(&fsmpageChangesBuf, sizeof(uint32) * nchanges);
+	
+		recptr = XLogInsert(RM_FSM_ID, info);
+
+		PageSetLSN(page, recptr);
+	}
 
 	return true;
 }
@@ -156,7 +202,7 @@ fsm_get_max_avail(Page page)
  */
 int
 fsm_search_avail(Buffer buf, uint8 minvalue, bool advancenext,
-				 bool exclusive_lock_held)
+				 bool exclusive_lock_held, bool use_wal)
 {
 	Page		page = BufferGetPage(buf);
 	FSMPage		fsmpage = (FSMPage) PageGetContents(page);
@@ -283,8 +329,19 @@ restart:
 				LockBuffer(buf, BUFFER_LOCK_EXCLUSIVE);
 				exclusive_lock_held = true;
 			}
+
+			if (use_wal) {
+				START_CRIT_SECTION();
+			}
+
 			fsm_rebuild_page(page);
-			MarkBufferDirtyHint(buf, false);
+			MarkBufferDirty(buf);
+
+			if (use_wal) {
+				log_newpage_buffer(buf, false);
+
+				END_CRIT_SECTION();
+			}
 			goto restart;
 		}
 	}

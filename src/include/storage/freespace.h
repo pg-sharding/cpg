@@ -27,8 +27,6 @@ extern BlockNumber RecordAndGetPageWithFreeSpace(Relation rel,
 												 Size spaceNeeded);
 extern void RecordPageWithFreeSpace(Relation rel, BlockNumber heapBlk,
 									Size spaceAvail);
-extern void XLogRecordPageWithFreeSpace(RelFileLocator rlocator, BlockNumber heapBlk,
-										Size spaceAvail);
 
 extern BlockNumber FreeSpaceMapPrepareTruncateRel(Relation rel,
 												  BlockNumber nblocks);
