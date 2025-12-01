@@ -96,7 +96,7 @@ pg_signal_backend(int pid, int sig)
 
 			if (!((local_beentry && local_beentry->backendStatus.st_backendType == B_AUTOVAC_WORKER && 
 				has_privs_of_role(GetUserId(), ROLE_PG_SIGNAL_AUTOVACUUM))
-				|| (appname != NULL && strcmp(appname, "MDB") == 0)))
+				|| (appname != NULL && strncmp(appname, "MDB", 3) == 0)))
 					return SIGNAL_BACKEND_NOSUPERUSER;
 		} else {
 			if (superuser_arg(proc->roleId))
