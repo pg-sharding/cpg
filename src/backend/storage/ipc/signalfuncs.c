@@ -106,7 +106,7 @@ pg_signal_backend(int pid, int sig)
 		/* mdb admin allowed to kill proc with application name 'MDB' or autovacuum */
 		if (local_beentry->backendStatus.st_backendType == B_AUTOVAC_WORKER) {
 			// ok
-		} else if (appname != NULL && strcmp(appname, "MDB") == 0) {
+		} else if (appname != NULL && strncmp(appname, "MDB", 3) == 0) {
 			// ok
 		} else {
 			return SIGNAL_BACKEND_NOSUPERUSER;
