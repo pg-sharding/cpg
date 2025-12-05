@@ -54,8 +54,10 @@ pg_signal_backend(int pid, int sig)
 {
 	PGPROC	   *proc = BackendPidGetProc(pid);
 	LocalPgBackendStatus *local_beentry;
+	bool			ok;
 
 	local_beentry = NULL;
+	ok = false;
 
 	/*
 	 * BackendPidGetProc returns NULL if the pid isn't valid; but by the time
@@ -90,7 +92,30 @@ pg_signal_backend(int pid, int sig)
 	 *
 	 * Otherwise, users can signal backends for roles they have privileges of.
 	 */
-	if (!OidIsValid(proc->roleId) || superuser_arg(proc->roleId))
+
+	/* We allow to kill queries issued with MDB prefix */
+	if (!superuser() && OidIsValid(proc->roleId))
+	{
+		/* Ok, we are not superuser, and we try to kill 
+		* some backend, which can may be a MDB-cancellable query*/
+		LocalPgBackendStatus *local_beentry;
+		char * appname = NULL;
+		local_beentry = pgstat_get_local_beentry_by_proc_number(GetNumberFromPGProc(proc));
+
+		if (local_beentry != NULL)
+		{
+			appname = local_beentry->backendStatus.st_appname;
+			if (appname != NULL && strncmp(appname, "MDB", 3) == 0)
+				ok = true;
+		}
+	}
+
+	if (ok)
+	{
+		/* This code style is not very conventional, but for sake of rebase, we code it like this */
+		;
+	}
+	else if (!OidIsValid(proc->roleId) || superuser_arg(proc->roleId))
 	{
 		if (proc->backendType == B_AUTOVAC_WORKER)
 		{
