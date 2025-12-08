@@ -138,7 +138,7 @@ main(int argc, char *argv[])
 		{"no-process-main", no_argument, NULL, 12},
 		{"buffer-usage-limit", required_argument, NULL, 13},
 		{"missing-stats-only", no_argument, NULL, 14},
-		{"force", no_argument, NULL, 14},
+		{"force", no_argument, NULL, 15},
 		{NULL, 0, NULL, 0}
 	};
 
