@@ -88,18 +88,26 @@ pg_signal_backend(int pid, int sig)
 	if (!superuser()) {
 		if (!OidIsValid(proc->roleId)) {
 			LocalPgBackendStatus *local_beentry;
+			local_beentry = pgstat_get_local_beentry_by_proc_number(GetNumberFromPGProc(proc));
+
+			if (!(local_beentry && local_beentry->backendStatus.st_backendType == B_AUTOVAC_WORKER && 
+				has_privs_of_role(GetUserId(), ROLE_PG_SIGNAL_AUTOVACUUM)))
+					return SIGNAL_BACKEND_NOSUPERUSER;
+		} else {
+			LocalPgBackendStatus *local_beentry;
 			char * appname = NULL;
 			local_beentry = pgstat_get_local_beentry_by_proc_number(GetNumberFromPGProc(proc));
 			if (local_beentry) {
 				appname = local_beentry->backendStatus.st_appname;
 			}
 
-			if (!((local_beentry && local_beentry->backendStatus.st_backendType == B_AUTOVAC_WORKER && 
-				has_privs_of_role(GetUserId(), ROLE_PG_SIGNAL_AUTOVACUUM))
-				|| (appname != NULL && strncmp(appname, "MDB", 3) == 0)))
-					return SIGNAL_BACKEND_NOSUPERUSER;
-		} else {
-			if (superuser_arg(proc->roleId))
+			/* NB: always upper-case */
+			if (appname != NULL && strncmp(appname, "MDB", 3) == 0)
+			{
+				/* ok, allow, but still re-check for ROLE_PG_SIGNAL_BACKEND */
+				/* this code is written like that for sake of rebase, do not change codestyle */
+			}
+			else if (superuser_arg(proc->roleId))
 				return SIGNAL_BACKEND_NOSUPERUSER;
 
 			/* Users can signal backends they have role membership in. */
