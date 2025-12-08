@@ -1,5 +1,5 @@
 
-# Copyright (c) 2024-2024, MDB, Mother Russia
+# Copyright (c) 2024-2025, MDB, Mother Russia
 
 # Minimal test testing streaming replication
 use strict;
