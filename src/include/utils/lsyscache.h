@@ -214,6 +214,7 @@ extern Oid	get_publication_oid(const char *pubname, bool missing_ok);
 extern char *get_publication_name(Oid pubid, bool missing_ok);
 extern Oid	get_subscription_oid(const char *subname, bool missing_ok);
 extern char *get_subscription_name(Oid subid, bool missing_ok);
+extern Oid get_subscription_database(Oid subid);
 
 extern char *get_propgraph_label_name(Oid labeloid);
 extern char *get_propgraph_property_name(Oid propoid);
