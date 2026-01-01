@@ -63,6 +63,7 @@
 #include "utils/lsyscache.h"
 #include "utils/memutils.h"
 #include "utils/syscache.h"
+#include "utils/lsyscache.h"
 
 typedef enum
 {
@@ -1606,6 +1607,15 @@ shdepReassignOwned(List *roleids, Oid newrole)
 			 */
 			if (sdepForm->dbid != MyDatabaseId &&
 				sdepForm->dbid != InvalidOid)
+				continue;
+
+			/*
+			 * Subscriptions are linked to specific databases, even though
+			 * they are nominally shared objects.  Skip those that aren't
+			 * in this database.
+			 */
+			if (sdepForm->classid == SubscriptionRelationId &&
+				get_subscription_database(sdepForm->objid) != MyDatabaseId)
 				continue;
 
 			/*
