@@ -4111,3 +4111,25 @@ get_propgraph_property_name(Oid propoid)
 
 	return propname;
 }
+
+/*
+ * Return the OID of the database the given subscription is in.
+ */
+Oid
+get_subscription_database(Oid subid)
+{
+	HeapTuple	tup;
+	Form_pg_subscription	subform;
+	Oid			subdbid;
+
+	tup = SearchSysCache1(SUBSCRIPTIONOID, ObjectIdGetDatum(subid));
+	if (!HeapTupleIsValid(tup))
+		elog(ERROR, "cache lookup failed for subscription %u", subid);
+
+	subform = (Form_pg_subscription) GETSTRUCT(tup);
+	subdbid = subform->subdbid;
+
+	ReleaseSysCache(tup);
+
+	return subdbid;
+}
