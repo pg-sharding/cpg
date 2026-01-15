@@ -264,7 +264,7 @@ pg_localeconv_r(const char *lc_monetary,
 	memset(output, 0, sizeof(*output));
 
 	/* Copy the LC_MONETARY members. */
-	if (!setlocale(LC_ALL, lc_monetary))
+	if (!SETLOCALE(LC_ALL, lc_monetary))
 		goto exit;
 	result = pg_localeconv_copy_members(output, localeconv(), LC_MONETARY);
 	if (result != 0)
