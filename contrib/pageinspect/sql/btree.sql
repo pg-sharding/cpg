@@ -1,6 +1,7 @@
 CREATE TABLE test1 (a int8, b int4range);
 INSERT INTO test1 VALUES (72057594037927937, '[0,1)');
 CREATE INDEX test1_a_idx ON test1 USING btree (a);
+CREATE INDEX test1_a_b_idx ON test1 USING btree (a, b);
 
 \x
 
@@ -10,6 +11,9 @@ SELECT * FROM bt_page_stats('test1_a_idx', -1);
 SELECT * FROM bt_page_stats('test1_a_idx', 0);
 SELECT * FROM bt_page_stats('test1_a_idx', 1);
 SELECT * FROM bt_page_stats('test1_a_idx', 2);
+
+SELECT * FROM bt_page_items('test1_a_idx', 1, true);
+SELECT * FROM bt_page_items('test1_a_b_idx', 1, true);
 
 SELECT * FROM bt_page_items('test1_a_idx', -1);
 SELECT * FROM bt_page_items('test1_a_idx', 0);
