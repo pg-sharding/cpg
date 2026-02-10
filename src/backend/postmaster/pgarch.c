@@ -378,6 +378,15 @@ pgarch_ArchiverCopyLoop(void)
 	arch_files->arch_files_size = 0;
 
 	/*
+	 * In shared archive mode during recovery, the archiver doesn't archive
+	 * files. The primary is responsible for archiving, and the walreceiver
+	 * marks files as .done when the primary confirms archival. After
+	 * promotion, the archiver starts working normally.
+	 */
+	if (XLogArchiveMode == ARCHIVE_MODE_SHARED && RecoveryInProgress())
+		return;
+
+	/*
 	 * loop through all xlogs with archive_status of .ready and archive
 	 * them...mostly we expect this to be a single file, though it is possible
 	 * some backend will add files onto the list of those that need archiving
@@ -458,10 +467,10 @@ pgarch_ArchiverCopyLoop(void)
 				continue;
 			}
 
-			if (pgarch_archiveXlog(xlog))
-			{
-				/* successful */
-				pgarch_archiveDone(xlog);
+		if (pgarch_archiveXlog(xlog))
+		{
+			/* successful */
+			pgarch_archiveDone(xlog);
 
 				/*
 				 * Tell the collector about the WAL file that we successfully
