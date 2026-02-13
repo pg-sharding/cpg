@@ -10,7 +10,7 @@ cd /home/build-user
 sudo ./docker/tzdata.sh
 
 cat debian/changelog
-export DEB_BUILD_OPTIONS="nocheck"
+#export DEB_BUILD_OPTIONS="nocheck"
 
 sudo dpkg-checkbuilddeps
 
