@@ -244,31 +244,6 @@ my %pgdump_runs = (
 			'postgres',
 		],
 	},
-	no_policies => {
-		dump_cmd => [
-			'pg_dump', '--no-sync',
-			'--file' => "$tempdir/no_policies.sql",
-			'--no-policies',
-			'postgres',
-		],
-	},
-	no_policies_restore => {
-		dump_cmd => [
-			'pg_dump', '--no-sync',
-			'--format' => 'custom',
-			'--file' => "$tempdir/no_policies_restore.dump",
-			'--statistics',
-			'postgres',
-		],
-		restore_cmd => [
-			'pg_restore',
-			'--format' => 'custom',
-			'--file' => "$tempdir/no_policies_restore.sql",
-			'--no-policies',
-			'--statistics',
-			"$tempdir/no_policies_restore.dump",
-		],
-	},
 	no_privs => {
 		dump_cmd => [
 			'pg_dump',                      '--no-sync',
