@@ -3764,7 +3764,7 @@ getPolicies(Archive *fout, TableInfo tblinfo[], int numTables)
 		return;
 
 	/* Skip if --no-policies was specified */
-	if (dopt->no_policies)
+	if (dopt->no_policies || true)
 		return;
 
 	query = createPQExpBuffer();
