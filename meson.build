@@ -1531,7 +1531,6 @@ if sslopt in ['auto', 'openssl']
       # Function introduced in OpenSSL 1.1.1, not in LibreSSL.
       ['X509_get_signature_info'],
       ['SSL_CTX_set_num_tickets'],
-      ['SSL_CTX_set_keylog_callback'],
     ]
 
     are_openssl_funcs_complete = true
