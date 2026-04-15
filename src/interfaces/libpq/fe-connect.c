@@ -409,7 +409,7 @@ static const internalPQconninfoOption PQconninfoOptions[] = {
 	offsetof(struct pg_conn, oauth_scope)},
 
 	{"sslkeylogfile", NULL, NULL, NULL,
-		"SSL-Key-Log-File", "D", 64,
+		"SSL-Key-Log-File", "", 0,	/* sizeof("") = 0 */
 	offsetof(struct pg_conn, sslkeylogfile)},
 	/* MDB-23247: option for service log-in */
 	{"_pq_.service_auth_role", "PGSERVICEAUTHROLE",
