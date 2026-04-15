@@ -2033,11 +2033,13 @@ pqConnectOptions2(PGconn *conn)
 		if (len < 0)
 		{
 			libpq_append_conn_error(conn, "invalid SCRAM client key");
+			free(conn->scram_client_key_binary);
 			return false;
 		}
 		if (len != SCRAM_MAX_KEY_LEN)
 		{
 			libpq_append_conn_error(conn, "invalid SCRAM client key length: %d", len);
+			free(conn->scram_client_key_binary);
 			return false;
 		}
 		conn->scram_client_key_len = len;
@@ -2056,11 +2058,13 @@ pqConnectOptions2(PGconn *conn)
 		if (len < 0)
 		{
 			libpq_append_conn_error(conn, "invalid SCRAM server key");
+			free(conn->scram_server_key_binary);
 			return false;
 		}
 		if (len != SCRAM_MAX_KEY_LEN)
 		{
 			libpq_append_conn_error(conn, "invalid SCRAM server key length: %d", len);
+			free(conn->scram_server_key_binary);
 			return false;
 		}
 		conn->scram_server_key_len = len;
@@ -5055,19 +5059,21 @@ freePGconn(PGconn *conn)
 		free(conn->events[i].name);
 	}
 
-	/* free everything not freed in pqClosePGconn */
+	release_conn_addrinfo(conn);
+	pqReleaseConnHosts(conn);
+
+	free(conn->client_encoding_initial);
+	free(conn->events);
 	free(conn->pghost);
 	free(conn->pghostaddr);
 	free(conn->pgport);
 	free(conn->connect_timeout);
 	free(conn->pgtcp_user_timeout);
-	free(conn->client_encoding_initial);
 	free(conn->pgoptions);
 	free(conn->appname);
 	free(conn->fbappname);
 	free(conn->dbName);
 	free(conn->replication);
-	free(conn->pgservice);
 	free(conn->pguser);
 	if (conn->pgpass)
 	{
@@ -5082,9 +5088,8 @@ freePGconn(PGconn *conn)
 	free(conn->keepalives_count);
 	free(conn->sslmode);
 	free(conn->sslnegotiation);
-	free(conn->sslcompression);
-	free(conn->sslkey);
 	free(conn->sslcert);
+	free(conn->sslkey);
 	if (conn->sslpassword)
 	{
 		explicit_bzero(conn->sslpassword, strlen(conn->sslpassword));
@@ -5094,22 +5099,26 @@ freePGconn(PGconn *conn)
 	free(conn->sslrootcert);
 	free(conn->sslcrl);
 	free(conn->sslcrldir);
+	free(conn->sslcompression);
 	free(conn->sslsni);
 	free(conn->requirepeer);
+	free(conn->require_auth);
+	free(conn->ssl_min_protocol_version);
+	free(conn->ssl_max_protocol_version);
 	free(conn->gssencmode);
 	free(conn->krbsrvname);
 	free(conn->gsslib);
 	free(conn->gssdelegation);
-	free(conn->min_protocol_version);
-	free(conn->max_protocol_version);
-	free(conn->ssl_min_protocol_version);
-	free(conn->ssl_max_protocol_version);
+	free(conn->connip);
+	/* Note that conn->Pfdebug is not ours to close or free */
+	free(conn->write_err_msg);
+	free(conn->inBuffer);
+	free(conn->outBuffer);
+	free(conn->rowBuf);
 	free(conn->target_session_attrs);
-	free(conn->require_auth);
 	free(conn->load_balance_hosts);
 	free(conn->scram_client_key);
 	free(conn->scram_server_key);
-	free(conn->sslkeylogfile);
 	free(conn->oauth_issuer);
 	free(conn->oauth_issuer_id);
 	free(conn->oauth_discovery_uri);
@@ -5159,7 +5168,6 @@ pqReleaseConnHosts(PGconn *conn)
 			}
 		}
 		free(conn->connhost);
-		conn->connhost = NULL;
 	}
 }
 
