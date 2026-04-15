@@ -408,9 +408,6 @@ static const internalPQconninfoOption PQconninfoOptions[] = {
 		"OAuth-Scope", "", 15,
 	offsetof(struct pg_conn, oauth_scope)},
 
-	{"sslkeylogfile", NULL, NULL, NULL,
-		"SSL-Key-Log-File", "D", 64,
-	offsetof(struct pg_conn, sslkeylogfile)},
 	/* MDB-23247: option for service log-in */
 	{"_pq_.service_auth_role", "PGSERVICEAUTHROLE",
 		"", NULL,
@@ -5109,7 +5106,6 @@ freePGconn(PGconn *conn)
 	free(conn->load_balance_hosts);
 	free(conn->scram_client_key);
 	free(conn->scram_server_key);
-	free(conn->sslkeylogfile);
 	free(conn->oauth_issuer);
 	free(conn->oauth_issuer_id);
 	free(conn->oauth_discovery_uri);
