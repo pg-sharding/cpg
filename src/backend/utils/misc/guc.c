@@ -4743,7 +4743,7 @@ static struct config_enum ConfigureNamesEnum[] =
 			gettext_noop("Enables YC MDB runtime checker, which check if user is ok to grant roles to other users."),
 			NULL
 		},
-		&yc_grant_checker_type,
+		((int *) &yc_grant_checker_type),
 		YC_GRANT_CHECKER_OFF,
 		yc_grant_checker_options,
 		NULL, NULL, NULL
