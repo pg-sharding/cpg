@@ -1054,11 +1054,17 @@ execute_extension_script(Oid extensionOid, ExtensionControlFile *control,
 	 * here so that the control flags are correctly associated with the right
 	 * script(s) if they happen to be set in secondary control files.
 	 */
-	if (control->superuser && !superuser())
+	 /* MDB does not trust control->superuser */
+	if (!superuser())
 	{
+
+		/* MDB addon */
+#if 0
 		if (extension_is_trusted(control))
 			switch_to_superuser = true;
-		else if (from_version == NULL)
+		else
+#endif
+		if (from_version == NULL)
 			ereport(ERROR,
 					(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
 					 errmsg("permission denied to create extension \"%s\"",
@@ -1082,6 +1088,11 @@ execute_extension_script(Oid extensionOid, ExtensionControlFile *control,
 		elog(DEBUG1, "executing extension script for \"%s\" version '%s'", control->name, version);
 	else
 		elog(DEBUG1, "executing extension script for \"%s\" update from version '%s' to '%s'", control->name, from_version, version);
+
+	/* MDB addons. Never trust extension's controlfile trusted and/or superuser field.
+	* XXX: rethink this if we start support SQL-level ext API */
+
+	switch_to_superuser = false;
 
 	/*
 	 * If installing a trusted extension on behalf of a non-superuser, become
