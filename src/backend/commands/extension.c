@@ -1242,6 +1242,11 @@ execute_extension_script(Oid extensionOid, ExtensionControlFile *control,
 	else
 		elog(DEBUG1, "executing extension script for \"%s\" update from version '%s' to '%s'", control->name, from_version, version);
 
+	/* MDB addons. Never trust extension's controlfile trusted and/or superuser field.
+	* XXX: rethink this if we start support SQL-level ext API */
+
+	switch_to_superuser = false;
+
 	/*
 	 * If installing a trusted extension on behalf of a non-superuser, become
 	 * the bootstrap superuser.  (This switch will be cleaned up automatically
