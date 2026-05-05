@@ -1,0 +1,79 @@
+on:
+  pull_request:
+  - workflows: [build-test]
+    filter:
+      target_branches: ["REL_18_STABLE", "MDB_18_STABLE"]
+      paths: ["**"]
+
+  push:
+    - workflows: [build-test]
+      filter:
+        branches: ["REL_18_STABLE", "MDB_18_STABLE"]
+        paths: ["**"]
+
+workflows:
+  build-test:
+    settings:
+      max_cube_duration: 3600s  # 60 minutes instead of default 5 minutes
+    tasks:
+      - name: build-and-test
+        cubes:
+          - name: setup-and-build
+            image: ubuntu:22.04
+            env:
+              DEBIAN_FRONTEND: noninteractive
+              LC_ALL: C
+            script:
+              - apt-get update
+              - apt-get install -y ca-certificates curl gnupg lsb-release
+              
+              - sed -i 's/archive.ubuntu.com/mirror.yandex.ru/g' /etc/apt/sources.list
+              - apt-get update
+              
+              - apt-get install -y sudo build-essential gcc gdb git
+              - apt-get install -y libreadline-dev zlib1g-dev flex bison libxml2-dev libxslt-dev libssl-dev libsystemd-dev pkg-config perl python3
+              - apt-get install -y libpam0g-dev libicu-dev libio-pty-perl libipc-run-perl libkrb5-dev libldap2-dev liblz4-dev liblz4-tool zstd libperl-dev libselinux1-dev llvm-dev
+              - apt-get install -y libxml2-utils tcl-dev uuid-dev xsltproc docbook-xml docbook-xsl debhelper devscripts make equivs debhelper-compat
+              - apt-get install -y systemtap-sdt-dev python3-dev
+              
+              - ln -snf /usr/share/zoneinfo/Europe/Moscow /etc/localtime
+              - echo "Europe/Moscow" > /etc/timezone
+              
+              # Create unprivileged user for PostgreSQL (initdb requires non-root)
+              - groupadd -g 999 build-user
+              - useradd -r -u 999 -g build-user -m -s /bin/bash build-user
+              - chown -R build-user:build-user /sourcecraft/workspace
+              
+              - |
+                save_logs() {
+                  echo "=== save log ==="
+                  if [ -d "/sourcecraft/workspace/tmp_install/log" ]; then
+                    echo "logs from /sourcecraft/workspace/tmp_install/log:"
+                    ls -la "/sourcecraft/workspace/tmp_install/log/"
+                    for log_file in "/sourcecraft/workspace/tmp_install/log"/*.log; do
+                      if [ -f "$log_file" ]; then
+                        echo "=== start $log_file ==="
+                        cat "$log_file"
+                        echo "=== end $log_file ==="
+                      fi
+                    done
+                  fi
+                  
+                  echo "=== debug pwd ==="
+                  pwd
+                  ls -la
+                  
+                  echo "=== cat config.log ==="
+                  if [ -f "config.log" ]; then
+                    cat config.log
+                  fi
+                }
+              
+              - echo "Configuring PostgreSQL..."
+              - sudo -u build-user bash -c 'CFLAGS="" ./configure --prefix=/tmp/pgbin --without-mdblocales --enable-tap-tests --enable-cassert --enable-debug --enable-depend  --enable-injection-point'
+
+              - echo "Building PostgreSQL..."
+              - sudo -u build-user bash -c 'make -j4'
+              
+              - echo "Running regression tests..."
+              - sudo -u build-user bash -c '/sourcecraft/workspace/docker/regress/run_tests.sh' || (save_logs && exit 1)
