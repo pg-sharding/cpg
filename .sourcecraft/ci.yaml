@@ -94,28 +94,19 @@ workflows:
         cubes:
           - name: rebase
             image: alpine/git:latest
-            script: |
-              cd $SOURCECRAFT_WORKSPACE
-              # Configure git
-              git config --global user.email "ci@sourcecraft.dev"
-              git config --global user.name "SourceCraft CI"
-              
-              # Fetch latest data from origin
-              git fetch origin REL_18_STABLE
-              git fetch origin MDB_18_STABLE
-              
-              # Switch to MDB_18_STABLE branch
-              git checkout MDB_18_STABLE
-              
-              # Rebase onto latest REL_18_STABLE
-              git rebase origin/REL_18_STABLE || echo "Rebase failed or not needed"
-              
-              # Check if there are changes to push
-              if git diff --quiet origin/MDB_18_STABLE MDB_18_STABLE; then
-                echo "No changes to push"
-              else
-                echo "Pushing rebased branch"
-                # Configure git remote with authentication token
-                git remote set-url origin https://x-access-token:$SOURCECRAFT_TOKEN@git.sourcecraft.dev/postgres/postgres.git
-                git push origin MDB_18_STABLE
-              fi
+            script:
+              - cd $SOURCECRAFT_WORKSPACE
+              - git config --global user.email "ci@sourcecraft.dev"
+              - git config --global user.name "SourceCraft CI"
+              - git fetch origin REL_18_STABLE
+              - git fetch origin MDB_18_STABLE
+              - git checkout MDB_18_STABLE
+              - git rebase origin/REL_18_STABLE || echo "Rebase failed or not needed"
+              - |
+                if git diff --quiet origin/MDB_18_STABLE MDB_18_STABLE; then
+                  echo "No changes to push"
+                else
+                  echo "Pushing rebased branch"
+                  git remote set-url origin https://x-access-token:$SOURCECRAFT_TOKEN@git.sourcecraft.dev/postgres/postgres.git
+                  git push origin MDB_18_STABLE
+                fi
