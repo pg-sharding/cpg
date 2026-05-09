@@ -111,11 +111,11 @@ workflows:
               - git rebase origin/REL_18_STABLE || echo "Rebase failed or not needed"
               
               # Check if there are changes to push
-              - git diff --quiet origin/MDB_18_STABLE MDB_18_STABLE
-              - if [ $? -eq 0 ]; then
-              -   echo "No changes to push"
-              - else
-              -   echo "Pushing rebased branch"
-              -   # In CI environment git is already authenticated via token
-              -   git push origin MDB_18_STABLE
-              - fi
+              - |
+                if git diff --quiet origin/MDB_18_STABLE MDB_18_STABLE; then
+                  echo "No changes to push"
+                else
+                  echo "Pushing rebased branch"
+                  # In CI environment git is already authenticated via token
+                  git push origin MDB_18_STABLE
+                fi
