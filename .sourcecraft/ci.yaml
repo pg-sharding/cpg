@@ -19,7 +19,7 @@ on:
   schedule:
     - workflows: [auto-rebase]
       interval: 1h
-      description: Автоматический rebase ветки MDB_18_STABLE на REL_18_STABLE
+      description: Automatic rebase of MDB_18_STABLE branch onto REL_18_STABLE
 
 workflows:
   build-test:
@@ -96,26 +96,26 @@ workflows:
             image: alpine/git:latest
             script:
               - cd $SOURCECRAFT_WORKSPACE
-              # Настраиваем git
+              # Configure git
               - git config --global user.email "ci@sourcecraft.dev"
               - git config --global user.name "SourceCraft CI"
               
-              # Получаем актуальные данные из origin
+              # Fetch latest data from origin
               - git fetch origin REL_18_STABLE
               - git fetch origin MDB_18_STABLE
               
-              # Переключаемся на ветку MDB_18_STABLE
+              # Switch to MDB_18_STABLE branch
               - git checkout MDB_18_STABLE
               
-              # Выполняем rebase на актуальный REL_18_STABLE
+              # Rebase onto latest REL_18_STABLE
               - git rebase origin/REL_18_STABLE || echo "Rebase failed or not needed"
               
-              # Проверяем, есть ли изменения для push
+              # Check if there are changes to push
               - git diff --quiet origin/MDB_18_STABLE MDB_18_STABLE
               - if [ $? -eq 0 ]; then
               -   echo "No changes to push"
               - else
               -   echo "Pushing rebased branch"
-              -   # В CI окружении git уже аутентифицирован через токен
+              -   # In CI environment git is already authenticated via token
               -   git push origin MDB_18_STABLE
               - fi
