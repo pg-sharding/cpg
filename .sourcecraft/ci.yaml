@@ -10,6 +10,16 @@ on:
       filter:
         branches: ["REL_18_STABLE", "MDB_18_STABLE"]
         paths: ["**"]
+    
+    - workflows: [auto-rebase]
+      filter:
+        branches: ["MDB_18_STABLE"]
+        paths: ["**"]
+  
+  schedule:
+    - workflows: [auto-rebase]
+      interval: 1h
+      description: Автоматический rebase ветки MDB_18_STABLE на REL_18_STABLE
 
 workflows:
   build-test:
@@ -77,3 +87,35 @@ workflows:
               
               - echo "Running regression tests..."
               - sudo -u build-user bash -c '/sourcecraft/workspace/docker/regress/run_tests.sh' || (save_logs && exit 1)
+
+  auto-rebase:
+    tasks:
+      - name: rebase-mdb-on-rel
+        cubes:
+          - name: rebase
+            image: alpine/git:latest
+            script:
+              - cd $SOURCECRAFT_WORKSPACE
+              # Настраиваем git
+              - git config --global user.email "ci@sourcecraft.dev"
+              - git config --global user.name "SourceCraft CI"
+              
+              # Получаем актуальные данные из origin
+              - git fetch origin REL_18_STABLE
+              - git fetch origin MDB_18_STABLE
+              
+              # Переключаемся на ветку MDB_18_STABLE
+              - git checkout MDB_18_STABLE
+              
+              # Выполняем rebase на актуальный REL_18_STABLE
+              - git rebase origin/REL_18_STABLE || echo "Rebase failed or not needed"
+              
+              # Проверяем, есть ли изменения для push
+              - git diff --quiet origin/MDB_18_STABLE MDB_18_STABLE
+              - if [ $? -eq 0 ]; then
+              -   echo "No changes to push"
+              - else
+              -   echo "Pushing rebased branch"
+              -   # В CI окружении git уже аутентифицирован через токен
+              -   git push origin MDB_18_STABLE
+              - fi
