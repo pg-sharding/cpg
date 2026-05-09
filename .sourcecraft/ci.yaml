@@ -95,14 +95,14 @@ workflows:
           - name: rebase
             image: alpine/git:latest
             script:
-              - cd $SOURCECRAFT_WORKSPACE
-              - git config --global user.email "ci@sourcecraft.dev"
-              - git config --global user.name "SourceCraft CI"
-              - git fetch origin REL_18_STABLE
-              - git fetch origin MDB_18_STABLE
-              - git checkout MDB_18_STABLE
-              - git rebase origin/REL_18_STABLE || echo "Rebase failed or not needed"
               - |
+                cd $SOURCECRAFT_WORKSPACE
+                git config --global user.email "ci@sourcecraft.dev"
+                git config --global user.name "SourceCraft CI"
+                git fetch origin REL_18_STABLE
+                git fetch origin MDB_18_STABLE
+                git checkout MDB_18_STABLE
+                git rebase origin/REL_18_STABLE || echo "Rebase failed or not needed"
                 if git diff --quiet origin/MDB_18_STABLE MDB_18_STABLE; then
                   echo "No changes to push"
                 else
