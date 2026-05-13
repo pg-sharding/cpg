@@ -56,7 +56,9 @@ endif # win32
 SHLIB_LINK = $(perl_embed_ldflags)
 
 REGRESS_OPTS = --dbname=$(PL_TESTDB) --dlpath=$(top_builddir)/src/test/regress
-REGRESS = plperl_setup plperl plperl_lc plperl_trigger plperl_shared \
+# NB: plperl_setup excluded. In MDB, non-superuser are still disallowed to install plperl
+REGRESS = plperl_mdb
+REGRESS += plperl plperl_lc plperl_trigger plperl_shared \
 	plperl_elog plperl_unicode plperl_util plperl_init plperlu plperl_array \
 	plperl_call plperl_transaction plperl_env
 # if Perl can support two interpreters in one backend,
