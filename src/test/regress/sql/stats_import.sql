@@ -815,9 +815,8 @@ AND attname = 'id';
 
 -- warn: mcv / mcf array length mismatch (more vals), mcv-pair fails, rest get set
 SELECT pg_catalog.pg_restore_attribute_stats(
-    'schemaname', 'stats_import',
-    'relname', 'test',
-    'attname', 'id',
+    'relation', 'stats_import.test'::regclass,
+    'attname', 'id'::name,
     'inherited', false::boolean,
     'null_frac', 0.24::real,
     'most_common_vals', '{2,1,3}'::text,
@@ -833,9 +832,8 @@ AND attname = 'id';
 
 -- warn: mcv / mcf array length mismatch (more freqs), mcv-pair fails, rest get set
 SELECT pg_catalog.pg_restore_attribute_stats(
-    'schemaname', 'stats_import',
-    'relname', 'test',
-    'attname', 'id',
+    'relation', 'stats_import.test'::regclass,
+    'attname', 'id'::name,
     'inherited', false::boolean,
     'null_frac', 0.25::real,
     'most_common_vals', '{2,1}'::text,
@@ -851,9 +849,8 @@ AND attname = 'id';
 
 -- warn: most_common_vals is multi-dimensional, mcv-pair fails, rest get set
 SELECT pg_catalog.pg_restore_attribute_stats(
-    'schemaname', 'stats_import',
-    'relname', 'test',
-    'attname', 'id',
+    'relation', 'stats_import.test'::regclass,
+    'attname', 'id'::name,
     'inherited', false::boolean,
     'null_frac', 0.26::real,
     'most_common_vals', '{{2,1},{3,4}}'::text,
