@@ -1,6 +1,6 @@
 #!/bin/bash
 
-export PACKAGE_NAME=postgresql-18
+export PACKAGE_NAME=postgresql-19
 export BUILD_USER=mdb-cc
 export VERSION=$(grep 'PACKAGE_VERSION=' configure | cut -d= -f2 | sed s/\'//g)-201-yandex.$(git rev-list HEAD --count).$(git rev-parse --short HEAD)
 export LC_ALL=C
