@@ -7,6 +7,9 @@ sudo bash -c "echo $TZ > /etc/timezone"
 
 cd /home/build-user
 
+cat /usr/share/postgresql-common/server/postgresql.mk
+echo HUI
+
 sudo ./docker/tzdata.sh
 
 cat debian/changelog
