@@ -27,6 +27,7 @@ AC_COPYRIGHT([Copyright (c) 1996-2026, PostgreSQL Global Development Group])
 AC_CONFIG_SRCDIR([src/backend/access/common/heaptuple.c])
 AC_CONFIG_AUX_DIR(config)
 AC_PREFIX_DEFAULT(/usr/local/pgsql)
+[ac_configure_args=$(echo "$ac_configure_args" | sed -e "s/ -f\(debug\|file\)-prefix-map=[^' ]*//g")]
 AC_DEFINE_UNQUOTED(CONFIGURE_ARGS, ["$ac_configure_args"], [Saved arguments from configure])
 
 [PG_MAJORVERSION=`expr "$PACKAGE_VERSION" : '\([0-9][0-9]*\)'`]
