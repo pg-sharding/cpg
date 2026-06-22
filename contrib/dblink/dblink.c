@@ -132,6 +132,9 @@ static void restoreLocalGucs(int nestlevel);
 static remoteConn *pconn = NULL;
 static HTAB *remoteConnHash = NULL;
 
+/* custom wait event values, retrieved from shared memory */
+static uint32 dblink_we_get_result = PG_WAIT_EXTENSION;
+
 /*
  *	Following is hash that holds multiple remote connections.
  *	Calling convention of each dblink function changes to accept
@@ -433,7 +436,7 @@ dblink_open(PG_FUNCTION_ARGS)
 	/* If we are not in a transaction, start one */
 	if (PQtransactionStatus(conn) == PQTRANS_IDLE)
 	{
-		res = libpqsrv_exec(conn, "BEGIN", PG_WAIT_EXTENSION);
+		res = libpqsrv_exec(conn, "BEGIN", dblink_we_get_result);
 		if (PQresultStatus(res) != PGRES_COMMAND_OK)
 			dblink_res_internalerror(conn, res, "begin error");
 		PQclear(res);
@@ -452,7 +455,7 @@ dblink_open(PG_FUNCTION_ARGS)
 		(rconn->openCursorCount)++;
 
 	appendStringInfo(&buf, "DECLARE %s CURSOR FOR %s", curname, sql);
-	res = libpqsrv_exec(conn, buf.data, PG_WAIT_EXTENSION);
+	res = libpqsrv_exec(conn, buf.data, dblink_we_get_result);
 	if (!res || PQresultStatus(res) != PGRES_COMMAND_OK)
 	{
 		dblink_res_error(conn, conname, res, fail,
@@ -521,7 +524,7 @@ dblink_close(PG_FUNCTION_ARGS)
 	appendStringInfo(&buf, "CLOSE %s", curname);
 
 	/* close the cursor */
-	res = libpqsrv_exec(conn, buf.data, PG_WAIT_EXTENSION);
+	res = libpqsrv_exec(conn, buf.data, dblink_we_get_result);
 	if (!res || PQresultStatus(res) != PGRES_COMMAND_OK)
 	{
 		dblink_res_error(conn, conname, res, fail,
@@ -541,7 +544,7 @@ dblink_close(PG_FUNCTION_ARGS)
 		{
 			rconn->newXactForCursor = false;
 
-			res = libpqsrv_exec(conn, "COMMIT", PG_WAIT_EXTENSION);
+			res = libpqsrv_exec(conn, "COMMIT", dblink_we_get_result);
 			if (PQresultStatus(res) != PGRES_COMMAND_OK)
 				dblink_res_internalerror(conn, res, "commit error");
 			PQclear(res);
@@ -623,7 +626,7 @@ dblink_fetch(PG_FUNCTION_ARGS)
 	 * PGresult will be long-lived even though we are still in a short-lived
 	 * memory context.
 	 */
-	res = libpqsrv_exec(conn, buf.data, PG_WAIT_EXTENSION);
+	res = libpqsrv_exec(conn, buf.data, dblink_we_get_result);
 	if (!res ||
 		(PQresultStatus(res) != PGRES_COMMAND_OK &&
 		 PQresultStatus(res) != PGRES_TUPLES_OK))
@@ -771,7 +774,7 @@ dblink_record_internal(FunctionCallInfo fcinfo, bool is_async)
 		else
 		{
 			/* async result retrieval, do it the old way */
-			PGresult   *res = libpqsrv_get_result(conn, PG_WAIT_EXTENSION);
+			PGresult   *res = libpqsrv_get_result(conn, dblink_we_get_result);
 
 			/* NULL means we're all done with the async results */
 			if (res)
@@ -1079,7 +1082,7 @@ materializeQueryResult(FunctionCallInfo fcinfo,
 		PQclear(sinfo.last_res);
 		PQclear(sinfo.cur_res);
 		/* and clear out any pending data in libpq */
-		while ((res = libpqsrv_get_result(conn, PG_WAIT_EXTENSION)) !=
+		while ((res = libpqsrv_get_result(conn, dblink_we_get_result)) !=
 			   NULL)
 			PQclear(res);
 		PG_RE_THROW();
@@ -1107,7 +1110,7 @@ storeQueryResult(volatile storeInfo *sinfo, PGconn *conn, const char *sql)
 	{
 		CHECK_FOR_INTERRUPTS();
 
-		sinfo->cur_res = libpqsrv_get_result(conn, PG_WAIT_EXTENSION);
+		sinfo->cur_res = libpqsrv_get_result(conn, dblink_we_get_result);
 		if (!sinfo->cur_res)
 			break;
 
@@ -1438,7 +1441,7 @@ dblink_exec(PG_FUNCTION_ARGS)
 		if (!conn)
 			dblink_conn_not_avail(conname);
 
-		res = libpqsrv_exec(conn, sql, PG_WAIT_EXTENSION);
+		res = libpqsrv_exec(conn, sql, dblink_we_get_result);
 		if (!res ||
 			(PQresultStatus(res) != PGRES_COMMAND_OK &&
 			 PQresultStatus(res) != PGRES_TUPLES_OK))
