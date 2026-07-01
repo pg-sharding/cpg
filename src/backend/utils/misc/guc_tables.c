@@ -89,6 +89,7 @@
 #include "utils/pg_locale.h"
 #include "utils/plancache.h"
 #include "utils/ps_status.h"
+#include "utils/uuid.h"
 #include "utils/xml.h"
 
 /* MDB patch */
@@ -1198,6 +1199,17 @@ struct config_bool ConfigureNamesBool[] =
 			GUC_NOT_IN_SAMPLE
 		},
 		&ycmdb_shared_archive,
+		false,
+		NULL, NULL, NULL
+	},
+
+	{
+		{"ycmdb.gen_random_uuid_use_v7", PGC_USERSET, COMPAT_OPTIONS_OTHER,
+			gettext_noop("Makes gen_random_uuid return UUIDV7."),
+			gettext_noop("Makes gen_random_uuid return UUIDV7."),
+			GUC_NOT_IN_SAMPLE
+		},
+		&mdb_gen_random_uuid_use_v7,
 		false,
 		NULL, NULL, NULL
 	},

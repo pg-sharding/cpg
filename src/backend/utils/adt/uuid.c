@@ -72,6 +72,8 @@ static inline void uuid_set_version(pg_uuid_t *uuid, unsigned char version);
 static inline int64 get_real_time_ns_ascending();
 static pg_uuid_t *generate_uuidv7(uint64 unix_ts_ms, uint32 sub_ms);
 
+bool		mdb_gen_random_uuid_use_v7 = false;
+
 Datum
 uuid_in(PG_FUNCTION_ARGS)
 {
@@ -463,6 +465,11 @@ uuid_set_version(pg_uuid_t *uuid, unsigned char version)
 Datum
 gen_random_uuid(PG_FUNCTION_ARGS)
 {
+	if (mdb_gen_random_uuid_use_v7)
+	{
+		return uuidv7(fcinfo);
+	}
+	
 	pg_uuid_t  *uuid = palloc(UUID_LEN);
 
 	if (!pg_strong_random(uuid, UUID_LEN))

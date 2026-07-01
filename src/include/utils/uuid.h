@@ -37,6 +37,8 @@ DatumGetUUIDP(Datum X)
 	return (pg_uuid_t *) DatumGetPointer(X);
 }
 
+extern PGDLLIMPORT bool mdb_gen_random_uuid_use_v7;
+
 #define PG_GETARG_UUID_P(X)		DatumGetUUIDP(PG_GETARG_DATUM(X))
 
 #endif							/* UUID_H */
