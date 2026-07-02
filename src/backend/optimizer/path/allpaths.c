@@ -2815,10 +2815,11 @@ set_subquery_pathlist(PlannerInfo *root, RelOptInfo *rel,
 			}
 		}
 
-				/*
+		/*
 		 * Push down join quals, as well.  But only for LATERAL, and only for those
 		 * relations that are "required" anyway.
 		 */
+		/* XXX: check enable_join_predicate_pushdown ? */
 		if (!bms_is_empty(required_outer))
 		{
 			available_relids = bms_copy(required_outer);
@@ -2836,7 +2837,7 @@ set_subquery_pathlist(PlannerInfo *root, RelOptInfo *rel,
 
 					if (!rinfo->pseudoconstant &&
 						bms_is_subset(rinfo->required_relids, available_relids) &&
-						qual_is_pushdown_safe(subquery, rti, clause, &safetyInfo))
+						qual_is_pushdown_safe(subquery, rti, rinfo, &safetyInfo))
 					{
 						/* Push it down */
 						subquery_push_qual(subquery, rte, rti, clause, 0);
@@ -2866,7 +2867,7 @@ set_subquery_pathlist(PlannerInfo *root, RelOptInfo *rel,
 					Node       *clause = (Node *) rinfo->clause;
 
 					if (!rinfo->pseudoconstant &&
-						qual_is_pushdown_safe(subquery, rti, clause, &safetyInfo))
+						qual_is_pushdown_safe(subquery, rti, rinfo, &safetyInfo))
 					{
 						/* Push it down */
 						Assert(bms_is_subset(rinfo->required_relids, available_relids));
