@@ -243,7 +243,7 @@ gin_entrypage_items(PG_FUNCTION_ARGS)
 
 
 	if (opaq->flags & (GIN_LIST | GIN_LIST_FULLROW))
-		ereport(ERROR,
+		ereport(WARNING,
 				errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 				errmsg("gin_entrypage_items does not support fast list pages"));
 
