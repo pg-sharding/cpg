@@ -122,6 +122,9 @@ int			XLOGbuffers = -1;
 int			XLogArchiveTimeout = 0;
 int			XLogArchiveMode = ARCHIVE_MODE_OFF;
 bool		ycmdb_shared_archive = false;	/* makes archive_mode=on act as shared */
+bool		ycmdb_shared_archive_space_saver = false;	/* disable shared WAL
+														 * retention on a standby
+														 * to save disk space */
 char	   *XLogArchiveCommand = NULL;
 bool		EnableHotStandby = false;
 bool		fullPageWrites = true;
