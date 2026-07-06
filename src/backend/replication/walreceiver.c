@@ -1170,12 +1170,16 @@ XLogWalRcvClose(XLogRecPtr recptr, TimeLineID tli)
 	 * In 'shared' mode, we optimize by checking if this segment is already
 	 * covered by the last archival report from the primary. If so, create
 	 * .done directly. Otherwise, create .ready and wait for the next report.
+	 *
+	 * The space_saver override (ycmdb.shared_archive_space_saver) disables the
+	 * shared retention path: we force .done so the segment can be recycled
+	 * immediately instead of waiting for an archival report.
 	 */
 	if (XLogArchiveMode == ARCHIVE_MODE_ALWAYS)
 	{
 		XLogArchiveNotify(xlogfname);
 	}
-	else if (EffectiveArchiveModeIsShared())
+	else if (SharedArchiveRetentionActive())
 	{
 		/*
 		 * In shared mode, check if this segment is already archived on primary.

@@ -64,6 +64,7 @@ typedef enum ArchiveMode
 } ArchiveMode;
 extern PGDLLIMPORT int XLogArchiveMode;
 extern PGDLLIMPORT bool ycmdb_shared_archive;
+extern PGDLLIMPORT bool ycmdb_shared_archive_space_saver;
 
 /*
  * True when shared archive behavior is active: either archive_mode=shared
@@ -72,6 +73,20 @@ extern PGDLLIMPORT bool ycmdb_shared_archive;
 #define EffectiveArchiveModeIsShared() \
 	(XLogArchiveMode == ARCHIVE_MODE_SHARED || \
 	 (XLogArchiveMode == ARCHIVE_MODE_ON && ycmdb_shared_archive))
+
+/*
+ * True when this node must retain (pin) not-yet-archived WAL because of shared
+ * archive mode.  In shared mode a standby keeps segments as .ready until the
+ * primary reports them archived, which normally prevents WAL loss on failover.
+ *
+ * The ycmdb.shared_archive_space_saver override disables this retention on a
+ * standby so that WAL can be recycled under disk pressure (e.g. when the shared
+ * archive storage is unavailable and .ready files would otherwise accumulate
+ * until the disk fills up and the standby fails over).  The trade-off is a gap
+ * in the archived WAL history for the affected segments.
+ */
+#define SharedArchiveRetentionActive() \
+	(EffectiveArchiveModeIsShared() && !ycmdb_shared_archive_space_saver)
 
 /* WAL levels */
 typedef enum WalLevel
