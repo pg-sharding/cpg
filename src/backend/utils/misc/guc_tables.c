@@ -1228,12 +1228,23 @@ struct config_bool ConfigureNamesBool[] =
 	},
 
 	{
-		{"ycmdb.shared_archive", PGC_POSTMASTER, WAL_ARCHIVING,
+		{"ycmdb.shared_archive", PGC_SIGHUP, WAL_ARCHIVING,
 			gettext_noop("Makes archive_mode=on behave as shared (for managed service compatibility)."),
 			gettext_noop("When true, archive_mode=on is treated as archive_mode=shared. Does not affect archive_mode=off or archive_mode=always. Used when control plane cannot configure archive_mode=shared directly."),
 			GUC_NOT_IN_SAMPLE
 		},
 		&ycmdb_shared_archive,
+		false,
+		NULL, NULL, NULL
+	},
+
+	{
+		{"ycmdb.shared_archive_space_saver", PGC_SIGHUP, WAL_ARCHIVING,
+			gettext_noop("Disables shared archive WAL retention on a standby to save disk space."),
+			gettext_noop("When true, a standby stops holding not-yet-archived WAL segments as .ready and allows them to be recycled, even in shared archive mode. This prevents the standby from filling its disk (and failing over) while the shared archive storage is unavailable, at the cost of a gap in the archived WAL history. Has no effect on a primary."),
+			GUC_NOT_IN_SAMPLE
+		},
+		&ycmdb_shared_archive_space_saver,
 		false,
 		NULL, NULL, NULL
 	},
