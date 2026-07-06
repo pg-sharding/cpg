@@ -580,8 +580,12 @@ XLogArchiveCheckDone(const char *xlog)
 	 * walreceiver converts the .ready file to .done.  We must therefore fall
 	 * through to the .done/.ready check below so that checkpoint cannot
 	 * delete a segment whose .ready file has not yet become .done.
+	 *
+	 * The space_saver override (ycmdb.shared_archive_space_saver) turns this
+	 * retention off again, allowing checkpoint to recycle .ready segments to
+	 * free disk space (at the cost of a gap in the archived WAL history).
 	 */
-	if (!XLogArchivingAlways() && !EffectiveArchiveModeIsShared() &&
+	if (!XLogArchivingAlways() && !SharedArchiveRetentionActive() &&
 		GetRecoveryState() == RECOVERY_STATE_ARCHIVE)
 		return true;
 
