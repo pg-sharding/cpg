@@ -2384,7 +2384,7 @@ qtext_load_file(Size *buffer_size, bool fail_on_interrupts)
 
 		if (fail_on_interrupts && INTERRUPTS_PENDING_CONDITION())
 		{
-			free(buf);
+			pfree(buf);
 			CloseTransientFile(fd);
 			return NULL;
 		}
