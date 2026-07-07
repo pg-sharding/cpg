@@ -527,7 +527,9 @@ uuid_set_version(pg_uuid_t *uuid, unsigned char version)
 Datum
 gen_random_uuid(PG_FUNCTION_ARGS)
 {
-	Assert(false);
+	if (Debug_print_plan) {
+		Assert(false);
+	}
 
 	pg_uuid_t  *uuid = palloc(UUID_LEN);
 
