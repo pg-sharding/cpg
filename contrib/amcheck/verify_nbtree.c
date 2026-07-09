@@ -78,6 +78,8 @@ typedef struct BtreeCheckState
 	bool		readonly;
 	/* Also verifying heap has no unindexed tuples? */
 	bool		heapallindexed;
+	/* Also verify that our index tuples point to non-HOT heap tuples */
+	bool		checkhot;
 	/* Also making sure non-pivot tuples can be found by new search? */
 	bool		rootdescend;
 	/* Per-page context */
@@ -139,12 +141,12 @@ PG_FUNCTION_INFO_V1(bt_index_check);
 PG_FUNCTION_INFO_V1(bt_index_parent_check);
 
 static void bt_index_check_internal(Oid indrelid, bool parentcheck,
-									bool heapallindexed, bool rootdescend);
+									bool heapallindexed, bool rootdescend, bool checkhot);
 static inline void btree_index_checkable(Relation rel);
 static inline bool btree_index_mainfork_expected(Relation rel);
 static void bt_check_every_level(Relation rel, Relation heaprel,
 								 bool heapkeyspace, bool readonly, bool heapallindexed,
-								 bool rootdescend);
+								 bool checkhot, bool rootdescend);
 static BtreeLevel bt_check_level_from_leftmost(BtreeCheckState *state,
 											   BtreeLevel level);
 static bool bt_leftmost_ignoring_half_dead(BtreeCheckState *state,
@@ -185,6 +187,10 @@ static inline bool invariant_l_nontarget_offset(BtreeCheckState *state,
 												Page nontarget,
 												OffsetNumber upperbound);
 static Page palloc_btree_page(BtreeCheckState *state, BlockNumber blocknum);
+
+static Page
+palloc_heap_page(BtreeCheckState *state, BlockNumber blocknum);
+
 static inline BTScanInsert bt_mkscankey_pivotsearch(Relation rel,
 													IndexTuple itup);
 static ItemId PageGetItemIdCareful(BtreeCheckState *state, BlockNumber block,
@@ -207,11 +213,15 @@ bt_index_check(PG_FUNCTION_ARGS)
 {
 	Oid			indrelid = PG_GETARG_OID(0);
 	bool		heapallindexed = false;
+	bool		checkhot = false;
 
-	if (PG_NARGS() == 2)
+	if (PG_NARGS() >= 2)
 		heapallindexed = PG_GETARG_BOOL(1);
 
-	bt_index_check_internal(indrelid, false, heapallindexed, false);
+	if (PG_NARGS() >= 3)
+		checkhot = PG_GETARG_BOOL(2);
+
+	bt_index_check_internal(indrelid, false, heapallindexed, false, checkhot);
 
 	PG_RETURN_VOID();
 }
@@ -231,13 +241,17 @@ bt_index_parent_check(PG_FUNCTION_ARGS)
 	Oid			indrelid = PG_GETARG_OID(0);
 	bool		heapallindexed = false;
 	bool		rootdescend = false;
+	bool		checkhot = false;
 
 	if (PG_NARGS() >= 2)
 		heapallindexed = PG_GETARG_BOOL(1);
-	if (PG_NARGS() == 3)
+	if (PG_NARGS() >= 3)
 		rootdescend = PG_GETARG_BOOL(2);
 
-	bt_index_check_internal(indrelid, true, heapallindexed, rootdescend);
+	if (PG_NARGS() >= 4)
+		checkhot = PG_GETARG_BOOL(3);
+
+	bt_index_check_internal(indrelid, true, heapallindexed, rootdescend, checkhot);
 
 	PG_RETURN_VOID();
 }
@@ -247,7 +261,7 @@ bt_index_parent_check(PG_FUNCTION_ARGS)
  */
 static void
 bt_index_check_internal(Oid indrelid, bool parentcheck, bool heapallindexed,
-						bool rootdescend)
+						bool rootdescend,  bool checkhot)
 {
 	Oid			heapid;
 	Relation	indrel;
@@ -358,7 +372,7 @@ bt_index_check_internal(Oid indrelid, bool parentcheck, bool heapallindexed,
 
 		/* Check index, possibly against table it is an index on */
 		bt_check_every_level(indrel, heaprel, heapkeyspace, parentcheck,
-							 heapallindexed, rootdescend);
+							 heapallindexed,  checkhot, rootdescend);
 	}
 
 	/* Roll back any GUC changes executed by index functions */
@@ -459,7 +473,7 @@ btree_index_mainfork_expected(Relation rel)
  */
 static void
 bt_check_every_level(Relation rel, Relation heaprel, bool heapkeyspace,
-					 bool readonly, bool heapallindexed, bool rootdescend)
+					 bool readonly, bool heapallindexed, bool checkhot, bool rootdescend)
 {
 	BtreeCheckState *state;
 	Snapshot	snapshot = InvalidSnapshot;
@@ -490,9 +504,10 @@ bt_check_every_level(Relation rel, Relation heaprel, bool heapkeyspace,
 	state->heapkeyspace = heapkeyspace;
 	state->readonly = readonly;
 	state->heapallindexed = heapallindexed;
+	state->checkhot = checkhot;
 	state->rootdescend = rootdescend;
 
-	if (state->heapallindexed)
+	if (state->heapallindexed || state->checkhot)
 	{
 		int64		total_pages;
 		int64		total_elems;
@@ -1416,6 +1431,54 @@ bt_target_page_check(BtreeCheckState *state)
 				/* Be tidy */
 				if (norm != itup)
 					pfree(norm);
+			}
+		}
+
+		if (state->checkhot && P_ISLEAF(topaque))
+		{
+			if (!BTreeTupleIsPosting(itup))
+			{
+				Page hpage;
+				ItemId iid;
+				OffsetNumber indexpagehoffnum;
+				BlockNumber indexpagehblock;
+				ItemPointer tid = BTreeTupleGetPointsToTID(itup);
+
+				indexpagehblock = ItemPointerGetBlockNumberNoCheck(tid);
+
+				hpage = palloc_heap_page(state, indexpagehblock);
+
+				indexpagehoffnum = ItemPointerGetOffsetNumberNoCheck(tid);
+			
+				iid = PageGetItemId(hpage, indexpagehoffnum);
+				if (unlikely(!ItemIdIsUsed(iid)))
+					ereport(ERROR,
+							errcode(ERRCODE_INDEX_CORRUPTED),
+							errmsg_internal("heap tid from index tuple (%u,%u) points to unused heap page item at offset %u of block %u in index \"%s\"",
+											indexpagehblock,
+											indexpagehoffnum,
+											offset, state->targetblock,
+											RelationGetRelationName(state->rel)));
+
+				if (ItemIdHasStorage(iid))
+				{
+					HeapTupleHeader htup;
+
+					Assert(ItemIdIsNormal(iid));
+					htup = (HeapTupleHeader) PageGetItem(hpage, iid);
+
+					if (unlikely(HeapTupleHeaderIsHeapOnly(htup)))
+						ereport(ERROR,
+								errcode(ERRCODE_INDEX_CORRUPTED),
+								errmsg_internal("heap tid from index tuple (%u,%u) points to heap-only tuple at offset %u of block %u in index \"%s\"",
+												indexpagehblock,
+											indexpagehoffnum,
+											offset, state->targetblock,
+											RelationGetRelationName(state->rel)));
+
+				}
+
+				pfree(hpage);
 			}
 		}
 
@@ -3054,6 +3117,32 @@ invariant_l_nontarget_offset(BtreeCheckState *state, BTScanInsert key,
 	}
 
 	return cmp < 0;
+}
+
+static Page
+palloc_heap_page(BtreeCheckState *state, BlockNumber blocknum)
+{
+	Buffer		buffer;
+	Page		page;
+	BTPageOpaque opaque;
+	OffsetNumber maxoffset;
+
+	page = palloc(BLCKSZ);
+
+	/*
+	 * We copy the page into local storage to avoid holding pin on the buffer
+	 * longer than we must.
+	 */
+	buffer = ReadBufferExtended(state->heaprel, MAIN_FORKNUM, blocknum, RBM_NORMAL,
+								state->checkstrategy);
+	LockBuffer(buffer, BT_READ);
+
+
+	/* Only use copy of page in palloc()'d memory */
+	memcpy(page, BufferGetPage(buffer), BLCKSZ);
+	UnlockReleaseBuffer(buffer);
+
+	return page;
 }
 
 /*
