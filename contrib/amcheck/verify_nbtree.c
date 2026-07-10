@@ -1168,9 +1168,12 @@ bt_target_page_check(BtreeCheckState *state)
 	OffsetNumber offset;
 	OffsetNumber max;
 	BTPageOpaque topaque;
+	bool 		 keepgoing;
 
 	topaque = (BTPageOpaque) PageGetSpecialPointer(state->target);
 	max = PageGetMaxOffsetNumber(state->target);
+
+	keepgoing = true; // state->keepgoing;
 
 	elog(DEBUG2, "verifying %u items on %s block %u", max,
 		 P_ISLEAF(topaque) ? "leaf" : "internal", state->targetblock);
@@ -1191,7 +1194,7 @@ bt_target_page_check(BtreeCheckState *state)
 							 P_HIKEY))
 		{
 			itup = (IndexTuple) PageGetItem(state->target, itemid);
-			ereport(ERROR,
+			ereport(keepgoing ? WARNING : ERROR,
 					(errcode(ERRCODE_INDEX_CORRUPTED),
 					 errmsg("wrong number of high key index tuple attributes in index \"%s\"",
 							RelationGetRelationName(state->rel)),
@@ -1233,7 +1236,7 @@ bt_target_page_check(BtreeCheckState *state)
 		 * frequently, and is surprisingly tolerant of corrupt lp_len fields.
 		 */
 		if (tupsize != ItemIdGetLength(itemid))
-			ereport(ERROR,
+			ereport(keepgoing ? WARNING : ERROR,
 					(errcode(ERRCODE_INDEX_CORRUPTED),
 					 errmsg("index tuple size does not equal lp_len in index \"%s\"",
 							RelationGetRelationName(state->rel)),
@@ -1257,7 +1260,7 @@ bt_target_page_check(BtreeCheckState *state)
 							ItemPointerGetBlockNumberNoCheck(tid),
 							ItemPointerGetOffsetNumberNoCheck(tid));
 
-			ereport(ERROR,
+			ereport(keepgoing ? WARNING : ERROR,
 					(errcode(ERRCODE_INDEX_CORRUPTED),
 					 errmsg("wrong number of index tuple attributes in index \"%s\"",
 							RelationGetRelationName(state->rel)),
@@ -1307,7 +1310,7 @@ bt_target_page_check(BtreeCheckState *state)
 			htid = psprintf("(%u,%u)", ItemPointerGetBlockNumber(tid),
 							ItemPointerGetOffsetNumber(tid));
 
-			ereport(ERROR,
+			ereport(keepgoing ? WARNING : ERROR,
 					(errcode(ERRCODE_INDEX_CORRUPTED),
 					 errmsg("could not find tuple using search from root page in index \"%s\"",
 							RelationGetRelationName(state->rel)),
@@ -1336,7 +1339,7 @@ bt_target_page_check(BtreeCheckState *state)
 				{
 					char	   *itid = psprintf("(%u,%u)", state->targetblock, offset);
 
-					ereport(ERROR,
+					ereport(keepgoing ? WARNING : ERROR,
 							(errcode(ERRCODE_INDEX_CORRUPTED),
 							 errmsg_internal("posting list contains misplaced TID in index \"%s\"",
 											 RelationGetRelationName(state->rel)),
@@ -1390,7 +1393,7 @@ bt_target_page_check(BtreeCheckState *state)
 							ItemPointerGetBlockNumberNoCheck(tid),
 							ItemPointerGetOffsetNumberNoCheck(tid));
 
-			ereport(ERROR,
+			ereport(keepgoing ? WARNING : ERROR,
 					(errcode(ERRCODE_INDEX_CORRUPTED),
 					 errmsg("index row size %zu exceeds maximum for index \"%s\"",
 							tupsize, RelationGetRelationName(state->rel)),
@@ -1452,7 +1455,7 @@ bt_target_page_check(BtreeCheckState *state)
 			
 				iid = PageGetItemId(hpage, indexpagehoffnum);
 				if (unlikely(!ItemIdIsUsed(iid)))
-					ereport(ERROR,
+					ereport(keepgoing ? WARNING : ERROR,
 							errcode(ERRCODE_INDEX_CORRUPTED),
 							errmsg_internal("heap tid from index tuple (%u,%u) points to unused heap page item at offset %u of block %u in index \"%s\"",
 											indexpagehblock,
@@ -1468,7 +1471,7 @@ bt_target_page_check(BtreeCheckState *state)
 					htup = (HeapTupleHeader) PageGetItem(hpage, iid);
 
 					if (unlikely(HeapTupleHeaderIsHeapOnly(htup)))
-						ereport(ERROR,
+						ereport(keepgoing ? WARNING : ERROR,
 								errcode(ERRCODE_INDEX_CORRUPTED),
 								errmsg_internal("heap tid from index tuple (%u,%u) points to heap-only tuple at offset %u of block %u in index \"%s\"",
 												indexpagehblock,
@@ -1545,7 +1548,7 @@ bt_target_page_check(BtreeCheckState *state)
 							ItemPointerGetBlockNumberNoCheck(tid),
 							ItemPointerGetOffsetNumberNoCheck(tid));
 
-			ereport(ERROR,
+			ereport(keepgoing ? WARNING : ERROR,
 					(errcode(ERRCODE_INDEX_CORRUPTED),
 					 errmsg("high key invariant violated for index \"%s\"",
 							RelationGetRelationName(state->rel)),
@@ -1591,7 +1594,7 @@ bt_target_page_check(BtreeCheckState *state)
 							 ItemPointerGetBlockNumberNoCheck(tid),
 							 ItemPointerGetOffsetNumberNoCheck(tid));
 
-			ereport(ERROR,
+			ereport(keepgoing ? WARNING : ERROR,
 					(errcode(ERRCODE_INDEX_CORRUPTED),
 					 errmsg("item order invariant violated for index \"%s\"",
 							RelationGetRelationName(state->rel)),
@@ -1655,7 +1658,7 @@ bt_target_page_check(BtreeCheckState *state)
 						return;
 				}
 
-				ereport(ERROR,
+				ereport(keepgoing ? WARNING : ERROR,
 						(errcode(ERRCODE_INDEX_CORRUPTED),
 						 errmsg("cross page item order invariant violated for index \"%s\"",
 								RelationGetRelationName(state->rel)),
