@@ -2195,7 +2195,7 @@ typedef struct SubqueryScanPath
 	Path	   *subpath;		/* path representing subquery execution */
 	PlannerInfo *subroot;           /* */
 	List       *subplan_params; /* */
-	List	   *pushed_down_ec_joins; /* pushed-down quals */
+	List	   *pushed_down_joins; /* pushed-down quals */
 } SubqueryScanPath;
 
 /*

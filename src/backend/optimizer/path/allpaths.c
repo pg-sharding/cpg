@@ -2953,7 +2953,7 @@ set_subquery_pathlist(PlannerInfo *root, RelOptInfo *rel,
 			{
 				/* Push it down */
 				required_outer = bms_union(required_outer,
-										   pull_varnos(clause));
+										   pull_varnos(root, clause));
 				required_outer = bms_del_member(required_outer, rti);
 
 				subquery_push_qual(subquery, rte, rti, clause, 0);
@@ -2972,7 +2972,8 @@ set_subquery_pathlist(PlannerInfo *root, RelOptInfo *rel,
 		clauses = generate_join_implied_equalities(root,
 												   available_relids,
 												   other_relids,
-												   rel);
+												   rel,
+												   NULL);
 		foreach(lc, clauses)
 		{
 			RestrictInfo *rinfo = (RestrictInfo *) lfirst(lc);
@@ -2983,7 +2984,7 @@ set_subquery_pathlist(PlannerInfo *root, RelOptInfo *rel,
 			{
 				/* Push it down */
 				required_outer = bms_union(required_outer,
-										   pull_varnos(clause));
+										   pull_varnos(root, clause));
 				required_outer = bms_del_member(required_outer, rti);
 
 				subquery_push_qual(subquery, rte, rti, clause, 0);
@@ -2997,7 +2998,7 @@ set_subquery_pathlist(PlannerInfo *root, RelOptInfo *rel,
 									 subquery, pushed_down_clauses, tuple_fraction, false);
 	}
 
-	pfree(safetyInfo.unsafeColumns);
+	pfree(safetyInfo.unsafeFlags);
 }
 
 static void
@@ -3011,13 +3012,15 @@ add_subqueryscan_variant(PlannerInfo *root, RelOptInfo *rel,
 	ListCell   *lc;
 	PlannerInfo *subroot;
 	List	   *subplan_params;
+	char		*plan_name;
+	bool		trivial_pathtarget;
 
 	/* plan_params should not be in use in current query level */
 	Assert(root->plan_params == NIL);
 
 	/* Generate a subroot and Paths for the subquery */
 	plan_name = choose_plan_name(root->glob, rte->eref->aliasname, false);
-	rel->subroot = subquery_planner(root->glob, subquery, plan_name,
+	subroot = subquery_planner(root->glob, subquery, plan_name,
 									root, NULL, false, tuple_fraction, NULL);
 
 	/* Isolate the params needed by this specific subplan */
