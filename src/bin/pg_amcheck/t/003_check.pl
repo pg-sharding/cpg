@@ -328,6 +328,9 @@ my $missing_file_re = qr/could not open file ".*": No such file or directory/;
 my $index_missing_relation_fork_re =
   qr/index ".*" lacks a main relation fork/;
 
+my $index_parent_check_warn_re =
+  qr/pg_amcheck: warning: .* blocks concurrent data modification..*It may also cause corruption checking to take considerably longer and consume considerably more resources on the server./;
+
 # We have created test databases with tables populated with data, but have not
 # yet corrupted anything.  As such, we expect no corruption and verify that
 # none is reported
@@ -549,6 +552,7 @@ $node->command_checks_all(
 	],
 	2,
 	[$index_missing_relation_fork_re],
+	[$index_parent_check_warn_re],
 	[$no_output_re],
 	'pg_amcheck smoke test --parent-check');
 
@@ -562,6 +566,7 @@ $node->command_checks_all(
 	],
 	2,
 	[$index_missing_relation_fork_re],
+	[$index_parent_check_warn_re],
 	[$no_output_re],
 	'pg_amcheck smoke test --heapallindexed --rootdescend');
 
@@ -588,6 +593,7 @@ $node->command_checks_all(
 	],
 	2,
 	[$index_missing_relation_fork_re],
+	[$index_parent_check_warn_re],
 	[$no_output_re],
 	'pg_amcheck smoke test --parent-check --checkunique');
 
@@ -601,6 +607,7 @@ $node->command_checks_all(
 	],
 	2,
 	[$index_missing_relation_fork_re],
+	[$index_parent_check_warn_re],
 	[$no_output_re],
 	'pg_amcheck smoke test --heapallindexed --rootdescend --checkunique');
 
