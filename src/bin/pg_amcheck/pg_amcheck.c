@@ -424,6 +424,7 @@ main(int argc, char *argv[])
 			case 9:
 				opts.rootdescend = true;
 				opts.parent_check = true;
+				pg_log_warning("Rootdescend blocks concurrent data modification. It may also cause corruption checking to take considerably longer and consume considerably more resources on the server.");
 				break;
 			case 10:
 				opts.strict_names = false;
@@ -433,6 +434,7 @@ main(int argc, char *argv[])
 				break;
 			case 12:
 				opts.parent_check = true;
+				pg_log_warning("Parent check blocks concurrent data modification. It may also cause corruption checking to take considerably longer and consume considerably more resources on the server.");
 				break;
 			case 13:
 				opts.install_missing = true;
