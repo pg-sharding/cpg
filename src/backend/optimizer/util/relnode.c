@@ -1072,6 +1072,7 @@ build_child_join_rel(PlannerInfo *root, RelOptInfo *outer_rel,
 	joinrel->subroot = NULL;
 	joinrel->subplan_params = NIL;
 	joinrel->amflags = 0;
+	joinrel->chosen_plan = NULL;
 	joinrel->serverid = InvalidOid;
 	joinrel->userid = InvalidOid;
 	joinrel->useridiscurrent = false;

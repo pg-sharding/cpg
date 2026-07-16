@@ -1097,8 +1097,7 @@ typedef struct RelOptInfo
 	double		allvisfrac;
 	/* indexes in PlannerInfo's eq_classes list of ECs that mention this rel */
 	Bitmapset  *eclass_indexes;
-	PlannerInfo *subroot;		/* if subquery */
-	List	   *subplan_params; /* if subquery */
+	PlannerInfo *chosen_plan;
 	/* wanted number of parallel workers */
 	int			rel_parallel_workers;
 	/* Bitmask of optional features supported by the table AM */
@@ -2194,6 +2193,9 @@ typedef struct SubqueryScanPath
 {
 	Path		path;
 	Path	   *subpath;		/* path representing subquery execution */
+	PlannerInfo *subroot;           /* */
+	List       *subplan_params; /* */
+	List	   *pushed_down_joins; /* pushed-down quals */
 } SubqueryScanPath;
 
 /*

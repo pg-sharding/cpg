@@ -146,6 +146,7 @@ int			max_parallel_workers_per_gather = 2;
 bool		enable_seqscan = true;
 bool		enable_indexscan = true;
 bool		enable_indexonlyscan = true;
+bool		enable_join_predicate_pushdown = true;
 bool		enable_bitmapscan = true;
 bool		enable_tidscan = true;
 bool		enable_sort = true;
@@ -6044,9 +6045,8 @@ get_foreign_key_join_selectivity(PlannerInfo *root,
  * We set the same fields as set_baserel_size_estimates.
  */
 void
-set_subquery_size_estimates(PlannerInfo *root, RelOptInfo *rel)
+set_subquery_size_estimates(PlannerInfo *root, RelOptInfo *rel, PlannerInfo *subroot)
 {
-	PlannerInfo *subroot = rel->subroot;
 	RelOptInfo *sub_final_rel;
 	ListCell   *lc;
 

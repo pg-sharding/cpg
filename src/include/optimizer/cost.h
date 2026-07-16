@@ -52,6 +52,7 @@ extern PGDLLIMPORT int max_parallel_workers_per_gather;
 extern PGDLLIMPORT bool enable_seqscan;
 extern PGDLLIMPORT bool enable_indexscan;
 extern PGDLLIMPORT bool enable_indexonlyscan;
+extern PGDLLIMPORT bool enable_join_predicate_pushdown;
 extern PGDLLIMPORT bool enable_bitmapscan;
 extern PGDLLIMPORT bool enable_tidscan;
 extern PGDLLIMPORT bool enable_sort;
@@ -208,7 +209,7 @@ extern void set_joinrel_size_estimates(PlannerInfo *root, RelOptInfo *rel,
 									   RelOptInfo *inner_rel,
 									   SpecialJoinInfo *sjinfo,
 									   List *restrictlist);
-extern void set_subquery_size_estimates(PlannerInfo *root, RelOptInfo *rel);
+extern void set_subquery_size_estimates(PlannerInfo *root, RelOptInfo *rel, PlannerInfo *subroot);
 extern void set_function_size_estimates(PlannerInfo *root, RelOptInfo *rel);
 extern void set_values_size_estimates(PlannerInfo *root, RelOptInfo *rel);
 extern void set_cte_size_estimates(PlannerInfo *root, RelOptInfo *rel,
