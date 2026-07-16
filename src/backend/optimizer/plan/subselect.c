@@ -850,7 +850,9 @@ hash_ok_operator(OpExpr *expr)
 	if (list_length(expr->args) != 2)
 		return false;
 	if (opid == ARRAY_EQ_OP ||
-		opid == RECORD_EQ_OP)
+		opid == RECORD_EQ_OP ||
+		opid == RANGE_EQ_OP ||
+		opid == MULTIRANGE_EQ_OP)
 	{
 		/* these are strict, but must check input type to ensure hashable */
 		Node	   *leftarg = linitial(expr->args);
@@ -2385,11 +2387,11 @@ finalize_plan(PlannerInfo *root, Plan *plan,
 
 				/* We must run finalize_plan on the subquery */
 				rel = find_base_rel(root, sscan->scan.scanrelid);
-				subquery_params = rel->subroot->outer_params;
+				subquery_params = rel->chosen_plan->outer_params;
 				if (gather_param >= 0)
 					subquery_params = bms_add_member(bms_copy(subquery_params),
 													 gather_param);
-				finalize_plan(rel->subroot, sscan->subplan, gather_param,
+				finalize_plan(rel->chosen_plan, sscan->subplan, gather_param,
 							  subquery_params, NULL);
 
 				/* Now we can add its extParams to the parent's params */
