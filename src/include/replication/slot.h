@@ -39,6 +39,10 @@ typedef enum ReplicationSlotPersistency
 	RS_TEMPORARY
 } ReplicationSlotPersistency;
 
+
+/* Last archived WAL segment file reported by the primary */
+extern char *primary_last_archived;
+
 /*
  * Slots can be invalidated, e.g. due to max_slot_wal_keep_size. If so, the
  * 'invalidated' field is set to a value other than _NONE.
