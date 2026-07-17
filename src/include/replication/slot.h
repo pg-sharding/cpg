@@ -37,6 +37,10 @@ typedef enum ReplicationSlotPersistency
 	RS_TEMPORARY
 } ReplicationSlotPersistency;
 
+
+/* Last archived WAL segment file reported by the primary */
+extern char *primary_last_archived;
+
 /*
  * On-Disk data of a replication slot, preserved across restarts.
  */

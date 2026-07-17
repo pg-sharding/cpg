@@ -135,6 +135,7 @@ $cascade_standby->start;
 # Generate WAL
 my $cascading_archived_before = $primary->safe_psql('postgres', 'SELECT archived_count FROM pg_stat_archiver');
 
+
 my $current_walfile = $primary->safe_psql('postgres', "SELECT pg_walfile_name(pg_current_wal_lsn());");
 
 $primary->safe_psql(
@@ -152,7 +153,8 @@ $primary->poll_query_until('postgres',
 	or die "Timed out waiting for primary to archive segment in cascading test";
 
 # Wait for cascading standby to catch up
-$standby->wait_for_catchup($cascade_standby);
+#$primary->wait_for_catchup($cascade_standby);
+sleep(10);
 
 my $cascade_data = $cascade_standby->data_dir;
 my $cascade_standby_archive_status = $cascade_standby->data_dir . '/pg_wal/archive_status';

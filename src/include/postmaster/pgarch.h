@@ -13,6 +13,9 @@
 #ifndef _PGARCH_H
 #define _PGARCH_H
 
+#include "port/atomics.h"
+#include "storage/spin.h"
+
 /* ----------
  * Archiver control info.
  *
@@ -69,5 +72,28 @@ typedef void (*ArchiveModuleInit) (ArchiveModuleCallbacks *cb);
  * initialization function.
  */
 extern void shell_archive_init(ArchiveModuleCallbacks *cb);
+
+/* Shared memory area for archiver process */
+typedef struct PgArchData
+{
+	int			pgprocno;		/* proc number of archiver process */
+
+	/* Lock to protect the `primary_last_archived`. */
+	slock_t lock;
+
+	/* Last archived WAL segment file reported by the primary */
+	char primary_last_archived[MAX_XFN_CHARS + 1];
+
+	/*
+	 * Forces a directory scan in pgarch_readyXlog().  Protected by arch_lck.
+	 */
+	bool		force_dir_scan;
+
+	slock_t		arch_lck;
+} PgArchData;
+
+
+extern PgArchData *PgArch;
+
 
 #endif							/* _PGARCH_H */
