@@ -83,6 +83,7 @@
 #include "storage/ipc.h"
 #include "storage/pmsignal.h"
 #include "storage/proc.h"
+#include "storage/spin.h"
 #include "storage/procarray.h"
 #include "tcop/dest.h"
 #include "tcop/tcopprot.h"
@@ -2781,7 +2782,7 @@ WalSndArchivalReport(void)
 {
 	PgStat_ArchiverStats *archiver_stats;
 	TimestampTz now;
-	char	   *last_archived;
+	char		last_archived[MAX_XFN_CHARS + 1];
 
 	/* Only send reports when shared archive is active */
 	if (!EffectiveArchiveModeIsShared())
@@ -2824,7 +2825,16 @@ WalSndArchivalReport(void)
 	if (archiver_stats == NULL)
 		return;
 
-	last_archived = archiver_stats->last_archived_wal;
+
+	if (RecoveryInProgress())
+	{
+		SpinLockAcquire(&PgArch->lock);
+		memcpy(last_archived, PgArch->primary_last_archived, sizeof(last_archived));
+		SpinLockRelease(&PgArch->lock);
+	}
+	else
+		memcpy(last_archived, archiver_stats->last_archived_wal, sizeof(last_archived));
+	
 	/*
 	 * Only send a report if the last archived WAL has changed. This is both
 	 * an optimization and ensures we don't send empty reports on startup.
