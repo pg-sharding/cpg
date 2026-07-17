@@ -131,8 +131,6 @@ static TimestampTz wakeup[NUM_WALRCV_WAKEUPS];
 
 static StringInfoData reply_message;
 
-/* Last archived WAL segment file reported by the primary */
-static char primary_last_archived[MAX_XFN_CHARS + 1];
 static TimeLineID primary_last_archived_tli = 0;
 static XLogSegNo primary_last_archived_segno = 0;
 
@@ -157,7 +155,7 @@ static void XLogWalRcvClose(XLogRecPtr recptr, TimeLineID tli);
 static void XLogWalRcvSendReply(bool force, bool requestReply);
 static void XLogWalRcvSendHSFeedback(bool immed);
 static void ProcessWalSndrMessage(XLogRecPtr walEnd, TimestampTz sendTime);
-static void ProcessArchivalReport(void);
+static void ProcessArchivalReport(const char * primary_last_archived);
 static void WalRcvComputeNextWakeup(WalRcvWakeupReason reason, TimestampTz now);
 
 
@@ -837,6 +835,7 @@ XLogWalRcvProcessMsg(unsigned char type, char *buf, Size len, TimeLineID tli)
 	XLogRecPtr	walEnd;
 	TimestampTz sendTime;
 	bool		replyRequested;
+	char		primary_last_archived[MAX_XFN_CHARS + 1];
 
 	switch (type)
 	{
@@ -895,8 +894,8 @@ XLogWalRcvProcessMsg(unsigned char type, char *buf, Size len, TimeLineID tli)
 				if (len >= sizeof(primary_last_archived))
 					ereport(ERROR,
 							(errcode(ERRCODE_PROTOCOL_VIOLATION),
-							 errmsg_internal("invalid archival report message with length %d",
-											 (int) len)));
+							 errmsg_internal("invalid archival report message with length %d, expected at most %ld",
+											 (int) len, sizeof(primary_last_archived))));
 
 				memcpy(primary_last_archived, buf, len);
 				primary_last_archived[len] = '\0';
@@ -904,13 +903,17 @@ XLogWalRcvProcessMsg(unsigned char type, char *buf, Size len, TimeLineID tli)
 				/* Verify it contains only valid characters */
 				if (strspn(buf, VALID_XFN_CHARS) != len)
 				{
-					primary_last_archived[0] = '\0';
 					ereport(ERROR,
 							(errcode(ERRCODE_PROTOCOL_VIOLATION),
 							 errmsg_internal("unexpected character in primary's last archived filename")));
 				}
 
-				ProcessArchivalReport();
+
+				SpinLockAcquire(&PgArch->lock);
+				memcpy(PgArch->primary_last_archived, primary_last_archived, sizeof(PgArch->primary_last_archived));
+				SpinLockRelease(&PgArch->lock);
+
+				ProcessArchivalReport(primary_last_archived);
 				break;
 			}
 		default:
@@ -1329,7 +1332,7 @@ XLogWalRcvSendHSFeedback(bool immed)
  * timeline as .done if they're <= the reported segment.
  */
 static void
-ProcessArchivalReport(void)
+ProcessArchivalReport(const char *primary_last_archived)
 {
 	TimeLineID	reported_tli;
 	XLogSegNo	reported_segno;
