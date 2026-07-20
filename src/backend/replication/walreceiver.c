@@ -1709,6 +1709,7 @@ pg_stat_get_wal_receiver(PG_FUNCTION_ARGS)
 	int			sender_port = 0;
 	char		slotname[NAMEDATALEN];
 	char		conninfo[MAXCONNINFO];
+	char		primary_last_archived[MAX_XFN_CHARS + 1];
 
 	/* Take a lock to ensure value consistency */
 	SpinLockAcquire(&WalRcv->mutex);
@@ -1735,6 +1736,10 @@ pg_stat_get_wal_receiver(PG_FUNCTION_ARGS)
 	 */
 	if (pid == 0 || !ready_to_display)
 		PG_RETURN_NULL();
+
+	SpinLockAcquire(&PgArch->lock);
+	strlcpy(primary_last_archived, PgArch->primary_last_archived, sizeof(primary_last_archived));
+	SpinLockRelease(&PgArch->lock);
 
 	/*
 	 * Read "writtenUpto" without holding a spinlock.  Note that it may not be
@@ -1797,22 +1802,26 @@ pg_stat_get_wal_receiver(PG_FUNCTION_ARGS)
 			nulls[10] = true;
 		else
 			values[10] = TimestampTzGetDatum(latest_end_time);
-		if (*slotname == '\0')
+		if (*primary_last_archived == '\0')
 			nulls[11] = true;
 		else
-			values[11] = CStringGetTextDatum(slotname);
-		if (*sender_host == '\0')
+			values[11] = CStringGetTextDatum(primary_last_archived);
+		if (*slotname == '\0')
 			nulls[12] = true;
 		else
-			values[12] = CStringGetTextDatum(sender_host);
-		if (sender_port == 0)
+			values[12] = CStringGetTextDatum(slotname);
+		if (*sender_host == '\0')
 			nulls[13] = true;
 		else
-			values[13] = Int32GetDatum(sender_port);
-		if (*conninfo == '\0')
+			values[13] = CStringGetTextDatum(sender_host);
+		if (sender_port == 0)
 			nulls[14] = true;
 		else
-			values[14] = CStringGetTextDatum(conninfo);
+			values[14] = Int32GetDatum(sender_port);
+		if (*conninfo == '\0')
+			nulls[15] = true;
+		else
+			values[15] = CStringGetTextDatum(conninfo);
 	}
 
 	/* Returns the record as Datum */
