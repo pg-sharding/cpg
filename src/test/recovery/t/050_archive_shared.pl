@@ -1,4 +1,4 @@
-# Copyright (c) 2025, PostgreSQL Global Development Group
+# Copyright (c) 2026, PostgreSQL Global Development Group
 
 # Test archive_mode=shared for coordinated WAL archiving between primary and standby
 use strict;
@@ -29,7 +29,7 @@ $primary->safe_psql('postgres', 'SELECT pg_switch_wal();');
 # Wait for archiver to archive segments
 $primary->poll_query_until('postgres',
 	"SELECT archived_count > 0 FROM pg_stat_archiver")
-	or die "Timed out waiting for archiver to start";
+	or die "Timed out waiting for archiver to complete archiving";
 
 my $archived_count = () = glob("$archive_dir/*");
 ok($archived_count > 0, "primary has archived WAL files to shared archive");
@@ -115,7 +115,69 @@ ok($done_count > 0, "standby marked segments as .done after primary's archival r
 note("Standby has $done_count .done files");
 
 ###############################################################################
-# Test 2: Standby promotion - verify archiver activates
+# Test 2: Cascading replication
+###############################################################################
+
+# Take a backup from the promoted standby (now the new primary)
+my $promoted_backup = 'promoted_backup';
+$standby->backup($promoted_backup);
+
+# Set up second-level standby (cascading from first standby, now promoted)
+my $cascade_standby = PostgreSQL::Test::Cluster->new('cascade_standby');
+$cascade_standby->init_from_backup($standby, $promoted_backup, has_streaming => 1);
+$cascade_standby->append_conf('postgresql.conf', "
+archive_mode = shared
+archive_command = 'cp %p \"$archive_dir\"/%f'
+wal_receiver_status_interval = 1s
+");
+$cascade_standby->start;
+
+# Generate WAL
+my $cascading_archived_before = $primary->safe_psql('postgres', 'SELECT archived_count FROM pg_stat_archiver');
+
+my $current_walfile = $primary->safe_psql('postgres', "SELECT pg_walfile_name(pg_current_wal_lsn());");
+
+$primary->safe_psql(
+	'postgres', q{
+	CHECKPOINT;
+	SELECT pg_switch_wal();
+});
+
+my $walfile_ready = "pg_wal/archive_status/$current_walfile.ready";
+my $walfile_done = "pg_wal/archive_status/$current_walfile.done";
+
+# Wait for the primary to send archive status
+$primary->poll_query_until('postgres',
+	"SELECT archived_count > $cascading_archived_before FROM pg_stat_archiver")
+	or die "Timed out waiting for primary to archive segment in cascading test";
+
+# Wait for cascading standby to catch up
+$standby->wait_for_catchup($cascade_standby);
+
+my $cascade_data = $cascade_standby->data_dir;
+my $cascade_standby_archive_status = $cascade_standby->data_dir . '/pg_wal/archive_status';
+
+for (my $i = 0; $i < $PostgreSQL::Test::Utils::timeout_default; $i++)
+{
+	if (-f "$cascade_data/$walfile_done")
+	{
+		last;
+	}
+	sleep(1);
+}
+
+# Wait for cascading standby to receive archive status and mark segments as .done
+ok( !-f "$cascade_data/$walfile_ready",
+	".ready file does not exists on cascade replica for WAL segment $current_walfile"
+);
+
+ok( -f "$cascade_data/$walfile_done",
+	".done file exists on cascade replica for WAL segment $current_walfile"
+);
+
+
+###############################################################################
+# Test 3: Standby promotion - verify archiver activates
 ###############################################################################
 
 # Before promotion, verify archiver is not running on standby (shared mode during recovery)
@@ -149,58 +211,6 @@ my $count = $standby->safe_psql('postgres', 'SELECT COUNT(*) FROM test_table;');
 ok($count >= 2500, "promoted standby has all data (got $count rows)");
 
 ###############################################################################
-# Test 3: Cascading replication
-###############################################################################
-
-# Take a backup from the promoted standby (now the new primary)
-my $promoted_backup = 'promoted_backup';
-$standby->backup($promoted_backup);
-
-# Set up second-level standby (cascading from first standby, now promoted)
-my $standby2 = PostgreSQL::Test::Cluster->new('standby2');
-$standby2->init_from_backup($standby, $promoted_backup, has_streaming => 1);
-$standby2->append_conf('postgresql.conf', "
-archive_mode = shared
-archive_command = 'cp %p \"$archive_dir\"/%f'
-wal_receiver_status_interval = 1s
-");
-$standby2->start;
-
-# Generate WAL on promoted standby (now primary for standby2)
-my $cascading_archived_before = $standby->safe_psql('postgres', 'SELECT archived_count FROM pg_stat_archiver');
-$standby->safe_psql('postgres', "INSERT INTO test_table SELECT i, 'cascading' || i FROM generate_series(2501, 3000) i;");
-$standby->safe_psql('postgres', 'SELECT pg_switch_wal();');
-
-# Wait for the promoted standby (acting as primary) to archive the new segment
-$standby->poll_query_until('postgres',
-	"SELECT archived_count > $cascading_archived_before FROM pg_stat_archiver")
-	or die "Timed out waiting for primary to archive segment in cascading test";
-
-# Wait for cascading standby to catch up
-$standby->wait_for_catchup($standby2);
-
-# Wait for cascading standby to receive archive status and mark segments as .done
-my $standby2_archive_status = $standby2->data_dir . '/pg_wal/archive_status';
-my $standby2_done_count = 0;
-for (my $i = 0; $i < $PostgreSQL::Test::Utils::timeout_default; $i++)
-{
-	$standby2_done_count = 0;
-	if (opendir(my $dh, $standby2_archive_status))
-	{
-		$standby2_done_count = scalar(grep { /\.done$/ } readdir($dh));
-		closedir($dh);
-	}
-	last if $standby2_done_count > 0;
-	sleep(1);
-}
-ok($standby2_done_count > 0, "cascading standby marks segments as .done");
-note("Cascading standby has $standby2_done_count .done files");
-
-# Verify cascading standby has all data
-my $standby2_count = $standby2->safe_psql('postgres', 'SELECT COUNT(*) FROM test_table;');
-ok($standby2_count >= 3000, "cascading standby has all data (got $standby2_count rows)");
-
-###############################################################################
 # Test 4: Multiple standbys from same primary
 ###############################################################################
 
@@ -216,6 +226,8 @@ wal_receiver_status_interval = 1s
 ");
 $standby3->start;
 
+my $cascade_standby_done_count = 0;
+
 # Generate WAL and ensure both standbys receive it
 my $standby_archived_before = $standby->safe_psql('postgres', 'SELECT archived_count FROM pg_stat_archiver');
 $standby->safe_psql('postgres', "INSERT INTO test_table SELECT i, 'multi' || i FROM generate_series(3001, 3500) i;");
@@ -226,7 +238,7 @@ $standby->poll_query_until('postgres',
 	"SELECT archived_count > $standby_archived_before FROM pg_stat_archiver")
 	or die "Timed out waiting for primary to archive segment in multi-standby test";
 
-$standby->wait_for_catchup($standby2);
+$standby->wait_for_catchup($cascade_standby);
 $standby->wait_for_catchup($standby3);
 
 # Verify both standbys eventually mark segments as .done
@@ -234,13 +246,13 @@ my $standby3_archive_status = $standby3->data_dir . '/pg_wal/archive_status';
 
 for (my $i = 0; $i < $PostgreSQL::Test::Utils::timeout_default; $i++)
 {
-	$standby2_done_count = 0;
-	if (opendir(my $dh, $standby2_archive_status))
+	$cascade_standby_done_count = 0;
+	if (opendir(my $dh, $cascade_standby_archive_status))
 	{
-		$standby2_done_count = scalar(grep { /\.done$/ } readdir($dh));
+		$cascade_standby_done_count = scalar(grep { /\.done$/ } readdir($dh));
 		closedir($dh);
 	}
-	last if $standby2_done_count > 0;
+	last if $cascade_standby_done_count > 0;
 	sleep(1);
 }
 
@@ -257,14 +269,14 @@ for (my $i = 0; $i < $PostgreSQL::Test::Utils::timeout_default; $i++)
 	sleep(1);
 }
 
-ok($standby2_done_count > 0, "standby2 marks segments as .done");
+ok($cascade_standby_done_count > 0, "cascade_standby marks segments as .done");
 ok($standby3_done_count > 0, "standby3 marks segments as .done");
-note("standby2 has $standby2_done_count .done files, standby3 has $standby3_done_count .done files");
+note("cascade_standby has $cascade_standby_done_count .done files, standby3 has $standby3_done_count .done files");
 
 # Verify both standbys have all data
-$standby2_count = $standby2->safe_psql('postgres', 'SELECT COUNT(*) FROM test_table;');
+my $cascade_standby_count = $cascade_standby->safe_psql('postgres', 'SELECT COUNT(*) FROM test_table;');
 my $standby3_count = $standby3->safe_psql('postgres', 'SELECT COUNT(*) FROM test_table;');
-ok($standby2_count >= 3500, "standby2 has all data (got $standby2_count rows)");
+ok($cascade_standby_count >= 3500, "cascade_standby has all data (got $cascade_standby_count rows)");
 ok($standby3_count >= 3500, "standby3 has all data (got $standby3_count rows)");
 
 ###############################################################################
