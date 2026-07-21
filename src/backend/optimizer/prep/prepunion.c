@@ -270,6 +270,8 @@ recurse_set_operations(Node *setOp, PlannerInfo *root,
 									 &trivial_tlist);
 		rel->reltarget = create_pathtarget(root, tlist);
 
+		rel->chosen_plan = subroot;
+
 		/* Return the fully-fledged tlist to caller, too */
 		*pTargetList = tlist;
 		*istrivial_tlist = trivial_tlist;
@@ -491,8 +493,9 @@ build_setop_child_paths(PlannerInfo *root, RelOptInfo *rel,
 						List *interesting_pathkeys, double *pNumGroups)
 {
 	RelOptInfo *final_rel;
-	List	   *setop_pathkeys = rel->subroot->setop_pathkeys;
+	PlannerInfo *subroot	   = rel->chosen_plan;
 	ListCell   *lc;
+
 
 	/* it can't be a set op child rel if it's not a subquery */
 	Assert(rel->rtekind == RTE_SUBQUERY);
@@ -509,13 +512,13 @@ build_setop_child_paths(PlannerInfo *root, RelOptInfo *rel,
 	 * do this before generating outer-query paths, else cost_subqueryscan is
 	 * not happy.
 	 */
-	set_subquery_size_estimates(root, rel);
+	set_subquery_size_estimates(root, rel, subroot);
 
 	/*
 	 * Since we may want to add a partial path to this relation, we must set
 	 * its consider_parallel flag correctly.
 	 */
-	final_rel = fetch_upper_rel(rel->subroot, UPPERREL_FINAL, NULL);
+	final_rel = fetch_upper_rel(subroot, UPPERREL_FINAL, NULL);
 	rel->consider_parallel = final_rel->consider_parallel;
 
 	/* Generate subquery scan paths for any interesting path in final_rel */
@@ -526,6 +529,7 @@ build_setop_child_paths(PlannerInfo *root, RelOptInfo *rel,
 		Path	   *cheapest_input_path = final_rel->cheapest_total_path;
 		bool		is_sorted;
 		int			presorted_keys;
+		List	   *setop_pathkeys = rel->chosen_plan->setop_pathkeys;
 
 		/* If the input rel is dummy, propagate that to this query level */
 		if (is_dummy_rel(final_rel))
@@ -548,15 +552,19 @@ build_setop_child_paths(PlannerInfo *root, RelOptInfo *rel,
 			/* Generate outer path using this subpath */
 			add_path(rel, (Path *) create_subqueryscan_path(root,
 															rel,
+															subroot,
+															NULL,
 															subpath,
 															trivial_tlist,
 															pathkeys,
-															NULL));
+															NULL,
+															NIL));
 		}
 
 		/* skip dealing with sorted paths if the setop doesn't need them */
 		if (interesting_pathkeys == NIL)
 			continue;
+
 
 		/*
 		 * Create paths to suit final sort order required for setop_pathkeys.
@@ -569,7 +577,7 @@ build_setop_child_paths(PlannerInfo *root, RelOptInfo *rel,
 
 		if (!is_sorted)
 		{
-			double		limittuples = rel->subroot->limit_tuples;
+			double		limittuples = subroot->limit_tuples;
 
 			/*
 			 * Try at least sorting the cheapest path and also try
@@ -588,13 +596,13 @@ build_setop_child_paths(PlannerInfo *root, RelOptInfo *rel,
 			 * incremental sort when there are presorted keys.
 			 */
 			if (presorted_keys == 0 || !enable_incremental_sort)
-				subpath = (Path *) create_sort_path(rel->subroot,
+				subpath = (Path *) create_sort_path(subroot,
 													final_rel,
 													subpath,
 													setop_pathkeys,
 													limittuples);
 			else
-				subpath = (Path *) create_incremental_sort_path(rel->subroot,
+				subpath = (Path *) create_incremental_sort_path(subroot,
 																final_rel,
 																subpath,
 																setop_pathkeys,
@@ -616,10 +624,12 @@ build_setop_child_paths(PlannerInfo *root, RelOptInfo *rel,
 			/* Generate outer path using this subpath */
 			add_path(rel, (Path *) create_subqueryscan_path(root,
 															rel,
+															subroot,
+															NULL,
 															subpath,
 															trivial_tlist,
 															pathkeys,
-															NULL));
+															NULL, NIL));
 		}
 	}
 
@@ -640,7 +650,7 @@ build_setop_child_paths(PlannerInfo *root, RelOptInfo *rel,
 
 		partial_subpath = linitial(final_rel->partial_pathlist);
 		partial_path = (Path *)
-			create_subqueryscan_path(root, rel, partial_subpath,
+			create_subqueryscan_path(root, rel, subroot, NULL, partial_subpath,
 									 trivial_tlist,
 									 NIL, NULL, NIL);
 		add_partial_path(rel, partial_path);
@@ -668,7 +678,6 @@ build_setop_child_paths(PlannerInfo *root, RelOptInfo *rel,
 	 */
 	if (pNumGroups)
 	{
-		PlannerInfo *subroot = rel->subroot;
 		Query	   *subquery = subroot->parse;
 
 		if (subquery->groupClause || subquery->groupingSets ||
