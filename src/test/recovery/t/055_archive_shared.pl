@@ -8,6 +8,11 @@ use PostgreSQL::Test::Utils;
 use Test::More;
 use File::Path qw(rmtree);
 
+if ($ENV{enable_injection_points} ne 'yes')
+{
+	plan skip_all => 'Injection points not supported by this build';
+}
+
 # Initialize primary node with archiving
 my $archive_dir = PostgreSQL::Test::Utils::tempdir();
 my $primary = PostgreSQL::Test::Cluster->new('primary');
@@ -29,6 +34,16 @@ $primary->start;
 ###############################################################################
 # Test 1: Basic testing
 ###############################################################################
+
+# Check if the extension injection_points is available, as it may be
+# possible that this script is run with installcheck, where the module
+# would not be installed by default.
+if (!$primary->check_extension('injection_points'))
+{
+	plan skip_all => 'Extension injection_points not installed';
+}
+
+$primary->safe_psql('postgres', q(CREATE EXTENSION injection_points));
 
 # Ensure WAL activity exists in the current segment before switching.
 # pg_switch_wal() is a no-op when called at the very start of a segment,
@@ -62,6 +77,10 @@ archive_command = '$archive_command'
 wal_receiver_status_interval = 1s
 ");
 $standby->start;
+
+# Pause the standby's archiver so it stays idle during recovery.
+$standby->safe_psql('postgres',
+	q{SELECT injection_points_attach('pgarch-main-loop', 'wait')});
 
 # Wait for standby to catch up
 $primary->wait_for_catchup($standby);
@@ -204,8 +223,9 @@ ok( -f "$cascade_data/$walfile_done",
 # Test 3: Standby promotion - verify archiver activates
 ###############################################################################
 
-# Before promotion, verify archiver is not running on standby (shared mode during recovery)
-# In shared mode, the standby's archiver should not be archiving during recovery
+# Before promotion, verify the archiver has not archived anything on the standby.
+# In shared mode, the standby's archiver stays idle during recovery as long as
+# the primary's archival reports arrive frequently enough.
 my $archived_before = $standby->safe_psql('postgres',
 	"SELECT archived_count FROM pg_stat_archiver");
 
@@ -221,6 +241,13 @@ $standby->poll_query_until('postgres', "SELECT NOT pg_is_in_recovery();");
 
 # Generate WAL on new primary (former standby)
 $standby->safe_psql('postgres', "SELECT txid_current();SELECT pg_switch_wal();");
+
+# Resume the archiver on the promoted standby.
+$standby->safe_psql(
+	'postgres', qq[
+SELECT injection_points_detach('pgarch-main-loop');
+SELECT injection_points_wakeup('pgarch-main-loop');
+]);
 
 # Wait for archiver to activate and archive the new WAL
 # Check pg_stat_archiver to verify archiving is happening
