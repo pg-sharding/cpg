@@ -1,10 +1,13 @@
 -- Test pushdown of quals into subqueries.
 create table smalltab (i int4, j int4);
 create table bigtab (i int4, j int4);
-insert into smalltab values (1, 1), (100000, 100000);
+insert into smalltab values (1, 1), (5, 50), (100000, 100000);
 insert into bigtab select g,g from generate_series(1, 100000) g;
 analyze smalltab, bigtab;
 create index bigtab_i on bigtab (i);
+-- Keep the plans in this test stable and easy to read.
+set enable_memoize = off;
+set max_parallel_workers_per_gather = 0;
 -- Push down restriction quals.
 explain (costs off)
 select * from smalltab,
@@ -20,10 +23,9 @@ where smalltab.i = subq.i and smalltab.i = 123;
    ->  Seq Scan on smalltab
          Filter: (i = 123)
    ->  GroupAggregate
-         Group Key: bigtab.i
          ->  Index Scan using bigtab_i on bigtab
                Index Cond: (i = 123)
-(7 rows)
+(6 rows)
 
 -- Push down join quals.
 explain (costs off)
@@ -39,10 +41,9 @@ where smalltab.i = subq.i;
  Nested Loop
    ->  Seq Scan on smalltab
    ->  GroupAggregate
-         Group Key: bigtab.i
          ->  Index Scan using bigtab_i on bigtab
-               Index Cond: (smalltab.i = i)
-(6 rows)
+               Index Cond: (i = smalltab.i)
+(5 rows)
 
 -- Subquery is LATERAL, and already references the other relation. The join
 -- qual is always pushed down in that case, as the plan is "parameterized"
@@ -59,13 +60,14 @@ where smalltab.i < subq.i;
                    QUERY PLAN                    
 -------------------------------------------------
  Nested Loop
+   Join Filter: (smalltab.i < bigtab.i)
    ->  Seq Scan on smalltab
    ->  GroupAggregate
          Group Key: bigtab.i
          ->  Index Scan using bigtab_i on bigtab
-               Index Cond: (smalltab.i < i)
+               Index Cond: (i > smalltab.i)
                Filter: (j = smalltab.j)
-(7 rows)
+(8 rows)
 
 -- Multiple join clauses constructed from equivalence classes
 explain (costs off)
@@ -82,9 +84,107 @@ where smalltab.i = subq.i and smalltab.j = subq.j;
  Nested Loop
    ->  Seq Scan on smalltab
    ->  GroupAggregate
-         Group Key: bigtab.i, bigtab.j
          ->  Index Scan using bigtab_i on bigtab
-               Index Cond: (smalltab.i = i)
+               Index Cond: (i = smalltab.i)
                Filter: ((smalltab.j = j) AND ((j / 2) = (smalltab.j / 2)))
+(6 rows)
+
+-- The enable_join_predicate_pushdown GUC turns the optimization on and off.
+-- With it disabled, the join qual is not pushed into the LATERAL subquery,
+-- so it must be re-checked above the SubqueryScan (as a Filter / join cond).
+set enable_join_predicate_pushdown = off;
+explain (costs off)
+select * from smalltab,
+lateral (
+  select bigtab.i, avg(bigtab.j)
+  from bigtab
+  where bigtab.j = smalltab.j
+  group by bigtab.i
+) as subq(i, avg)
+where smalltab.i < subq.i;
+                   QUERY PLAN                    
+-------------------------------------------------
+ Nested Loop
+   ->  Seq Scan on smalltab
+   ->  GroupAggregate
+         Group Key: bigtab.i
+         ->  Index Scan using bigtab_i on bigtab
+               Index Cond: (i > smalltab.i)
+               Filter: (j = smalltab.j)
 (7 rows)
 
+reset enable_join_predicate_pushdown;
+-- The GUC only gates join-qual pushdown; plain restriction quals are still
+-- pushed down even when it is disabled.
+set enable_join_predicate_pushdown = off;
+explain (costs off)
+select * from smalltab,
+(
+  select bigtab.i, avg(bigtab.j)
+  from bigtab
+  group by bigtab.i
+) as subq(i, avg)
+where smalltab.i = subq.i and smalltab.i = 123;
+                   QUERY PLAN                    
+-------------------------------------------------
+ Nested Loop
+   ->  Seq Scan on smalltab
+         Filter: (i = 123)
+   ->  GroupAggregate
+         ->  Index Scan using bigtab_i on bigtab
+               Index Cond: (i = 123)
+(6 rows)
+
+reset enable_join_predicate_pushdown;
+-- Results must be identical whether or not the optimization is enabled.
+-- First, show the actual rows (with the optimization on).
+set enable_join_predicate_pushdown = on;
+select smalltab.i, smalltab.j, subq.i, subq.avg from smalltab,
+lateral (
+  select bigtab.i, avg(bigtab.j)
+  from bigtab
+  where bigtab.j = smalltab.j
+  group by bigtab.i
+) as subq(i, avg)
+where smalltab.i < subq.i
+order by 1, 2, 3;
+ i | j  | i  |         avg         
+---+----+----+---------------------
+ 5 | 50 | 50 | 50.0000000000000000
+(1 row)
+
+-- Now assert that turning the optimization off yields exactly the same rows.
+-- SET can't appear inside a subquery, so materialize both variants into temp
+-- tables and compare them with a symmetric EXCEPT ALL.
+set enable_join_predicate_pushdown = on;
+create temp table res_on as
+select smalltab.i as si, smalltab.j as sj, subq.i as qi, subq.avg as qavg
+from smalltab,
+lateral (
+  select bigtab.i, avg(bigtab.j)
+  from bigtab
+  where bigtab.j = smalltab.j
+  group by bigtab.i
+) as subq(i, avg)
+where smalltab.i < subq.i;
+set enable_join_predicate_pushdown = off;
+create temp table res_off as
+select smalltab.i as si, smalltab.j as sj, subq.i as qi, subq.avg as qavg
+from smalltab,
+lateral (
+  select bigtab.i, avg(bigtab.j)
+  from bigtab
+  where bigtab.j = smalltab.j
+  group by bigtab.i
+) as subq(i, avg)
+where smalltab.i < subq.i;
+reset enable_join_predicate_pushdown;
+-- Both directions of the difference must be empty if the results agree.
+select 'on minus off' as diff, * from (table res_on except all table res_off) d
+union all
+select 'off minus on', * from (table res_off except all table res_on) d;
+ diff | si | sj | qi | qavg 
+------+----+----+----+------
+(0 rows)
+
+drop table res_on, res_off;
