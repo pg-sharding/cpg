@@ -2641,9 +2641,12 @@ set_subquery_pathlist(PlannerInfo *root, RelOptInfo *rel,
 
 		/*
 		 * Push down join quals, as well.  But only for LATERAL, and only for those
-		 * relations that are "required" anyway.
+		 * relations that are "required" anyway.  This is gated by the
+		 * enable_join_predicate_pushdown GUC, so that it can be disabled if it
+		 * causes trouble, and so that regression tests can compare plans and
+		 * results with and without the optimization.
 		 */
-		if (!bms_is_empty(required_outer))
+		if (enable_join_predicate_pushdown && !bms_is_empty(required_outer))
 		{
 			available_relids = bms_copy(required_outer);
 			available_relids = bms_add_member(available_relids, rti);
