@@ -1028,6 +1028,16 @@ struct config_bool ConfigureNamesBool[] =
 		NULL, NULL, NULL
 	},
 	{
+		{"enable_join_predicate_pushdown", PGC_USERSET, QUERY_TUNING_METHOD,
+			gettext_noop("Enables the planner's ability to push join quals down into LATERAL subqueries."),
+			NULL,
+			GUC_EXPLAIN
+		},
+		&enable_join_predicate_pushdown,
+		true,
+		NULL, NULL, NULL
+	},
+	{
 		{"geqo", PGC_USERSET, QUERY_TUNING_GEQO,
 			gettext_noop("Enables genetic query optimization."),
 			gettext_noop("This algorithm attempts to do planning without "
