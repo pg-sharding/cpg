@@ -953,7 +953,7 @@ CreateSubscription(ParseState *pstate, CreateSubscriptionStmt *stmt,
 
 		/* Try to connect to the publisher. */
 		must_use_password = !superuser_arg(owner) && opts.passwordrequired;
-		wrconn = walrcv_connect(conninfo, true, true, must_use_password,
+		wrconn = walrcv_connect(conninfo, true, true, must_use_password, false,
 								stmt->subname, &err);
 		if (!wrconn)
 			ereport(ERROR,
@@ -1117,7 +1117,7 @@ AlterSubscription_refresh(Subscription *sub, bool copy_data,
 
 	/* Try to connect to the publisher. */
 	must_use_password = sub->passwordrequired && !sub->ownersuperuser;
-	wrconn = walrcv_connect(sub->conninfo, true, true, must_use_password,
+	wrconn = walrcv_connect(sub->conninfo, true, true, must_use_password, false,
 							sub->name, &err);
 	if (!wrconn)
 		ereport(ERROR,
@@ -1289,34 +1289,6 @@ AlterSubscription_refresh(Subscription *sub, bool copy_data,
 		}
 
 		/*
-		 * Drop the tablesync slots associated with removed tables. This has
-		 * to be at the end because otherwise if there is an error while doing
-		 * the database operations we won't be able to rollback dropped slots.
-		 */
-		foreach_ptr(SubRemoveRels, sub_remove_rel, sub_remove_rels)
-		{
-			if (sub_remove_rel->state != SUBREL_STATE_READY &&
-				sub_remove_rel->state != SUBREL_STATE_SYNCDONE)
-			{
-				char		syncslotname[NAMEDATALEN] = {0};
-
-				/*
-				 * For READY/SYNCDONE states we know the tablesync slot has
-				 * already been dropped by the tablesync worker.
-				 *
-				 * For other states, there is no certainty, maybe the slot
-				 * does not exist yet. Also, if we fail after removing some of
-				 * the slots, next time, it will again try to drop already
-				 * dropped slots and fail. For these reasons, we allow
-				 * missing_ok = true for the drop.
-				 */
-				ReplicationSlotNameForTablesync(sub->oid, sub_remove_rel->relid,
-												syncslotname, sizeof(syncslotname));
-				ReplicationSlotDropAtPubNode(wrconn, syncslotname, true);
-			}
-		}
-
-		/*
 		 * Next remove state for sequences we should not care about anymore
 		 * using the data we collected above
 		 */
@@ -1341,6 +1313,34 @@ AlterSubscription_refresh(Subscription *sub, bool copy_data,
 										get_namespace_name(get_rel_namespace(relid)),
 										get_rel_name(relid),
 										sub->name));
+			}
+		}
+
+		/*
+		 * Drop the tablesync slots associated with removed tables. This has
+		 * to be at the end because otherwise if there is an error while doing
+		 * the database operations we won't be able to rollback dropped slots.
+		 */
+		foreach_ptr(SubRemoveRels, sub_remove_rel, sub_remove_rels)
+		{
+			if (sub_remove_rel->state != SUBREL_STATE_READY &&
+				sub_remove_rel->state != SUBREL_STATE_SYNCDONE)
+			{
+				char		syncslotname[NAMEDATALEN] = {0};
+
+				/*
+				 * For READY/SYNCDONE states we know the tablesync slot has
+				 * already been dropped by the tablesync worker.
+				 *
+				 * For other states, there is no certainty, maybe the slot
+				 * does not exist yet. Also, if we fail after removing some of
+				 * the slots, next time, it will again try to drop already
+				 * dropped slots and fail. For these reasons, we allow
+				 * missing_ok = true for the drop.
+				 */
+				ReplicationSlotNameForTablesync(sub->oid, sub_remove_rel->relid,
+												syncslotname, sizeof(syncslotname));
+				ReplicationSlotDropAtPubNode(wrconn, syncslotname, true);
 			}
 		}
 	}
@@ -1370,7 +1370,7 @@ AlterSubscription_refresh_seq(Subscription *sub)
 
 	/* Try to connect to the publisher. */
 	must_use_password = sub->passwordrequired && !sub->ownersuperuser;
-	wrconn = walrcv_connect(sub->conninfo, true, true, must_use_password,
+	wrconn = walrcv_connect(sub->conninfo, true, true, must_use_password, false,
 							sub->name, &err);
 	if (!wrconn)
 		ereport(ERROR,
@@ -1381,6 +1381,16 @@ AlterSubscription_refresh_seq(Subscription *sub)
 	/* The publisher connection is only needed for the origin check. */
 	PG_TRY();
 	{
+		/*
+		 * Sequence synchronization depends on publisher-side functionality
+		 * introduced in PostgreSQL 19, so it cannot work against an older
+		 * publisher.
+		 */
+		if (walrcv_server_version(wrconn) < 190000)
+			ereport(ERROR,
+					errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
+					errmsg("cannot synchronize sequences if the publisher is running a version earlier than PostgreSQL 19"));
+
 		check_publications_origin_sequences(wrconn, sub->publications, true,
 											sub->origin, NULL, 0, sub->name);
 	}
@@ -2407,7 +2417,7 @@ AlterSubscription(ParseState *pstate, AlterSubscriptionStmt *stmt,
 		 */
 		must_use_password = sub->passwordrequired && !sub->ownersuperuser;
 		wrconn = walrcv_connect(new_conninfo ? new_conninfo : sub->conninfo,
-								true, true, must_use_password, sub->name,
+								true, true, must_use_password, false, sub->name,
 								&err);
 		if (!wrconn)
 			ereport(ERROR,
@@ -2760,7 +2770,7 @@ DropSubscription(DropSubscriptionStmt *stmt, bool isTopLevel)
 		conninfo = subconninfo;
 
 	if (conninfo)
-		wrconn = walrcv_connect(conninfo, true, true, must_use_password,
+		wrconn = walrcv_connect(conninfo, true, true, must_use_password, false,
 								subname, &err);
 
 	if (wrconn == NULL)
@@ -2939,11 +2949,12 @@ AlterSubscriptionOwner_internal(Relation rel, HeapTuple tup, Oid newOwnerId)
 
 	/*
 	 * If the subscription uses a server, check that the new owner has USAGE
-	 * privileges on the server and that a user mapping exists. Note: does not
-	 * re-check the resulting connection string.
+	 * privileges on the server, that a user mapping exists, and that the
+	 * resulting connection string is valid for the new owner.
 	 */
 	if (OidIsValid(form->subserver))
 	{
+		char	   *conninfo;
 		ForeignServer *server = GetForeignServer(form->subserver);
 
 		aclresult = object_aclcheck(ForeignServerRelationId, server->serverid, newOwnerId, ACL_USAGE);
@@ -2956,6 +2967,15 @@ AlterSubscriptionOwner_internal(Relation rel, HeapTuple tup, Oid newOwnerId)
 
 		/* make sure a user mapping exists */
 		GetUserMapping(newOwnerId, server->serverid);
+
+		conninfo = ForeignServerConnectionString(newOwnerId, server);
+
+		/* Load the library providing us libpq calls. */
+		load_file("libpqwalreceiver", false);
+		/* Check the connection info string. */
+		walrcv_check_conninfo(conninfo,
+							  form->subpasswordrequired &&
+							  !superuser_arg(newOwnerId));
 	}
 
 	form->subowner = newOwnerId;

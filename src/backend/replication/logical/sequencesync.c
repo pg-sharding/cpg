@@ -308,8 +308,24 @@ get_and_validate_seq_info(TupleTableSlot *slot, Relation *sequence_rel,
 	 */
 	datum = slot_getattr(slot, ++col, &isnull);
 	if (isnull)
-		return remote_has_select_priv ? COPYSEQ_SKIPPED :
-			COPYSEQ_PUBLISHER_INSUFFICIENT_PERM;
+	{
+		/*
+		 * The sequence was dropped concurrently after it was identified in
+		 * the catalog snapshot. Treat it as skipped (and, since it no longer
+		 * exists on the publisher, ultimately missing).
+		 */
+		if (remote_has_select_priv)
+			return COPYSEQ_SKIPPED;
+
+		/*
+		 * The publisher lacks the SELECT privilege required by
+		 * pg_get_sequence_data(). Since has_sequence_privilege() returned
+		 * false, not NULL, do not classify this sequence as missing on the
+		 * publisher.
+		 */
+		seqinfo_local->found_on_pub = true;
+		return COPYSEQ_PUBLISHER_INSUFFICIENT_PERM;
+	}
 
 	seqinfo_local->last_value = DatumGetInt64(datum);
 
@@ -444,6 +460,16 @@ copy_sequences(WalReceiverConn *conn)
 	StringInfoData cmd;
 	MemoryContext oldctx;
 
+	/*
+	 * Sequence synchronization depends on publisher-side functionality
+	 * introduced in PostgreSQL 19, so it cannot work against an older
+	 * publisher.
+	 */
+	if (walrcv_server_version(conn) < 190000)
+		ereport(ERROR,
+				errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
+				errmsg("cannot synchronize sequences if the publisher is running a version earlier than PostgreSQL 19"));
+
 	initStringInfo(&seqstr);
 	initStringInfo(&cmd);
 
@@ -469,6 +495,7 @@ copy_sequences(WalReceiverConn *conn)
 		TupleTableSlot *slot;
 
 		StartTransactionCommand();
+		maybe_reread_subscription();
 
 		for (int idx = cur_batch_base_index; idx < n_seqinfos; idx++)
 		{
@@ -698,6 +725,7 @@ LogicalRepSyncSequences(void)
 	StringInfoData app_name;
 
 	StartTransactionCommand();
+	maybe_reread_subscription();
 
 	rel = table_open(SubscriptionRelRelationId, AccessShareLock);
 
@@ -778,7 +806,7 @@ LogicalRepSyncSequences(void)
 	 * Establish the connection to the publisher for sequence synchronization.
 	 */
 	LogRepWorkerWalRcvConn =
-		walrcv_connect(MySubscription->conninfo, true, true,
+		walrcv_connect(MySubscription->conninfo, true, true, false,
 					   must_use_password,
 					   app_name.data, &err);
 	if (LogRepWorkerWalRcvConn == NULL)
