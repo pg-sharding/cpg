@@ -355,7 +355,7 @@ static const internalPQconninfoOption PQconninfoOptions[] = {
 		"Replication", "D", 5,
 	offsetof(struct pg_conn, replication)},
 
-	{"archive_status_report_interval", NULL, NULL, NULL,
+	{"_pq_.ycmdb.archive_status_report_interval", NULL, NULL, NULL,
 		"Replication", "D", 10,
 	offsetof(struct pg_conn, archive_status_report_interval)},
 

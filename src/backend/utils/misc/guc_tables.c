@@ -2092,10 +2092,10 @@ struct config_int ConfigureNamesInt[] =
 		NULL, NULL, NULL
 	},
 	{
-		{"archive_status_report_interval", PGC_SIGHUP, WAL_ARCHIVING,
+		{"ycmdb.archive_status_report_interval", PGC_SIGHUP, WAL_ARCHIVING,
 			gettext_noop("Sets the amount of time between consecutive WAL archive status reports."),
 			NULL,
-			GUC_UNIT_MS
+			GUC_UNIT_MS | GUC_NOT_IN_SAMPLE,
 		},
 		&XLogArchiveStatusReportInterval,
 		10000, 10, INT_MAX / 2,

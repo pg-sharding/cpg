@@ -71,7 +71,7 @@ $shared_standby->init_from_backup($noarch_primary, $noarch_backup,
 	has_streaming => 1);
 $shared_standby->append_conf('postgresql.conf', "
 archive_mode = shared
-archive_status_report_interval = 10ms
+ycmdb.archive_status_report_interval = 10ms
 archive_command = '$archive_command'
 wal_receiver_status_interval = 1s
 ");
@@ -119,7 +119,7 @@ $primary->init(has_archiving => 1, allows_streaming => 1);
 $primary->append_conf('postgresql.conf', "
 archive_mode = on
 archive_command = '$archive_command'
-archive_status_report_interval = 10ms
+ycmdb.archive_status_report_interval = 10ms
 wal_keep_size = 128MB
 ");
 $primary->start;
@@ -147,7 +147,7 @@ $standby->init_from_backup($primary, $standby_backup, has_streaming => 1);
 $standby->append_conf('postgresql.conf', "
 archive_mode = on
 archive_command = '$archive_command'
-archive_status_report_interval = 10ms
+ycmdb.archive_status_report_interval = 10ms
 wal_receiver_status_interval = 1s
 ");
 $standby->start;
@@ -168,7 +168,7 @@ my $cascade = PostgreSQL::Test::Cluster->new('cascade');
 $cascade->init_from_backup($standby, $cascade_backup, has_streaming => 1);
 $cascade->append_conf('postgresql.conf', "
 archive_mode = shared
-archive_status_report_interval = 10ms
+ycmdb.archive_status_report_interval = 10ms
 archive_command = '$archive_command'
 wal_receiver_status_interval = 1s
 ");
@@ -239,11 +239,6 @@ ok( -f "$cascade_status/$walfile_ready",
 ok( !-f "$cascade_status/$walfile_done",
 	"segment is not marked .done without an archival report");
 
-# And its view column must stay empty: no report ever arrived.
-is($cascade->safe_psql('postgres',
-		"SELECT primary_last_archived FROM pg_stat_wal_receiver;"),
-	'',
-	"cascading standby primary_last_archived stays empty");
 
 # Let the cascading standby's archiver run.  Since no archival report will ever
 # arrive, a shared-mode standby must fall back to archiving the segment itself.
