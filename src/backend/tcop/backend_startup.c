@@ -798,26 +798,26 @@ retry:
 									valptr),
 							 errhint("Valid values are: \"false\", 0, \"true\", 1, \"database\".")));
 			}
-			else if (strcmp(nameptr, "archive_status_report_interval") == 0)
-			{
-				if (!parse_int(valptr, &archive_status_report_interval, 0, NULL))
-					ereport(FATAL,
-							 errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-							 errmsg("invalid value for parameter \"%s\": \"%s\"",
-									"archive_status_report_interval",
-									valptr),
-							 errhint("Value must be a non-negative integer."));
-				if (archive_status_report_interval > 0 && !XLogArchivingActive())
-					ereport(FATAL,
-							errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-							errmsg("archive status report requested, but archiving is not enabled"),
-							errhint("Change parameter %s.", "archive_mode"));
-			}
 			else if (strncmp(nameptr, "_pq_.", 5) == 0)
 			{
 				/* MDB-23247: parse service auth role from  startup options */
 				if (strcmp(nameptr, "_pq_.service_auth_role") == 0) {
 					port->service_auth_role = pstrdup(valptr);
+				}
+				else if (strcmp(nameptr, "_pq_.ycmdb.archive_status_report_interval") == 0)
+				{
+					if (!parse_int(valptr, &archive_status_report_interval, 0, NULL))
+						ereport(FATAL,
+								errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+								errmsg("invalid value for parameter \"%s\": \"%s\"",
+										"_pq_.ycmdb.archive_status_report_interval",
+										valptr),
+								errhint("Value must be a non-negative integer."));
+					if (archive_status_report_interval > 0 && !XLogArchivingActive())
+						ereport(FATAL,
+								errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+								errmsg("archive status report requested, but archiving is not enabled"),
+								errhint("Change parameter %s.", "archive_mode"));
 				} else {
 					/*
 					* Any option beginning with _pq_. is reserved for use as a
