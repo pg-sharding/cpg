@@ -924,7 +924,7 @@ pg_sync_replication_slots(PG_FUNCTION_ARGS)
 		appendStringInfoString(&app_name, "slotsync");
 
 	/* Connect to the primary server. */
-	wrconn = walrcv_connect(PrimaryConnInfo, false, false, false,
+	wrconn = walrcv_connect(PrimaryConnInfo, false, false, false, false,
 							app_name.data, &err);
 	pfree(app_name.data);
 

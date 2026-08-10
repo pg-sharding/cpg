@@ -383,6 +383,10 @@ struct pg_conn
 	char	   *fbappname;		/* fallback application name */
 	char	   *dbName;			/* database name */
 	char	   *replication;	/* connect as the replication standby? */
+	char	   *archive_status_report_interval; /* interval (ms) between
+												 * archive status reports the
+												 * primary sends to the
+												 * standby; 0 disables them */
 	char	   *pguser;			/* Postgres username and password, if any */
 	char	   *pgpass;
 	char	   *pgpassfile;		/* path to a file containing password(s) */

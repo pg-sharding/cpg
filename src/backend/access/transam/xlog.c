@@ -117,7 +117,9 @@ int			min_wal_size_mb = 80;	/* 80 MB */
 int			wal_keep_size_mb = 0;
 int			XLOGbuffers = -1;
 int			XLogArchiveTimeout = 0;
+int			XLogArchiveStatusReportInterval = 0;
 int			XLogArchiveMode = ARCHIVE_MODE_OFF;
+bool		ycmdb_shared_archive = false;	/* makes archive_mode=on act as shared */
 char	   *XLogArchiveCommand = NULL;
 bool		EnableHotStandby = false;
 bool		fullPageWrites = true;
@@ -193,6 +195,7 @@ const struct config_enum_entry archive_mode_options[] = {
 	{"always", ARCHIVE_MODE_ALWAYS, false},
 	{"on", ARCHIVE_MODE_ON, false},
 	{"off", ARCHIVE_MODE_OFF, false},
+	{"shared", ARCHIVE_MODE_SHARED, false},
 	{"true", ARCHIVE_MODE_ON, true},
 	{"false", ARCHIVE_MODE_OFF, true},
 	{"yes", ARCHIVE_MODE_ON, true},
