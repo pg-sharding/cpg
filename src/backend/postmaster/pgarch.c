@@ -367,6 +367,7 @@ pgarch_MainLoop(void)
 		if (RecoveryInProgress() && XLogArchivingShared())
 		{
 			int64		fallback_ms;
+			int64		archive_timeout_ms;
 
 			SpinLockAcquire(&PgArch->lock);
 			last_archival_report_timestamp = PgArch->last_archival_report_timestamp;
@@ -381,6 +382,15 @@ pgarch_MainLoop(void)
 				PGARCH_SHARED_FALLBACK_INTERVALS;
 
 			/*
+			 * Never fall back to local archiving sooner than twice the
+			 * archive_timeout (which is measured in seconds).  This keeps the
+			 * fallback interval sensible when the primary is configured with a
+			 * long archive_timeout but a short report interval.
+			 */
+			archive_timeout_ms = (int64) XLogArchiveTimeout * 2 * 1000;
+			fallback_ms = Max(fallback_ms, archive_timeout_ms);
+
+			/*
 			 * Only archive locally once we have gone long enough without a
 			 * report from the primary.  Note that an incoming report does not
 			 * set our latch, so we may notice the timeout up to
@@ -390,6 +400,8 @@ pgarch_MainLoop(void)
 			do_copy_loop = GetCurrentTimestamp() >
 				TimestampTzPlusMilliseconds(last_archival_report_timestamp,
 											fallback_ms);
+
+			elog(DEBUG1, "archiver copy loop %s, last archival report timestamp %ld, fallback ms is %ld", do_copy_loop ? "acrhiving":"skipping", last_archival_report_timestamp, fallback_ms);
 		}
 		else
 		{
