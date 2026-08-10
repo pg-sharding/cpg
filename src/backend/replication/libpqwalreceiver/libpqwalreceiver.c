@@ -220,7 +220,7 @@ libpqrcv_connect(const char *conninfo, bool replication, bool logical,
 	if (expect_archive_reports)
 	{
 		archive_interval_val = psprintf("%d", XLogArchiveStatusReportInterval);
-		keys[++i] = "archive_status_report_interval";
+		keys[++i] = "_pq_.ycmdb.archive_status_report_interval";
 		vals[i] = archive_interval_val;
 	}
 

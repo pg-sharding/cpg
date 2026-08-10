@@ -51,7 +51,7 @@ $primary->init(
 	extra           => [ '--wal-segsize' => $wal_segsize ]);
 $primary->append_conf('postgresql.conf', qq{
 archive_mode    = shared
-archive_status_report_interval = 10ms
+ycmdb.archive_status_report_interval = 10ms
 archive_command = '$broken_command'
 wal_keep_size   = 0 # to trigger wal deletion
 });
@@ -66,7 +66,7 @@ my $standby = PostgreSQL::Test::Cluster->new('standby');
 $standby->init_from_backup($primary, $backup_name, has_streaming => 1);
 $standby->append_conf('postgresql.conf', qq{
 archive_mode               = shared
-archive_status_report_interval = 10ms
+ycmdb.archive_status_report_interval = 10ms
 archive_command            = '$good_command'
 wal_receiver_status_interval = 1s
 wal_keep_size              = 0 # to trigger wal deletion
@@ -181,7 +181,7 @@ $primary->poll_query_until('postgres',
 # Generate one more WAL switch so the walsender picks up the updated
 # last_archived_wal and sends a fresh archival report to the standby.
 # (The walsender only sends when last_archived_wal changes and every
-# archive_status_report_interval = 10 ms at most.)
+# ycmdb.archive_status_report_interval = 10 ms at most.)
 $primary->safe_psql('postgres', 'SELECT pg_switch_wal()');
 $primary->wait_for_catchup($standby);
 

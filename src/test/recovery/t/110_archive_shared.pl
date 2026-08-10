@@ -62,7 +62,7 @@ my $archive_command =
 
 $primary->append_conf('postgresql.conf', "
 archive_mode = shared
-archive_status_report_interval = 10ms
+ycmdb.archive_status_report_interval = 10ms
 archive_command = '$archive_command'
 wal_keep_size = 128MB
 ");
@@ -101,7 +101,7 @@ my $standby = PostgreSQL::Test::Cluster->new('standby');
 $standby->init_from_backup($primary, $backup_name, has_streaming => 1);
 $standby->append_conf('postgresql.conf', "
 archive_mode = shared
-archive_status_report_interval = 10ms
+ycmdb.archive_status_report_interval = 10ms
 archive_command = '$archive_command'
 wal_receiver_status_interval = 1s
 ");
@@ -201,7 +201,7 @@ my $cascade_standby = PostgreSQL::Test::Cluster->new('cascade_standby');
 $cascade_standby->init_from_backup($standby, $promoted_backup, has_streaming => 1);
 $cascade_standby->append_conf('postgresql.conf', "
 archive_mode = shared
-archive_status_report_interval = 10ms
+ycmdb.archive_status_report_interval = 10ms
 archive_command = '$archive_command'
 wal_receiver_status_interval = 1s
 ");
