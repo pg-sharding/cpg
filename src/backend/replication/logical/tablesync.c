@@ -1371,7 +1371,7 @@ LogicalRepSyncTableStart(XLogRecPtr *origin_startpos)
 	 */
 	LogRepWorkerWalRcvConn =
 		walrcv_connect(MySubscription->conninfo, true, true,
-					   must_use_password,
+					   must_use_password, false,
 					   slotname, &err);
 	if (LogRepWorkerWalRcvConn == NULL)
 		ereport(ERROR,

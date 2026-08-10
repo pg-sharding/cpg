@@ -31,6 +31,7 @@
 #include "access/slru.h"
 #include "access/toast_compression.h"
 #include "access/twophase.h"
+#include "access/xlog.h"
 #include "access/xlog_internal.h"
 #include "access/xlogprefetcher.h"
 #include "access/xlogrecovery.h"
@@ -1192,6 +1193,17 @@ struct config_bool ConfigureNamesBool[] =
 	},
 
 	{
+		{"ycmdb.shared_archive", PGC_POSTMASTER, WAL_ARCHIVING,
+			gettext_noop("Makes archive_mode=on behave as shared (for managed service compatibility)."),
+			gettext_noop("When true, archive_mode=on is treated as archive_mode=shared. Does not affect archive_mode=off or archive_mode=always. Used when control plane cannot configure archive_mode=shared directly."),
+			GUC_NOT_IN_SAMPLE
+		},
+		&ycmdb_shared_archive,
+		false,
+		NULL, NULL, NULL
+	},
+
+	{
 		{"wal_init_zero", PGC_SUSET, WAL_SETTINGS,
 			gettext_noop("Writes zeroes to new WAL files before first use."),
 			NULL
@@ -2077,6 +2089,16 @@ struct config_int ConfigureNamesInt[] =
 		},
 		&XLogArchiveTimeout,
 		0, 0, INT_MAX / 2,
+		NULL, NULL, NULL
+	},
+	{
+		{"archive_status_report_interval", PGC_SIGHUP, WAL_ARCHIVING,
+			gettext_noop("Sets the amount of time between consecutive WAL archive status reports."),
+			NULL,
+			GUC_UNIT_MS
+		},
+		&XLogArchiveStatusReportInterval,
+		10000, 10, INT_MAX / 2,
 		NULL, NULL, NULL
 	},
 	{

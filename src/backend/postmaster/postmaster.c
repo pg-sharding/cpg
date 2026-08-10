@@ -439,7 +439,7 @@ static void MaybeStartSlotSyncWorker(void);
  */
 #define PgArchStartupAllowed()	\
 	(((XLogArchivingActive() && pmState == PM_RUN) ||			\
-	  (XLogArchivingAlways() &&									  \
+	  ((XLogArchivingAlways() || EffectiveArchiveModeIsShared() )&&									  \
 	   (pmState == PM_RECOVERY || pmState == PM_HOT_STANDBY))) && \
 	 PgArchCanRestart())
 
@@ -3711,7 +3711,7 @@ process_pm_pmsignal(void)
 		 * files.
 		 */
 		Assert(PgArchPID == 0);
-		if (XLogArchivingAlways())
+		if (XLogArchivingAlways() || XLogArchivingShared())
 			PgArchPID = StartChildProcess(B_ARCHIVER);
 
 		/*
