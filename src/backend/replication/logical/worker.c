@@ -4627,7 +4627,7 @@ run_apply_worker()
 		!MySubscription->ownersuperuser;
 
 	LogRepWorkerWalRcvConn = walrcv_connect(MySubscription->conninfo, true,
-											true, must_use_password,
+											true, must_use_password, false,
 											MySubscription->name, &err);
 
 	if (LogRepWorkerWalRcvConn == NULL)
