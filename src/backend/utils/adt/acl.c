@@ -1281,7 +1281,7 @@ cc_restart:
 	aip = ACL_DAT(acl);
 	for (i = 0; i < num; i++)
 	{
-		if (aip[i].ai_grantee == mod_aip->ai_grantee &&
+		if (has_privs_of_role(mod_aip->ai_grantee, aip[i].ai_grantee) &&
 			ACLITEM_GET_GOPTIONS(aip[i]) != ACL_NO_RIGHTS)
 		{
 			Acl		   *new_acl;
