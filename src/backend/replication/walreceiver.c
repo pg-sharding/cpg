@@ -529,7 +529,9 @@ WalReceiverMain(char *startup_data, size_t startup_data_len)
 					 * let the startup process and primary server know about
 					 * them.
 					 */
-					XLogWalRcvFlush(false, startpointTLI);
+					if (LogstreamResult.Flush + (1 << 22) < LogstreamResult.Write) {
+						XLogWalRcvFlush(false, startpointTLI);
+					}
 				}
 
 				/* Check if we need to exit the streaming loop. */
