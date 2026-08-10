@@ -35,6 +35,7 @@
 #include "tcop/backend_startup.h"
 #include "tcop/tcopprot.h"
 #include "utils/builtins.h"
+#include "utils/guc.h"
 #include "utils/guc_hooks.h"
 #include "utils/injection_point.h"
 #include "utils/memutils.h"
@@ -809,6 +810,21 @@ retry:
 									"replication",
 									valptr),
 							 errhint("Valid values are: \"false\", 0, \"true\", 1, \"database\".")));
+			}
+			else if (strcmp(nameptr, "archive_status_report_interval") == 0)
+			{
+				if (!parse_int(valptr, &archive_status_report_interval, 0, NULL))
+					ereport(FATAL,
+							 errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+							 errmsg("invalid value for parameter \"%s\": \"%s\"",
+									"archive_status_report_interval",
+									valptr),
+							 errhint("Value must be a non-negative integer."));
+				if (archive_status_report_interval > 0 && !XLogArchivingActive())
+					ereport(FATAL,
+							errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+							errmsg("archive status report requested, but archiving is not enabled"),
+							errhint("Change parameter %s.", "archive_mode"));
 			}
 			else if (strncmp(nameptr, "_pq_.", 5) == 0)
 			{
