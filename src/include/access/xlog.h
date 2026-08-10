@@ -42,6 +42,7 @@ extern PGDLLIMPORT int wal_keep_size_mb;
 extern PGDLLIMPORT int max_slot_wal_keep_size_mb;
 extern PGDLLIMPORT int XLOGbuffers;
 extern PGDLLIMPORT int XLogArchiveTimeout;
+extern PGDLLIMPORT int XLogArchiveStatusReportInterval;
 extern PGDLLIMPORT int wal_retrieve_retry_interval;
 extern PGDLLIMPORT char *XLogArchiveCommand;
 extern PGDLLIMPORT bool EnableHotStandby;
@@ -67,8 +68,18 @@ typedef enum ArchiveMode
 	ARCHIVE_MODE_OFF = 0,		/* disabled */
 	ARCHIVE_MODE_ON,			/* enabled while server is running normally */
 	ARCHIVE_MODE_ALWAYS,		/* enabled always (even during recovery) */
+	ARCHIVE_MODE_SHARED,		/* shared archive between primary and standby */
 } ArchiveMode;
 extern PGDLLIMPORT int XLogArchiveMode;
+extern PGDLLIMPORT bool ycmdb_shared_archive;
+
+/*
+ * True when shared archive behavior is active: either archive_mode=shared
+ * or archive_mode=on with ycmdb.shared_archive=true (managed service).
+ */
+#define EffectiveArchiveModeIsShared() \
+	(XLogArchiveMode == ARCHIVE_MODE_SHARED || \
+	 (XLogArchiveMode == ARCHIVE_MODE_ON && ycmdb_shared_archive))
 
 /* WAL levels */
 typedef enum WalLevel
@@ -104,6 +115,15 @@ extern PGDLLIMPORT bool XLogLogicalInfo;
 /* Is WAL archiving enabled always (even during recovery)? */
 #define XLogArchivingAlways() \
 	(AssertMacro(XLogArchiveMode == ARCHIVE_MODE_OFF || wal_level >= WAL_LEVEL_REPLICA), XLogArchiveMode == ARCHIVE_MODE_ALWAYS)
+/*
+ * Is WAL archiving coordinated between primary and standby?
+ *
+ * This is true for archive_mode=shared, and also for archive_mode=on when
+ * ycmdb.shared_archive is enabled (managed service, where the control plane
+ * cannot set archive_mode=shared directly).  See EffectiveArchiveModeIsShared().
+ */
+#define XLogArchivingShared() \
+	(AssertMacro(XLogArchiveMode == ARCHIVE_MODE_OFF || wal_level >= WAL_LEVEL_REPLICA), EffectiveArchiveModeIsShared())
 
 /*
  * Is WAL-logging necessary for archival or log-shipping, or can we skip

@@ -2794,7 +2794,7 @@ psql "dbname=postgres replication=database" -c "IDENTIFY_SYSTEM;"
            </listitem>
           </varlistentry>
 
-          <varlistentry>
+           <varlistentry>
            <term>Int64</term>
            <listitem>
             <para>
@@ -2833,6 +2833,31 @@ psql "dbname=postgres replication=database" -c "IDENTIFY_SYSTEM;"
             <para>
              The server's system clock at the time of transmission, as
              microseconds since midnight on 2000-01-01.
+            </para>
+           </listitem>
+          </varlistentry>
+         </variablelist>
+        </listitem>
+       </varlistentry>
+
+       <varlistentry id="protocol-replication-archive-status-report">
+        <term>WAL archival report message (B)</term>
+        <listitem>
+         <variablelist>
+          <varlistentry>
+           <term>Byte1('a')</term>
+           <listitem>
+            <para>
+             Identifies the message as a last archived WAL segment update.
+            </para>
+           </listitem>
+          </varlistentry>
+
+          <varlistentry>
+           <term>Byte<replaceable>n</replaceable></term>
+           <listitem>
+            <para>
+             Filename of the latest archived file.
             </para>
            </listitem>
           </varlistentry>
