@@ -42,6 +42,6 @@ RUN echo 'build-user ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
 USER build-user
 WORKDIR /home/build-user
 
-RUN CFLAGS="" ./configure --prefix=/home/build-user/pgbin  --without-mdblocales  --enable-depend --enable-cassert --enable-debug --enable-tap-tests && \
+RUN CFLAGS="" ./configure --prefix=/home/build-user/pgbin  --without-mdblocales  --enable-depend --enable-cassert --enable-debug --enable-injection-points   --enable-tap-tests && \
     make -j8 && \
     sudo make install
