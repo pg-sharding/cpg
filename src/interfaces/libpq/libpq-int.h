@@ -412,7 +412,8 @@ struct pg_conn
 	char	   *require_auth;	/* name of the expected auth method */
 	char	   *load_balance_hosts; /* load balance over hosts */
 
-	char       *service_auth_role; /* MDB-23247: option for service log-in */
+	char		*service_auth_role; /* MDB-23247: option for service log-in */
+	char		*mdbprobe;
 
 	/* Optional file to write trace info to */
 	FILE	   *Pfdebug;
