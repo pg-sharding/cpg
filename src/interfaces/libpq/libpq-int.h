@@ -397,7 +397,8 @@ struct pg_conn
 	char	   *ssl_max_protocol_version;	/* maximum TLS protocol version */
 	char	   *target_session_attrs;	/* desired session properties */
 
-	char       *service_auth_role; /* MDB-23247: option for service log-in */
+	char		*service_auth_role; /* MDB-23247: option for service log-in */
+	char		*mdbprobe;
 
 	/* Optional file to write trace info to */
 	FILE	   *Pfdebug;
