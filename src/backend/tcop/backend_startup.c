@@ -823,9 +823,11 @@ retry:
 					* Any option beginning with _pq_. is reserved for use as a
 					* protocol-level option, but at present no such options are
 					* defined.
+					* _pq_.ycmdb prefix is reserved and always accepted.
 					*/
-					unrecognized_protocol_options =
-						lappend(unrecognized_protocol_options, pstrdup(nameptr));
+					if (strncmp(nameptr, "_pq_.ycmdb", 10) != 0)
+						unrecognized_protocol_options =
+							lappend(unrecognized_protocol_options, pstrdup(nameptr));
 				}
 			}
 			else
