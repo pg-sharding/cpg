@@ -418,6 +418,13 @@ static const internalPQconninfoOption PQconninfoOptions[] = {
 		"_pg__service_auth_role", "", 20,
 	offsetof(struct pg_conn, service_auth_role)},
 
+
+	/* option for mdb probing */
+	{"_pq_.ycmdb.probe", "PGMDBPROBEOPT",
+		"", NULL,
+		"_pq_.ycmdb.probe", "", 20,
+	offsetof(struct pg_conn, mdbprobe)},
+
 	/* Terminating entry --- MUST BE LAST */
 	{NULL, NULL, NULL, NULL,
 	NULL, NULL, 0}
