@@ -78,6 +78,8 @@ tests += {
       't/010_tab_completion.pl',
       't/020_cancel.pl',
       't/030_pager.pl',
+      't/100_mdb.pl',
+      't/101_mdb_proto.pl',
     ],
   },
 }
