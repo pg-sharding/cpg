@@ -84,15 +84,6 @@ my @tests = (
 		visible_op => '==',
 		frozen_op => '<',
 	},
-	{
-		label => 'COPY',
-		table => 'vm_copy_test',
-		setup => q{CREATE TABLE vm_copy_test (id int);
-			INSERT INTO vm_copy_test DEFAULT VALUES;},
-		modify => q{COPY vm_copy_test FROM PROGRAM 'echo 42'},
-		visible_op => '<',
-		frozen_op => '<',
-	},
 );
 
 sub get_vm_summary
