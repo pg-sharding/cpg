@@ -420,7 +420,8 @@ struct pg_conn
 	bool		cancelRequest;	/* true if this connection is used to send a
 								 * cancel request, instead of being a normal
 								 * connection that's used for queries */
-	char       *service_auth_role; /* MDB-23247: option for service log-in */
+	char		*service_auth_role; /* MDB-23247: option for service log-in */
+	char		*mdbprobe;
 
 	/* Optional file to write trace info to */
 	FILE	   *Pfdebug;
