@@ -1143,16 +1143,13 @@ ValidXLogRecordHeader(XLogReaderState *state, XLogRecPtr RecPtr,
 	if (record->xl_tot_len < SizeOfXLogRecord)
 	{
 		report_invalid_record(state,
-							  "invalid record length at %X/%X: expected at least %u, got %u",
-							  LSN_FORMAT_ARGS(RecPtr),
-							  (uint32) SizeOfXLogRecord, record->xl_tot_len);
+										"invalid record");
 		return false;
 	}
 	if (!RmgrIdIsValid(record->xl_rmid))
 	{
 		report_invalid_record(state,
-							  "invalid resource manager ID %u at %X/%X",
-							  record->xl_rmid, LSN_FORMAT_ARGS(RecPtr));
+										"invalid record");
 		return false;
 	}
 	if (randAccess)
@@ -1164,9 +1161,7 @@ ValidXLogRecordHeader(XLogReaderState *state, XLogRecPtr RecPtr,
 		if (!(record->xl_prev < RecPtr))
 		{
 			report_invalid_record(state,
-								  "record with incorrect prev-link %X/%X at %X/%X",
-								  LSN_FORMAT_ARGS(record->xl_prev),
-								  LSN_FORMAT_ARGS(RecPtr));
+											"invalid record");
 			return false;
 		}
 	}
@@ -1180,9 +1175,7 @@ ValidXLogRecordHeader(XLogReaderState *state, XLogRecPtr RecPtr,
 		if (record->xl_prev != PrevRecPtr)
 		{
 			report_invalid_record(state,
-								  "record with incorrect prev-link %X/%X at %X/%X",
-								  LSN_FORMAT_ARGS(record->xl_prev),
-								  LSN_FORMAT_ARGS(RecPtr));
+											"invalid record");
 			return false;
 		}
 	}
