@@ -95,6 +95,16 @@
   options => 'archive_mode_options',
 },
 
+{ name => 'archive_timeout', type => 'int', context => 'PGC_SIGHUP', group => 'WAL_ARCHIVING',
+  short_desc => 'Sets the amount of time to wait before forcing a switch to the next WAL file.',
+  long_desc => '0 disables the timeout.',
+  flags => 'GUC_UNIT_S',
+  variable => 'XLogArchiveTimeout',
+  boot_val => '0',
+  min => '0',
+  max => 'INT_MAX / 2',
+},
+
 { name => 'ycmdb.archive_status_report_interval', type => 'int', context => 'PGC_SIGHUP', group => 'WAL_ARCHIVING',
   short_desc => 'Sets the amount of time between consecutive WAL archive status reports.',
   flags => 'GUC_UNIT_MS | GUC_NOT_IN_SAMPLE',
@@ -110,16 +120,6 @@
   flags => 'GUC_NOT_IN_SAMPLE',
   variable => 'ycmdb_shared_archive',
   boot_val => 'false',
-},
-
-{ name => 'archive_timeout', type => 'int', context => 'PGC_SIGHUP', group => 'WAL_ARCHIVING',
-  short_desc => 'Sets the amount of time to wait before forcing a switch to the next WAL file.',
-  long_desc => '0 disables the timeout.',
-  flags => 'GUC_UNIT_S',
-  variable => 'XLogArchiveTimeout',
-  boot_val => '0',
-  min => '0',
-  max => 'INT_MAX / 2',
 },
 
 { name => 'array_nulls', type => 'bool', context => 'PGC_USERSET', group => 'COMPAT_OPTIONS_PREVIOUS',
