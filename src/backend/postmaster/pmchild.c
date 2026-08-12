@@ -114,6 +114,7 @@ InitPostmasterChildSlots(void)
 	pmchild_pools[B_CHECKPOINTER].size = 1;
 	pmchild_pools[B_STARTUP].size = 1;
 	pmchild_pools[B_WAL_RECEIVER].size = 1;
+	pmchild_pools[B_WAL_RCV_FLUSHER].size = 1;
 	pmchild_pools[B_WAL_SUMMARIZER].size = 1;
 	pmchild_pools[B_WAL_WRITER].size = 1;
 	pmchild_pools[B_LOGGER].size = 1;

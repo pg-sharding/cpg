@@ -387,6 +387,7 @@ pgstat_tracks_backend_bktype(BackendType bktype)
 		case B_STANDALONE_BACKEND:
 		case B_SLOTSYNC_WORKER:
 		case B_WAL_RECEIVER:
+		case B_WAL_RCV_FLUSHER:
 		case B_WAL_SENDER:
 		case B_WAL_SUMMARIZER:
 		case B_WAL_WRITER:

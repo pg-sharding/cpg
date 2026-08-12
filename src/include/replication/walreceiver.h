@@ -156,7 +156,6 @@ typedef struct
 	pg_atomic_uint64 writtenUpto;
 
 	/*
-	 * force walreceiver reply?  This doesn't need to be locked; memory
 	 * The timeline that writtenUpto is on, and the start of the batch that
 	 * carried it, which recovery uses the way it uses latestChunkStart.  Both
 	 * are protected by mutex.
@@ -169,6 +168,13 @@ typedef struct
 	 * dirty page can wait for the WAL behind it to become durable.
 	 */
 	ConditionVariable flushCV;
+
+	/*
+	 * Proc number of the WAL receiver flusher, so that it can be woken up when
+	 * there is WAL to fsync, or INVALID_PROC_NUMBER if it is not running.
+	 * Protected by mutex.
+	 */
+	ProcNumber	flusherProcno;
 
 	/*
 	 * request walreceiver reply?  This doesn't need to be locked; memory

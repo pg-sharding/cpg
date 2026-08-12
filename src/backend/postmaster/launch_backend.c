@@ -46,6 +46,7 @@
 #include "postmaster/walsummarizer.h"
 #include "postmaster/walwriter.h"
 #include "replication/slotsync.h"
+#include "replication/walrcvflusher.h"
 #include "replication/walreceiver.h"
 #include "storage/dsm.h"
 #include "storage/io_worker.h"
@@ -201,6 +202,7 @@ static child_process_kind child_process_kinds[] = {
 	[B_IO_WORKER] = {"io_worker", IoWorkerMain, true},
 	[B_STARTUP] = {"startup", StartupProcessMain, true},
 	[B_WAL_RECEIVER] = {"wal_receiver", WalReceiverMain, true},
+	[B_WAL_RCV_FLUSHER] = {"wal_rcv_flusher", WalRcvFlusherMain, true},
 	[B_WAL_SUMMARIZER] = {"wal_summarizer", WalSummarizerMain, true},
 	[B_WAL_WRITER] = {"wal_writer", WalWriterMain, true},
 
