@@ -341,6 +341,8 @@ pgstat_tracks_io_bktype(BackendType bktype)
 		case B_SLOTSYNC_WORKER:
 		case B_STANDALONE_BACKEND:
 		case B_STARTUP:
+		case B_WAL_RECEIVER:
+		case B_WAL_RCV_FLUSHER:
 		case B_WAL_SENDER:
 			return true;
 	}
@@ -385,7 +387,7 @@ pgstat_tracks_io_object(BackendType bktype, IOObject io_object,
 	 */
 	no_temp_rel = bktype == B_AUTOVAC_LAUNCHER || bktype == B_BG_WRITER ||
 		bktype == B_CHECKPOINTER || bktype == B_AUTOVAC_WORKER ||
-		bktype == B_STANDALONE_BACKEND || bktype == B_STARTUP;
+		bktype == B_STANDALONE_BACKEND || bktype == B_STARTUP || bktype == B_WAL_WRITER;
 
 	if (no_temp_rel && io_context == IOCONTEXT_NORMAL &&
 		io_object == IOOBJECT_TEMP_RELATION)

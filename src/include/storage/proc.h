@@ -436,11 +436,11 @@ extern PGDLLIMPORT PGPROC *PreparedXactProcs;
  * or take heavyweight locks) but need shmem access.
  *
  * Background writer, checkpointer, WAL writer, WAL summarizer, and archiver
- * run during normal operation.  Startup process and WAL receiver also consume
- * 2 slots, but WAL writer is launched only after startup has exited, so we
- * only need 6 slots.
+ * run during normal operation.  Startup process, WAL receiver and WAL receiver
+ * flusher also consume 3 slots, but WAL writer is launched only after startup
+ * has exited, so we only need 7 slots.
  */
-#define NUM_AUXILIARY_PROCS		6
+#define NUM_AUXILIARY_PROCS		7
 
 #define FIRST_PREPARED_XACT_PROC_NUMBER	(MaxBackends + NUM_AUXILIARY_PROCS)
 

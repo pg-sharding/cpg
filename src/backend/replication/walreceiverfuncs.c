@@ -25,6 +25,7 @@
 #include "access/xlog_internal.h"
 #include "access/xlogrecovery.h"
 #include "pgstat.h"
+#include "replication/walrcvflusher.h"
 #include "replication/walreceiver.h"
 #include "storage/pmsignal.h"
 #include "storage/shmem.h"
@@ -71,6 +72,7 @@ WalRcvShmemInit(void)
 		WalRcv->latestWriteChunkStart = InvalidXLogRecPtr;
 		ConditionVariableInit(&WalRcv->flushCV);
 		WalRcv->procno = INVALID_PROC_NUMBER;
+		WalRcv->flusherProcno = INVALID_PROC_NUMBER;
 	}
 }
 
@@ -314,6 +316,16 @@ RequestXLogStreaming(TimeLineID tli, XLogRecPtr recptr, const char *conninfo,
 		walrcv->receivedTLI = tli;
 		walrcv->latestChunkStart = recptr;
 	}
+
+	/*
+	 * Nothing has been written in the stream that is about to start.  Reset the
+	 * write position before anybody can see the new state, so that neither
+	 * recovery nor the flusher mistakes a position left over from the previous
+	 * stream for something the new one has written.
+	 */
+	pg_atomic_write_u64(&walrcv->writtenUpto, InvalidXLogRecPtr);
+	walrcv->writtenTLI = 0;
+	walrcv->latestWriteChunkStart = InvalidXLogRecPtr;
 	walrcv->receiveStart = recptr;
 	walrcv->receiveStartTLI = tli;
 
@@ -413,7 +425,15 @@ WalRcvWaitForFlush(XLogRecPtr lsn)
 
 	ConditionVariablePrepareToSleep(&walrcv->flushCV);
 	while (GetWalRcvFlushRecPtr(NULL, NULL) < lsn && WalRcvStreaming())
+	{
+		/*
+		 * Somebody needs this WAL on disk now, so make sure the flusher is
+		 * awake even if the wakeup it got from the walreceiver was lost or the
+		 * WAL was written before it advertised itself.
+		 */
+		WakeupWalRcvFlusher();
 		ConditionVariableSleep(&walrcv->flushCV, WAIT_EVENT_WAL_RECEIVER_FLUSH);
+	}
 	ConditionVariableCancelSleep();
 }
 

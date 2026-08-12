@@ -66,6 +66,7 @@
 #include "pgstat.h"
 #include "postmaster/auxprocess.h"
 #include "postmaster/interrupt.h"
+#include "replication/walrcvflusher.h"
 #include "replication/walreceiver.h"
 #include "replication/walsender.h"
 #include "storage/ipc.h"
@@ -158,6 +159,7 @@ static void XLogWalRcvProcessMsg(unsigned char type, char *buf, Size len,
 								 TimeLineID tli);
 static void XLogWalRcvWrite(char *buf, Size nbytes, XLogRecPtr recptr,
 							TimeLineID tli);
+static void XLogWalRcvPickUpFlushPosition(void);
 static void XLogWalRcvFlush(bool dying, TimeLineID tli);
 static void XLogWalRcvClose(XLogRecPtr recptr, TimeLineID tli);
 static void XLogWalRcvSendReply(bool force, bool requestReply);
@@ -603,13 +605,27 @@ WalReceiverMain(char *startup_data, size_t startup_data_len)
 
 					/* Let the primary know that we received some data. */
 					XLogWalRcvSendReply(false, false);
+					XLogWalRcvSendHSFeedback(false);
 
 					/*
-					 * If we've written some records, flush them to disk and
-					 * let the startup process and primary server know about
-					 * them.
+					 * If we've written some records, let the flusher make them
+					 * durable while we go back to reading from the socket.  It
+					 * tells the startup process and the primary server about
+					 * them once they are on disk; recovery does not have to
+					 * wait for that, XLogWalRcvWrite() has already woken it up.
 					 */
-					XLogWalRcvFlush(false, startpointTLI);
+					if (LogstreamResult.Flush < LogstreamResult.Write)
+						WakeupWalRcvFlusher();
+
+					/* Report XLOG streaming progress in PS display */
+					if (update_process_title)
+					{
+						char		activitymsg[50];
+
+						snprintf(activitymsg, sizeof(activitymsg), "streaming %X/%X",
+								 LSN_FORMAT_ARGS(LogstreamResult.Write));
+						set_ps_display(activitymsg);
+					}
 				}
 
 				/* Check if we need to exit the streaming loop. */
@@ -1094,8 +1110,12 @@ XLogWalRcvWrite(char *buf, Size nbytes, XLogRecPtr recptr, TimeLineID tli)
 		LogstreamResult.Write = recptr;
 	}
 
-	/* Update shared-memory status */
-	pg_atomic_write_u64(&WalRcv->writtenUpto, LogstreamResult.Write);
+	/*
+	 * Update shared-memory status.  The timeline and the chunk start have to be
+	 * in place before writtenUpto is published, because that is what readers
+	 * synchronize on: whoever sees the new position must see the timeline it
+	 * belongs to.
+	 */
 	SpinLockAcquire(&WalRcv->mutex);
 	WalRcv->latestWriteChunkStart = pg_atomic_read_u64(&WalRcv->writtenUpto);
 	WalRcv->writtenTLI = tli;
@@ -1103,15 +1123,9 @@ XLogWalRcvWrite(char *buf, Size nbytes, XLogRecPtr recptr, TimeLineID tli)
 	pg_atomic_write_membarrier_u64(&WalRcv->writtenUpto, LogstreamResult.Write);
 
 	/*
-	 * Wake up processes waiting for standby write LSN to reach current write
-	 * position.
-	 */
-	WaitLSNWakeup(WAIT_LSN_TYPE_STANDBY_WRITE, LogstreamResult.Write);
-
-	/*
-	 * Let recovery have it now rather than after the fsync below.  Replaying
-	 * WAL that is not yet durable is safe because the pages it dirties are
-	 * kept off disk until it is; see WalRcvWaitForFlush().
+	 * Let recovery have it now rather than after the fsync done by the flusher.
+	 * Replaying WAL that is not yet durable is safe because the pages it
+	 * dirties are kept off disk until it is; see WalRcvWaitForFlush().
 	 */
 	WakeupRecovery();
 	if (AllowCascadeReplication())
@@ -1128,7 +1142,28 @@ XLogWalRcvWrite(char *buf, Size nbytes, XLogRecPtr recptr, TimeLineID tli)
 }
 
 /*
+ * Take note of flush progress made on our behalf by the flusher.
+ *
+ * The flusher fsyncs the very segments we write, so anything it has published
+ * as durable is durable for us too, and there is no point in fsyncing it
+ * again.  Values ahead of what we have written belong to a previous stream, so
+ * ignore those.
+ */
+static void
+XLogWalRcvPickUpFlushPosition(void)
+{
+	XLogRecPtr	flushed = GetWalRcvFlushRecPtr(NULL, NULL);
+
+	if (flushed > LogstreamResult.Flush && flushed <= LogstreamResult.Write)
+		LogstreamResult.Flush = flushed;
+}
+
+/*
  * Flush the log to disk.
+ *
+ * Normally the flusher process does this, but the walreceiver flushes on its
+ * own when it closes a segment (so that it doesn't have to reopen it later)
+ * and before it exits (so that nothing it received is left unflushed).
  *
  * If we're in the midst of dying, it's unwise to do anything that might throw
  * an error, so we skip sending a reply in that case.
@@ -1137,6 +1172,8 @@ static void
 XLogWalRcvFlush(bool dying, TimeLineID tli)
 {
 	Assert(tli != 0);
+
+	XLogWalRcvPickUpFlushPosition();
 
 	if (LogstreamResult.Flush < LogstreamResult.Write)
 	{
@@ -1156,12 +1193,6 @@ XLogWalRcvFlush(bool dying, TimeLineID tli)
 		}
 		SpinLockRelease(&walrcv->mutex);
 
-		/*
-		 * Wake up processes waiting for standby flush LSN to reach current
-		 * flush position.
-		 */
-		WaitLSNWakeup(WAIT_LSN_TYPE_STANDBY_FLUSH, LogstreamResult.Flush);
-
 		/* Release anyone held up waiting for this WAL to become durable */
 		ConditionVariableBroadcast(&walrcv->flushCV);
 
@@ -1169,16 +1200,6 @@ XLogWalRcvFlush(bool dying, TimeLineID tli)
 		WakeupRecovery();
 		if (AllowCascadeReplication())
 			WalSndWakeup(true, false);
-
-		/* Report XLOG streaming progress in PS display */
-		if (update_process_title)
-		{
-			char		activitymsg[50];
-
-			snprintf(activitymsg, sizeof(activitymsg), "streaming %X/%X",
-					 LSN_FORMAT_ARGS(LogstreamResult.Write));
-			set_ps_display(activitymsg);
-		}
 
 		/* Also let the primary know that we made some progress */
 		if (!dying)
@@ -1299,6 +1320,9 @@ XLogWalRcvSendReply(bool force, bool requestReply)
 
 	/* Get current timestamp. */
 	now = GetCurrentTimestamp();
+
+	/* The flusher may have made more of our WAL durable since last time. */
+	XLogWalRcvPickUpFlushPosition();
 
 	/*
 	 * We can compare the write and flush positions to the last message we

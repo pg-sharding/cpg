@@ -306,6 +306,9 @@ GetBackendTypeDesc(BackendType backendType)
 		case B_WAL_RECEIVER:
 			backendDesc = "walreceiver";
 			break;
+		case B_WAL_RCV_FLUSHER:
+			backendDesc = gettext_noop("walrcvflusher");
+			break;
 		case B_WAL_SENDER:
 			backendDesc = "walsender";
 			break;

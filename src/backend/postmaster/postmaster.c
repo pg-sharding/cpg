@@ -243,6 +243,7 @@ static pid_t StartupPID = 0,
 			CheckpointerPID = 0,
 			WalWriterPID = 0,
 			WalReceiverPID = 0,
+			WalFlusherPID = 0,
 			WalSummarizerPID = 0,
 			AutoVacPID = 0,
 			PgArchPID = 0,
@@ -1713,6 +1714,20 @@ ServerLoop(void)
 		if (WalWriterPID == 0 && pmState == PM_RUN)
 			WalWriterPID = StartChildProcess(B_WAL_WRITER);
 
+
+		/*
+		* The WAL receiver flusher is the counterpart of the WAL writer for
+		* streamed WAL: it fsyncs what the WAL receiver has written, so it is
+		* needed for as long as we might be in recovery.  It is cheap to keep
+		* around while nothing is streaming, and having it up front means the
+		* walreceiver never has to wait for it to be launched.  It is terminated
+		* when recovery ends, see process_pm_child_exit().
+		*/
+		if (WalFlusherPID == NULL && Shutdown <= SmartShutdown &&
+			(pmState == PM_STARTUP || pmState == PM_RECOVERY ||
+			pmState == PM_HOT_STANDBY))
+			WalFlusherPID = StartChildProcess(B_WAL_RCV_FLUSHER);
+			
 		/*
 		 * If we have lost the autovacuum launcher, try to start a new one. We
 		 * don't want autovacuum to run in binary upgrade mode because
@@ -2442,9 +2457,17 @@ process_pm_child_exit(void)
 			connsAllowed = true;
 
 			/*
-			 * Crank up the background tasks, if we didn't do that already
-			 * when we entered consistent recovery state.  It doesn't matter
-			 * if this fails, we'll just try again later.
+			 * Recovery is over, so nobody is going to stream WAL into this
+			 * server any more.  Tell the WAL receiver flusher to go away; from
+			 * now on the WAL writer takes care of flushing WAL.
+			 */
+			if (WalFlusherPID != 0)
+				signal_child(signal_child, SIGTERM);
+
+			/*
+			 * At the next iteration of the postmaster's main loop, we will
+			 * crank up the background tasks like the autovacuum launcher and
+			 * background workers that were not started earlier already.
 			 */
 			if (CheckpointerPID == 0)
 				CheckpointerPID = StartChildProcess(B_CHECKPOINTER);
@@ -2452,6 +2475,8 @@ process_pm_child_exit(void)
 				BgWriterPID = StartChildProcess(B_BG_WRITER);
 			if (WalWriterPID == 0)
 				WalWriterPID = StartChildProcess(B_WAL_WRITER);
+			if (WalFlusherPID == 0)
+				WalFlusherPID = StartChildProcess(B_WAL_WRITER);
 			MaybeStartWalSummarizer();
 
 			/*
@@ -2569,6 +2594,22 @@ process_pm_child_exit(void)
 			if (!EXIT_STATUS_0(exitstatus) && !EXIT_STATUS_1(exitstatus))
 				HandleChildCrash(pid, exitstatus,
 								 _("WAL receiver process"));
+			continue;
+		}
+
+		/*
+		 * Was it the WAL receiver flusher?  Normal exit can be ignored; we'll
+		 * start a new one at the next iteration of the postmaster's main loop,
+		 * if we're still in recovery.  Any other exit condition is treated as
+		 * a crash, because the flusher is what makes streamed WAL durable.
+		 */
+		if (WalRcvFlusherPMChild && pid == WalRcvFlusherPMChild->pid)
+		{
+			ReleasePostmasterChildSlot(WalRcvFlusherPMChild);
+			WalRcvFlusherPMChild = NULL;
+			if (!EXIT_STATUS_0(exitstatus))
+				HandleChildCrash(pid, exitstatus,
+								 _("WAL receiver flusher process"));
 			continue;
 		}
 
@@ -3164,6 +3205,8 @@ PostmasterStateMachine(void)
 			signal_child(WalSummarizerPID, SIGTERM);
 		if (SlotSyncWorkerPID != 0)
 			signal_child(SlotSyncWorkerPID, SIGTERM);
+		if (WalFlusherPID != 0)
+			signal_child(WalFlusherPID, SIGTERM);
 		/* checkpointer, archiver, stats, and syslogger may continue for now */
 
 		/* Now transition to PM_WAIT_BACKENDS state to wait for them to die */
@@ -3295,6 +3338,7 @@ PostmasterStateMachine(void)
 			Assert(WalWriterPID == 0);
 			Assert(AutoVacPID == 0);
 			Assert(SlotSyncWorkerPID == 0);
+			Assert(WalFlusherPID == 0);
 			/* syslogger is not considered here */
 			pmState = PM_NO_CHILDREN;
 		}
