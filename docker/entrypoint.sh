@@ -15,7 +15,7 @@ export DEB_BUILD_OPTIONS="nocheck"
 sudo dpkg-checkbuilddeps
 
 sudo mk-build-deps  --build-dep --install --tool='apt-get -o Debug::pkgProblemResolver=yes --no-install-recommends --yes' debian/control
-
+DEB_BUILD_OPTIONS="parallel=auto"
 dpkg-buildpackage -b -rfakeroot -us -uc
 #dpkg-buildpackage -us -uc
 
