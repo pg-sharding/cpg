@@ -41,6 +41,7 @@ SUBDIRS = \
 		pg_visibility	\
 		pg_walinspect	\
 		postgres_fdw	\
+		sa_mon		\
 		seg		\
 		spi		\
 		tablefunc	\
