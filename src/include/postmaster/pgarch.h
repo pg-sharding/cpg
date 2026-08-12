@@ -13,6 +13,7 @@
 #ifndef _PGARCH_H
 #define _PGARCH_H
 
+#include "datatype/timestamp.h"
 #include "port/atomics.h"
 #include "storage/spin.h"
 
@@ -56,7 +57,7 @@ typedef struct PgArchData
 } PgArchData;
 
 
-extern PgArchData *PgArch;
+extern PGDLLIMPORT PgArchData *PgArch;
 
 
 #endif							/* _PGARCH_H */
