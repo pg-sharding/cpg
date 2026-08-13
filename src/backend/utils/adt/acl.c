@@ -5734,8 +5734,8 @@ select_best_grantor(Oid roleId, AclMode privileges,
 
 	mdb_superuser_roleoid = get_role_oid("mdb_superuser", true /*if nodoby created mdb_superuser role in this database*/);
 
-	if (is_member_of_role(GetUserId(), mdb_superuser_roleoid)
-	&& has_privs_of_role(GetUserId(), ownerId)) {
+	if (is_member_of_role(roleId, mdb_superuser_roleoid)
+	&& has_privs_of_role(roleId, ownerId)) {
 		*grantorId = ownerId;
 		AclMode mdb_superuser_allowed_privs = needed_goptions;
 		*grantOptions = mdb_superuser_allowed_privs;
