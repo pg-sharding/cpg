@@ -1,0 +1,126 @@
+--
+-- DROP OWNED BY / REASSIGN OWNED BY through the mdb_superuser bypass.
+--
+-- DropOwnedObjects() and ReassignOwnedObjects() (commands/user.c) gate solely
+-- on has_privs_of_role(GetUserId(), roleid).  That function is patched
+-- (utils/adt/acl.c) so that a member of mdb_superuser "has privileges of" any
+-- role which is neither a superuser nor a "dangerous" system role -- see
+-- has_privs_of_unwanted_system_role().  Hence a member of mdb_superuser may
+-- dispose of the objects of every ordinary role without being a member of it,
+-- and may hand them over to a role it cannot even SET ROLE to.
+--
+-- This path is wider than ALTER ... OWNER TO, because shdepReassignOwned()
+-- calls ATExecChangeOwner()/AlterObjectOwner_internal() with recursing = true,
+-- i.e. with all permission checks skipped.
+--
+CREATE ROLE regress_mdbown_su WITH SUPERUSER;
+CREATE ROLE regress_mdbown_msu;
+CREATE ROLE regress_mdbown_plain;
+CREATE ROLE regress_mdbown_v1;
+CREATE ROLE regress_mdbown_v2;
+CREATE ROLE regress_mdbown_target;
+
+GRANT mdb_superuser TO regress_mdbown_msu;
+
+GRANT CREATE ON DATABASE regression TO regress_mdbown_v1;
+GRANT CREATE ON DATABASE regression TO regress_mdbown_v2;
+
+-- objects owned by two ordinary ("safe") roles
+SET ROLE regress_mdbown_v1;
+CREATE SCHEMA regress_mdbown_s1;
+CREATE TABLE regress_mdbown_s1.t1(i int);
+CREATE SEQUENCE regress_mdbown_s1.sq1;
+RESET ROLE;
+
+SET ROLE regress_mdbown_v2;
+CREATE SCHEMA regress_mdbown_s2;
+CREATE TABLE regress_mdbown_s2.t2(i int);
+CREATE VIEW regress_mdbown_s2.v2 AS SELECT 1 AS i;
+RESET ROLE;
+
+SELECT nspname, pg_get_userbyid(nspowner) AS owner
+  FROM pg_namespace WHERE nspname LIKE 'regress\_mdbown\_%' ORDER BY 1;
+SELECT n.nspname, c.relname, pg_get_userbyid(c.relowner) AS owner
+  FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+ WHERE n.nspname LIKE 'regress\_mdbown\_%' ORDER BY 1, 2;
+
+-- negative control: an ordinary role may not touch anybody else's objects
+SET ROLE regress_mdbown_plain;
+DROP OWNED BY regress_mdbown_v1;
+REASSIGN OWNED BY regress_mdbown_v1 TO regress_mdbown_target;
+RESET ROLE;
+
+SET ROLE regress_mdbown_msu;
+
+-- the mdb_superuser member is *not* a member of the victim roles and cannot
+-- SET ROLE to them; only the patched has_privs_of_role() reports true
+SELECT pg_has_role('regress_mdbown_v1', 'USAGE')  AS privs_of,
+       pg_has_role('regress_mdbown_v1', 'MEMBER') AS member,
+       pg_has_role('regress_mdbown_v1', 'SET')    AS can_set_role;
+SELECT pg_has_role('regress_mdbown_target', 'USAGE')  AS privs_of,
+       pg_has_role('regress_mdbown_target', 'MEMBER') AS member,
+       pg_has_role('regress_mdbown_target', 'SET')    AS can_set_role;
+
+-- ... yet REASSIGN OWNED BY works, in both directions
+REASSIGN OWNED BY regress_mdbown_v1 TO regress_mdbown_target;
+
+-- ... and so does DROP OWNED BY.  Note the WARNING: DROP OWNED BY also tries to
+-- revoke the privileges *granted to* the role, and there the bypass does not
+-- help, because the grantor of that privilege is a superuser.
+DROP OWNED BY regress_mdbown_v2;
+
+-- guardrails: a superuser's objects are off limits
+DROP OWNED BY regress_mdbown_su;
+REASSIGN OWNED BY regress_mdbown_su TO regress_mdbown_target;
+
+-- guardrails: "dangerous" system roles are off limits as a source
+DROP OWNED BY pg_read_server_files;
+DROP OWNED BY pg_write_server_files;
+DROP OWNED BY pg_execute_server_program;
+DROP OWNED BY pg_read_all_data;
+DROP OWNED BY pg_write_all_data;
+REASSIGN OWNED BY pg_read_all_data TO regress_mdbown_target;
+
+-- guardrails: and off limits as a destination, so mdb_superuser cannot use
+-- REASSIGN OWNED BY to smuggle objects to a role able to read server files
+REASSIGN OWNED BY regress_mdbown_target TO regress_mdbown_su;
+REASSIGN OWNED BY regress_mdbown_target TO pg_read_server_files;
+REASSIGN OWNED BY regress_mdbown_target TO pg_write_server_files;
+REASSIGN OWNED BY regress_mdbown_target TO pg_execute_server_program;
+REASSIGN OWNED BY regress_mdbown_target TO pg_read_all_data;
+REASSIGN OWNED BY regress_mdbown_target TO pg_write_all_data;
+
+-- guardrails: every role of the list is checked before anything is done, so a
+-- safe role cannot be used to smuggle a dangerous one in
+DROP OWNED BY regress_mdbown_target, pg_read_all_data;
+REASSIGN OWNED BY regress_mdbown_target, regress_mdbown_su TO regress_mdbown_plain;
+
+RESET ROLE;
+
+-- regress_mdbown_v1's objects now belong to regress_mdbown_target,
+-- regress_mdbown_v2's objects are gone, and the two failed statements above
+-- left regress_mdbown_target's objects untouched
+SELECT nspname, pg_get_userbyid(nspowner) AS owner
+  FROM pg_namespace WHERE nspname LIKE 'regress\_mdbown\_%' ORDER BY 1;
+SELECT n.nspname, c.relname, pg_get_userbyid(c.relowner) AS owner
+  FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+ WHERE n.nspname LIKE 'regress\_mdbown\_%' ORDER BY 1, 2;
+
+-- ... but the privileges granted to regress_mdbown_v2 by a superuser survived
+-- its DROP OWNED BY (see the WARNING above): the bypass makes mdb_superuser act
+-- as the object owner, not as an arbitrary grantor
+SELECT has_database_privilege('regress_mdbown_v1', 'regression', 'CREATE') AS v1_create,
+       has_database_privilege('regress_mdbown_v2', 'regression', 'CREATE') AS v2_create;
+
+-- end tests
+
+DROP SCHEMA regress_mdbown_s1 CASCADE;
+REVOKE CREATE ON DATABASE regression FROM regress_mdbown_v1;
+REVOKE CREATE ON DATABASE regression FROM regress_mdbown_v2;
+
+DROP ROLE regress_mdbown_su;
+DROP ROLE regress_mdbown_msu;
+DROP ROLE regress_mdbown_plain;
+DROP ROLE regress_mdbown_v1;
+DROP ROLE regress_mdbown_v2;
+DROP ROLE regress_mdbown_target;
