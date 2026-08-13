@@ -97,7 +97,6 @@ pg_signal_backend(int pid, int sig)
 	{
 		/* Ok, we are not superuser, and we try to kill 
 		* some backend, which can may be a MDB-cancellable query*/
-		LocalPgBackendStatus *local_beentry;
 		char * appname = NULL;
 		local_beentry = pgstat_get_local_beentry_by_proc_number(GetNumberFromPGProc(proc));
 
