@@ -1,0 +1,86 @@
+-- Test interaction between mdb_superuser and Row Level Security (RLS).
+--
+-- check_enable_rls() (rls.c:98) calls object_ownercheck() to determine if
+-- the current user is the table owner.  mdb_superuser bypasses ownership
+-- checks via has_privs_of_role(), so a tenant with mdb_superuser is treated
+-- as the owner of any table and bypasses RLS — UNLESS the table has
+-- FORCE ROW LEVEL SECURITY set.
+--
+-- Additionally, at rowsecurity.c:925, mdb_superuser matches under any RLS
+-- policy when RLS is actually enforced (FORCE RLS case).
+CREATE ROLE regress_rls_owner;
+CREATE ROLE regress_rls_su;
+CREATE ROLE regress_rls_plain;
+GRANT CREATE ON DATABASE regression TO regress_rls_owner;
+GRANT CREATE ON DATABASE regression TO regress_rls_su;
+GRANT CREATE ON DATABASE regression TO regress_rls_plain;
+-- Owner creates a table with RLS policy.
+SET ROLE regress_rls_owner;
+CREATE TABLE regress_rls_t1(secret text);
+INSERT INTO regress_rls_t1 VALUES ('hidden'), ('visible');
+-- RLS policy: only rows where secret = 'visible' are visible.
+CREATE POLICY regress_rls_pol ON regress_rls_t1
+    FOR SELECT TO regress_rls_plain
+    USING (secret = 'visible');
+ALTER TABLE regress_rls_t1 ENABLE ROW LEVEL SECURITY;
+GRANT SELECT ON regress_rls_t1 TO regress_rls_plain;
+RESET SESSION AUTHORIZATION;
+-- A plain role sees only 'visible' (RLS enforced).
+SET ROLE regress_rls_plain;
+SELECT * FROM regress_rls_t1 ORDER BY secret;
+ secret  
+---------
+ visible
+(1 row)
+
+RESET SESSION AUTHORIZATION;
+-- Grant mdb_superuser to a role.
+GRANT mdb_superuser TO regress_rls_su;
+-- mdb_superuser bypasses RLS via ownership check (object_ownercheck
+-- returns true because has_privs_of_role(mdb_superuser, owner) is true).
+-- So mdb_superuser sees all rows.
+SET ROLE regress_rls_su;
+SELECT * FROM regress_rls_t1 ORDER BY secret;
+ secret  
+---------
+ hidden
+ visible
+(2 rows)
+
+RESET SESSION AUTHORIZATION;
+-- Now FORCE ROW LEVEL SECURITY — owner and mdb_superuser should be
+-- subject to RLS.  But mdb_superuser matches any policy, so it should
+-- still see rows (via the rowsecurity.c:925 bypass).
+SET ROLE regress_rls_owner;
+ALTER TABLE regress_rls_t1 FORCE ROW LEVEL SECURITY;
+RESET SESSION AUTHORIZATION;
+-- Plain role still sees only 'visible'.
+SET ROLE regress_rls_plain;
+SELECT * FROM regress_rls_t1 ORDER BY secret;
+ secret  
+---------
+ visible
+(1 row)
+
+RESET SESSION AUTHORIZATION;
+-- mdb_superuser with FORCE RLS: should see rows matching any policy.
+-- The policy grants SELECT TO regress_rls_plain; mdb_superuser is not
+-- a member of regress_rls_plain, but the mdb_superuser bypass in
+-- rowsecurity.c:925 makes it match any policy.
+SET ROLE regress_rls_su;
+SELECT * FROM regress_rls_t1 ORDER BY secret;
+ secret  
+---------
+ visible
+(1 row)
+
+RESET SESSION AUTHORIZATION;
+-- Cleanup
+DROP TABLE regress_rls_t1;
+REVOKE CREATE ON DATABASE regression FROM regress_rls_owner;
+REVOKE CREATE ON DATABASE regression FROM regress_rls_su;
+REVOKE CREATE ON DATABASE regression FROM regress_rls_plain;
+REVOKE mdb_superuser FROM regress_rls_su;
+DROP ROLE regress_rls_owner;
+DROP ROLE regress_rls_su;
+DROP ROLE regress_rls_plain;
