@@ -1,0 +1,136 @@
+-- Test that WITH INHERIT FALSE does NOT restrict MDB role capabilities.
+--
+-- MDB role membership is checked via is_member_of_role() (ROLERECURSE_MEMBERS),
+-- which ignores the inherit_option.  So GRANT mdb_* TO u WITH INHERIT FALSE
+-- still confers all powers.  This is a known defect (§3, item 3 in MDB-ROLES.md).
+--
+-- Additionally, the "dangerous role" check in has_privs_of_unwanted_system_role()
+-- uses has_privs_of_role_strict() (ROLERECURSE_PRIVS), which respects INHERIT FALSE.
+-- So a role that has pg_read_all_data WITH INHERIT FALSE is NOT considered dangerous
+-- by the mdb_superuser bypass, even though that role can still act via mdb_superuser.
+-- This is defect #4.
+-- Setup: roles and a table owned by a plain user.
+CREATE ROLE regress_inherit_owner;
+CREATE ROLE regress_inherit_su;
+CREATE ROLE regress_inherit_admin;
+CREATE ROLE regress_inherit_repl LOGIN;
+CREATE ROLE regress_inherit_dangerous;
+GRANT CREATE ON DATABASE regression TO regress_inherit_su;
+GRANT CREATE ON DATABASE regression TO regress_inherit_admin;
+SET ROLE regress_inherit_owner;
+CREATE TABLE regress_inherit_owner_table(data text);
+INSERT INTO regress_inherit_owner_table VALUES ('secret');
+RESET SESSION AUTHORIZATION;
+-- =========================================================================
+-- Defect #3: mdb_superuser WITH INHERIT FALSE still bypasses ownership checks
+-- =========================================================================
+GRANT mdb_superuser TO regress_inherit_su WITH INHERIT FALSE;
+SET ROLE regress_inherit_su;
+-- mdb_superuser bypass works despite INHERIT FALSE:
+-- can read tables owned by other users.
+SELECT * FROM regress_inherit_owner_table;
+  data  
+--------
+ secret
+(1 row)
+
+-- can drop tables owned by other users (mdb_superuser = pg_database_owner).
+DROP TABLE regress_inherit_owner_table;
+RESET SESSION AUTHORIZATION;
+-- Re-create the table for subsequent tests.
+SET ROLE regress_inherit_owner;
+CREATE TABLE regress_inherit_owner_table(data text);
+INSERT INTO regress_inherit_owner_table VALUES ('secret2');
+RESET SESSION AUTHORIZATION;
+-- =========================================================================
+-- Defect #3: mdb_admin WITH INHERIT FALSE still allows ALTER ... OWNER TO
+-- =========================================================================
+GRANT mdb_admin TO regress_inherit_admin WITH INHERIT FALSE;
+SET ROLE regress_inherit_admin;
+-- mdb_admin bypass works despite INHERIT FALSE:
+-- can ALTER TABLE OWNER TO to a non-dangerous role.
+ALTER TABLE regress_inherit_owner_table OWNER TO regress_inherit_su;
+-- Change it back.
+ALTER TABLE regress_inherit_owner_table OWNER TO regress_inherit_owner;
+RESET SESSION AUTHORIZATION;
+-- =========================================================================
+-- Defect #3: mdb_replication WITH INHERIT FALSE still allows walsender
+-- =========================================================================
+-- mdb_replication membership is checked via is_member_of_role, so INHERIT FALSE
+-- does not prevent opening a replication connection.  Logical slot creation
+-- requires wal_level=logical which is not the default in regression tests, so
+-- we verify that the role is a member of mdb_replication despite INHERIT FALSE
+-- by checking pg_auth_members membership directly.
+GRANT mdb_replication TO regress_inherit_repl WITH INHERIT FALSE;
+SELECT rolname, am.member, am.inherit_option
+FROM pg_auth_members am JOIN pg_roles r ON r.oid = am.roleid
+WHERE rolname = 'mdb_replication' AND am.member = 'regress_inherit_repl'::regrole;
+     rolname     | member | inherit_option 
+-----------------+--------+----------------
+ mdb_replication |  16654 | f
+(1 row)
+
+RESET SESSION AUTHORIZATION;
+-- =========================================================================
+-- Defect #3: NOINHERIT role that is GRANTed mdb_superuser still works
+-- =========================================================================
+-- A NOINHERIT role does not automatically gain privileges from memberships.
+-- But mdb_superuser bypass uses is_member_of_role, so it ignores NOINHERIT.
+CREATE ROLE regress_inherit_noind2 NOINHERIT;
+GRANT mdb_superuser TO regress_inherit_noind2;
+SET ROLE regress_inherit_noind2;
+-- Can read despite being a NOINHERIT role (should not inherit mdb_superuser):
+SELECT * FROM regress_inherit_owner_table;
+  data   
+---------
+ secret2
+(1 row)
+
+RESET SESSION AUTHORIZATION;
+-- =========================================================================
+-- Defect #4: role with pg_read_all_data INHERIT FALSE is NOT "dangerous"
+-- =========================================================================
+-- Grant pg_read_all_data WITH INHERIT FALSE to a role, then grant mdb_superuser
+-- to that same role.  The mdb_superuser bypass should still work because
+-- has_privs_of_unwanted_system_role uses ROLERECURSE_PRIVS (which respects
+-- INHERIT FALSE and does NOT see the pg_read_all_data grant), so it does not
+-- consider the target role "dangerous".
+GRANT pg_read_all_data TO regress_inherit_dangerous WITH INHERIT FALSE;
+SET ROLE regress_inherit_dangerous;
+-- Verify that pg_read_all_data does NOT confer automatic read access
+-- (because INHERIT FALSE):
+SELECT * FROM regress_inherit_owner_table;  -- should fail
+ERROR:  permission denied for table regress_inherit_owner_table
+RESET SESSION AUTHORIZATION;
+-- Now grant mdb_superuser to the dangerous role.
+-- mdb_superuser should be able to read the table because the "dangerous" check
+-- (has_privs_of_unwanted_system_role) uses ROLERECURSE_PRIVS and does not see
+-- the INHERIT FALSE grant of pg_read_all_data.
+GRANT mdb_superuser TO regress_inherit_dangerous;
+SET ROLE regress_inherit_dangerous;
+-- mdb_superuser bypass works: can read the table.
+SELECT * FROM regress_inherit_owner_table;
+  data   
+---------
+ secret2
+(1 row)
+
+RESET SESSION AUTHORIZATION;
+-- =========================================================================
+-- Cleanup
+-- =========================================================================
+REVOKE mdb_superuser FROM regress_inherit_dangerous;
+REVOKE pg_read_all_data FROM regress_inherit_dangerous;
+REVOKE mdb_admin FROM regress_inherit_admin;
+REVOKE mdb_superuser FROM regress_inherit_su;
+REVOKE mdb_superuser FROM regress_inherit_noind2;
+REVOKE mdb_replication FROM regress_inherit_repl;
+REVOKE CREATE ON DATABASE regression FROM regress_inherit_su;
+REVOKE CREATE ON DATABASE regression FROM regress_inherit_admin;
+DROP TABLE regress_inherit_owner_table;
+DROP ROLE regress_inherit_owner;
+DROP ROLE regress_inherit_su;
+DROP ROLE regress_inherit_admin;
+DROP ROLE regress_inherit_repl;
+DROP ROLE regress_inherit_noind2;
+DROP ROLE regress_inherit_dangerous;
