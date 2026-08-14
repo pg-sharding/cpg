@@ -1,0 +1,69 @@
+-- Test that mdb_superuser can ALTER DEFAULT PRIVILEGES FOR ROLE <other>.
+--
+-- In upstream PostgreSQL, ALTER DEFAULT PRIVILEGES FOR ROLE <x> requires
+-- has_privs_of_role(GetUserId(), x) — i.e. the current user must be x or
+-- a member of x.  The mdb_superuser patch makes has_privs_of_role() return
+-- true for any non-dangerous, non-superuser role, so a tenant with
+-- mdb_superuser can set default privileges on behalf of any ordinary role.
+CREATE ROLE regress_adp_owner;
+CREATE ROLE regress_adp_target;
+CREATE ROLE regress_adp_su;
+GRANT CREATE ON DATABASE regression TO regress_adp_owner;
+GRANT CREATE ON DATABASE regression TO regress_adp_target;
+GRANT CREATE ON DATABASE regression TO regress_adp_su;
+-- Owner creates a schema and table.
+SET ROLE regress_adp_owner;
+CREATE SCHEMA regress_adp_schema;
+CREATE TABLE regress_adp_schema.t1(data text);
+RESET SESSION AUTHORIZATION;
+-- A plain role cannot ALTER DEFAULT PRIVILEGES FOR ROLE <other>.
+SET ROLE regress_adp_target;
+ALTER DEFAULT PRIVILEGES FOR ROLE regress_adp_owner
+    GRANT SELECT ON TABLES TO regress_adp_target;
+ERROR:  permission denied to change default privileges
+RESET SESSION AUTHORIZATION;
+-- Grant mdb_superuser to the target role.
+GRANT mdb_superuser TO regress_adp_su;
+-- Now the target role CAN alter default privileges on behalf of the owner,
+-- because has_privs_of_role() returns true via the mdb_superuser bypass.
+SET ROLE regress_adp_su;
+ALTER DEFAULT PRIVILEGES FOR ROLE regress_adp_owner
+    GRANT SELECT ON TABLES TO regress_adp_target;
+RESET SESSION AUTHORIZATION;
+-- Grant USAGE on schema so the target role can access tables in it.
+SET ROLE regress_adp_owner;
+GRANT USAGE ON SCHEMA regress_adp_schema TO regress_adp_target;
+RESET SESSION AUTHORIZATION;
+-- Verify: new tables created by the owner should automatically grant
+-- SELECT to the target role.
+SET ROLE regress_adp_owner;
+CREATE TABLE regress_adp_schema.t2(data text);
+RESET SESSION AUTHORIZATION;
+-- The target role can now read t2 (via default privilege).
+SET ROLE regress_adp_target;
+SELECT * FROM regress_adp_schema.t2;
+ data 
+------
+(0 rows)
+
+RESET SESSION AUTHORIZATION;
+-- But the target role still cannot read t1 (created before default privs).
+SET ROLE regress_adp_target;
+SELECT * FROM regress_adp_schema.t1;
+ERROR:  permission denied for table t1
+RESET SESSION AUTHORIZATION;
+-- Cleanup
+SET ROLE regress_adp_su;
+ALTER DEFAULT PRIVILEGES FOR ROLE regress_adp_owner
+    REVOKE SELECT ON TABLES FROM regress_adp_target;
+RESET SESSION AUTHORIZATION;
+DROP TABLE regress_adp_schema.t1;
+DROP TABLE regress_adp_schema.t2;
+DROP SCHEMA regress_adp_schema;
+REVOKE CREATE ON DATABASE regression FROM regress_adp_owner;
+REVOKE CREATE ON DATABASE regression FROM regress_adp_target;
+REVOKE CREATE ON DATABASE regression FROM regress_adp_su;
+REVOKE mdb_superuser FROM regress_adp_su;
+DROP ROLE regress_adp_owner;
+DROP ROLE regress_adp_target;
+DROP ROLE regress_adp_su;
