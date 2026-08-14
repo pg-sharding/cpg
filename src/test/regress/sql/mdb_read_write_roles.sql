@@ -42,7 +42,7 @@ TABLE regress_pgrsf_table;
 TABLE regress_pgwsf_table;
 TABLE regress_pgxsp_table;
 TABLE regress_pgrad_table;
-TABLE regress_pgwsf_table;
+TABLE regress_pgrwd_table;
 
 
 -- is allow to read all other data
@@ -62,7 +62,7 @@ INSERT INTO regress_pgrsf_table TABLE regress_tt_dat;
 INSERT INTO regress_pgwsf_table TABLE regress_tt_dat;
 INSERT INTO regress_pgxsp_table TABLE regress_tt_dat;
 INSERT INTO regress_pgrad_table TABLE regress_tt_dat;
-INSERT INTO regress_pgwsf_table TABLE regress_tt_dat;
+INSERT INTO regress_pgrwd_table TABLE regress_tt_dat;
 
 
 -- is allow to read all other data
