@@ -968,8 +968,8 @@ InitPostgres(const char *in_dbname, Oid dboid,
 			ereport(FATAL,
 					(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
 					 errmsg("permission denied to start WAL sender"),
-					 errdetail("Only roles with the %s attribute may start a WAL sender process.",
-							   "REPLICATION")));
+					 errdetail("Only roles with the %s attribute or members of the \"%s\" role may start a WAL sender process.",
+							   "REPLICATION", "mdb_replication")));
 	}
 
 	/*
