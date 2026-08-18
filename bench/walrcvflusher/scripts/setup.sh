@@ -2,6 +2,16 @@
 # setup.sh — initialize primary + standby for benchmark scenarios S0-S6, S8-S11
 # Usage:  ./setup.sh [throttle]
 #   throttle  — start standby with LD_PRELOAD fsync throttle (uses THROTTLE_MS)
+#
+# THROTTLE_MS env var controls fsync delay:
+#   THROTTLE_MS=0   — no throttle (fast flush, default)
+#   THROTTLE_MS=1   — 1ms per fsync (fast flush simulation)
+#   THROTTLE_MS=10  — 10ms per fsync
+#   THROTTLE_MS=50  — 50ms per fsync (slow disk simulation)
+#   THROTTLE_MS=100 — 100ms per fsync (very slow disk)
+#
+# When THROTTLE_MS=0 and "throttle" is passed, the .so is still loaded but
+# fsync returns immediately (no delay). This tests the LD_PRELOAD overhead.
 
 source "$(dirname "$0")/common.sh"
 
@@ -23,6 +33,8 @@ synchronous_commit = off
 synchronous_standby_names = ''
 EOF
 
+chmod 0700 "$PRIMARY_DATA"
+
 pg_ctl -D "$PRIMARY_DATA" -l "$WORK_DIR/primary.log" start -w
 log "Creating replication role and slot..."
 psql_p "CREATE ROLE repl WITH REPLICATION LOGIN;" 2>/dev/null || true
@@ -41,6 +53,8 @@ hot_standby_feedback = on
 wal_receiver_status_interval = 1s
 wal_receiver_timeout = 60s
 EOF
+
+chmod 0700 "$STANDBY_DATA"
 
 touch "$STANDBY_DATA/standby.signal"
 

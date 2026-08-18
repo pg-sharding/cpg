@@ -49,19 +49,41 @@ log()   { echo "[$(date '+%H:%M:%S')] $*" >&2; }
 fail()  { log "ERROR: $*"; exit 1; }
 
 # psql wrappers
-psql_p()  { psql -p "$PRIMARY_PORT"  -d postgres -At "$@"; }
-psql_s()  { psql -p "$STANDBY_PORT"  -d postgres -At "$@"; }
-psql_c1() { psql -p "$CASC1_PORT"    -d postgres -At "$@"; }
-psql_c2() { psql -p "$CASC2_PORT"    -d postgres -At "$@"; }
+psql_p()  { local sql="$1"; shift; if [ "$sql" = "-f" ]; then psql -p "$PRIMARY_PORT"  -d postgres -At -f "$1" "${@:2}"; else psql -p "$PRIMARY_PORT"  -d postgres -At -c "$sql" "$@"; fi; }
+psql_s()  { local sql="$1"; shift; if [ "$sql" = "-f" ]; then psql -p "$STANDBY_PORT"  -d postgres -At -f "$1" "${@:2}"; else psql -p "$STANDBY_PORT"  -d postgres -At -c "$sql" "$@"; fi; }
+psql_c1() { local sql="$1"; shift; if [ "$sql" = "-f" ]; then psql -p "$CASC1_PORT"    -d postgres -At -f "$1" "${@:2}"; else psql -p "$CASC1_PORT"    -d postgres -At -c "$sql" "$@"; fi; }
+psql_c2() { local sql="$1"; shift; if [ "$sql" = "-f" ]; then psql -p "$CASC2_PORT"    -d postgres -At -f "$1" "${@:2}"; else psql -p "$CASC2_PORT"    -d postgres -At -c "$sql" "$@"; fi; }
 
-# Start a node, optionally with LD_PRELOAD throttle
+# Wrappers that accept a single SQL string via -c
+psql_pc() { psql -p "$PRIMARY_PORT"  -d postgres -At -c "$1"; }
+psql_sc() { psql -p "$STANDBY_PORT"  -d postgres -At -c "$1"; }
+
+# Start a node, optionally with LD_PRELOAD throttle.
+# When throttle is requested, start postgres directly (not via pg_ctl) so
+# LD_PRELOAD is inherited by the walreceiver/flusher child processes.
+# pg_ctl internally clears LD_PRELOAD in the forked postgres process.
 start_node() {
     local data_dir="$1"
     local log_file="$2"
-    local preload=""
-    [ "${3:-}" = "throttle" ] && preload="LD_PRELOAD=$THROTTLE_SO"
-    log "Starting node: $data_dir"
-    env $preload pg_ctl -D "$data_dir" -l "$log_file" start -w
+    local mode="${3:-}"
+
+    if [ "$mode" = "throttle" ]; then
+        log "Starting node (throttled, THROTTLE_MS=$THROTTLE_MS): $data_dir"
+        # Start postgres directly — pg_ctl clears LD_PRELOAD.
+        LD_PRELOAD="$THROTTLE_SO" THROTTLE_MS="$THROTTLE_MS" \
+            postgres -D "$data_dir" -c logging_collector=on \
+            >> "$log_file" 2>&1 &
+        # Wait for postgres to be ready (up to 60s)
+        local pid_file="$data_dir/postmaster.pid"
+        for i in $(seq 1 60); do
+            [ -f "$pid_file" ] && break
+            sleep 1
+        done
+        [ -f "$pid_file" ] || fail "Server did not start: $data_dir"
+    else
+        log "Starting node: $data_dir"
+        pg_ctl -D "$data_dir" -l "$log_file" start -w
+    fi
 }
 
 stop_node() {

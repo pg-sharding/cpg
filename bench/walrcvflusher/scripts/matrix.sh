@@ -89,12 +89,12 @@ fi
 # ═══════════════════════════════════════════════════════════════════════════════
 # S3 — High WAL rate (small transactions)
 # ═══════════════════════════════════════════════════════════════════════════════
-run_scenario "${VARIANT}_S3_smalltx" -f "$SQL_DIR/smalltx.sql" --client=64 --no-vacuum --transactions=100000
+run_scenario "${VARIANT}_S3_smalltx" -f "$SQL_DIR/smalltx.sql" --client=64 --no-vacuum
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # S4 — Large transactions (bulk COPY-like)
 # ═══════════════════════════════════════════════════════════════════════════════
-run_scenario "${VARIANT}_S4_bulk" -f "$SQL_DIR/copy_bulk.sql" --client=1 --no-vacuum --transactions=10
+run_scenario "${VARIANT}_S4_bulk" -f "$SQL_DIR/copy_bulk.sql" --client=1 --no-vacuum
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # S5 — Synchronous replication remote_flush

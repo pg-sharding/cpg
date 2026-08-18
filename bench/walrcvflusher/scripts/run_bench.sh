@@ -29,7 +29,7 @@ START_TS=$(date +%s.%N)
 # ── Background lag collector (every 2s) ──────────────────────────────────────
 ( while true; do
     psql -p "$PRIMARY_PORT" -d postgres -At -c \
-      "SELECT clock_timestamp()||','||application_name||','||sent_lsn||','||write_lsn||','||flush_lsn||','||replay_lsn||','||coalesce(write_lag::text,'')||','||coalesce(flush_lag::text,'')||','||coalesce(replay_lag::text,'')"
+      "SELECT clock_timestamp()||','||application_name||','||sent_lsn||','||write_lsn||','||flush_lsn||','||replay_lsn||','||coalesce(write_lag::text,'')||','||coalesce(flush_lag::text,'')||','||coalesce(replay_lag::text,'') FROM pg_stat_replication"
     >> "$OUT/lag.csv" 2>/dev/null
     sleep 2
   done ) &
@@ -37,7 +37,7 @@ LAG_PID=$!
 
 # ── Background wal_receiver collector (every 2s) ────────────────────────────
 ( while true; do
-    psql_s "SELECT clock_timestamp()||','||written_lsn||','||flushed_lsn||','||received_lsn" \
+    psql_s "SELECT clock_timestamp()||','||written_lsn||','||flushed_lsn||','||latest_end_lsn" \
       >> "$OUT/walrcv.csv" 2>/dev/null
     sleep 2
   done ) &
@@ -72,8 +72,7 @@ echo "label=$LABEL elapsed=${ELAPSED}s wal_delta=$WAL_DELTA_HR wal_recv_bps=$WAL
 psql -p "$STANDBY_PORT" -d postgres -c "
 SELECT backend_type, object, context,
        reads, writes, writebacks, fsyncs, extends,
-       op_bytes,
-       reads_time, writes_time, writebacks_time, fsyncs_time
+       read_time, write_time, writeback_time, fsync_time
 FROM pg_stat_io
 WHERE backend_type IN ('walreceiver','walrcvflusher','startup','checkpointer','bgwriter')
   AND object = 'wal'
@@ -90,8 +89,8 @@ ORDER BY backend_type;" > "$OUT/wait_events.txt" 2>&1
 psql -p "$STANDBY_PORT" -d postgres -c "
 SELECT backend_type,
        fsyncs,
-       round(fsyncs_time::numeric / greatest(fsyncs,1), 3) AS avg_fsync_ms,
-       fsyncs_time AS total_fsync_ms
+       round(fsync_time::numeric / greatest(fsyncs,1), 3) AS avg_fsync_ms,
+       fsync_time AS total_fsync_ms
 FROM pg_stat_io
 WHERE object = 'wal'
   AND backend_type IN ('walreceiver','walrcvflusher')
