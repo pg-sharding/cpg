@@ -206,6 +206,9 @@ WalRcvFlusherMain(const void *startup_data, size_t startup_data_len)
 		 */
 		WalRcvFlusherFlush();
 
+		/* Flush pending IO stats to shared memory */
+		pgstat_report_stat(true);
+
 		(void) WaitLatch(MyLatch,
 						 WL_LATCH_SET | WL_TIMEOUT | WL_EXIT_ON_PM_DEATH,
 						 WALRCVFLUSHER_NAPTIME,
