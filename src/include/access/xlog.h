@@ -282,6 +282,14 @@ extern void SetWalWriterSleeping(bool sleeping);
 extern Size WALReadFromBuffers(char *dstbuf, XLogRecPtr startptr, Size count,
 							   TimeLineID tli);
 
+extern Size WALReadFromBuffersForRecovery(char *dstbuf, XLogRecPtr startptr,
+										  Size count, TimeLineID tli,
+										  XLogRecPtr upto);
+
+extern void WALWriteToBuffers(const char *srcbuf, XLogRecPtr startptr,
+							  Size count, TimeLineID tli,
+							  XLogRecPtr *initializedUpto);
+
 /*
  * Routines used by xlogrecovery.c to call back into xlog.c during recovery.
  */
