@@ -50,7 +50,6 @@
 #include "replication/walrcvflusher.h"
 #include "replication/walreceiver.h"
 #include "replication/walsender.h"
-#include "storage/aio_subsys.h"
 #include "storage/condition_variable.h"
 #include "storage/fd.h"
 #include "storage/ipc.h"
@@ -151,7 +150,6 @@ WalRcvFlusherMain(const void *startup_data, size_t startup_data_len)
 		LWLockReleaseAll();
 		ConditionVariableCancelSleep();
 		pgstat_report_wait_end();
-		pgaio_error_cleanup();
 		WalRcvFlusherCloseSegment();
 		ReleaseAuxProcessResources(false);
 		AtEOXact_Files(false);
@@ -197,8 +195,8 @@ WalRcvFlusherMain(const void *startup_data, size_t startup_data_len)
 		ResetLatch(MyLatch);
 
 		/* Process any signals received recently */
-		ProcessMainLoopInterrupts();
-
+		/* XXX: check for shutdown request */
+		CHECK_FOR_INTERRUPTS();
 		/*
 		 * Flush any WAL the walreceiver has written.  We are done for now if
 		 * this leaves nothing behind; if the walreceiver wrote more while we

@@ -12,7 +12,7 @@
 #ifndef _WALRCVFLUSHER_H
 #define _WALRCVFLUSHER_H
 
-pg_noreturn extern void WalRcvFlusherMain(const void *startup_data,
+extern void WalRcvFlusherMain(const void *startup_data,
 										  size_t startup_data_len);
 extern void WakeupWalRcvFlusher(void);
 

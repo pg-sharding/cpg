@@ -71,7 +71,6 @@ WalRcvShmemInit(void)
 		WalRcv->writtenTLI = 0;
 		WalRcv->latestWriteChunkStart = InvalidXLogRecPtr;
 		ConditionVariableInit(&WalRcv->flushCV);
-		WalRcv->procno = INVALID_PROC_NUMBER;
 		WalRcv->flusherProcno = INVALID_PROC_NUMBER;
 	}
 }

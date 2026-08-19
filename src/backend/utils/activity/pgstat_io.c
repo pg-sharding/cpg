@@ -328,6 +328,7 @@ pgstat_tracks_io_bktype(BackendType bktype)
 		case B_ARCHIVER:
 		case B_LOGGER:
 		case B_WAL_RECEIVER:
+		case B_WAL_RCV_FLUSHER:
 		case B_WAL_WRITER:
 		case B_WAL_SUMMARIZER:
 			return false;
@@ -341,8 +342,6 @@ pgstat_tracks_io_bktype(BackendType bktype)
 		case B_SLOTSYNC_WORKER:
 		case B_STANDALONE_BACKEND:
 		case B_STARTUP:
-		case B_WAL_RECEIVER:
-		case B_WAL_RCV_FLUSHER:
 		case B_WAL_SENDER:
 			return true;
 	}

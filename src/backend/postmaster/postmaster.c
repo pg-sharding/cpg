@@ -1723,7 +1723,7 @@ ServerLoop(void)
 		* walreceiver never has to wait for it to be launched.  It is terminated
 		* when recovery ends, see process_pm_child_exit().
 		*/
-		if (WalFlusherPID == NULL && Shutdown <= SmartShutdown &&
+		if (WalFlusherPID == 0 && Shutdown <= SmartShutdown &&
 			(pmState == PM_STARTUP || pmState == PM_RECOVERY ||
 			pmState == PM_HOT_STANDBY))
 			WalFlusherPID = StartChildProcess(B_WAL_RCV_FLUSHER);
@@ -2462,7 +2462,7 @@ process_pm_child_exit(void)
 			 * now on the WAL writer takes care of flushing WAL.
 			 */
 			if (WalFlusherPID != 0)
-				signal_child(signal_child, SIGTERM);
+				signal_child(WalFlusherPID, SIGTERM);
 
 			/*
 			 * At the next iteration of the postmaster's main loop, we will
@@ -2603,10 +2603,9 @@ process_pm_child_exit(void)
 		 * if we're still in recovery.  Any other exit condition is treated as
 		 * a crash, because the flusher is what makes streamed WAL durable.
 		 */
-		if (WalRcvFlusherPMChild && pid == WalRcvFlusherPMChild->pid)
+		if (pid == WalFlusherPID)
 		{
-			ReleasePostmasterChildSlot(WalRcvFlusherPMChild);
-			WalRcvFlusherPMChild = NULL;
+			WalFlusherPID = 0;
 			if (!EXIT_STATUS_0(exitstatus))
 				HandleChildCrash(pid, exitstatus,
 								 _("WAL receiver flusher process"));
