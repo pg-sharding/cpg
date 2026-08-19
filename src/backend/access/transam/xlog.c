@@ -1856,7 +1856,291 @@ WALReadFromBuffers(char *dstbuf, XLogRecPtr startptr, Size count,
 }
 
 /*
- * Converts a "usable byte position" to XLogRecPtr. A usable byte position
+ * Read WAL data directly from WAL buffers during recovery.  Returns the number
+ * of bytes read successfully.
+ *
+ * This is the standby counterpart of WALReadFromBuffers: it lets the startup
+ * process read WAL that the walreceiver has placed into XLogCtl->pages without
+ * waiting for it to be flushed to disk.  Fewer than 'count' bytes may be
+ * returned if the requested data isn't in the buffers yet, or has been
+ * evicted.
+ *
+ * No locks are taken.  The same lock-free verification pattern based on
+ * XLogCtl->xlblocks is used as in WALReadFromBuffers: for each page, the
+ * expected end pointer is checked before and after the data copy, with read
+ * barriers in between, so that a page that is being (re)initialized by the
+ * walreceiver is never observed in a half-written state.
+ *
+ * 'upto' is the last byte position + 1 that is known to be available in the
+ * WAL buffers.  The caller obtains this from WalRcv->writtenUpto.  Reading
+ * beyond 'upto' is not attempted; if the request extends past it, only the
+ * portion up to 'upto' is returned.
+ */
+Size
+WALReadFromBuffersForRecovery(char *dstbuf, XLogRecPtr startptr, Size count,
+							  TimeLineID tli, XLogRecPtr upto)
+{
+	char	   *pdst = dstbuf;
+	XLogRecPtr	recptr = startptr;
+	Size		nbytes = count;
+
+	Assert(!XLogRecPtrIsInvalid(startptr));
+
+	/* Trim the request to what is known to be available. */
+	if (startptr + count > upto)
+	{
+		if (startptr >= upto)
+			return 0;
+		nbytes = upto - startptr;
+	}
+
+	/*
+	 * Loop through the buffers without a lock. For each buffer, atomically
+	 * read and verify the end pointer, then copy the data out, and finally
+	 * re-read and re-verify the end pointer.
+	 *
+	 * The walreceiver initializes pages by first setting xlblocks to
+	 * InvalidXLogRecPtr, issuing a write barrier, filling the page, issuing
+	 * another write barrier, and finally setting xlblocks to the page end
+	 * pointer (see WALWriteToBuffers).  By reading xlblocks before and after
+	 * the data copy and comparing against the expected end pointer, with read
+	 * barriers around the copy, we only ever observe a fully initialized and
+	 * written page or no page at all.
+	 *
+	 * If either verification fails, we simply terminate the loop and return
+	 * with the data that had been already copied out successfully.
+	 */
+	while (nbytes > 0)
+	{
+		uint32		offset = recptr % XLOG_BLCKSZ;
+		int			idx = XLogRecPtrToBufIdx(recptr);
+		XLogRecPtr	expectedEndPtr;
+		XLogRecPtr	endptr;
+		const char *page;
+		const char *psrc;
+		Size		npagebytes;
+
+		/*
+		 * Calculate the end pointer we expect in the xlblocks array if the
+		 * correct page is present.
+		 */
+		expectedEndPtr = recptr + (XLOG_BLCKSZ - offset);
+
+		/*
+		 * First verification step: check that the correct page is present in
+		 * the WAL buffers.
+		 */
+		endptr = pg_atomic_read_u64(&XLogCtl->xlblocks[idx]);
+		if (expectedEndPtr != endptr)
+			break;
+
+		/*
+		 * The correct page is present (or was at the time the endptr was
+		 * read; must re-verify later). Calculate pointer to source data and
+		 * determine how much data to read from this page.
+		 */
+		page = XLogCtl->pages + idx * (Size) XLOG_BLCKSZ;
+		psrc = page + offset;
+		npagebytes = Min(nbytes, XLOG_BLCKSZ - offset);
+
+		/*
+		 * Ensure that the data copy and the first verification step are not
+		 * reordered.
+		 */
+		pg_read_barrier();
+
+		/* data copy */
+		memcpy(pdst, psrc, npagebytes);
+
+		/*
+		 * Ensure that the data copy and the second verification step are not
+		 * reordered.
+		 */
+		pg_read_barrier();
+
+		/*
+		 * Second verification step: check that the page we read from wasn't
+		 * being (re)initialized by the walreceiver while we were copying.
+		 */
+		endptr = pg_atomic_read_u64(&XLogCtl->xlblocks[idx]);
+		if (expectedEndPtr != endptr)
+			break;
+
+		pdst += npagebytes;
+		recptr += npagebytes;
+		nbytes -= npagebytes;
+	}
+
+	Assert(pdst - dstbuf <= count);
+
+	return pdst - dstbuf;
+}
+
+/*
+ * Write WAL data directly to WAL buffers.  This is used by the walreceiver
+ * process to make received WAL available to the startup process without
+ * having to wait for it to be flushed to disk first.
+ *
+ * No locks are taken.  This is safe because the walreceiver is the only writer
+ * to WAL buffers during recovery: the normal WAL insertion path
+ * (AdvanceXLInsertBuffer/GetXLogBuffer) is only used by backends inserting WAL
+ * generated locally, which doesn't happen on a standby.
+ *
+ * For each WAL buffer page touched, the page is initialized (header filled in)
+ * if it isn't already present.  The xlblocks entry is used as the visibility
+ * marker, following the same pattern as AdvanceXLInsertBuffer: it is first set
+ * to InvalidXLogRecPtr, a write barrier is issued, the page is zeroed and its
+ * header filled in, a second write barrier is issued, and finally the
+ * xlblocks entry is set to the page end pointer.  The startup process reads
+ * using the same xlblocks entry as its verification marker (see
+ * WALReadFromBuffers), so it only ever observes a fully initialized page or no
+ * page at all.
+ *
+ * 'writtenUpto_inout' tracks how far pages have been initialized so far; the
+ * caller passes in a pointer to a persistent variable that is updated and
+ * also used across calls.  This avoids re-initializing pages that are already
+ * set up.
+ */
+void
+WALWriteToBuffers(const char *srcbuf, XLogRecPtr startptr, Size count,
+				  TimeLineID tli, XLogRecPtr *initializedUpto)
+{
+	const char *psrc = srcbuf;
+	XLogRecPtr	recptr = startptr;
+	Size		nbytes = count;
+
+	Assert(!XLogRecPtrIsInvalid(startptr));
+	Assert(tli != 0);
+
+	while (nbytes > 0)
+	{
+		uint32		offset = recptr % XLOG_BLCKSZ;
+		int			idx = XLogRecPtrToBufIdx(recptr);
+		XLogRecPtr	pageBeginPtr = recptr - offset;
+		XLogRecPtr	pageEndPtr = pageBeginPtr + XLOG_BLCKSZ;
+		XLogRecPtr	expectedEndPtr;
+		XLogRecPtr	endptr;
+		char	   *page;
+		char	   *pdst;
+		Size		npagebytes;
+
+		/*
+		 * Initialize the page if it isn't already present in the buffers.
+		 * During recovery the walreceiver is the only writer, so we can do
+		 * this without WALBufMappingLock.
+		 */
+		expectedEndPtr = pageEndPtr;
+		endptr = pg_atomic_read_u64(&XLogCtl->xlblocks[idx]);
+
+		if (expectedEndPtr != endptr)
+		{
+			XLogRecPtr	initPtr;
+
+			/*
+			 * Initialize all pages up to and including the one we're about to
+			 * write, so that pages are always initialized in order.  This
+			 * mirrors what AdvanceXLInsertBuffer does with InitializedUpTo,
+			 * but without WALBufMappingLock since we're the only writer.
+			 */
+			for (initPtr = *initializedUpto;
+				 initPtr <= pageBeginPtr;
+				 initPtr += XLOG_BLCKSZ)
+			{
+				int			initIdx = XLogRecPtrToBufIdx(initPtr);
+				XLogRecPtr	initPageBegin = initPtr;
+				XLogRecPtr	initPageEnd = initPageBegin + XLOG_BLCKSZ;
+				XLogPageHeader initHeader;
+
+				/* Mark the buffer as being initialized. */
+				pg_atomic_write_u64(&XLogCtl->xlblocks[initIdx],
+									InvalidXLogRecPtr);
+				pg_write_barrier();
+
+				initHeader = (XLogPageHeader)
+					(XLogCtl->pages + initIdx * (Size) XLOG_BLCKSZ);
+
+				/* Zero the page so that bytes beyond our writes look valid. */
+				MemSet(initHeader, 0, XLOG_BLCKSZ);
+
+				/* Fill the page header. */
+				initHeader->xlp_magic = XLOG_PAGE_MAGIC;
+				initHeader->xlp_tli = tli;
+				initHeader->xlp_pageaddr = initPageBegin;
+
+				/* Long header on the first page of a segment. */
+				if (XLogSegmentOffset(initPageBegin, wal_segment_size) == 0)
+				{
+					XLogLongPageHeader longHeader =
+						(XLogLongPageHeader) initHeader;
+
+					longHeader->xlp_sysid = ControlFile->system_identifier;
+					longHeader->xlp_seg_size = wal_segment_size;
+					longHeader->xlp_xlog_blcksz = XLOG_BLCKSZ;
+					initHeader->xlp_info |= XLP_LONG_HEADER;
+				}
+
+				/*
+				 * Make the page initialization visible before publishing the
+				 * new xlblocks value.
+				 */
+				pg_write_barrier();
+				pg_atomic_write_u64(&XLogCtl->xlblocks[initIdx],
+									initPageEnd);
+			}
+
+			/* Update the caller's tracking of how far we've initialized. */
+			*initializedUpto = pageBeginPtr + XLOG_BLCKSZ;
+
+			/* Re-read to confirm the page we want is now present. */
+			endptr = pg_atomic_read_u64(&XLogCtl->xlblocks[idx]);
+			if (expectedEndPtr != endptr)
+			{
+				/*
+				 * Should not happen: we just initialized it and we're the
+				 * only writer.
+				 */
+				elog(PANIC, "could not initialize WAL buffer for %X/%X",
+					 LSN_FORMAT_ARGS(recptr));
+			}
+		}
+
+		/*
+		 * The correct page is present.  Mark it as in-use by setting xlblocks
+		 * to InvalidXLogRecPtr, copy the data, then set xlblocks back to the
+		 * page end pointer.  This uses the same verification pattern that
+		 * WALReadFromBuffers relies on: a reader that observes a mismatched
+		 * end pointer before or after the copy knows the page contents may be
+		 * stale and bails out.
+		 */
+		pg_atomic_write_u64(&XLogCtl->xlblocks[idx], InvalidXLogRecPtr);
+		pg_write_barrier();
+
+		page = XLogCtl->pages + idx * (Size) XLOG_BLCKSZ;
+		pdst = page + offset;
+		npagebytes = Min(nbytes, XLOG_BLCKSZ - offset);
+
+		/* data copy */
+		memcpy(pdst, psrc, npagebytes);
+
+		/*
+		 * Ensure the data copy is visible before we publish the page as
+		 * valid again.
+		 */
+		pg_write_barrier();
+		pg_atomic_write_u64(&XLogCtl->xlblocks[idx], expectedEndPtr);
+
+		/* Keep InitializedUpTo in sync for the post-recovery handover. */
+		if (expectedEndPtr > XLogCtl->InitializedUpTo)
+			XLogCtl->InitializedUpTo = expectedEndPtr;
+
+		psrc += npagebytes;
+		recptr += npagebytes;
+		nbytes -= npagebytes;
+	}
+}
+
+/*
+ * Converts a "usable byte position" to XLogRecPtr.  A usable byte position
  * is the position starting from the beginning of WAL, excluding all WAL
  * page headers.
  */
@@ -2750,6 +3034,22 @@ UpdateMinRecoveryPoint(XLogRecPtr lsn, bool force)
 		 * (See also the comments about corrupt LSNs in XLogFlush.)
 		 */
 		newMinRecoveryPoint = GetCurrentReplayRecPtr(&newMinRecoveryPointTLI);
+
+		/*
+		 * Replay can be ahead of what the walreceiver has made durable.
+		 * Promising in pg_control to recover further than the WAL we actually
+		 * hold would leave this standby unable to reach its own consistency
+		 * point after a crash, so hold the value down to durable WAL.  The
+		 * caller has already waited for 'lsn' itself.
+		 */
+		if (WalRcvStreaming())
+		{
+			XLogRecPtr	durable = GetWalRcvFlushRecPtr(NULL, NULL);
+
+			if (!XLogRecPtrIsInvalid(durable) && newMinRecoveryPoint > durable)
+				newMinRecoveryPoint = Max(durable, lsn);
+		}
+
 		if (!force && newMinRecoveryPoint < lsn)
 			elog(WARNING,
 				 "xlog min recovery request %X/%X is past current point %X/%X",
@@ -2795,6 +3095,13 @@ XLogFlush(XLogRecPtr record)
 	 */
 	if (!XLogInsertAllowed())
 	{
+		/*
+		 * Recovery replays WAL as soon as the walreceiver has written it, so
+		 * this is where the write-ahead rule is kept for a standby: the caller
+		 * is about to put a page on disk and must not do so until the WAL
+		 * describing it is durable.
+		 */
+		WalRcvWaitForFlush(record);
 		UpdateMinRecoveryPoint(record, false);
 		return;
 	}
@@ -7746,6 +8053,14 @@ CreateRestartPoint(int flags)
 	 * UpdateCheckPointDistanceEstimate()
 	 */
 	PriorRedoPtr = ControlFile->checkPointCopy.redo;
+
+	/*
+	 * The checkpoint record we are about to point pg_control at has been
+	 * replayed, but on a standby that only means the walreceiver has written
+	 * it.  Recovery after a crash starts by reading that record, so wait until
+	 * it is actually on disk.
+	 */
+	WalRcvWaitForFlush(lastCheckPointEndPtr);
 
 	/*
 	 * Update pg_control, using current time.  Check that it still shows an
