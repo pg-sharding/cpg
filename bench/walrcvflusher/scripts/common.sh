@@ -104,6 +104,7 @@ common_conf() {
     cat <<'CONF'
 listen_addresses = 'localhost'
 shared_buffers = 1GB
+max_connections = 200
 max_wal_size = 16GB
 min_wal_size = 1GB
 checkpoint_timeout = 1h
@@ -119,18 +120,20 @@ CONF
 }
 
 # Wait for replication to be connected and streaming
+# Timeout: 180s (increased from 60s for slow-disk throttle scenarios)
 wait_for_streaming() {
     local port="$1"
     local app_name="$2"
-    log "Waiting for standby '$app_name' to start streaming..."
-    for i in $(seq 1 60); do
+    local timeout="${3:-180}"
+    log "Waiting for standby '$app_name' to start streaming (timeout ${timeout}s)..."
+    for i in $(seq 1 "$timeout"); do
         local state
         state=$(psql -p "$port" -d postgres -At -c \
             "SELECT state FROM pg_stat_replication WHERE application_name='$app_name'" 2>/dev/null || true)
         [ "$state" = "streaming" ] && { log "Streaming connected."; return 0; }
         sleep 1
     done
-    fail "Standby '$app_name' did not start streaming within 60s"
+    fail "Standby '$app_name' did not start streaming within ${timeout}s"
 }
 
 # Reset IO stats on a node

@@ -22,6 +22,7 @@ synchronous_commit = off
 synchronous_standby_names = ''
 EOF
 
+chmod 0700 "$PRIMARY_DATA"
 pg_ctl -D "$PRIMARY_DATA" -l "$WORK_DIR/primary.log" start -w
 psql_p "CREATE ROLE repl WITH REPLICATION LOGIN;" 2>/dev/null || true
 psql_p "SELECT pg_create_physical_replication_slot('$SLOT_CASC1');" 2>/dev/null || true
@@ -39,6 +40,8 @@ hot_standby_feedback = on
 wal_receiver_status_interval = 1s
 wal_receiver_timeout = 60s
 EOF
+
+chmod 0700 "$CASC1_DATA"
 
 touch "$CASC1_DATA/standby.signal"
 cat > "$CASC1_DATA/postgresql.auto.conf" <<EOF
@@ -70,6 +73,8 @@ hot_standby_feedback = on
 wal_receiver_status_interval = 1s
 wal_receiver_timeout = 60s
 EOF
+
+chmod 0700 "$CASC2_DATA"
 
 touch "$CASC2_DATA/standby.signal"
 cat > "$CASC2_DATA/postgresql.auto.conf" <<EOF
