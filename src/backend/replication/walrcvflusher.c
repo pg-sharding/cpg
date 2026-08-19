@@ -196,7 +196,8 @@ WalRcvFlusherMain(const void *startup_data, size_t startup_data_len)
 
 		/* Process any signals received recently */
 		/* XXX: check for shutdown request */
-		CHECK_FOR_INTERRUPTS();
+		ProcessWalRcvInterrupts();
+		
 		/*
 		 * Flush any WAL the walreceiver has written.  We are done for now if
 		 * this leaves nothing behind; if the walreceiver wrote more while we
