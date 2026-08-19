@@ -2134,6 +2134,8 @@ process_pm_reload_request(void)
 			signal_child(WalWriterPID, SIGHUP);
 		if (WalReceiverPID != 0)
 			signal_child(WalReceiverPID, SIGHUP);
+		if (WalFlusherPID != 0)
+			signal_child(WalFlusherPID, SIGHUP);
 		if (WalSummarizerPID != 0)
 			signal_child(WalSummarizerPID, SIGHUP);
 		if (AutoVacPID != 0)
@@ -2475,8 +2477,6 @@ process_pm_child_exit(void)
 				BgWriterPID = StartChildProcess(B_BG_WRITER);
 			if (WalWriterPID == 0)
 				WalWriterPID = StartChildProcess(B_WAL_WRITER);
-			if (WalFlusherPID == 0)
-				WalFlusherPID = StartChildProcess(B_WAL_WRITER);
 			MaybeStartWalSummarizer();
 
 			/*
@@ -3037,6 +3037,12 @@ HandleChildCrash(int pid, int exitstatus, const char *procname)
 	else if (WalReceiverPID != 0 && take_action)
 		sigquit_child(WalReceiverPID);
 
+	/* Take care of the walflusher too */
+	if (pid == WalFlusherPID)
+		WalFlusherPID = 0;
+	else if (WalFlusherPID != 0 && take_action)
+		sigquit_child(WalFlusherPID);
+
 	/* Take care of the walsummarizer too */
 	if (pid == WalSummarizerPID)
 		WalSummarizerPID = 0;
@@ -3232,6 +3238,7 @@ PostmasterStateMachine(void)
 		if (CountChildren(BACKEND_TYPE_ALL - BACKEND_TYPE_WALSND) == 0 &&
 			StartupPID == 0 &&
 			WalReceiverPID == 0 &&
+			WalFlusherPID == 0 &&
 			WalSummarizerPID == 0 &&
 			BgWriterPID == 0 &&
 			(CheckpointerPID == 0 ||
@@ -3555,6 +3562,8 @@ TerminateChildren(int signal)
 		signal_child(WalWriterPID, signal);
 	if (WalReceiverPID != 0)
 		signal_child(WalReceiverPID, signal);
+	if (WalFlusherPID != 0)
+		signal_child(WalFlusherPID, signal);
 	if (WalSummarizerPID != 0)
 		signal_child(WalSummarizerPID, signal);
 	if (AutoVacPID != 0)
@@ -4088,6 +4097,11 @@ MaybeStartWalReceiver(void)
 		 pmState == PM_HOT_STANDBY) &&
 		Shutdown <= SmartShutdown)
 	{
+		if (WalFlusherPID == 0)
+			WalFlusherPID = StartChildProcess(B_WAL_RCV_FLUSHER);
+		if (WalFlusherPID == 0)
+			return;
+
 		WalReceiverPID = StartChildProcess(B_WAL_RECEIVER);
 		if (WalReceiverPID != 0)
 			WalReceiverRequested = false;
