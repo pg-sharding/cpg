@@ -1021,7 +1021,6 @@ XLogWalRcvWrite(char *buf, Size nbytes, XLogRecPtr recptr, TimeLineID tli)
 	int			startoff;
 	int			byteswritten;
 	instr_time	start;
-	XLogRecPtr	writeEndPtr = recptr + nbytes;
 
 	Assert(tli != 0);
 
@@ -1032,28 +1031,6 @@ XLogWalRcvWrite(char *buf, Size nbytes, XLogRecPtr recptr, TimeLineID tli)
 	 * recovery, so this is safe without WALBufMappingLock.
 	 */
 	WALWriteToBuffers(buf, recptr, nbytes, tli, &recvInitializedUpto);
-
-	/*
-	 * Update shared-memory status.  The timeline and the chunk start have to
-	 * be in place before writtenUpto is published, because that is what
-	 * readers synchronize on: whoever sees the new position must see the
-	 * timeline it belongs to.  This lets the startup process read from the
-	 * buffers up to here, and wake up, before we even hit the disk.  Replaying
-	 * WAL that is not yet durable is safe because the pages it dirties are
-	 * kept off disk until it is; see WalRcvWaitForFlush().
-	 */
-	SpinLockAcquire(&WalRcv->mutex);
-	WalRcv->latestWriteChunkStart = recptr;
-	WalRcv->writtenTLI = tli;
-	SpinLockRelease(&WalRcv->mutex);
-	pg_atomic_write_membarrier_u64(&WalRcv->writtenUpto, writeEndPtr);
-
-	/*
-	 * Let recovery have it now rather than after the fsync below.
-	 */
-	WakeupRecovery();
-	if (AllowCascadeReplication())
-		WalSndWakeup(true, false);
 
 	while (nbytes > 0)
 	{
@@ -1121,6 +1098,23 @@ XLogWalRcvWrite(char *buf, Size nbytes, XLogRecPtr recptr, TimeLineID tli)
 
 		LogstreamResult.Write = recptr;
 	}
+
+	/* Update shared-memory status */
+	pg_atomic_write_u64(&WalRcv->writtenUpto, LogstreamResult.Write);
+	SpinLockAcquire(&WalRcv->mutex);
+	WalRcv->latestWriteChunkStart = pg_atomic_read_u64(&WalRcv->writtenUpto);
+	WalRcv->writtenTLI = tli;
+	SpinLockRelease(&WalRcv->mutex);
+	pg_atomic_write_membarrier_u64(&WalRcv->writtenUpto, LogstreamResult.Write);
+
+	/*
+	 * Let recovery have it now rather than after the fsync below.  Replaying
+	 * WAL that is not yet durable is safe because the pages it dirties are
+	 * kept off disk until it is; see WalRcvWaitForFlush().
+	 */
+	WakeupRecovery();
+	if (AllowCascadeReplication())
+		WalSndWakeup(true, false);
 
 	/*
 	 * Close the current segment if it's fully written up in the last cycle of
