@@ -80,7 +80,7 @@ static void WalRcvFlusherFlush(void);
 
 /* Main entry point for the WAL receiver flusher process */
 void
-WalRcvFlusherMain(const void *startup_data, size_t startup_data_len)
+WalRcvFlusherMain(char *startup_data, size_t startup_data_len)
 {
 	WalRcvData *walrcv = WalRcv;
 	sigjmp_buf	local_sigjmp_buf;
