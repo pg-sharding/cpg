@@ -25,6 +25,7 @@
 #include "access/xlog_internal.h"
 #include "access/xlogrecovery.h"
 #include "pgstat.h"
+#include "replication/walrcvflusher.h"
 #include "replication/walreceiver.h"
 #include "storage/pmsignal.h"
 #include "storage/shmem.h"
@@ -67,6 +68,10 @@ WalRcvShmemInit(void)
 		SpinLockInit(&WalRcv->mutex);
 		pg_atomic_init_u64(&WalRcv->writtenUpto, 0);
 		WalRcv->latch = NULL;
+		WalRcv->writtenTLI = 0;
+		WalRcv->latestWriteChunkStart = InvalidXLogRecPtr;
+		ConditionVariableInit(&WalRcv->flushCV);
+		WalRcv->flusherProcno = INVALID_PROC_NUMBER;
 	}
 }
 
@@ -310,6 +315,16 @@ RequestXLogStreaming(TimeLineID tli, XLogRecPtr recptr, const char *conninfo,
 		walrcv->receivedTLI = tli;
 		walrcv->latestChunkStart = recptr;
 	}
+
+	/*
+	 * Nothing has been written in the stream that is about to start.  Reset the
+	 * write position before anybody can see the new state, so that neither
+	 * recovery nor the flusher mistakes a position left over from the previous
+	 * stream for something the new one has written.
+	 */
+	pg_atomic_write_u64(&walrcv->writtenUpto, InvalidXLogRecPtr);
+	walrcv->writtenTLI = 0;
+	walrcv->latestWriteChunkStart = InvalidXLogRecPtr;
 	walrcv->receiveStart = recptr;
 	walrcv->receiveStartTLI = tli;
 
@@ -358,6 +373,67 @@ GetWalRcvWriteRecPtr(void)
 	WalRcvData *walrcv = WalRcv;
 
 	return pg_atomic_read_u64(&walrcv->writtenUpto);
+}
+
+/*
+ * Returns the last+1 byte position that walreceiver has written, along with
+ * the timeline it is on and the start of the batch that carried it.
+ *
+ * This is how far recovery may read.  The WAL is in the segment file but not
+ * necessarily on disk, so a caller about to persist anything derived from it
+ * has to wait for WalRcvWaitForFlush() first.
+ */
+XLogRecPtr
+GetWalRcvWrittenRecPtr(XLogRecPtr *latestChunkStart, TimeLineID *writtenTLI)
+{
+	WalRcvData *walrcv = WalRcv;
+	XLogRecPtr	recptr;
+
+	recptr = pg_atomic_read_membarrier_u64(&walrcv->writtenUpto);
+
+	SpinLockAcquire(&walrcv->mutex);
+	if (latestChunkStart)
+		*latestChunkStart = walrcv->latestWriteChunkStart;
+	if (writtenTLI)
+		*writtenTLI = walrcv->writtenTLI;
+	SpinLockRelease(&walrcv->mutex);
+
+	return recptr;
+}
+
+/*
+ * Wait until walreceiver has made WAL up to 'lsn' durable.
+ *
+ * Recovery replays WAL as soon as it has been written, so the write-ahead rule
+ * is kept here instead: whoever is about to put a page on disk, or to record
+ * in pg_control how far recovery has come, waits for the WAL behind it first.
+ *
+ * If the walreceiver is not streaming there is nothing to wait for.  It flushes
+ * what it wrote before it stops, so anything already replayed is durable.
+ */
+void
+WalRcvWaitForFlush(XLogRecPtr lsn)
+{
+	WalRcvData *walrcv = WalRcv;
+
+	if (XLogRecPtrIsInvalid(lsn))
+		return;
+
+	if (GetWalRcvFlushRecPtr(NULL, NULL) >= lsn)
+		return;
+
+	ConditionVariablePrepareToSleep(&walrcv->flushCV);
+	while (GetWalRcvFlushRecPtr(NULL, NULL) < lsn && WalRcvStreaming())
+	{
+		/*
+		 * Somebody needs this WAL on disk now, so make sure the flusher is
+		 * awake even if the wakeup it got from the walreceiver was lost or the
+		 * WAL was written before it advertised itself.
+		 */
+		WakeupWalRcvFlusher();
+		ConditionVariableSleep(&walrcv->flushCV, WAIT_EVENT_WAL_RECEIVER_FLUSH);
+	}
+	ConditionVariableCancelSleep();
 }
 
 /*

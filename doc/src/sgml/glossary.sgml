@@ -164,6 +164,8 @@
      the <glossterm linkend="glossary-wal-archiver">WAL archiver</glossterm>,
      the <glossterm linkend="glossary-wal-receiver">WAL receiver</glossterm>
      (but not the <glossterm linkend="glossary-wal-sender">WAL senders</glossterm>),
+     the <glossterm linkend="glossary-wal-receiver-flusher">WAL receiver
+     flusher</glossterm>,
      the <glossterm linkend="glossary-wal-summarizer">WAL summarizer</glossterm>,
      and the <glossterm linkend="glossary-wal-writer">WAL writer</glossterm>.
     </para>
@@ -2184,6 +2186,24 @@
      <glossterm linkend="glossary-primary-server">primary server</glossterm>
      for replay by the
      <glossterm linkend="glossary-startup-process">startup process</glossterm>.
+    </para>
+
+    <para>
+     For more information, see
+     <xref linkend="warm-standby"/>.
+    </para>
+   </glossdef>
+  </glossentry>
+
+  <glossentry id="glossary-wal-receiver-flusher">
+   <glossterm>WAL receiver flusher (process)</glossterm>
+   <glossdef>
+    <para>
+     An <glossterm linkend="glossary-auxiliary-proc">auxiliary process</glossterm>
+     that runs on a <glossterm linkend="glossary-replica">replica</glossterm>
+     and flushes to disk the WAL written by the
+     <glossterm linkend="glossary-wal-receiver">WAL receiver</glossterm>,
+     so that the WAL receiver itself does not have to wait for the disk.
     </para>
 
     <para>
