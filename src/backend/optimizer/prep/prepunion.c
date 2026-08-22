@@ -506,9 +506,13 @@ build_setop_child_paths(PlannerInfo *root, RelOptInfo *rel,
 						List *interesting_pathkeys, double *pNumGroups)
 {
 	RelOptInfo *final_rel;
-	List	   *setop_pathkeys = rel->chosen_plan->setop_pathkeys;
 	PlannerInfo *subroot	   = rel->chosen_plan;
 	ListCell   *lc;
+
+
+	/* XXX: fix that */
+	if (subroot == NULL)
+		return;
 
 	/* it can't be a set op child rel if it's not a subquery */
 	Assert(rel->rtekind == RTE_SUBQUERY);
@@ -542,6 +546,7 @@ build_setop_child_paths(PlannerInfo *root, RelOptInfo *rel,
 		Path	   *cheapest_input_path = final_rel->cheapest_total_path;
 		bool		is_sorted;
 		int			presorted_keys;
+		List	   *setop_pathkeys = rel->chosen_plan->setop_pathkeys;
 
 		/*
 		 * Include the cheapest path as-is so that the set operation can be
@@ -569,6 +574,7 @@ build_setop_child_paths(PlannerInfo *root, RelOptInfo *rel,
 		/* skip dealing with sorted paths if the setop doesn't need them */
 		if (interesting_pathkeys == NIL)
 			continue;
+
 
 		/*
 		 * Create paths to suit final sort order required for setop_pathkeys.
