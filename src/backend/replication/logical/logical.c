@@ -55,6 +55,7 @@ typedef struct LogicalErrorCallbackState
 
 /* GUC variables */
 char	   *output_plugin_libraries_string;
+bool		ycmdb_skip_output_plugin_check;
 
 /* wrappers around output plugin callbacks */
 static void output_plugin_error_callback(void *arg);
@@ -181,13 +182,13 @@ StartupDecodingContext(List *output_plugin_options,
 	 */
 	if (!fast_forward)
 	{
+		const char *plugin = NameStr(slot->data.plugin);
+		bool		plugin_allowed = ycmdb_skip_output_plugin_check;
+
 		/*
 		 * Before loading this library, make sure it's been blessed for
 		 * logical decoding.
 		 */
-		const char *plugin = NameStr(slot->data.plugin);
-		bool		plugin_allowed = false;
-
 		if (output_plugin_libraries_string && output_plugin_libraries_string[0])
 		{
 			/* Check this plugin against output_plugin_libraries. */

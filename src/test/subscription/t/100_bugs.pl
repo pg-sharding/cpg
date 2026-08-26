@@ -21,6 +21,8 @@ use Test::More tests => 14;
 
 my $node_publisher = get_new_node('publisher');
 $node_publisher->init(allows_streaming => 'logical');
+$node_publisher->append_conf('postgresql.conf',
+	'ycmdb.skip_output_plugin_check = false');
 $node_publisher->start;
 
 my $node_subscriber = get_new_node('subscriber');
