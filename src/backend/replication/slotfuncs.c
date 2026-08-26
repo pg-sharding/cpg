@@ -599,9 +599,6 @@ pg_replication_slot_advance(PG_FUNCTION_ARGS)
 
 	Assert(!MyReplicationSlot);
 
-	CheckMDBReplSlotPermissions();
-	CheckMDBReservedName(NameStr(*slotname));
-
 	if (XLogRecPtrIsInvalid(moveto))
 		ereport(ERROR,
 				(errmsg("invalid target WAL LSN")));

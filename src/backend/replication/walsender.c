@@ -230,15 +230,19 @@ typedef struct
 /* The size of our buffer of time samples. */
 #define LAG_TRACKER_BUFFER_SIZE 8192
 
+
+static bool
+check_slot_permissions(void)
+{
+	/* superuser can do it, else should have REPLICATION role option */
+	return superuser() || role_has_rolreplication;
+}
+
+
 static void
 check_permissions(void)
 {
-	/* superuser can do it */
-	if (superuser()) {
-		return;
-	}
-	/* else should have REPLICATION role option */
-	if (!role_has_rolreplication)
+	if (!(check_slot_permissions()))
 		ereport(ERROR,
 				(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
 				 (errmsg("must be superuser or replication role to use replication slots"))));
@@ -1825,7 +1829,7 @@ exec_replication_command(const char *cmd_string)
 		if (MyDatabaseId == InvalidOid)
 			ereport(ERROR,
 					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-					 errmsg("cannot execute SQL commands in WAL sender for physical replication")));
+					 errmsg("cannot execute SQL commands in WAL sender for physical replication: %s", cmd_string)));
 
 		/* Tell the caller that this wasn't a WalSender command. */
 		return false;

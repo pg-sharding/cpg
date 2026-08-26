@@ -49,6 +49,7 @@ tests += {
       't/045_archive_restartpoint.pl',
       't/054_unlogged_sequence_promotion.pl',
       't/055_cascade_reconnect.pl',
+      't/102_mdb_replication_reserved_slots.pl',
     ],
   },
 }
