@@ -1,0 +1,96 @@
+-- Test mdb_superuser interaction with rolreplication attribute,
+-- following the pg_read_all_data test pattern in mdb_superuser.sql.
+
+-- Roles for testing
+CREATE ROLE regress_mdb_su_repl_user1;
+CREATE ROLE regress_mdb_su_repl_user2;
+CREATE ROLE regress_mdb_su_repl_owner WITH REPLICATION;
+
+GRANT mdb_superuser TO regress_mdb_su_repl_user1;
+GRANT CREATE ON DATABASE regression TO regress_mdb_su_repl_user2;
+
+-- Create a table owned by a role with the REPLICATION attribute,
+-- analogous to regress_pgrad_table owned by pg_read_all_data.
+SET ROLE regress_mdb_su_repl_owner;
+CREATE TABLE regress_repl_table();
+
+-- mdb_superuser can drop objects owned by a role with REPLICATION,
+-- because mdb_superuser has the power of pg_database_owner.
+SET ROLE mdb_superuser;
+DROP TABLE regress_repl_table;
+
+-- mdb_superuser does NOT inherit the REPLICATION attribute:
+-- rolreplication is an attribute, not a role membership, so
+-- has_privs_of_role / has_rolreplication should not be satisfied.
+-- Use pg_roles (public view) since mdb_superuser cannot read pg_authid.
+SELECT rolreplication FROM pg_roles WHERE rolname = 'mdb_superuser';
+
+-- A member of mdb_superuser also does not get REPLICATION.
+SET ROLE regress_mdb_su_repl_user1;
+SELECT rolsuper, rolreplication FROM pg_roles WHERE rolname = 'regress_mdb_su_repl_user1';
+
+-- mdb_superuser cannot grant REPLICATION attribute (needs CREATEROLE + REPLICATION)
+SET ROLE mdb_superuser;
+ALTER ROLE regress_mdb_su_repl_user2 WITH REPLICATION;
+
+-- mdb_superuser cannot create a role with REPLICATION
+CREATE ROLE regress_mdb_su_repl_fail WITH REPLICATION;
+
+RESET SESSION AUTHORIZATION;
+
+-- Check ALTER TABLE ... OWNER TO <role with rolreplication>.
+-- mdb_superuser is a member of mdb_admin (via test_setup GRANT),
+-- and mdb_admin_is_member_of_role allows transferring ownership to
+-- any role that is neither a superuser nor an "unwanted system role".
+-- A role with the REPLICATION attribute is NOT an unwanted system role
+-- (it is an attribute, not pg_read_all_data / pg_write_all_data / etc.),
+-- so mdb_superuser CAN transfer ownership to it.
+SET ROLE regress_mdb_su_repl_owner;
+CREATE TABLE regress_repl_owner_table();
+
+SET ROLE mdb_superuser;
+-- ok: mdb_superuser can ALTER TABLE OWNER TO a role with rolreplication,
+-- because mdb_admin_is_member_of_role bypasses check_can_set_role.
+ALTER TABLE regress_repl_owner_table OWNER TO regress_mdb_su_repl_owner;
+
+-- mdb_superuser can also drop it (pg_database_owner power)
+DROP TABLE regress_repl_owner_table;
+
+RESET SESSION AUTHORIZATION;
+
+-- Test rolreplication inheritance via role membership.
+-- REPLICATION is an attribute, not a grantable role, so granting
+-- a role that has REPLICATION to another role does NOT transfer
+-- the REPLICATION attribute. The grantee does not get it implicitly.
+CREATE ROLE regress_repl_parent WITH REPLICATION;
+CREATE ROLE regress_repl_child;
+
+GRANT regress_repl_parent TO regress_repl_child;
+
+-- regress_repl_child does not have rolreplication set directly
+SELECT rolname, rolreplication FROM pg_roles
+  WHERE rolname IN ('regress_repl_parent', 'regress_repl_child')
+  ORDER BY rolname;
+
+RESET SESSION AUTHORIZATION;
+
+-- Only a superuser or a role with CREATEROLE + REPLICATION can
+-- grant the REPLICATION attribute.  mdb_superuser has neither.
+-- Use a superuser to set it, then verify via pg_roles.
+ALTER ROLE regress_mdb_su_repl_user2 WITH REPLICATION;
+
+-- Now regress_mdb_su_repl_user2 has the REPLICATION attribute
+SELECT rolname, rolreplication FROM pg_roles
+  WHERE rolname = 'regress_mdb_su_repl_user2';
+
+ALTER ROLE regress_mdb_su_repl_user2 WITH NOREPLICATION;
+
+-- Cleanup
+REVOKE regress_repl_parent FROM regress_repl_child;
+REVOKE mdb_superuser FROM regress_mdb_su_repl_user1;
+REVOKE CREATE ON DATABASE regression FROM regress_mdb_su_repl_user2;
+DROP ROLE regress_mdb_su_repl_user1;
+DROP ROLE regress_mdb_su_repl_user2;
+DROP ROLE regress_mdb_su_repl_owner;
+DROP ROLE regress_repl_child;
+DROP ROLE regress_repl_parent;
