@@ -63,6 +63,7 @@ tests += {
       't/056_standby_snapshot_export.pl',
       't/057_snapshot_commit_race.pl',
       't/060_multixact_crashed_updater.pl',
+      't/102_mdb_replication_reserved_slots.pl',
       't/110_archive_shared.pl',
       't/111_archive_shared_checkpoint.pl',
       't/112_archive_shared_hazards.pl',
