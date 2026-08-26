@@ -21,6 +21,8 @@ use Test::More;
 
 my $node_publisher = PostgreSQL::Test::Cluster->new('publisher');
 $node_publisher->init(allows_streaming => 'logical');
+$node_publisher->append_conf('postgresql.conf',
+	'ycmdb.skip_output_plugin_check = false');
 $node_publisher->start;
 
 my $node_subscriber = PostgreSQL::Test::Cluster->new('subscriber');
