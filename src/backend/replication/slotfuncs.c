@@ -561,9 +561,6 @@ pg_replication_slot_advance(PG_FUNCTION_ARGS)
 
 	Assert(!MyReplicationSlot);
 
-	CheckMDBReplSlotPermissions();
-	CheckMDBReservedName(NameStr(*slotname));
-
 	if (!XLogRecPtrIsValid(moveto))
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),

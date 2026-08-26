@@ -402,11 +402,17 @@ extern void CheckRoleMDBReplSlotPermissions(bool role_has_rolreplication, bool i
 extern void CheckRoleUseMDBReservedName(const char* name, bool role_has_rolreplication);
 
 static inline void CheckMDBReservedName(const char* name) {
+	if (am_walsender)
+		return CheckRoleUseMDBReservedName(name, role_has_rolreplication);
+
 	CheckRoleUseMDBReservedName(name, has_rolreplication(GetUserId()));
 }
 
 static inline void CheckMDBReplSlotPermissions(void) {
 	Oid         role;
+	if (am_walsender)
+		return CheckRoleMDBReplSlotPermissions(role_has_rolreplication, member_of_mdb_replication);
+
 	role = get_role_oid("mdb_replication", /* missing ok*/ true);
 	return CheckRoleMDBReplSlotPermissions(has_rolreplication(GetUserId()), is_member_of_role(GetUserId(), role));
 }

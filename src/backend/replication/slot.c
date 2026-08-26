@@ -194,6 +194,16 @@ static void RestoreSlotFromDisk(const char *name);
 static void CreateSlotOnDisk(ReplicationSlot *slot);
 static void SaveSlotToPath(ReplicationSlot *slot, const char *dir, int elevel);
 
+static bool
+check_slot_permissions(void)
+{
+	if (am_walsender)
+		return superuser() || role_has_rolreplication;
+
+	/* superuser can do it, else should have REPLICATION role option */
+	return superuser() || has_rolreplication(GetUserId());
+}
+
 /*
  * Register shared memory space needed for replication slots.
  */
@@ -637,6 +647,9 @@ ReplicationSlotAcquire(const char *name, bool nowait, bool error_if_invalid)
 
 	Assert(name != NULL);
 
+	CheckMDBReplSlotPermissions();
+	CheckMDBReservedName(name);
+
 retry:
 	Assert(MyReplicationSlot == NULL);
 
@@ -652,6 +665,15 @@ retry:
 				(errcode(ERRCODE_UNDEFINED_OBJECT),
 				 errmsg("replication slot \"%s\" does not exist",
 						name)));
+	}
+
+	if (s->data.database == InvalidOid && !check_slot_permissions())
+	{
+		/* Don't elog while holding LWLock */
+		LWLockRelease(ReplicationSlotControlLock);
+		ereport(ERROR,
+				(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
+				 (errmsg("must be superuser or replication role to use replication slots"))));
 	}
 
 	/*
