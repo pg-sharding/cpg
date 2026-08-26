@@ -1,13 +1,13 @@
 /*-------------------------------------------------------------------------
  *
- * temp_table_trace.c
+ *  transaction_transients_trace.c
  *
- *	  Simple tracing for session temp relations.
+ *	  Simple tracing for session transient (temp) relations.
  *
  * Copyright (c) 2025, PostgreSQL Global Development Group
  *
  * IDENTIFICATION
- *	  contrib/temp_table_trace/temp_table_trace.c
+ *	  contrib/transaction_transients_trace/transaction_transients_trace.c
  *
  *-------------------------------------------------------------------------
  */
@@ -27,7 +27,7 @@
 #include "utils/fmgroids.h"
 
 PG_MODULE_MAGIC_EXT(
-					.name = "temp_table_trace",
+					.name = "transaction_transients_trace",
 					.version = PG_VERSION
 );
 
