@@ -27,3 +27,28 @@ SELECT 1;
 
 -- No temp relations anymore: GUC should be off again.
 SHOW ttt.session_owns_temp_rels;
+
+-- Now test creating a temp table from within a PL/pgSQL function.  The
+-- nested CREATE TEMP TABLE still goes through ProcessUtility (invalidating
+-- the cached value), and the outer SELECT's ExecutorEnd recomputes it.
+CREATE FUNCTION make_temp() RETURNS void
+LANGUAGE plpgsql AS $$
+BEGIN
+  CREATE TEMP TABLE z3();
+END $$;
+
+-- Calling the function creates the temp table as a utility subcommand.
+SELECT make_temp();
+
+-- The session now owns a temp relation again: GUC should be on.
+SHOW ttt.session_owns_temp_rels;
+
+-- Drop the temp table and trigger a recompute.
+DROP TABLE z3;
+SELECT 1;
+
+-- No temp relations anymore: GUC should be off again.
+SHOW ttt.session_owns_temp_rels;
+
+-- Cleanup.
+DROP FUNCTION make_temp();
