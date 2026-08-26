@@ -1204,6 +1204,17 @@ struct config_bool ConfigureNamesBool[] =
 	},
 
 	{
+		{"ycmdb.skip_output_plugin_check", PGC_SUSET, REPLICATION_SENDING,
+			gettext_noop("Skips the output_plugin_libraries permission check for logical decoding."),
+			gettext_noop("When true, any output plugin may be loaded for logical decoding, bypassing the trusted-plugin check. Set to false to enforce the check."),
+			GUC_NOT_IN_SAMPLE
+		},
+		&ycmdb_skip_output_plugin_check,
+		true,
+		NULL, NULL, NULL
+	},
+
+	{
 		{"wal_init_zero", PGC_SUSET, WAL_SETTINGS,
 			gettext_noop("Writes zeroes to new WAL files before first use."),
 			NULL
