@@ -3,6 +3,8 @@
 MODULES = temp_table_trace
 PGFILEDESC = "temp_table_trace - trace temporary relation lifecycle (skeleton)"
 
+REGRESS = temp_table_trace
+
 ifdef USE_PGXS
 PG_CONFIG = pg_config
 PGXS := $(shell $(PG_CONFIG) --pgxs)

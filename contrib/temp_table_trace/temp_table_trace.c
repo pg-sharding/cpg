@@ -19,7 +19,9 @@
 #include "executor/executor.h"
 #include "libpq/protocol.h"
 #include "libpq/pqformat.h"
+#include "tcop/dest.h"
 #include "tcop/utility.h"
+#include "tcop/tcopprot.h"
 #include "utils/guc.h"
 #include "utils/guc_tables.h"
 #include "utils/fmgroids.h"
@@ -57,11 +59,14 @@ static void ttt_ProcessUtility(PlannedStmt *pstmt,
  * transmitted.
  */
 static void
-ReportGUCOption()
+ReportGUCOption(void)
 {
 	char	   *val = ttt_session_owns_temp_rels ? "on" : "off";
-
 	StringInfoData msgbuf;
+
+	/* Don't send anything if we're not connected to a frontend. */
+	if (whereToSendOutput != DestRemote)
+		return;
 
 	pq_beginmessage(&msgbuf, PqMsg_ParameterStatus);
 	pq_sendstring(&msgbuf, TTT_GUC_NAME);
@@ -112,6 +117,7 @@ ttt_ExecutorEnd(QueryDesc *queryDesc)
 		Oid tempTOASTNamespace;
 		GetTempNamespaceState(&tempNamespace, &tempTOASTNamespace);
 		tttRecalculate(tempNamespace);
+		ttt_session_owns_temp_rels_valid = true;
  		ReportGUCOption();
 	}
 
@@ -171,15 +177,4 @@ _PG_init(void)
 
 	prev_ProcessUtility = ProcessUtility_hook;
 	ProcessUtility_hook = ttt_ProcessUtility;
-}
-
-/*
- * Module unload callback
- */
-void
-_PG_fini(void)
-{
-	/* Uninstall hooks. */
-	ExecutorEnd_hook = prev_ExecutorEnd;
-	ProcessUtility_hook = prev_ProcessUtility;
 }
