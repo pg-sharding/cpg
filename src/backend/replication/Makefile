@@ -22,6 +22,7 @@ OBJS = \
 	syncrep.o \
 	syncrep_gram.o \
 	syncrep_scanner.o \
+	walrcvflusher.o \
 	walreceiver.o \
 	walreceiverfuncs.o \
 	walsender.o
