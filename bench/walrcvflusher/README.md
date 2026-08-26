@@ -740,8 +740,58 @@ Baseline walreceiver не сбрасывает pending IO stats в shared memory
    не подходит для 128 клиентов (нужно ~100,000+ rows). Результаты не показательны.
 
 3. **128 clients не даёт нового преимущества** — TPC-B WAL rate (10 MB/s) всё ещё
-   слишком низкий для fsync bottleneck. Для эффекта нужен high-WAL workload
+   недостаточно для fsync bottleneck. Для эффекта нужен high-WAL workload
    (COPY, walheavy с 32 clients) + slow disk (50ms+ throttle).
+
+---
+
+## Результаты: remote_apply (synchronous replication)
+
+### Условия
+- pgbench `-f sql/walheavy.sql --client=32 --jobs=4 --time=30`
+- `synchronous_standby_names = '*'`, `synchronous_commit = remote_apply`
+- WAL segment size: 16MB
+- Throttle: 50ms
+- `track_wal_io_timing = on`
+- remote_apply: primary ждёт пока standby **применит** (replay) каждую транзакцию
+
+### Результаты (50ms throttle)
+
+| Metric              | New (flusher)  | Baseline       | Delta    |
+|---------------------|----------------|----------------|----------|
+| **TPS**             | 2,803          | 217            | **12.9x** |
+| **WAL rate**        | 21.6 MB/s      | 1.7 MB/s       | **12.9x** |
+| **WAL total**       | 619 MB         | 48 MB          | 12.9x    |
+| **Latency avg**     | 11.4 ms        | 147.2 ms       | **13x lower** |
+| Flusher fsyncs      | 347 (18893ms)  | —              |          |
+| WalRcv fsyncs       | 76 (4408ms)    | (not collected)|          |
+| sync_state          | sync           | sync           |          |
+
+### Анализ
+
+**Это самый сильный результат из всех бенчмарков.**
+
+1. **New build в 12.9 раз быстрее** (TPS 2803 vs 217) при `remote_apply` + 50ms throttle.
+
+2. **Почему так сильно?** При `remote_apply` primary ждёт пока standby **применит**
+   (replay) каждую транзакцию. В baseline:
+   - walreceiver делает fsync → потом replay → primary ждёт
+   - При 50ms throttle каждый WAL segment (~16MB) требует fsync (50ms)
+   - Replay блокируется до fsync → primary ждёт 50ms на каждый segment
+   - TPS ~217 (т.к. ~4.5 segments/sec = 4.5 × 50ms = 225ms latency per tx)
+
+3. **В new build** flusher decouples fsync от walreceiver:
+   - walreceiver пишет WAL → flusher fsync'ит асинхронно
+   - replay proceed'ит **до** fsync (благодаря коммиту `d68f87caf9f` "replay before flush")
+   - Primary ждёт только replay, не fsync → latency 11ms (vs 147ms)
+   - WAL rate 21.6 MB/s (vs 1.7 MB/s)
+
+4. **Latency 11ms (new) vs 147ms (baseline)** — primary видит ~13x меньшую
+   задержку на commit, т.к. не ждёт fsync.
+
+5. **Это key use case для flusher**: async replication даёт +11.8% TPS,
+   sync rep `remote_flush` даёт ~1-2% TPS, но `remote_apply` даёт **12.9x TPS**.
+   Flusher критичен для remote_apply на slow disk.
 
 ---
 
@@ -749,16 +799,19 @@ Baseline walreceiver не сбрасывает pending IO stats в shared memory
 
 ### Когда flusher даёт преимущество
 
-1. **Async replication + high WAL rate + slow disk**: walreceiver свободён от fsync
+1. **Sync rep remote_apply + slow disk**: **12.9x TPS** — flusher decouples fsync
+   от replay, primary не ждёт fsync. Latency 11ms vs 147ms. Key use case.
+
+2. **Async replication + high WAL rate + slow disk**: walreceiver свободён от fsync
    и может быстрее читать из socket. WAL rate +11.4%, TPS +11.8% (walheavy, 50ms).
 
-2. **Cascade replication (S7)**: standby1 быстро отдаёт WAL standby2, не дожидаясь fsync.
+3. **Cascade replication (S7)**: standby1 быстро отдаёт WAL standby2, не дожидаясь fsync.
    При 100ms throttle: **TPS +1.9%**, replay_lag 5ms vs 200ms (40x better),
    WAL throughput на casc2 +2.8%.
 
-3. **COPY high-WAL**: WAL throughput +3.3% (2-node), +3.1% (cascade) при 50ms throttle.
+4. **COPY high-WAL**: WAL throughput +3.3% (2-node), +3.1% (cascade) при 50ms throttle.
 
-4. **replay-before-flush** (коммит `d68f87caf9f`): replay идёт параллельно с fsync,
+5. **replay-before-flush** (коммит `d68f87caf9f`): replay идёт параллельно с fsync,
    `replay_lag` снижен. Это уже работает в baseline (d68f87caf9f).
 
 ### Когда flusher НЕ даёт преимущество
@@ -774,6 +827,7 @@ Baseline walreceiver не сбрасывает pending IO stats в shared memory
 ### Главный эффект flusher
 
 - **walreceiver fsync time снижен на 87-94%** (68ms vs 562ms при 0ms throttle; 751ms vs 13461ms при 100ms cascade)
+- **remote_apply: 12.9x TPS** (2803 vs 217) — primary не ждёт fsync, latency 11ms vs 147ms
 - **WAL throughput +11.4%** на walheavy (50ms throttle, 30 MB/s WAL rate)
 - **WAL throughput +3.3%** на COPY (50ms throttle, 50 MB/s WAL rate)
 - **flush_lag снижен** (5ms vs 53ms при 50ms throttle, async rep)
