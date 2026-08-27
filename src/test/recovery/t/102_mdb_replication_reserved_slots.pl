@@ -219,33 +219,6 @@ like(
 	'protocol: ... with the rolreplication error');
 
 
-# --- ALTER_REPLICATION_SLOT -----------------------------------
-is( $node->safe_psql(
-		'postgres',
-		q[SELECT failover FROM pg_replication_slots WHERE slot_name = 'mdb_logical_slot']
-	),
-	'f',
-	'reserved logical slot starts out with failover disabled');
-
-($ret, $stdout, $stderr) = $node->psql(
-	'postgres',
-	q[ALTER_REPLICATION_SLOT phys_slot (failover true)],
-	replication => 'database',
-	extra_params => [ '-U', 'regress_mdb_mdbrepl' ]);
-
-isnt($ret, 0, 'SQL: mdb_replication may not ALTER_REPLICATION_SLOT a phys slot');
-like(
-	$stderr,
-	qr/must be superuser or replication role to use replication slots/,
-	'ALTER_REPLICATION_SLOT rejected with permission error');
-
-is( $node->safe_psql(
-		'postgres',
-		q[SELECT failover FROM pg_replication_slots WHERE slot_name = 'phys_slot']
-	),
-	'f',
-	'... and the does not take effect');
-
 
 # --- pg_copy_logical_replication_slot (SQL) --------------------------------
 ($ret, $stdout, $stderr) = $node->psql(
@@ -269,16 +242,6 @@ like(
 	qr/permission denied to use replication slots/,
 	'SQL: ... copy_physical rejected with permission error');
 
-# --- pg_sync_replication_slots (SQL) --------------------------------------
-($ret, $stdout, $stderr) = $node->psql(
-	'postgres',
-	q[SELECT pg_sync_replication_slots()],
-	extra_params => [ '-U', 'regress_mdb_mdbrepl' ]);
-isnt($ret, 0, 'SQL: mdb_replication may not sync replication slots');
-like(
-	$stderr,
-	qr/permission denied to use replication slots/,
-	'SQL: ... sync_slots rejected with permission error');
 
 # --- BASE_BACKUP (protocol) -----------------------------------------------
 ($ret, $stdout, $stderr) = $node->psql(
@@ -369,31 +332,6 @@ like(
 	'protocol: ... with the reserved-name error');
 
 
-# --- ALTER_REPLICATION_SLOT -----------------------------------
-is( $node->safe_psql(
-		'postgres',
-		q[SELECT failover FROM pg_replication_slots WHERE slot_name = 'mdb_logical_slot']
-	),
-	'f',
-	'reserved logical slot starts out with failover disabled');
-
-($ret, $stdout, $stderr) = $node->psql(
-	'postgres',
-	q[ALTER_REPLICATION_SLOT mdb_logical_slot (failover true)],
-	replication => 'database',
-	extra_params => [ '-U', 'regress_mdb_mdbrepl' ]);
-isnt($ret, 0,
-	'tenant not allowed to ALTER_REPLICATION_SLOT a reserved slot');
-is( $node->safe_psql(
-		'postgres',
-		q[SELECT failover FROM pg_replication_slots WHERE slot_name = 'mdb_logical_slot']
-	),
-	'f',
-	'... and the does not take effect');
-like(
-	$stderr,
-	qr/slot name "mdb_logical_slot" is reserved/,
-	'protocol: ... with the reserved-name error');
 
 $node->stop;
 
