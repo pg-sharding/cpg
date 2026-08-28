@@ -119,6 +119,7 @@ int			XLOGbuffers = -1;
 int			XLogArchiveTimeout = 0;
 int			XLogArchiveStatusReportInterval = 0;
 int			XLogArchiveMode = ARCHIVE_MODE_OFF;
+int			ycmdb_wal_write_rate_lim = 0;
 bool		ycmdb_shared_archive = false;	/* makes archive_mode=on act as shared */
 char	   *XLogArchiveCommand = NULL;
 bool		EnableHotStandby = false;
@@ -410,6 +411,12 @@ typedef struct XLogCtlInsert
 	 */
 	uint64		CurrBytePos;
 	uint64		PrevBytePos;
+
+	/* leaky-bucket WAL write rate limiter */
+	slock_t		rate_lck;
+	uint64		rate_tokens;
+	int64		rate_lst;
+	/*  */
 
 	/*
 	 * Make sure the above heavily-contended spinlock and byte positions are
@@ -1092,6 +1099,76 @@ XLogInsertRecord(XLogRecData *rdata,
 	return EndPos;
 }
 
+static inline void
+ycmdb_wal_rate_limit_wait(uint64 size)
+{
+	XLogCtlInsert *Insert = &XLogCtl->Insert;
+	int64		limit = (int64) ycmdb_wal_write_rate_lim * /* In KBs */ 1024;
+
+	/* Zero means no limit */
+	if (limit == 0)
+		return;
+
+	for (;;)
+	{
+		int64		now;
+		long		wait_us;
+		int64		elapsed;
+		uint64		delta;
+
+		CHECK_FOR_INTERRUPTS();
+
+		SpinLockAcquire(&Insert->rate_lck);
+
+		now = (int64) GetCurrentTimestamp();
+
+		if (Insert->rate_lst == 0)
+			Insert->rate_lst = now;
+
+		elapsed = now - Insert->rate_lst;
+		
+		/* XXX: GetCurrentTimestamp should be monotonic, but for paranoia sake... */
+		if (elapsed < 0) elapsed = 0;
+
+		/* new tokens = elapsed_usec * limit per sec */
+		delta = (uint64) elapsed * limit / USECS_PER_SEC;
+
+		/* Dont reset rate_lst if insert rate is too fast */
+		if (delta > 0)
+		{
+			Insert->rate_tokens += delta;
+			Insert->rate_lst = now;
+
+			if (Insert->rate_tokens > limit)
+				Insert->rate_tokens = limit;
+		}
+
+		/* Good, bail out */
+		if (Insert->rate_tokens >= size)
+		{
+			Insert->rate_tokens -= size;
+			SpinLockRelease(&Insert->rate_lck);
+			return;
+		}
+
+		/* Consume tokens */
+		size -= Insert->rate_tokens;
+		Insert->rate_tokens = 0;
+
+		/* How long it would take to regenerate X tokens?
+		* With speed of limit tok/sec it would be X / limit secs */
+		wait_us = (size * USECS_PER_SEC) / limit;
+		
+		SpinLockRelease(&Insert->rate_lck);
+
+		/* If tokens exteed but for not too much, wait for 
+		* at least 1 us anyway */
+		if (wait_us <= 0)
+			wait_us = 1;
+		pg_usleep(wait_us);
+	}
+}
+
 /*
  * Reserves the right amount of space for a record of given size from the WAL.
  * *StartPos is set to the beginning of the reserved section, *EndPos to
@@ -1123,6 +1200,9 @@ ReserveXLogInsertLocation(int size, XLogRecPtr *StartPos, XLogRecPtr *EndPos,
 
 	/* All (non xlog-switch) records should contain data. */
 	Assert(size > SizeOfXLogRecord);
+
+	/* throttle ourselves if asked to */
+	ycmdb_wal_rate_limit_wait((uint64)size);
 
 	/*
 	 * The duration the spinlock needs to be held is minimized by minimizing
@@ -5059,6 +5139,7 @@ XLOGShmemInit(void)
 	XLogCtl->WalWriterSleeping = false;
 
 	SpinLockInit(&XLogCtl->Insert.insertpos_lck);
+	SpinLockInit(&XLogCtl->Insert.rate_lck);
 	SpinLockInit(&XLogCtl->info_lck);
 	pg_atomic_init_u64(&XLogCtl->logInsertResult, InvalidXLogRecPtr);
 	pg_atomic_init_u64(&XLogCtl->logWriteResult, InvalidXLogRecPtr);
