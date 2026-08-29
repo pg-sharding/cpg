@@ -65,6 +65,7 @@
 #include "utils/combocid.h"
 #include "utils/guc.h"
 #include "utils/inval.h"
+#include "utils/injection_point.h"
 #include "utils/memutils.h"
 #include "utils/relmapper.h"
 #include "utils/snapmgr.h"
@@ -1415,6 +1416,8 @@ RecordTransactionCommit(void)
 		 */
 		replorigin = (replorigin_session_origin != InvalidRepOriginId &&
 					  replorigin_session_origin != DoNotReplicateId);
+
+		INJECTION_POINT_LOAD("wal_writer_rate_limit_wait_loop");
 
 		/*
 		 * Mark ourselves as within our "commit critical section".  This
