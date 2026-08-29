@@ -64,6 +64,8 @@ tests += {
       't/110_archive_shared.pl',
       't/111_archive_shared_checkpoint.pl',
       't/112_archive_shared_hazards.pl',
+      't/120_wal_rate_limit.pl',
+      't/121_wal_rate_limit_inj.pl'.
     ],
   },
 }

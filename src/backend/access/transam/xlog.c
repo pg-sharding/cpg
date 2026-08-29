@@ -1118,7 +1118,7 @@ ycmdb_wal_rate_limit_wait(uint64 size)
 	* here for a while. */
 	pgstat_report_wait_start(WAIT_EVENT_WAL_WRITE_RATE_LIMIT);
 
-	INJECTION_POINT("wal_writer_rate_limit_wait_loop", NULL);
+	INJECTION_POINT_CACHED("wal_writer_rate_limit_wait_loop", NULL);
 
 	for (;;)
 	{
@@ -1168,8 +1168,6 @@ ycmdb_wal_rate_limit_wait(uint64 size)
 			Insert->rate_tokens -= size;
 			SpinLockRelease(&Insert->rate_lck);
 			pgstat_report_wait_end();
-
-			INJECTION_POINT("wal_writer_rate_limit_before_exit", NULL);
 			return;
 		}
 
