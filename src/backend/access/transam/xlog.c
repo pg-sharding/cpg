@@ -1099,6 +1099,11 @@ XLogInsertRecord(XLogRecData *rdata,
 	return EndPos;
 }
 
+/* XXX: 20ms. Any better value? */
+#define WAL_WRITE_RATE_LIM_MAX_NAPTIME 20000
+
+
+/* XXX: we do not currently allow any bursts. */
 static inline void
 ycmdb_wal_rate_limit_wait(uint64 size)
 {
@@ -1108,6 +1113,12 @@ ycmdb_wal_rate_limit_wait(uint64 size)
 	/* Zero means no limit */
 	if (limit == 0)
 		return;
+
+	/* Report our state, starting from now we are going to loop
+	* here for a while. */
+	pgstat_report_wait_start(WAIT_EVENT_WAL_WRITE_RATE_LIMIT);
+
+	INJECTION_POINT("wal_writer_rate_limit_wait_loop", NULL);
 
 	for (;;)
 	{
@@ -1120,6 +1131,8 @@ ycmdb_wal_rate_limit_wait(uint64 size)
 
 		SpinLockAcquire(&Insert->rate_lck);
 
+		/* Fetch current time while holding a lock. Should be
+		* pretty fast. Any way,  */
 		now = (int64) GetCurrentTimestamp();
 
 		if (Insert->rate_lst == 0)
@@ -1129,6 +1142,11 @@ ycmdb_wal_rate_limit_wait(uint64 size)
 		
 		/* XXX: GetCurrentTimestamp should be monotonic, but for paranoia sake... */
 		if (elapsed < 0) elapsed = 0;
+		/* Cap elapsed at 1s to avoid overflow, also it is
+		* pretty meaningless to do calculation with higher value, given
+		* wal rate limit cap logic. */
+		if (elapsed > USECS_PER_SEC)
+			elapsed = USECS_PER_SEC;
 
 		/* new tokens = elapsed_usec * limit per sec */
 		delta = (uint64) elapsed * limit / USECS_PER_SEC;
@@ -1138,7 +1156,8 @@ ycmdb_wal_rate_limit_wait(uint64 size)
 		{
 			Insert->rate_tokens += delta;
 			Insert->rate_lst = now;
-
+			
+			/* Cap to limit. */
 			if (Insert->rate_tokens > limit)
 				Insert->rate_tokens = limit;
 		}
@@ -1148,6 +1167,9 @@ ycmdb_wal_rate_limit_wait(uint64 size)
 		{
 			Insert->rate_tokens -= size;
 			SpinLockRelease(&Insert->rate_lck);
+			pgstat_report_wait_end();
+
+			INJECTION_POINT("wal_writer_rate_limit_before_exit", NULL);
 			return;
 		}
 
@@ -1161,10 +1183,12 @@ ycmdb_wal_rate_limit_wait(uint64 size)
 		
 		SpinLockRelease(&Insert->rate_lck);
 
-		/* If tokens exteed but for not too much, wait for 
-		* at least 1 us anyway */
+		/* Cap wait to stay responsive */
+		if (wait_us > WAL_WRITE_RATE_LIM_MAX_NAPTIME)
+			wait_us = WAL_WRITE_RATE_LIM_MAX_NAPTIME;
 		if (wait_us <= 0)
 			wait_us = 1;
+
 		pg_usleep(wait_us);
 	}
 }
