@@ -36,6 +36,7 @@ SUBDIRS = \
 		pg_prewarm	\
 		pg_stat_statements \
 		pg_surgery	\
+		pg_target_promote \
 		pg_trgm		\
 		pgrowlocks	\
 		pgstattuple	\

@@ -14,6 +14,7 @@
 #include "access/xlogbackup.h"
 #include "access/xlogdefs.h"
 #include "datatype/timestamp.h"
+#include "fmgr.h"
 #include "lib/stringinfo.h"
 #include "nodes/pg_list.h"
 
@@ -333,5 +334,9 @@ extern SessionBackupState get_backup_status(void);
 
 /* files to signal promotion to primary */
 #define PROMOTE_SIGNAL_FILE		"promote"
+#define PROMOTE_TARGET_SIGNAL_FILE	"promote_target_tli"
+
+/* promoted by extension, symbol exported for contrib/pg_target_promote */
+extern PGDLLEXPORT Datum pg_target_promote(PG_FUNCTION_ARGS);
 
 #endif							/* XLOG_H */
