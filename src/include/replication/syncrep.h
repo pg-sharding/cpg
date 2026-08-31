@@ -34,6 +34,7 @@
 /* syncrep_method of SyncRepConfigData */
 #define SYNC_REP_PRIORITY		0
 #define SYNC_REP_QUORUM		1
+#define SYNC_REP_SYNC_QUORUM 2
 
 /*
  * SyncRepGetCandidateStandbys returns an array of these structs,
@@ -65,8 +66,11 @@ typedef struct SyncRepConfigData
 	int			config_size;	/* total size of this struct, in bytes */
 	int			num_sync;		/* number of sync standbys that we need to
 								 * wait for */
+	int			num_always;		/* number of always standbys that we need to
+								 * wait for */
 	uint8		syncrep_method; /* method to choose sync standbys */
 	int			nmembers;		/* number of members in the following list */
+	int			always_offset;
 	/* member_names contains nmembers consecutive nul-terminated C strings */
 	char		member_names[FLEXIBLE_ARRAY_MEMBER];
 } SyncRepConfigData;
@@ -87,7 +91,10 @@ extern void SyncRepInitConfig(void);
 extern void SyncRepReleaseWaiters(void);
 
 /* called by wal sender and user backend */
-extern int	SyncRepGetCandidateStandbys(SyncRepStandbyData **standbys);
+extern int	SyncRepGetCandidateStandbys(
+	SyncRepStandbyData **standbys, 
+	SyncRepStandbyData **forced_standbys,
+	int *num_forced_standbys);
 
 /* called by checkpointer */
 extern void SyncRepUpdateSyncStandbysDefined(void);

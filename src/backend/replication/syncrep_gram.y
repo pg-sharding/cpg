@@ -20,7 +20,7 @@
 #include "syncrep_gram.h"
 
 static SyncRepConfigData *create_syncrep_config(const char *num_sync,
-					List *members, uint8 syncrep_method);
+					List *members, uint8 syncrep_method, List *always_members);
 
 /*
  * Bison doesn't allocate anything that needs to live across parser calls,
@@ -48,7 +48,7 @@ static SyncRepConfigData *create_syncrep_config(const char *num_sync,
 	SyncRepConfigData *config;
 }
 
-%token <str> NAME NUM JUNK ANY FIRST
+%token <str> NAME NUM JUNK ANY FIRST ALWAYS
 
 %type <config> result standby_config
 %type <list> standby_list
@@ -65,10 +65,11 @@ result:
 	;
 
 standby_config:
-		standby_list				{ $$ = create_syncrep_config("1", $1, SYNC_REP_PRIORITY); }
-		| NUM '(' standby_list ')'		{ $$ = create_syncrep_config($1, $3, SYNC_REP_PRIORITY); }
-		| ANY NUM '(' standby_list ')'		{ $$ = create_syncrep_config($2, $4, SYNC_REP_QUORUM); }
-		| FIRST NUM '(' standby_list ')'		{ $$ = create_syncrep_config($2, $4, SYNC_REP_PRIORITY); }
+		standby_list				{ $$ = create_syncrep_config("1", $1, SYNC_REP_PRIORITY, NULL); }
+		| NUM '(' standby_list ')'		{ $$ = create_syncrep_config($1, $3, SYNC_REP_PRIORITY, NULL); }
+		| ANY NUM '(' standby_list ')'		{ $$ = create_syncrep_config($2, $4, SYNC_REP_QUORUM, NULL); }
+		| FIRST NUM '(' standby_list ')'		{ $$ = create_syncrep_config($2, $4, SYNC_REP_PRIORITY, NULL); }
+		| ALWAYS '(' standby_list ')' ',' ANY NUM '(' standby_list ')'		{ $$ = create_syncrep_config($7, $9, SYNC_REP_SYNC_QUORUM, $3); }
 	;
 
 standby_list:
@@ -83,7 +84,7 @@ standby_name:
 %%
 
 static SyncRepConfigData *
-create_syncrep_config(const char *num_sync, List *members, uint8 syncrep_method)
+create_syncrep_config(const char *num_sync, List *members, uint8 syncrep_method, List *always_members)
 {
 	SyncRepConfigData *config;
 	int			size;
@@ -99,15 +100,34 @@ create_syncrep_config(const char *num_sync, List *members, uint8 syncrep_method)
 		size += strlen(standby_name) + 1;
 	}
 
+	foreach(lc, always_members)
+	{
+		char	   *standby_name = (char *) lfirst(lc);
+
+		size += strlen(standby_name) + 1;
+	}
+
+
 	/* And transform the data into flat representation */
 	config = (SyncRepConfigData *) palloc(size);
 
 	config->config_size = size;
 	config->num_sync = atoi(num_sync);
+	config->num_always = list_length(always_members);
 	config->syncrep_method = syncrep_method;
 	config->nmembers = list_length(members);
 	ptr = config->member_names;
+
 	foreach(lc, members)
+	{
+		char	   *standby_name = (char *) lfirst(lc);
+
+		strcpy(ptr, standby_name);
+		ptr += strlen(standby_name) + 1;
+	}
+	config->always_offset = ptr - config->member_names;
+
+	foreach(lc, always_members)
 	{
 		char	   *standby_name = (char *) lfirst(lc);
 

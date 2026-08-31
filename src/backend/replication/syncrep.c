@@ -594,7 +594,9 @@ SyncRepGetSyncRecPtr(XLogRecPtr *writePtr, XLogRecPtr *flushPtr,
 					 XLogRecPtr *applyPtr, bool *am_sync)
 {
 	SyncRepStandbyData *sync_standbys;
+	SyncRepStandbyData *forced_standbys;
 	int			num_standbys;
+	int			num_forced_standbys;
 	int			i;
 
 	/* Initialize default results */
@@ -608,7 +610,7 @@ SyncRepGetSyncRecPtr(XLogRecPtr *writePtr, XLogRecPtr *flushPtr,
 		return false;
 
 	/* Get standbys that are considered as synchronous at this moment */
-	num_standbys = SyncRepGetCandidateStandbys(&sync_standbys);
+	num_standbys = SyncRepGetCandidateStandbys(&sync_standbys, &forced_standbys, &num_forced_standbys);
 
 	/* Am I among the candidate sync standbys? */
 	for (i = 0; i < num_standbys; i++)
@@ -625,8 +627,9 @@ SyncRepGetSyncRecPtr(XLogRecPtr *writePtr, XLogRecPtr *flushPtr,
 	 * not enough synchronous standbys.
 	 */
 	if (!(*am_sync) ||
-		num_standbys < SyncRepConfig->num_sync)
+		num_standbys < SyncRepConfig->num_sync || num_forced_standbys < SyncRepConfig->num_always)
 	{
+		pfree(forced_standbys);
 		pfree(sync_standbys);
 		return false;
 	}
@@ -654,9 +657,16 @@ SyncRepGetSyncRecPtr(XLogRecPtr *writePtr, XLogRecPtr *flushPtr,
 		SyncRepGetNthLatestSyncRecPtr(writePtr, flushPtr, applyPtr,
 									  sync_standbys, num_standbys,
 									  SyncRepConfig->num_sync);
+
+		if (SyncRepConfig->syncrep_method == SYNC_REP_SYNC_QUORUM)
+		{
+			SyncRepGetOldestSyncRecPtr(writePtr, flushPtr, applyPtr,
+									forced_standbys, num_forced_standbys);
+		}
 	}
 
 	pfree(sync_standbys);
+	pfree(forced_standbys);
 	return true;
 }
 
@@ -758,13 +768,17 @@ cmp_lsn(const void *a, const void *b)
  * (This might be more or fewer than num_sync; caller must check.)
  */
 int
-SyncRepGetCandidateStandbys(SyncRepStandbyData **standbys)
+SyncRepGetCandidateStandbys(SyncRepStandbyData **standbys, 
+	SyncRepStandbyData **forced_standbys, int *num_forced_standbys)
 {
 	int			i;
 	int			n;
 
 	/* Create result array */
 	*standbys = (SyncRepStandbyData *)
+		palloc(max_wal_senders * sizeof(SyncRepStandbyData));
+	/* Create result array */
+	*forced_standbys = (SyncRepStandbyData *)
 		palloc(max_wal_senders * sizeof(SyncRepStandbyData));
 
 	/* Quick exit if sync replication is not requested */
@@ -773,27 +787,27 @@ SyncRepGetCandidateStandbys(SyncRepStandbyData **standbys)
 
 	/* Collect raw data from shared memory */
 	n = 0;
+	*num_forced_standbys = 0;
 	for (i = 0; i < max_wal_senders; i++)
 	{
 		volatile WalSnd *walsnd;	/* Use volatile pointer to prevent code
 									 * rearrangement */
-		SyncRepStandbyData *stby;
+		SyncRepStandbyData stby;
 		WalSndState state;		/* not included in SyncRepStandbyData */
 
 		walsnd = &WalSndCtl->walsnds[i];
-		stby = *standbys + n;
-
+		
 		SpinLockAcquire(&walsnd->mutex);
-		stby->pid = walsnd->pid;
+		stby.pid = walsnd->pid;
 		state = walsnd->state;
-		stby->write = walsnd->write;
-		stby->flush = walsnd->flush;
-		stby->apply = walsnd->apply;
-		stby->sync_standby_priority = walsnd->sync_standby_priority;
+		stby.write = walsnd->write;
+		stby.flush = walsnd->flush;
+		stby.apply = walsnd->apply;
+		stby.sync_standby_priority = walsnd->sync_standby_priority;
 		SpinLockRelease(&walsnd->mutex);
 
 		/* Must be active */
-		if (stby->pid == 0)
+		if (stby.pid == 0)
 			continue;
 
 		/* Must be streaming or stopping */
@@ -802,17 +816,25 @@ SyncRepGetCandidateStandbys(SyncRepStandbyData **standbys)
 			continue;
 
 		/* Must be synchronous */
-		if (stby->sync_standby_priority == 0)
+		if (stby.sync_standby_priority == 0)
 			continue;
 
 		/* Must have a valid flush position */
-		if (XLogRecPtrIsInvalid(stby->flush))
+		if (XLogRecPtrIsInvalid(stby.flush))
 			continue;
 
 		/* OK, it's a candidate */
-		stby->walsnd_index = i;
-		stby->is_me = (walsnd == MyWalSnd);
+		stby.walsnd_index = i;
+		stby.is_me = (walsnd == MyWalSnd);
+		memcpy(*standbys + n, &stby, sizeof(SyncRepStandbyData));
 		n++;
+
+		/* Must ack our transaction */
+		if (stby.sync_standby_priority == -1)
+		{
+			/* OK, it's forced candidate */
+			memcpy(*forced_standbys + (*num_forced_standbys)++, &stby, sizeof(SyncRepStandbyData));
+		}
 	}
 
 	/*
@@ -868,7 +890,9 @@ SyncRepGetStandbyPriority(void)
 {
 	const char *standby_name;
 	int			priority;
+	int			counter;
 	bool		found = false;
+	bool		found_forced = false;
 
 	/*
 	 * Since synchronous cascade replication is not allowed, we always set the
@@ -881,12 +905,24 @@ SyncRepGetStandbyPriority(void)
 		return 0;
 
 	standby_name = SyncRepConfig->member_names;
-	for (priority = 1; priority <= SyncRepConfig->nmembers; priority++)
+	for (counter = 1; counter <= SyncRepConfig->nmembers; counter++)
 	{
 		if (pg_strcasecmp(standby_name, application_name) == 0 ||
 			strcmp(standby_name, "*") == 0)
 		{
 			found = true;
+			priority = counter;
+			break;
+		}
+		standby_name += strlen(standby_name) + 1;
+	}
+	standby_name = SyncRepConfig->member_names + SyncRepConfig->always_offset;
+	for (counter = 1; counter <= SyncRepConfig->num_always; counter++)
+	{
+		if (pg_strcasecmp(standby_name, application_name) == 0)
+		{
+			found = true;
+			found_forced = true;
 			break;
 		}
 		standby_name += strlen(standby_name) + 1;
@@ -894,6 +930,9 @@ SyncRepGetStandbyPriority(void)
 
 	if (!found)
 		return 0;
+	
+	if (found_forced)
+		return -1;
 
 	/*
 	 * In quorum-based sync replication, all the standbys in the list have the
@@ -1069,6 +1108,10 @@ check_synchronous_standby_names(char **newval, void **extra, GucSource source)
 		yyscan_t	scanner;
 		int			parse_rc;
 		SyncRepConfigData *pconf;
+		char			*standby_name;
+		char			*forced_standby_name;
+		int				counter;
+		int				f_counter;
 
 		/* Result of parsing is returned in one of these two variables */
 		SyncRepConfigData *syncrep_parse_result = NULL;
@@ -1091,8 +1134,53 @@ check_synchronous_standby_names(char **newval, void **extra, GucSource source)
 			return false;
 		}
 
+
+		if (syncrep_parse_result->syncrep_method == SYNC_REP_SYNC_QUORUM &&
+			syncrep_parse_result->num_always <= 0)
+		{
+			GUC_check_errmsg("number of always standbys (%d) must be greater than zero",
+							 syncrep_parse_result->num_always);
+			return false;
+		}
+
+
+		forced_standby_name = syncrep_parse_result->member_names + syncrep_parse_result->always_offset;
+
+		for (f_counter = 1; f_counter <= syncrep_parse_result->num_always; f_counter++)
+		{
+			bool	found = false;
+
+			/* Wildcard is not allowed in the ALWAYS block */
+			if (strcmp(forced_standby_name, "*") == 0)
+			{
+				GUC_check_errmsg("wildcard \"*\" is not allowed in ALWAYS standby list");
+				return false;
+			}
+
+			standby_name = syncrep_parse_result->member_names;
+
+			for (counter = 1; counter <= syncrep_parse_result->nmembers; counter++)
+			{
+				if (pg_strcasecmp(standby_name, forced_standby_name) == 0)
+				{
+					found = true;
+					break;
+				}
+				standby_name += strlen(standby_name) + 1;
+			}
+			
+			if (!found) {
+				GUC_check_errmsg("forced standby \"%s\" should be listed in sync standbys",
+								forced_standby_name);
+				return false;
+			}
+
+			forced_standby_name += strlen(forced_standby_name) + 1;
+		}
+		
 		if (syncrep_parse_result->num_sync <= 0)
 		{
+
 			GUC_check_errmsg("number of synchronous standbys (%d) must be greater than zero",
 							 syncrep_parse_result->num_sync);
 			return false;
