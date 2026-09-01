@@ -1199,8 +1199,9 @@ primary_slot_name = 'node_a_slot'
     as synchronous confirm receipt of their data. The number of synchronous
     standbys that transactions must wait for replies from is specified in
     <varname>synchronous_standby_names</varname>. This parameter also specifies
-    a list of standby names and the method (<literal>FIRST</literal> and
-    <literal>ANY</literal>) to choose synchronous standbys from the listed ones.
+    a list of standby names and the method (<literal>FIRST</literal>,
+    <literal>ANY</literal> and <literal>EVERY</literal>) to choose synchronous
+    standbys from the listed ones.
    </para>
    <para>
     The method <literal>FIRST</literal> specifies a priority-based synchronous
@@ -1245,6 +1246,20 @@ synchronous_standby_names = 'ANY 2 (s1, s2, s3)'
     wait for replies from at least any two standbys of <literal>s1</literal>,
     <literal>s2</literal> and <literal>s3</literal>. <literal>s4</literal> is an asynchronous
     standby since its name is not in the list.
+   </para>
+   <para>
+    The keyword <literal>EVERY</literal> designates <firstterm>forced</firstterm>
+    standbys that must always acknowledge commits, in addition to the quorum
+    requirement.  A forced standby must also be listed in the
+    <literal>ANY</literal> block.  An example is:
+<programlisting>
+synchronous_standby_names = 'EVERY (s1), ANY 2 (s1, s2, s3)'
+</programlisting>
+    Here, <literal>s1</literal> is forced: every commit must wait for
+    <literal>s1</literal> to reply, and also for at least one of
+    <literal>s2</literal> or <literal>s3</literal> to reply (so that the quorum of
+    2 is satisfied).  If <literal>s1</literal> is down, transaction commits will
+    block even if <literal>s2</literal> and <literal>s3</literal> are available.
    </para>
    <para>
     The synchronous states of standby servers can be viewed using
