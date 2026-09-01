@@ -203,7 +203,7 @@ my $rc = $node_primary->psql('postgres',
 	"ALTER SYSTEM SET synchronous_standby_names = 'EVERY(standby1), ANY 2(standby2, standby3)';",
 	on_error_stop => 0,
 	stderr => \$err_out);
-like($err_out, qr/ERROR:  forced standby standby1 should be listed in sync standbys/,
+like($err_out, qr/ERROR:  forced standby "standby1" should be listed in sync standbys/,
 	'forced standby not in ANY list rejected by GUC check');
 
 # Wildcard * in EVERY must be rejected.
