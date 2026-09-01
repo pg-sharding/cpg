@@ -1452,8 +1452,9 @@ description | Waiting for a newly initialized WAL file to reach durable storage
         </listitem>
         <listitem>
          <para>
-          <literal>quorum</literal>: This standby server is considered as a candidate
-          for quorum standbys.
+          <literal>quorum</literal>: This standby server is a candidate
+          for quorum standbys in a configuration using <literal>ANY</literal>
+          without <literal>EVERY</literal>.
          </para>
         </listitem>
         <listitem>
@@ -1462,7 +1463,9 @@ description | Waiting for a newly initialized WAL file to reach durable storage
           for quorum standbys in a configuration that also includes forced
           (<literal>EVERY</literal>) standbys.  Forced standbys are
           distinguished by a <structfield>sync_priority</structfield> of
-          <literal>-1</literal>.
+          <literal>-1</literal>, while non-forced quorum standbys in the
+          same configuration have <structfield>sync_priority</structfield>
+          <literal>1</literal>.
          </para>
         </listitem>
        </itemizedlist>
