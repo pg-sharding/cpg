@@ -5198,6 +5198,7 @@ HINT:  If it is safe for all REPLICATION users to use this library as an output 
 <synopsis>
 [FIRST] <replaceable class="parameter">num_sync</replaceable> ( <replaceable class="parameter">standby_name</replaceable> [, ...] )
 ANY <replaceable class="parameter">num_sync</replaceable> ( <replaceable class="parameter">standby_name</replaceable> [, ...] )
+EVERY ( <replaceable class="parameter">standby_name</replaceable> [, ...] ) , ANY <replaceable class="parameter">num_sync</replaceable> ( <replaceable class="parameter">standby_name</replaceable> [, ...] )
 <replaceable class="parameter">standby_name</replaceable> [, ...]
 </synopsis>
         where <replaceable class="parameter">num_sync</replaceable> is
@@ -5207,8 +5208,8 @@ ANY <replaceable class="parameter">num_sync</replaceable> ( <replaceable class="
         is the name of a standby server.
         <replaceable class="parameter">num_sync</replaceable>
         must be an integer value greater than zero.
-        <literal>FIRST</literal> and <literal>ANY</literal> specify the method to choose
-        synchronous standbys from the listed servers.
+        <literal>FIRST</literal>, <literal>ANY</literal> and <literal>EVERY</literal>
+        specify the method to choose synchronous standbys from the listed servers.
        </para>
        <para>
         The keyword <literal>FIRST</literal>, coupled with
@@ -5239,7 +5240,21 @@ ANY <replaceable class="parameter">num_sync</replaceable> ( <replaceable class="
         reply.
        </para>
        <para>
-        <literal>FIRST</literal> and <literal>ANY</literal> are case-insensitive. If these
+        The keyword <literal>EVERY</literal>, used together with <literal>ANY</literal>,
+        specifies one or more <firstterm>forced</firstterm> standby servers that
+        must <emphasis>always</emphasis> acknowledge a commit, in addition to the
+        quorum requirement.  A forced standby must also be listed in the
+        <literal>ANY</literal> block.  Transaction commits wait until their WAL records
+        are replicated to <replaceable class="parameter">num_sync</replaceable>
+        quorum standbys <emphasis>and</emphasis> to every forced standby.
+        For example, a setting of <literal>EVERY (s1), ANY 2 (s1, s2, s3)</literal>
+        will cause each commit to wait for replies from <literal>s1</literal> (forced)
+        and at least one other standby among <literal>s2</literal> and
+        <literal>s3</literal>.
+       </para>
+       <para>
+        <literal>FIRST</literal>, <literal>ANY</literal> and <literal>EVERY</literal>
+        are case-insensitive. If these
         keywords are used as the name of a standby server,
         its <replaceable class="parameter">standby_name</replaceable> must
         be double-quoted.
@@ -5255,6 +5270,7 @@ ANY <replaceable class="parameter">num_sync</replaceable> ( <replaceable class="
        </para>
        <para>
         The special entry <literal>*</literal> matches any standby name.
+        It is not allowed in the <literal>EVERY</literal> block.
        </para>
        <para>
         There is no mechanism to enforce uniqueness of standby names.  In case

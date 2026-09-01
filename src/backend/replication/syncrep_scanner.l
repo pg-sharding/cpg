@@ -92,6 +92,7 @@ xdinside		[^"]+
 	/* brute-force case insensitivity is safer than relying on flex -i */
 
 [Aa][Nn][Yy]			{ return ANY; }
+[Ee][Vv][Ee][Rr][Yy]	{ return EVERY; }
 [Ff][Ii][Rr][Ss][Tt]	{ return FIRST; }
 
 {xdstart}	{
