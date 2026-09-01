@@ -4374,7 +4374,9 @@ pg_stat_get_wal_senders(PG_FUNCTION_ARGS)
 #define PG_STAT_GET_WAL_SENDERS_COLS	12
 	ReturnSetInfo *rsinfo = (ReturnSetInfo *) fcinfo->resultinfo;
 	SyncRepStandbyData *sync_standbys;
+	SyncRepStandbyData *forced_standbys;
 	int			num_standbys;
+	int 		num_forced_standbys;
 	int			i;
 
 	InitMaterializedSRF(fcinfo, 0);
@@ -4383,7 +4385,7 @@ pg_stat_get_wal_senders(PG_FUNCTION_ARGS)
 	 * Get the currently active synchronous standbys.  This could be out of
 	 * date before we're done, but we'll use the data anyway.
 	 */
-	num_standbys = SyncRepGetCandidateStandbys(&sync_standbys);
+	num_standbys = SyncRepGetCandidateStandbys(&sync_standbys, &forced_standbys, &num_forced_standbys);
 
 	for (i = 0; i < max_wal_senders; i++)
 	{
@@ -4510,7 +4512,10 @@ pg_stat_get_wal_senders(PG_FUNCTION_ARGS)
 				values[10] = CStringGetTextDatum("async");
 			else if (is_sync_standby)
 				values[10] = SyncRepConfig->syncrep_method == SYNC_REP_PRIORITY ?
-					CStringGetTextDatum("sync") : CStringGetTextDatum("quorum");
+					CStringGetTextDatum("sync") :
+					(SyncRepConfig->syncrep_method == SYNC_REP_SYNC_QUORUM ?
+					 CStringGetTextDatum("sync-quorum") :
+					 CStringGetTextDatum("quorum"));
 			else
 				values[10] = CStringGetTextDatum("potential");
 

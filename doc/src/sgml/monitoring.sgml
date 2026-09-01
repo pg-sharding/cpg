@@ -1465,6 +1465,10 @@ description | Waiting for a newly initialized WAL file to reach durable storage
        Priority of this standby server for being chosen as the
        synchronous standby in a priority-based synchronous replication.
        This has no effect in a quorum-based synchronous replication.
+       The value <literal>-1</literal> indicates a forced standby listed
+       in the <literal>EVERY</literal> block of
+       <xref linkend="guc-synchronous-standby-names"/>, which must always
+       acknowledge commits.
       </para></entry>
      </row>
 
@@ -1497,6 +1501,15 @@ description | Waiting for a newly initialized WAL file to reach durable storage
          <para>
           <literal>quorum</literal>: This standby server is considered as a candidate
           for quorum standbys.
+         </para>
+        </listitem>
+        <listitem>
+         <para>
+          <literal>sync-quorum</literal>: This standby server is a candidate
+          for quorum standbys in a configuration that also includes forced
+          (<literal>EVERY</literal>) standbys.  Forced standbys are
+          distinguished by a <structfield>sync_priority</structfield> of
+          <literal>-1</literal>.
          </para>
         </listitem>
        </itemizedlist>
