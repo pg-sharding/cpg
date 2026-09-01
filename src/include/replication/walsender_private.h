@@ -63,7 +63,8 @@ typedef struct WalSnd
 
 	/*
 	 * The priority order of the standby managed by this WALSender, as listed
-	 * in synchronous_standby_names, or 0 if not-listed, or -1 if always-forced.
+	 * in synchronous_standby_names, or 0 if not-listed, or -1 if listed as
+	 * forced (EVERY).
 	 */
 	int			sync_standby_priority;
 

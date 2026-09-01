@@ -20,7 +20,7 @@
 #include "syncrep_gram.h"
 
 static SyncRepConfigData *create_syncrep_config(const char *num_sync,
-					List *members, uint8 syncrep_method, List *always_members);
+					List *members, uint8 syncrep_method, List *every_members);
 
 /*
  * Bison doesn't allocate anything that needs to live across parser calls,
@@ -48,7 +48,7 @@ static SyncRepConfigData *create_syncrep_config(const char *num_sync,
 	SyncRepConfigData *config;
 }
 
-%token <str> NAME NUM JUNK ANY FIRST ALWAYS
+%token <str> NAME NUM JUNK ANY FIRST EVERY
 
 %type <config> result standby_config
 %type <list> standby_list
@@ -69,7 +69,7 @@ standby_config:
 		| NUM '(' standby_list ')'		{ $$ = create_syncrep_config($1, $3, SYNC_REP_PRIORITY, NULL); }
 		| ANY NUM '(' standby_list ')'		{ $$ = create_syncrep_config($2, $4, SYNC_REP_QUORUM, NULL); }
 		| FIRST NUM '(' standby_list ')'		{ $$ = create_syncrep_config($2, $4, SYNC_REP_PRIORITY, NULL); }
-		| ALWAYS '(' standby_list ')' ',' ANY NUM '(' standby_list ')'		{ $$ = create_syncrep_config($7, $9, SYNC_REP_SYNC_QUORUM, $3); }
+		| EVERY '(' standby_list ')' ',' ANY NUM '(' standby_list ')'		{ $$ = create_syncrep_config($7, $9, SYNC_REP_SYNC_QUORUM, $3); }
 	;
 
 standby_list:
@@ -84,7 +84,7 @@ standby_name:
 %%
 
 static SyncRepConfigData *
-create_syncrep_config(const char *num_sync, List *members, uint8 syncrep_method, List *always_members)
+create_syncrep_config(const char *num_sync, List *members, uint8 syncrep_method, List *every_members)
 {
 	SyncRepConfigData *config;
 	int			size;
@@ -100,7 +100,7 @@ create_syncrep_config(const char *num_sync, List *members, uint8 syncrep_method,
 		size += strlen(standby_name) + 1;
 	}
 
-	foreach(lc, always_members)
+	foreach(lc, every_members)
 	{
 		char	   *standby_name = (char *) lfirst(lc);
 
@@ -113,7 +113,7 @@ create_syncrep_config(const char *num_sync, List *members, uint8 syncrep_method,
 
 	config->config_size = size;
 	config->num_sync = atoi(num_sync);
-	config->num_always = list_length(always_members);
+	config->num_every = list_length(every_members);
 	config->syncrep_method = syncrep_method;
 	config->nmembers = list_length(members);
 	ptr = config->member_names;
@@ -125,9 +125,9 @@ create_syncrep_config(const char *num_sync, List *members, uint8 syncrep_method,
 		strcpy(ptr, standby_name);
 		ptr += strlen(standby_name) + 1;
 	}
-	config->always_offset = ptr - config->member_names;
+	config->every_offset = ptr - config->member_names;
 
-	foreach(lc, always_members)
+	foreach(lc, every_members)
 	{
 		char	   *standby_name = (char *) lfirst(lc);
 

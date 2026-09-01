@@ -1,7 +1,7 @@
 
 # Copyright (c) 2025, PostgreSQL Global Development Group
 
-# Test forced (ALWAYS) standbys in synchronous replication.  The ALWAYS
+# Test forced (EVERY) standbys in synchronous replication.  The EVERY
 # block names standbys that must always acknowledge a commit, in
 # addition to the quorum standbys selected from the ANY list.  Forced
 # standbys are required to be part of ANY() as well.
@@ -95,7 +95,7 @@ $node_standby_3->init_from_backup($node_primary, $backup_name,
 start_standby_and_wait($node_primary, $node_standby_3);
 
 # ---------------------------------------------------------------
-# Scenario 1: ALWAYS(standby1), ANY 2(standby1, standby2, standby3)
+# Scenario 1: EVERY(standby1), ANY 2(standby1, standby2, standby3)
 # standby1 is forced (priority -1, sync-quorum).  The ANY quorum needs
 # 2 acks: standby1 (forced) plus at least one of standby2/standby3.
 # This exercises the actual interaction between forced and quorum
@@ -105,12 +105,12 @@ test_sync_state(
 	$node_primary, qq(standby1|-1|sync-quorum
 standby2|1|sync-quorum
 standby3|1|sync-quorum),
-	'ALWAYS standby1 plus ANY 2 quorum',
-	'ALWAYS(standby1), ANY 2(standby1, standby2, standby3)');
+	'EVERY standby1 plus ANY 2 quorum',
+	'EVERY(standby1), ANY 2(standby1, standby2, standby3)');
 
 # Create a table for subsequent INSERT tests (all standbys are up here).
 $node_primary->safe_psql('postgres',
-	"CREATE TABLE tab_always AS SELECT generate_series(1, 10) AS a;");
+	"CREATE TABLE tab_every AS SELECT generate_series(1, 10) AS a;");
 
 # ---------------------------------------------------------------
 # Scenario 2a: forced standby down -> commit must block.
@@ -131,7 +131,7 @@ my $bgpid = $bgpsql->query('SELECT pg_backend_pid()');
 
 # Send the INSERT; it should hang waiting for the forced standby.
 $bgpsql->query_until(qr//,
-	"INSERT INTO tab_always VALUES (generate_series(11, 20));SELECT 'done';\n");
+	"INSERT INTO tab_every VALUES (generate_series(11, 20));SELECT 'done';\n");
 
 # Wait until the primary notices standby1 is gone.
 ok($node_primary->poll_query_until(
@@ -183,7 +183,7 @@ $bgpsql->quit;
 
 # Confirm the rows were inserted.
 is($node_primary->safe_psql('postgres',
-	"SELECT count(*) FROM tab_always;"),
+	"SELECT count(*) FROM tab_every;"),
 	'20',
 	'rows inserted once forced + quorum standby rejoined');
 
@@ -192,40 +192,40 @@ start_standby_and_wait($node_primary, $node_standby_3);
 
 # ---------------------------------------------------------------
 # Scenario 5: invalid configurations are rejected by the GUC check,
-# and existing configurations (without ALWAYS) are not broken.
+# and existing configurations (without EVERY) are not broken.
 #   - A forced standby not listed in ANY must be rejected.
-#   - ANY without ALWAYS must still be accepted (regression guard).
+#   - ANY without EVERY must still be accepted (regression guard).
 # ---------------------------------------------------------------
 
 # A forced standby not present in the ANY list must be rejected.
 my $err_out;
 my $rc = $node_primary->psql('postgres',
-	"ALTER SYSTEM SET synchronous_standby_names = 'ALWAYS(standby1), ANY 2(standby2, standby3)';",
+	"ALTER SYSTEM SET synchronous_standby_names = 'EVERY(standby1), ANY 2(standby2, standby3)';",
 	on_error_stop => 0,
 	stderr => \$err_out);
 like($err_out, qr/ERROR:  forced standby standby1 should be listed in sync standbys/,
 	'forced standby not in ANY list rejected by GUC check');
 
-# Wildcard * in ALWAYS must be rejected.
+# Wildcard * in EVERY must be rejected.
 $rc = $node_primary->psql('postgres',
-	"ALTER SYSTEM SET synchronous_standby_names = 'ALWAYS(*), ANY 1(standby1, standby2, standby3)';",
+	"ALTER SYSTEM SET synchronous_standby_names = 'EVERY(*), ANY 1(standby1, standby2, standby3)';",
 	on_error_stop => 0,
 	stderr => \$err_out);
-like($err_out, qr/ERROR:  wildcard "\*" is not allowed in ALWAYS standby list/,
-	'wildcard in ALWAYS rejected by GUC check');
+like($err_out, qr/ERROR:  wildcard "\*" is not allowed in EVERY standby list/,
+	'wildcard in EVERY rejected by GUC check');
 
-# ANY without ALWAYS must still be accepted (regression guard).
+# ANY without EVERY must still be accepted (regression guard).
 test_sync_state(
 	$node_primary, qq(standby1|1|quorum
 standby2|1|quorum
 standby3|1|quorum),
-	'ANY quorum without ALWAYS still works (regression)',
+	'ANY quorum without EVERY still works (regression)',
 	'ANY 1(standby1, standby2, standby3)');
 
 # ---------------------------------------------------------------
-# Scenario 6: existing (non-ALWAYS) configurations are not broken.
+# Scenario 6: existing (non-EVERY) configurations are not broken.
 # Plain priority, FIRST and ANY syntaxes must continue to work and
-# report the same sync_state as before the ALWAYS feature was added.
+# report the same sync_state as before the EVERY feature was added.
 # ---------------------------------------------------------------
 test_sync_state(
 	$node_primary, qq(standby1|1|sync

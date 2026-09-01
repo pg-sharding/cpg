@@ -1200,7 +1200,7 @@ primary_slot_name = 'node_a_slot'
     standbys that transactions must wait for replies from is specified in
     <varname>synchronous_standby_names</varname>. This parameter also specifies
     a list of standby names and the method (<literal>FIRST</literal>,
-    <literal>ANY</literal> and <literal>ALWAYS</literal>) to choose synchronous
+    <literal>ANY</literal> and <literal>EVERY</literal>) to choose synchronous
     standbys from the listed ones.
    </para>
    <para>
@@ -1248,12 +1248,12 @@ synchronous_standby_names = 'ANY 2 (s1, s2, s3)'
     standby since its name is not in the list.
    </para>
    <para>
-    The keyword <literal>ALWAYS</literal> designates <firstterm>forced</firstterm>
+    The keyword <literal>EVERY</literal> designates <firstterm>forced</firstterm>
     standbys that must always acknowledge commits, in addition to the quorum
     requirement.  A forced standby must also be listed in the
     <literal>ANY</literal> block.  An example is:
 <programlisting>
-synchronous_standby_names = 'ALWAYS (s1), ANY 2 (s1, s2, s3)'
+synchronous_standby_names = 'EVERY (s1), ANY 2 (s1, s2, s3)'
 </programlisting>
     Here, <literal>s1</literal> is forced: every commit must wait for
     <literal>s1</literal> to reply, and also for at least one of

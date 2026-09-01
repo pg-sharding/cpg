@@ -627,7 +627,7 @@ SyncRepGetSyncRecPtr(XLogRecPtr *writePtr, XLogRecPtr *flushPtr,
 	 * not enough synchronous standbys.
 	 */
 	if (!(*am_sync) ||
-		num_standbys < SyncRepConfig->num_sync || num_forced_standbys < SyncRepConfig->num_always)
+		num_standbys < SyncRepConfig->num_sync || num_forced_standbys < SyncRepConfig->num_every)
 	{
 		pfree(forced_standbys);
 		pfree(sync_standbys);
@@ -916,8 +916,8 @@ SyncRepGetStandbyPriority(void)
 		}
 		standby_name += strlen(standby_name) + 1;
 	}
-	standby_name = SyncRepConfig->member_names + SyncRepConfig->always_offset;
-	for (counter = 1; counter <= SyncRepConfig->num_always; counter++)
+	standby_name = SyncRepConfig->member_names + SyncRepConfig->every_offset;
+	for (counter = 1; counter <= SyncRepConfig->num_every; counter++)
 	{
 		if (pg_strcasecmp(standby_name, application_name) == 0)
 		{
@@ -1136,24 +1136,24 @@ check_synchronous_standby_names(char **newval, void **extra, GucSource source)
 
 
 		if (syncrep_parse_result->syncrep_method == SYNC_REP_SYNC_QUORUM &&
-			syncrep_parse_result->num_always <= 0)
+			syncrep_parse_result->num_every <= 0)
 		{
-			GUC_check_errmsg("number of always standbys (%d) must be greater than zero",
-							 syncrep_parse_result->num_always);
+			GUC_check_errmsg("number of EVERY standbys (%d) must be greater than zero",
+							 syncrep_parse_result->num_every);
 			return false;
 		}
 
 
-		forced_standby_name = syncrep_parse_result->member_names + syncrep_parse_result->always_offset;
+		forced_standby_name = syncrep_parse_result->member_names + syncrep_parse_result->every_offset;
 
-		for (f_counter = 1; f_counter <= syncrep_parse_result->num_always; f_counter++)
+		for (f_counter = 1; f_counter <= syncrep_parse_result->num_every; f_counter++)
 		{
 			bool	found = false;
 
-			/* Wildcard is not allowed in the ALWAYS block */
+			/* Wildcard is not allowed in the EVERY block */
 			if (strcmp(forced_standby_name, "*") == 0)
 			{
-				GUC_check_errmsg("wildcard \"*\" is not allowed in ALWAYS standby list");
+				GUC_check_errmsg("wildcard \"*\" is not allowed in EVERY standby list");
 				return false;
 			}
 
