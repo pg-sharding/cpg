@@ -92,10 +92,9 @@ extern void SyncRepInitConfig(void);
 extern void SyncRepReleaseWaiters(void);
 
 /* called by wal sender and user backend */
-extern int	SyncRepGetCandidateStandbys(
-	SyncRepStandbyData **standbys, 
-	SyncRepStandbyData **forced_standbys,
-	int *num_forced_standbys);
+extern int	SyncRepGetCandidateStandbys(SyncRepStandbyData **standbys,
+									   SyncRepStandbyData **forced_standbys,
+									   int *num_forced_standbys);
 
 /* called by checkpointer */
 extern void SyncRepUpdateSyncStandbysDefined(void);

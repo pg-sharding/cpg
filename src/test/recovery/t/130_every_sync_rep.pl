@@ -191,7 +191,7 @@ is($node_primary->safe_psql('postgres',
 start_standby_and_wait($node_primary, $node_standby_3);
 
 # ---------------------------------------------------------------
-# Scenario 5: invalid configurations are rejected by the GUC check,
+# Scenario 3: invalid configurations are rejected by the GUC check,
 # and existing configurations (without EVERY) are not broken.
 #   - A forced standby not listed in ANY must be rejected.
 #   - ANY without EVERY must still be accepted (regression guard).
@@ -223,7 +223,7 @@ standby3|1|quorum),
 	'ANY 1(standby1, standby2, standby3)');
 
 # ---------------------------------------------------------------
-# Scenario 6: existing (non-EVERY) configurations are not broken.
+# Scenario 4: existing (non-EVERY) configurations are not broken.
 # Plain priority, FIRST and ANY syntaxes must continue to work and
 # report the same sync_state as before the EVERY feature was added.
 # ---------------------------------------------------------------
