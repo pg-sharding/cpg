@@ -786,15 +786,10 @@ SyncRepGetCandidateStandbys(SyncRepStandbyData **standbys,
 	int			n;
 
 	/* Create result array */
-<<<<<<< HEAD
 	*standbys = palloc_array(SyncRepStandbyData, max_wal_senders);
-=======
-	*standbys = (SyncRepStandbyData *)
-		palloc(max_wal_senders * sizeof(SyncRepStandbyData));
 	/* Create result array for forced standbys */
 	*forced_standbys = (SyncRepStandbyData *)
 		palloc(max_wal_senders * sizeof(SyncRepStandbyData));
->>>>>>> ce7be0559ad (Add forced replicas in sync replication setup (#113))
 
 	/* Quick exit if sync replication is not requested */
 	if (SyncRepConfig == NULL)
