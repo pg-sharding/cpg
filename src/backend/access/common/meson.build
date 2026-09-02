@@ -18,4 +18,5 @@ backend_sources += files(
   'toast_internals.c',
   'tupconvert.c',
   'tupdesc.c',
+  'yc_checker.c',
 )
