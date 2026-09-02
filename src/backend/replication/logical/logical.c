@@ -59,6 +59,7 @@ typedef struct LogicalErrorCallbackState
 
 /* GUC variables */
 char	   *output_plugin_libraries_string;
+bool		ycmdb_skip_output_plugin_check;
 
 /* wrappers around output plugin callbacks */
 static void output_plugin_error_callback(void *arg);
@@ -183,7 +184,7 @@ StartupDecodingContext(List *output_plugin_options,
 		 * logical decoding.
 		 */
 		const char *plugin = NameStr(slot->data.plugin);
-		bool		plugin_allowed = false;
+		bool		plugin_allowed = ycmdb_skip_output_plugin_check;
 
 		if (strcmp(plugin, "pgrepack") == 0)
 		{
