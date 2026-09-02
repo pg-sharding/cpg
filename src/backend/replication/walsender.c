@@ -4089,7 +4089,7 @@ pg_stat_get_wal_senders(PG_FUNCTION_ARGS)
 	SyncRepStandbyData *sync_standbys;
 	SyncRepStandbyData *forced_standbys;
 	int			num_standbys;
-	int 		num_forced_standbys;
+	int			num_forced_standbys;
 	int			i;
 
 	InitMaterializedSRF(fcinfo, 0);
