@@ -82,7 +82,7 @@ tests += {
   'bd': meson.current_build_dir(),
   'regress': {
     'sql': [
-      'plperl_setup',
+      'plperl_mdb',
       'plperl',
       'plperl_lc',
       'plperl_trigger',
