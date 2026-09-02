@@ -717,7 +717,7 @@ pgtls_verify_peer_name_matches_certificate_guts(PGconn *conn,
 /* See pqcomm.h comments on OpenSSL implementation of ALPN (RFC 7301) */
 static unsigned char alpn_protos[] = PG_ALPN_PROTOCOL_VECTOR;
 
-#ifdef HAVE_SSL_CTX_SET_KEYLOG_CALLBACK
+#if 0
 /*
  * SSL Key Logging callback
  *
@@ -1077,6 +1077,7 @@ initialize_SSL(PGconn *conn)
 	}
 	conn->ssl_in_use = true;
 
+#if 0
 	/*
 	 * If SSL key logging is requested, set up the callback if a compatible
 	 * version of OpenSSL is used and libpq was compiled to support it.
@@ -1093,6 +1094,7 @@ initialize_SSL(PGconn *conn)
 #endif
 #endif
 	}
+#endif
 
 	/*
 	 * SSL contexts are reference counted by OpenSSL. We can free it as soon
