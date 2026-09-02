@@ -768,8 +768,9 @@ cmp_lsn(const void *a, const void *b)
  * (This might be more or fewer than num_sync; caller must check.)
  */
 int
-SyncRepGetCandidateStandbys(SyncRepStandbyData **standbys, 
-	SyncRepStandbyData **forced_standbys, int *num_forced_standbys)
+SyncRepGetCandidateStandbys(SyncRepStandbyData **standbys,
+							SyncRepStandbyData **forced_standbys,
+							int *num_forced_standbys)
 {
 	int			i;
 	int			n;
@@ -777,7 +778,7 @@ SyncRepGetCandidateStandbys(SyncRepStandbyData **standbys,
 	/* Create result array */
 	*standbys = (SyncRepStandbyData *)
 		palloc(max_wal_senders * sizeof(SyncRepStandbyData));
-	/* Create result array */
+	/* Create result array for forced standbys */
 	*forced_standbys = (SyncRepStandbyData *)
 		palloc(max_wal_senders * sizeof(SyncRepStandbyData));
 
@@ -796,7 +797,7 @@ SyncRepGetCandidateStandbys(SyncRepStandbyData **standbys,
 		WalSndState state;		/* not included in SyncRepStandbyData */
 
 		walsnd = &WalSndCtl->walsnds[i];
-		
+
 		SpinLockAcquire(&walsnd->mutex);
 		stby.pid = walsnd->pid;
 		state = walsnd->state;
@@ -829,11 +830,11 @@ SyncRepGetCandidateStandbys(SyncRepStandbyData **standbys,
 		memcpy(*standbys + n, &stby, sizeof(SyncRepStandbyData));
 		n++;
 
-		/* Must ack our transaction */
+		/* Check if this is a forced standby */
 		if (stby.sync_standby_priority == -1)
 		{
-			/* OK, it's forced candidate */
-			memcpy(*forced_standbys + (*num_forced_standbys)++, &stby, sizeof(SyncRepStandbyData));
+			memcpy(*forced_standbys + (*num_forced_standbys)++, &stby,
+				   sizeof(SyncRepStandbyData));
 		}
 	}
 
@@ -889,7 +890,7 @@ static int
 SyncRepGetStandbyPriority(void)
 {
 	const char *standby_name;
-	int			priority;
+	int			priority = 0;
 	int			counter;
 	bool		found = false;
 	bool		found_forced = false;
@@ -930,7 +931,7 @@ SyncRepGetStandbyPriority(void)
 
 	if (!found)
 		return 0;
-	
+
 	if (found_forced)
 		return -1;
 
@@ -1108,10 +1109,10 @@ check_synchronous_standby_names(char **newval, void **extra, GucSource source)
 		yyscan_t	scanner;
 		int			parse_rc;
 		SyncRepConfigData *pconf;
-		char			*standby_name;
-		char			*forced_standby_name;
-		int				counter;
-		int				f_counter;
+		char	   *standby_name;
+		char	   *forced_standby_name;
+		int			counter;
+		int			f_counter;
 
 		/* Result of parsing is returned in one of these two variables */
 		SyncRepConfigData *syncrep_parse_result = NULL;
@@ -1134,7 +1135,6 @@ check_synchronous_standby_names(char **newval, void **extra, GucSource source)
 			return false;
 		}
 
-
 		if (syncrep_parse_result->syncrep_method == SYNC_REP_SYNC_QUORUM &&
 			syncrep_parse_result->num_every <= 0)
 		{
@@ -1142,7 +1142,6 @@ check_synchronous_standby_names(char **newval, void **extra, GucSource source)
 							 syncrep_parse_result->num_every);
 			return false;
 		}
-
 
 		forced_standby_name = syncrep_parse_result->member_names + syncrep_parse_result->every_offset;
 
@@ -1168,8 +1167,9 @@ check_synchronous_standby_names(char **newval, void **extra, GucSource source)
 				}
 				standby_name += strlen(standby_name) + 1;
 			}
-			
-			if (!found) {
+
+			if (!found)
+			{
 				GUC_check_errmsg("forced standby \"%s\" should be listed in sync standbys",
 								forced_standby_name);
 				return false;
@@ -1177,10 +1177,9 @@ check_synchronous_standby_names(char **newval, void **extra, GucSource source)
 
 			forced_standby_name += strlen(forced_standby_name) + 1;
 		}
-		
+
 		if (syncrep_parse_result->num_sync <= 0)
 		{
-
 			GUC_check_errmsg("number of synchronous standbys (%d) must be greater than zero",
 							 syncrep_parse_result->num_sync);
 			return false;

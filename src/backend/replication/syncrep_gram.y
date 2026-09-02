@@ -107,7 +107,6 @@ create_syncrep_config(const char *num_sync, List *members, uint8 syncrep_method,
 		size += strlen(standby_name) + 1;
 	}
 
-
 	/* And transform the data into flat representation */
 	config = (SyncRepConfigData *) palloc(size);
 

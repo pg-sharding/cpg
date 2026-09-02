@@ -4948,6 +4948,9 @@ EVERY ( <replaceable class="parameter">standby_name</replaceable> [, ...] ) , AN
         <literal>ANY</literal> block.  Transaction commits wait until their WAL records
         are replicated to <replaceable class="parameter">num_sync</replaceable>
         quorum standbys <emphasis>and</emphasis> to every forced standby.
+        <literal>EVERY</literal> can only be used in combination with
+        <literal>ANY</literal>, not with <literal>FIRST</literal> or the
+        priority-based syntax.
         For example, a setting of <literal>EVERY (s1), ANY 2 (s1, s2, s3)</literal>
         will cause each commit to wait for replies from <literal>s1</literal> (forced)
         and at least one other standby among <literal>s2</literal> and
