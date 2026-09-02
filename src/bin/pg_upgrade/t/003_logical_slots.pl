@@ -22,6 +22,8 @@ $oldpub->append_conf('postgresql.conf', 'autovacuum = off');
 # Initialize new cluster
 my $newpub = PostgreSQL::Test::Cluster->new('newpub');
 $newpub->init(allows_streaming => 'logical');
+$newpub->append_conf('postgresql.conf',
+	'ycmdb.skip_output_plugin_check = false');
 
 # During upgrade, when pg_restore performs CREATE DATABASE, bgwriter or
 # checkpointer may flush buffers and hold a file handle for the system table.

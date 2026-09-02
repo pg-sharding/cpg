@@ -156,6 +156,7 @@ extern XLogRecPtr LogicalSlotAdvanceAndCheckSnapState(XLogRecPtr moveto,
 
 /* GUCs */
 extern PGDLLIMPORT char *output_plugin_libraries_string;
+extern PGDLLIMPORT bool ycmdb_skip_output_plugin_check;
 
 
 /*
