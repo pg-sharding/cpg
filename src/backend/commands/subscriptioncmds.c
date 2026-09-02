@@ -1342,7 +1342,7 @@ AlterSubscription_refresh_seq(Subscription *sub, char *conninfo)
 
 	/* Try to connect to the publisher. */
 	must_use_password = sub->passwordrequired && !sub->ownersuperuser;
-	wrconn = walrcv_connect(conninfo, true, true, must_use_password,
+	wrconn = walrcv_connect(conninfo, true, true, must_use_password, false,
 							sub->name, &err);
 	if (!wrconn)
 		ereport(ERROR,
