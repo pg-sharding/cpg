@@ -16418,6 +16418,7 @@ WaitStmt:
 					WaitStmt *n = makeNode(WaitStmt);
 					n->lsn_literal = $4;
 					n->options = $5;
+					n->lsn_location = @4;
 					$$ = (Node *) n;
 				}
 			;
