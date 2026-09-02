@@ -60,6 +60,7 @@
 #include "postmaster/interrupt.h"
 #include "replication/logicalworker.h"
 #include "replication/worker_internal.h"
+#include "replication/walreceiver.h"
 #include "storage/lwlock.h"
 #include "utils/acl.h"
 #include "utils/builtins.h"
@@ -816,7 +817,7 @@ LogicalRepSyncSequences(void)
 	 */
 	LogRepWorkerWalRcvConn =
 		walrcv_connect(MySubscriptionConninfo, true, true,
-					   must_use_password,
+					   must_use_password, false,
 					   app_name.data, &err);
 	if (LogRepWorkerWalRcvConn == NULL)
 		ereport(ERROR,
