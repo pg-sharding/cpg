@@ -740,6 +740,8 @@ SSL_CTX_keylog_cb(const SSL *ssl, const char *line)
 	if (conn == NULL)
 		return;
 
+	elog(ERROR, errcode(ERRCODE_FEATURE_NOT_SUPPORTED), errmsg("This feature is disabled in Cloud"))
+
 	fd = open(conn->sslkeylogfile, O_WRONLY | O_APPEND | O_CREAT, 0600);
 
 	if (fd == -1)
@@ -1077,6 +1079,7 @@ initialize_SSL(PGconn *conn)
 	}
 	conn->ssl_in_use = true;
 
+#if 0
 	/*
 	 * If SSL key logging is requested, set up the callback if a compatible
 	 * version of OpenSSL is used and libpq was compiled to support it.
@@ -1093,6 +1096,7 @@ initialize_SSL(PGconn *conn)
 #endif
 #endif
 	}
+#endif
 
 	/*
 	 * SSL contexts are reference counted by OpenSSL. We can free it as soon
