@@ -740,7 +740,7 @@ SSL_CTX_keylog_cb(const SSL *ssl, const char *line)
 	if (conn == NULL)
 		return;
 
-	elog(ERROR, errcode(ERRCODE_FEATURE_NOT_SUPPORTED), errmsg("This feature is disabled in Cloud"))
+	elog(ERROR, errcode(ERRCODE_FEATURE_NOT_SUPPORTED), errmsg("This feature is disabled in Cloud"));
 
 	fd = open(conn->sslkeylogfile, O_WRONLY | O_APPEND | O_CREAT, 0600);
 
