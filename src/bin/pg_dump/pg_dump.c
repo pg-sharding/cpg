@@ -3740,19 +3740,19 @@ getLOs(Archive *fout)
 				 */
 				Assert(lo_metadata_dumpId);
 
-				loinfo->dobj.dump &= ~(DUMP_COMPONENT_DATA | DUMP_COMPONENT_ACL | DUMP_COMPONENT_DEFINITION);
+				loinfo[i].dobj.dump &= ~(DUMP_COMPONENT_DATA | DUMP_COMPONENT_ACL | DUMP_COMPONENT_DEFINITION);
 
 				/*
 				 * Mark the large object as dependent on
 				 * pg_largeobject_metadata so that any large object
 				 * comments/seclables are dumped after it.
 				 */
-				loinfo->dobj.dependencies = (DumpId *) pg_malloc(sizeof(DumpId));
-				loinfo->dobj.dependencies[0] = lo_metadata_dumpId;
-				loinfo->dobj.nDeps = loinfo->dobj.allocDeps = 1;
+				loinfo[i].dobj.dependencies = (DumpId *) pg_malloc(sizeof(DumpId));
+				loinfo[i].dobj.dependencies[0] = lo_metadata_dumpId;
+				loinfo[i].dobj.nDeps = loinfo[i].dobj.allocDeps = 1;
 			}
 			else
-				loinfo->dobj.dump &= ~DUMP_COMPONENT_DATA;
+				loinfo[i].dobj.dump &= ~DUMP_COMPONENT_DATA;
 		}
 	}
 
