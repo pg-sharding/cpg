@@ -126,6 +126,12 @@ static List *expectedTLEs;
 static TimeLineID curFileTLI;
 
 /*
+ * promoteTargetTLI: target timeline requested by pg_target_promote(), or 0
+ * if no specific timeline was requested (i.e. regular pg_promote()).
+ */
+TimeLineID	promoteTargetTLI = 0;
+
+/*
  * When ArchiveRecoveryRequested is set, archive recovery was requested,
  * ie. signal files were present.  When InArchiveRecovery is set, we are
  * currently recovering using offline XLOG archives.  These variables are only
@@ -442,6 +448,7 @@ static int	XLogFileReadAnyTLI(XLogSegNo segno, XLogSource source);
 
 static bool CheckForStandbyTrigger(void);
 static void SetPromoteIsTriggered(void);
+static TimeLineID ReadPromoteTargetTLI(void);
 static bool HotStandbyActiveInReplay(void);
 
 static void SetCurrentChunkStartTime(TimestampTz xtime);
@@ -3434,11 +3441,13 @@ retry:
 	pgstat_report_wait_start(WAIT_EVENT_WAL_READ);
 
 #if defined(USE_POSIX_FADVISE) && defined(POSIX_FADV_WILLNEED)
+
 	/*
-	 *  Prefetch next wal blocks to avoid page misses on next read iterations.
+	 * Prefetch next wal blocks to avoid page misses on next read iterations.
 	 */
 #define RACHUNK (16*1024*1024)
-	if (readOff == 0) {
+	if (readOff == 0)
+	{
 		posix_fadvise(readFile, 0, RACHUNK, POSIX_FADV_WILLNEED);
 	}
 #endif
@@ -4501,6 +4510,15 @@ CheckForStandbyTrigger(void)
 	if (IsPromoteSignaled() && CheckPromoteSignal())
 	{
 		ereport(LOG, (errmsg("received promote request")));
+
+		/*
+		 * If a target timeline file was created by pg_target_promote(), read
+		 * the requested timeline ID.  If the file cannot be read or contains
+		 * an invalid value, fall back to regular promotion behaviour (let the
+		 * server choose the next timeline).
+		 */
+		promoteTargetTLI = ReadPromoteTargetTLI();
+
 		RemovePromoteSignalFiles();
 		ResetPromoteSignaled();
 		SetPromoteIsTriggered();
@@ -4511,12 +4529,72 @@ CheckForStandbyTrigger(void)
 }
 
 /*
+ * Read the target timeline ID from the PROMOTE_TARGET_SIGNAL_FILE.
+ * Returns 0 if the file does not exist or is invalid, meaning that
+ * no specific target timeline was requested.
+ */
+static TimeLineID
+ReadPromoteTargetTLI(void)
+{
+	struct stat stat_buf;
+	FILE	   *file;
+	char		buf[64];
+	size_t		nread;
+	unsigned long val;
+	char	   *endptr;
+
+	if (stat(PROMOTE_TARGET_SIGNAL_FILE, &stat_buf) != 0)
+		return 0;
+
+	file = AllocateFile(PROMOTE_TARGET_SIGNAL_FILE, PG_BINARY_R);
+	if (!file)
+	{
+		ereport(WARNING,
+				(errcode_for_file_access(),
+				 errmsg("could not read file \"%s\": %m",
+						PROMOTE_TARGET_SIGNAL_FILE)));
+		return 0;
+	}
+
+	nread = fread(buf, 1, sizeof(buf) - 1, file);
+	buf[nread] = '\0';
+
+	FreeFile(file);
+
+	/* remove the file so it's not accidentally re-read on next promotion */
+	unlink(PROMOTE_TARGET_SIGNAL_FILE);
+
+	errno = 0;
+	val = strtoul(buf, &endptr, 10);
+	if (errno != 0 || endptr == buf || *endptr != '\0' &&
+		*endptr != '\n' && *endptr != '\r')
+	{
+		ereport(WARNING,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("invalid target timeline in file \"%s\"",
+						PROMOTE_TARGET_SIGNAL_FILE)));
+		return 0;
+	}
+
+	if (val == 0)
+	{
+		ereport(WARNING,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("target timeline must be greater than 0")));
+		return 0;
+	}
+
+	return (TimeLineID) val;
+}
+
+/*
  * Remove the files signaling a standby promotion request.
  */
 void
 RemovePromoteSignalFiles(void)
 {
 	unlink(PROMOTE_SIGNAL_FILE);
+	unlink(PROMOTE_TARGET_SIGNAL_FILE);
 }
 
 /*
