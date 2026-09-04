@@ -68,9 +68,8 @@ my $extended_statistic_value =
 $node->safe_psql(
 	'postgres', qq{
 CREATE ROLE mdb_replication;
-CREATE ROLE mdb_admin;
 CREATE ROLE backup_user LOGIN;
-GRANT mdb_admin TO backup_user;
+GRANT mdb_replication TO backup_user;
 CREATE ROLE secret_role PASSWORD '$initial_password';
 CREATE TABLE payload (value text);
 INSERT INTO payload VALUES ('before-backup');
@@ -110,7 +109,7 @@ ok($node->poll_query_until(
 ($ret, $stdout, $stderr) = $node->psql(
 	'postgres', 'IDENTIFY_SYSTEM;',
 	extra_params => [ '--dbname' => $repl_connstr ]);
-is($ret, 0, 'mdb_admin member can open a redacted replication connection');
+is($ret, 0, 'mdb_replication member can open a redacted replication connection');
 
 ($ret, $stdout, $stderr) = $node->psql(
 	'postgres', 'SELECT 1 / 0;',
@@ -459,9 +458,8 @@ $rewrite_node->start;
 $rewrite_node->safe_psql(
 	'postgres', q{
 CREATE ROLE mdb_replication;
-CREATE ROLE mdb_admin;
 CREATE ROLE backup_user LOGIN;
-GRANT mdb_admin TO backup_user;
+GRANT mdb_replication TO backup_user;
 ANALYZE;
 });
 my $old_statistic_relfilenode = $rewrite_node->safe_psql(
