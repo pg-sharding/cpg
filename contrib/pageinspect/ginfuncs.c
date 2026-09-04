@@ -22,6 +22,7 @@
 #include "utils/lsyscache.h"
 #include "utils/rel.h"
 #include "utils/ruleutils.h"
+#include "utils/tuplestore.h"
 
 
 PG_FUNCTION_INFO_V1(gin_metapage_info);
