@@ -59,6 +59,8 @@
 #include "backup/basebackup.h"
 #include "backup/basebackup_incremental.h"
 #include "catalog/pg_authid.h"
+#include "catalog/storage_xlog.h"
+#include "catalog/pg_tablespace_d.h"
 #include "catalog/pg_type.h"
 #include "commands/dbcommands.h"
 #include "commands/defrem.h"
@@ -125,6 +127,7 @@ bool		am_walsender = false;	/* Am I a walsender process? */
 */
 bool		role_has_rolreplication = false;	/* has replication privelege  */
 bool		member_of_mdb_replication = false;	/* member of mdb replication role  */
+bool		am_mdb_redacted_walsender = false;	/* restricted physical sender */
 
 bool		am_cascading_walsender = false; /* Am I cascading WAL to another
 											 * standby? */
@@ -139,6 +142,7 @@ int			max_wal_senders = 10;	/* the maximum number of concurrent
 int			wal_sender_timeout = 60 * 1000; /* maximum time to send one WAL
 											 * data message */
 bool		log_replication_commands = false;
+bool		ycmdb_redacted_physical_backup = false;
 
 /*
  * State for WalSndWakeupRequest
@@ -151,6 +155,16 @@ bool		wake_wal_senders = false;
  * keep a state of its work.
  */
 static XLogReaderState *xlogreader = NULL;
+static XLogReaderState *redaction_reader = NULL;
+
+/* Equal-length XLOG_NOOP used while a sensitive record crosses messages. */
+static char *redacted_record_data = NULL;
+static uint32 redacted_record_len = 0;
+static XLogRecPtr redacted_record_start = InvalidXLogRecPtr;
+static XLogRecPtr redacted_record_end = InvalidXLogRecPtr;
+static XLogRecPtr redacted_wal_available = InvalidXLogRecPtr;
+static XLogRecPtr redacted_stream_start = InvalidXLogRecPtr;
+static bool redacted_reader_initialized = false;
 
 /*
  * If the UPLOAD_MANIFEST command is used to provide a backup manifest in
@@ -259,6 +273,54 @@ check_permissions(void)
 				 (errmsg("must be superuser or replication role to use replication slots"))));
 }
 
+/*
+ * Redacted physical backup mode is intentionally weaker than REPLICATION.
+ * Keep the replication command allowlist here so that adding a new command
+ * cannot accidentally expose an unfiltered physical or logical stream.
+ */
+static void
+check_mdb_redacted_command(Node *cmd_node)
+{
+	if (!am_mdb_redacted_walsender)
+		return;
+
+	switch (cmd_node->type)
+	{
+		case T_IdentifySystemCmd:
+		case T_ReadReplicationSlotCmd:
+		case T_BaseBackupCmd:
+		case T_TimeLineHistoryCmd:
+		case T_VariableShowStmt:
+			return;
+
+		case T_CreateReplicationSlotCmd:
+			{
+				CreateReplicationSlotCmd *cmd = (CreateReplicationSlotCmd *) cmd_node;
+
+				if (cmd->kind == REPLICATION_KIND_PHYSICAL && cmd->temporary)
+					return;
+				break;
+			}
+
+		case T_StartReplicationCmd:
+			{
+				StartReplicationCmd *cmd = (StartReplicationCmd *) cmd_node;
+
+				if (cmd->kind == REPLICATION_KIND_PHYSICAL)
+					return;
+				break;
+			}
+
+		default:
+			break;
+	}
+
+	ereport(ERROR,
+			(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
+			 errmsg("replication command is not available in redacted physical "
+					"backup mode")));
+}
+
 /* A mechanism for tracking replication lag. */
 typedef struct
 {
@@ -295,6 +357,10 @@ static void InitWalSenderSlot(void);
 static void WalSndKill(int code, Datum arg);
 pg_noreturn static void WalSndShutdown(void);
 static void XLogSendPhysical(void);
+static void RedactPhysicalWAL(char *data, XLogRecPtr startptr, Size nbytes);
+static void initialize_redacted_reader(void);
+static void reset_redacted_record(void);
+static void reset_redacted_stream(void);
 static void XLogSendLogical(void);
 static void WalSndDone(WalSndSendDataCallback send_data);
 static void IdentifySystem(void);
@@ -328,6 +394,9 @@ static bool TransactionIdInRecentPast(TransactionId xid, uint32 epoch);
 
 static void WalSndSegmentOpen(XLogReaderState *state, XLogSegNo nextSegNo,
 							  TimeLineID *tli_p);
+static int	redacted_read_xlog_page(XLogReaderState *state,
+									XLogRecPtr targetPagePtr, int reqLen,
+									XLogRecPtr targetRecPtr, char *cur_page);
 
 
 /* Initialize walsender process before entering the main command loop */
@@ -388,6 +457,12 @@ WalSndErrorCleanup(void)
 
 	if (xlogreader != NULL && xlogreader->seg.ws_file >= 0)
 		wal_segment_close(xlogreader);
+	if (redaction_reader != NULL)
+	{
+		XLogReaderFree(redaction_reader);
+		redaction_reader = NULL;
+	}
+	reset_redacted_stream();
 
 	if (MyReplicationSlot != NULL)
 		ReplicationSlotRelease();
@@ -403,6 +478,14 @@ WalSndErrorCleanup(void)
 	 */
 	if (!IsTransactionOrTransactionBlock())
 		ReleaseAuxProcessResources(false);
+
+	/*
+	 * AbortCurrentTransaction() has released our session-level catalog
+	 * interlock.  Do not let this connection issue another command without
+	 * it.
+	 */
+	if (am_mdb_redacted_walsender)
+		proc_exit(0);
 
 	if (got_STOPPING || got_SIGUSR2)
 		proc_exit(0);
@@ -863,6 +946,21 @@ StartReplication(StartReplicationCmd *cmd)
 				 errmsg("out of memory"),
 				 errdetail("Failed while allocating a WAL reading processor.")));
 
+	if (am_mdb_redacted_walsender)
+	{
+		redaction_reader =
+			XLogReaderAllocate(wal_segment_size, NULL,
+							   XL_ROUTINE(.page_read = redacted_read_xlog_page,
+										  .segment_open = WalSndSegmentOpen,
+										  .segment_close = wal_segment_close),
+							   NULL);
+		if (!redaction_reader)
+			ereport(ERROR,
+					(errcode(ERRCODE_OUT_OF_MEMORY),
+					 errmsg("out of memory"),
+					 errdetail("Failed while allocating a WAL redaction processor.")));
+	}
+
 	/*
 	 * We assume here that we're logging enough information in the WAL for
 	 * log-shipping, since this is checked in PostmasterMain().
@@ -998,6 +1096,11 @@ StartReplication(StartReplicationCmd *cmd)
 
 		/* Start streaming from the requested point */
 		sentPtr = cmd->startpoint;
+		if (am_mdb_redacted_walsender)
+		{
+			reset_redacted_stream();
+			redacted_stream_start = sentPtr;
+		}
 
 		/* Initialize shared memory status, too */
 		SpinLockAcquire(&MyWalSnd->mutex);
@@ -1017,6 +1120,13 @@ StartReplication(StartReplicationCmd *cmd)
 		WalSndSetState(WALSNDSTATE_STARTUP);
 
 		Assert(streamingDoneSending && streamingDoneReceiving);
+	}
+
+	reset_redacted_stream();
+	if (redaction_reader != NULL)
+	{
+		XLogReaderFree(redaction_reader);
+		redaction_reader = NULL;
 	}
 
 	if (cmd->slotname)
@@ -1065,6 +1175,35 @@ StartReplication(StartReplicationCmd *cmd)
 
 	/* Send CommandComplete message */
 	EndReplicationCommand("START_STREAMING");
+}
+
+/*
+ * Read already-flushed WAL without entering WalSndWaitForWal().  In
+ * particular, that function may construct a keepalive in output_message,
+ * while the caller of this callback is redacting a data message in place.
+ */
+static int
+redacted_read_xlog_page(XLogReaderState *state, XLogRecPtr targetPagePtr,
+						int reqLen, XLogRecPtr targetRecPtr, char *cur_page)
+{
+	int			count;
+	WALReadError errinfo;
+	XLogSegNo	segno;
+
+	if (targetPagePtr + reqLen > redacted_wal_available)
+		return XLREAD_FAIL;
+
+	XLogReadDetermineTimeline(state, targetPagePtr, reqLen, sendTimeLine);
+	count = Min((XLogRecPtr) XLOG_BLCKSZ,
+				redacted_wal_available - targetPagePtr);
+
+	if (!WALRead(state, cur_page, targetPagePtr, count, sendTimeLine, &errinfo))
+		WALReadRaiseError(&errinfo);
+
+	XLByteToSeg(targetPagePtr, segno, state->segcxt.ws_segsize);
+	CheckXLogRemoved(segno, state->seg.ws_tli);
+
+	return count;
 }
 
 /*
@@ -1270,7 +1409,8 @@ CreateReplicationSlot(CreateReplicationSlotCmd *cmd)
 
 	if (cmd->kind == REPLICATION_KIND_PHYSICAL)
 	{
-		check_permissions();
+		if (!am_mdb_redacted_walsender)
+			check_permissions();
 		ReplicationSlotCreate(cmd->slotname, false,
 							  cmd->temporary ? RS_TEMPORARY : RS_PERSISTENT,
 							  false, false, false);
@@ -2185,6 +2325,8 @@ exec_replication_command(const char *cmd_string)
 	initStringInfo(&reply_message);
 	initStringInfo(&tmpbuf);
 
+	check_mdb_redacted_command(cmd_node);
+
 	switch (cmd_node->type)
 	{
 		case T_IdentifySystemCmd:
@@ -2202,11 +2344,13 @@ exec_replication_command(const char *cmd_string)
 			break;
 
 		case T_BaseBackupCmd:
-			check_permissions();
+			if (!am_mdb_redacted_walsender)
+				check_permissions();
 			cmdtag = "BASE_BACKUP";
 			set_ps_display(cmdtag);
 			PreventInTransactionBlock(true, cmdtag);
-			SendBaseBackup((BaseBackupCmd *) cmd_node, uploaded_manifest);
+			SendBaseBackup((BaseBackupCmd *) cmd_node, uploaded_manifest,
+						   am_mdb_redacted_walsender);
 			EndReplicationCommand(cmdtag);
 			break;
 
@@ -3266,6 +3410,258 @@ WalSndSegmentOpen(XLogReaderState *state, XLogSegNo nextSegNo,
 						path)));
 }
 
+static void
+reset_redacted_record(void)
+{
+	if (redacted_record_data != NULL)
+		pfree(redacted_record_data);
+
+	redacted_record_data = NULL;
+	redacted_record_len = 0;
+	redacted_record_start = InvalidXLogRecPtr;
+	redacted_record_end = InvalidXLogRecPtr;
+}
+
+static void
+reset_redacted_stream(void)
+{
+	reset_redacted_record();
+	redacted_wal_available = InvalidXLogRecPtr;
+	redacted_stream_start = InvalidXLogRecPtr;
+	redacted_reader_initialized = false;
+}
+
+/*
+ * Find a safe place to begin decoding.  Physical clients normally request a
+ * segment boundary, but the first WAL page there can contain the continuation
+ * of a record that started in an earlier segment.  Walk backwards to a page
+ * whose first record is not a continuation, then let XLogReader decode forward
+ * across the requested start point.
+ */
+static void
+initialize_redacted_reader(void)
+{
+	char		page[XLOG_BLCKSZ];
+	XLogRecPtr	pageptr;
+
+	Assert(!XLogRecPtrIsInvalid(redacted_stream_start));
+	Assert(!XLogRecPtrIsInvalid(redacted_wal_available));
+
+	pageptr = redacted_stream_start -
+		(redacted_stream_start % XLOG_BLCKSZ);
+	for (;;)
+	{
+		XLogPageHeader header;
+
+		if (redacted_read_xlog_page(redaction_reader, pageptr,
+									SizeOfXLogShortPHD, pageptr, page) < 0)
+			ereport(ERROR,
+					(errcode(ERRCODE_DATA_CORRUPTED),
+					 errmsg("could not find WAL record before redacted stream start %X/%X",
+							LSN_FORMAT_ARGS(redacted_stream_start))));
+
+		header = (XLogPageHeader) page;
+		if ((header->xlp_info & XLP_FIRST_IS_CONTRECORD) == 0)
+			break;
+
+		if (pageptr < XLOG_BLCKSZ)
+			ereport(ERROR,
+					(errcode(ERRCODE_DATA_CORRUPTED),
+					 errmsg("could not find WAL record before redacted stream start %X/%X",
+							LSN_FORMAT_ARGS(redacted_stream_start))));
+		pageptr -= XLOG_BLCKSZ;
+	}
+
+	XLogBeginRead(redaction_reader, pageptr);
+	redacted_reader_initialized = true;
+}
+
+static bool
+locator_is_redacted_catalog(const RelFileLocator *rlocator)
+{
+	bool		is_global = rlocator->spcOid == GLOBALTABLESPACE_OID &&
+		rlocator->dbOid == InvalidOid;
+
+	return IsMDBRedactedCatalogFile(is_global, rlocator->relNumber);
+}
+
+static bool
+record_touches_redacted_catalog(XLogReaderState *reader)
+{
+	bool		sensitive = false;
+	bool		other = false;
+
+	for (uint8 block_id = 0; block_id <= XLogRecMaxBlockId(reader); block_id++)
+	{
+		RelFileLocator rlocator;
+		ForkNumber	forknum;
+		BlockNumber blknum;
+
+		if (!XLogRecHasBlockRef(reader, block_id))
+			continue;
+
+		XLogRecGetBlockTag(reader, block_id, &rlocator, &forknum, &blknum);
+		if (locator_is_redacted_catalog(&rlocator))
+			sensitive = true;
+		else
+			other = true;
+	}
+
+	/* SMGR create and truncate records carry a locator as main data. */
+	if (XLogRecGetRmid(reader) == RM_SMGR_ID)
+	{
+		uint8		info = XLogRecGetInfo(reader) & ~XLR_INFO_MASK;
+		RelFileLocator *rlocator = NULL;
+
+		if (info == XLOG_SMGR_CREATE)
+			rlocator = &((xl_smgr_create *) XLogRecGetData(reader))->rlocator;
+		else if (info == XLOG_SMGR_TRUNCATE)
+			rlocator = &((xl_smgr_truncate *) XLogRecGetData(reader))->rlocator;
+
+		if (rlocator != NULL)
+		{
+			if (locator_is_redacted_catalog(rlocator))
+				sensitive = true;
+			else
+				other = true;
+		}
+	}
+
+	if (sensitive && other)
+		ereport(ERROR,
+				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+				 errmsg("cannot redact WAL record at %X/%X that modifies a "
+						"redacted catalog and another relation",
+						LSN_FORMAT_ARGS(reader->ReadRecPtr))));
+
+	return sensitive;
+}
+
+static void
+build_redacted_record(XLogReaderState *reader)
+{
+	XLogRecord *source = (XLogRecord *) &reader->record->header;
+	XLogRecord *record;
+	uint32		payload_space = source->xl_tot_len - SizeOfXLogRecord;
+	uint8	   *payload;
+	pg_crc32c	crc;
+
+	Assert(redacted_record_data == NULL);
+	redacted_record_data = MemoryContextAllocZero(TopMemoryContext,
+												  source->xl_tot_len);
+	redacted_record_len = source->xl_tot_len;
+	redacted_record_start = reader->ReadRecPtr;
+	redacted_record_end = reader->EndRecPtr;
+
+	record = (XLogRecord *) redacted_record_data;
+	record->xl_tot_len = source->xl_tot_len;
+	record->xl_xid = source->xl_xid;
+	record->xl_prev = source->xl_prev;
+	record->xl_info = XLOG_NOOP;
+	record->xl_rmid = RM_XLOG_ID;
+
+	payload = (uint8 *) redacted_record_data + SizeOfXLogRecord;
+	if (payload_space >= SizeOfXLogRecordDataHeaderShort &&
+		payload_space - SizeOfXLogRecordDataHeaderShort <= UINT8_MAX)
+	{
+		payload[0] = XLR_BLOCK_ID_DATA_SHORT;
+		payload[1] = payload_space - SizeOfXLogRecordDataHeaderShort;
+	}
+	else if (payload_space >= SizeOfXLogRecordDataHeaderLong)
+	{
+		uint32		data_length = payload_space - SizeOfXLogRecordDataHeaderLong;
+
+		payload[0] = XLR_BLOCK_ID_DATA_LONG;
+		memcpy(payload + sizeof(uint8), &data_length, sizeof(data_length));
+	}
+	else if (payload_space != 0)
+		ereport(ERROR,
+				(errcode(ERRCODE_INTERNAL_ERROR),
+				 errmsg("cannot construct an equal-length redacted WAL record")));
+
+	INIT_CRC32C(crc);
+	COMP_CRC32C(crc, redacted_record_data + SizeOfXLogRecord,
+				payload_space);
+	COMP_CRC32C(crc, redacted_record_data,
+				offsetof(XLogRecord, xl_crc));
+	FIN_CRC32C(crc);
+	record->xl_crc = crc;
+}
+
+static void
+patch_redacted_record(char *data, XLogRecPtr startptr, Size nbytes)
+{
+	XLogRecPtr	walptr = redacted_record_start;
+	XLogRecPtr	endptr = startptr + nbytes;
+	uint32		data_offset = 0;
+	uint32		remaining = redacted_record_len;
+
+	while (remaining > 0)
+	{
+		XLogRecPtr	page_end = walptr - (walptr % XLOG_BLCKSZ) + XLOG_BLCKSZ;
+		uint32		fragment_len = Min((uint32) (page_end - walptr), remaining);
+		XLogRecPtr	fragment_end = walptr + fragment_len;
+		XLogRecPtr	overlap_start = Max(walptr, startptr);
+		XLogRecPtr	overlap_end = Min(fragment_end, endptr);
+
+		if (overlap_start < overlap_end)
+			memcpy(data + (overlap_start - startptr),
+				   redacted_record_data + data_offset + (overlap_start - walptr),
+				   overlap_end - overlap_start);
+
+		remaining -= fragment_len;
+		data_offset += fragment_len;
+		walptr = page_end;
+
+		if (remaining > 0)
+		{
+			if (XLogSegmentOffset(walptr, wal_segment_size) == 0)
+				walptr += SizeOfXLogLongPHD;
+			else
+				walptr += SizeOfXLogShortPHD;
+		}
+	}
+}
+
+static void
+RedactPhysicalWAL(char *data, XLogRecPtr startptr, Size nbytes)
+{
+	XLogRecPtr	endptr = startptr + nbytes;
+
+	if (!redacted_reader_initialized)
+		initialize_redacted_reader();
+
+	if (redacted_record_data != NULL)
+	{
+		patch_redacted_record(data, startptr, nbytes);
+		if (redacted_record_end <= endptr)
+			reset_redacted_record();
+	}
+
+	while (redacted_record_data == NULL &&
+		   redaction_reader->EndRecPtr < endptr)
+	{
+		char	   *errm = NULL;
+		XLogRecord *record;
+
+		record = XLogReadRecord(redaction_reader, &errm);
+		if (record == NULL)
+			ereport(ERROR,
+					(errcode(ERRCODE_DATA_CORRUPTED),
+					 errmsg("could not read WAL record for redaction at %X/%X: %s",
+							LSN_FORMAT_ARGS(redaction_reader->EndRecPtr),
+							errm ? errm : "unknown error")));
+
+		if (record_touches_redacted_catalog(redaction_reader))
+		{
+			build_redacted_record(redaction_reader);
+			patch_redacted_record(data, startptr, nbytes);
+			if (redacted_record_end <= endptr)
+				reset_redacted_record();
+		}
+	}
+}
+
 /*
  * Send out the WAL in its normal physical/stored form.
  *
@@ -3282,7 +3678,10 @@ XLogSendPhysical(void)
 	XLogRecPtr	SendRqstPtr;
 	XLogRecPtr	startptr;
 	XLogRecPtr	endptr;
+	XLogRecPtr	message_startptr;
 	Size		nbytes;
+	Size		message_nbytes;
+	Size		wal_data_offset;
 	XLogSegNo	segno;
 	WALReadError errinfo;
 	Size		rbytes;
@@ -3483,6 +3882,8 @@ XLogSendPhysical(void)
 
 	nbytes = endptr - startptr;
 	Assert(nbytes <= MAX_SEND_SIZE);
+	message_startptr = startptr;
+	message_nbytes = nbytes;
 
 	/*
 	 * OK to read and send the slice.
@@ -3493,6 +3894,7 @@ XLogSendPhysical(void)
 	pq_sendint64(&output_message, startptr);	/* dataStart */
 	pq_sendint64(&output_message, SendRqstPtr); /* walEnd */
 	pq_sendint64(&output_message, 0);	/* sendtime, filled in last */
+	wal_data_offset = output_message.len;
 
 	/*
 	 * Read the log directly into the output buffer to avoid extra memcpy
@@ -3550,6 +3952,13 @@ retry:
 
 	output_message.len += nbytes;
 	output_message.data[output_message.len] = '\0';
+
+	if (am_mdb_redacted_walsender)
+	{
+		redacted_wal_available = SendRqstPtr;
+		RedactPhysicalWAL(output_message.data + wal_data_offset,
+						  message_startptr, message_nbytes);
+	}
 
 	/*
 	 * Fill the send timestamp last, so that it is taken as late as possible.
