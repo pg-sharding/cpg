@@ -970,8 +970,6 @@ InitPostgres(const char *in_dbname, Oid dboid,
 	/* Check replication permissions needed for walsender processes. */
 	if (am_walsender)
 	{
-		bool		member_of_mdb_admin;
-
 		Assert(!bootstrap);
 		/* define this variable for later use in permission checks function. */
 		/* we cannot use has_rolreplication directly because catcache search is prohibited
@@ -979,10 +977,8 @@ InitPostgres(const char *in_dbname, Oid dboid,
 		*/
 		role_has_rolreplication = has_rolreplication(GetUserId());
 		member_of_mdb_replication = is_member_of_role(GetUserId(), get_role_oid("mdb_replication", true));
-		member_of_mdb_admin = is_member_of_role(GetUserId(), get_role_oid("mdb_admin", true));
 		am_mdb_redacted_walsender = ycmdb_redacted_physical_backup &&
-			!role_has_rolreplication && !member_of_mdb_replication &&
-			member_of_mdb_admin;
+			!role_has_rolreplication && member_of_mdb_replication;
 
 		if (am_mdb_redacted_walsender)
 		{

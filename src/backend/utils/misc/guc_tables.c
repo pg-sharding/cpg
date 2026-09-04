@@ -1253,9 +1253,9 @@ struct config_bool ConfigureNamesBool[] =
 
 	{
 		{"ycmdb.redacted_physical_backup", PGC_SIGHUP, REPLICATION_SENDING,
-			gettext_noop("Enables redacted physical backups for mdb_admin "
+			gettext_noop("Enables redacted physical backups for mdb_replication "
 						 "members."),
-			gettext_noop("New replication connections from mdb_admin members "
+			gettext_noop("New replication connections from mdb_replication members "
 						 "without full replication privileges receive redacted base "
 						 "backups and WAL."),
 			GUC_NOT_IN_SAMPLE
