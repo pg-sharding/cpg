@@ -13,6 +13,7 @@
 #define _BASEBACKUP_H
 
 #include "nodes/replnodes.h"
+#include "common/relpath.h"
 
 /*
  * Minimum and maximum values of MAX_RATE option in BASE_BACKUP command.
