@@ -112,6 +112,12 @@ static TimeLineID recvFileTLI = 0;
 static XLogSegNo recvSegNo = 0;
 
 /*
+ * Tracks how far WAL buffer pages have been initialized by the walreceiver,
+ * used as a private cursor by WALWriteToBuffers().  Maintained across calls.
+ */
+static XLogRecPtr recvInitializedUpto = InvalidXLogRecPtr;
+
+/*
  * LogstreamResult indicates the byte positions that we have already
  * written/fsynced.
  */
@@ -1018,6 +1024,14 @@ XLogWalRcvWrite(char *buf, Size nbytes, XLogRecPtr recptr, TimeLineID tli)
 
 	Assert(tli != 0);
 
+	/*
+	 * Place the received WAL into WAL buffers first, so that the startup
+	 * process can begin replaying it without waiting for it to be flushed to
+	 * disk.  The walreceiver is the only writer to WAL buffers during
+	 * recovery, so this is safe without WALBufMappingLock.
+	 */
+	WALWriteToBuffers(buf, recptr, nbytes, tli, &recvInitializedUpto);
+
 	while (nbytes > 0)
 	{
 		int			segbytes;
@@ -1087,6 +1101,20 @@ XLogWalRcvWrite(char *buf, Size nbytes, XLogRecPtr recptr, TimeLineID tli)
 
 	/* Update shared-memory status */
 	pg_atomic_write_u64(&WalRcv->writtenUpto, LogstreamResult.Write);
+	SpinLockAcquire(&WalRcv->mutex);
+	WalRcv->latestWriteChunkStart = pg_atomic_read_u64(&WalRcv->writtenUpto);
+	WalRcv->writtenTLI = tli;
+	SpinLockRelease(&WalRcv->mutex);
+	pg_atomic_write_membarrier_u64(&WalRcv->writtenUpto, LogstreamResult.Write);
+
+	/*
+	 * Let recovery have it now rather than after the fsync below.  Replaying
+	 * WAL that is not yet durable is safe because the pages it dirties are
+	 * kept off disk until it is; see WalRcvWaitForFlush().
+	 */
+	WakeupRecovery();
+	if (AllowCascadeReplication())
+		WalSndWakeup(true, false);
 
 	/*
 	 * Close the current segment if it's fully written up in the last cycle of
@@ -1126,6 +1154,9 @@ XLogWalRcvFlush(bool dying, TimeLineID tli)
 			walrcv->receivedTLI = tli;
 		}
 		SpinLockRelease(&walrcv->mutex);
+
+		/* Release anyone held up waiting for this WAL to become durable */
+		ConditionVariableBroadcast(&walrcv->flushCV);
 
 		/* Signal the startup process and walsender that new WAL has arrived */
 		WakeupRecovery();
