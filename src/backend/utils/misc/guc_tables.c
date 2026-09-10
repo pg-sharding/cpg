@@ -1251,6 +1251,17 @@ struct config_bool ConfigureNamesBool[] =
 	},
 
 	{
+		{"ycmdb.restore_missing_wal_phys_slots", PGC_SIGHUP, REPLICATION_SENDING,
+			gettext_noop("Allows the walsender to restore missing WAL segments from the archive."),
+			gettext_noop("When true, a walsender that cannot find the requested WAL segment in pg_wal will attempt to restore it from the archive using restore_command, so that streaming can continue even if the segment has been removed from pg_wal."),
+			GUC_NOT_IN_SAMPLE
+		},
+		&ycmdb_restore_missing_wal_phys_slots,
+		false,
+		NULL, NULL, NULL
+	},
+
+	{
 		{"wal_init_zero", PGC_SUSET, WAL_SETTINGS,
 			gettext_noop("Writes zeroes to new WAL files before first use."),
 			NULL
