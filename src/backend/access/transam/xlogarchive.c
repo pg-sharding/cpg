@@ -66,9 +66,10 @@ RestoreArchivedFile(char *path, const char *xlogfname,
 
 	/*
 	 * Ignore restore_command when not in archive recovery (meaning we are in
-	 * crash recovery).
+	 * crash recovery) unless we are in a walsender process, which may need to
+	 * fetch WAL segments that have already been removed from pg_wal.
 	 */
-	if (!ArchiveRecoveryRequested)
+	if (!ArchiveRecoveryRequested && !am_walsender)
 		goto not_available;
 
 	/* In standby mode, restore_command might not be supplied */
