@@ -41,6 +41,7 @@ extern PGDLLIMPORT int max_wal_senders;
 extern PGDLLIMPORT int wal_sender_timeout;
 extern PGDLLIMPORT bool log_replication_commands;
 extern PGDLLIMPORT bool ycmdb_redacted_physical_backup;
+extern PGDLLIMPORT bool ycmdb_restore_missing_wal_phys_slots;
 
 extern void InitWalSender(void);
 extern bool exec_replication_command(const char *cmd_string);
