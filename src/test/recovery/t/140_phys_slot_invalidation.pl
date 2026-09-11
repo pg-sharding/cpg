@@ -5,6 +5,7 @@
 use strict;
 use warnings FATAL => 'all';
 
+use IPC::Run;
 use PostgreSQL::Test::Cluster;
 use PostgreSQL::Test::Utils;
 use Test::More;
@@ -128,6 +129,7 @@ $node_arch_primary->append_conf('postgresql.conf', qq{
 wal_keep_size = 0
 min_wal_size = 2MB
 max_wal_size = 4MB
+wal_level = logical
 restore_command = '$restore_cmd'
 });
 $node_arch_primary->start;
@@ -142,8 +144,13 @@ $node_arch_primary->backup($backup_name2);
 my $node_arch_standby = PostgreSQL::Test::Cluster->new('arch_standby');
 $node_arch_standby->init_from_backup($node_arch_primary, $backup_name2,
 	has_streaming => 1);
+
+# The backup copies the primary's postgresql.conf, which includes a
+# restore_command pointing at the primary's archive.  Override it so that the
+# standby relies purely on streaming: the missing segment must be fetched by
+# the primary's walsender, not restored locally by the standby.
 $node_arch_standby->append_conf('postgresql.conf',
-	"primary_slot_name = 'arch_slot'\nwal_retrieve_retry_interval = 500ms");
+	"primary_slot_name = 'arch_slot'\nwal_retrieve_retry_interval = 500ms\nrestore_command = 'false'");
 $node_arch_standby->start;
 
 $node_arch_primary->wait_for_catchup($node_arch_standby);
@@ -222,5 +229,77 @@ $node_arch_primary->wait_for_catchup($node_arch_standby);
 
 ok( -f "$arch_pg_wal/$needed_fname",
 	'the missing WAL segment has been restored from the archive');
+
+##################################################
+# Part C: the GUC must only help physical replication.  Logical decoding
+# reads and decodes the WAL on the publisher, so it must still fail when the
+# segment is missing, even if the GUC is enabled.
+##################################################
+
+# Create a logical decoding slot; it needs wal_level=logical (already set).
+$node_arch_primary->safe_psql('postgres',
+	"SELECT pg_create_logical_replication_slot('arch_lslot', 'test_decoding');");
+
+my $lconfirm_lsn = $node_arch_primary->safe_psql('postgres',
+	"SELECT confirmed_flush_lsn FROM pg_replication_slots WHERE slot_name = 'arch_lslot'");
+chomp $lconfirm_lsn;
+my $lseg = $node_arch_primary->safe_psql('postgres',
+	"SELECT pg_walfile_name('$lconfirm_lsn'::pg_lsn)");
+chomp $lseg;
+
+# Emit some WAL and advance WAL so that the segment containing the slot's
+# position is switched away and archived.
+for my $i (1 .. 5)
+{
+	$node_arch_primary->safe_psql('postgres',
+		"SELECT pg_logical_emit_message(false, 'mdb', 'walsender-archive-test');");
+	$node_arch_primary->safe_psql('postgres', "SELECT pg_switch_wal();");
+}
+
+# Wait until the segment has been archived
+my $lseg_archived = 0;
+for (my $i = 0; $i < 10 * $PostgreSQL::Test::Utils::timeout_default; $i++)
+{
+	if (-f "$archive_path/$lseg")
+	{
+		$lseg_archived = 1;
+		last;
+	}
+	usleep(100_000);
+}
+ok($lseg_archived, "the logical slot's WAL segment $lseg has been archived");
+
+ok( -f "$arch_pg_wal/$lseg",
+	"the logical slot's WAL segment is still present in pg_wal");
+
+# Delete the segment, as done for the physical case above.
+unlink "$arch_pg_wal/$lseg"
+  or die "could not remove WAL segment $lseg from pg_wal";
+
+# Even with the GUC enabled, a logical decoding walsender must fail to read
+# the missing segment instead of restoring it from the archive.
+my ($lout, $lerr);
+my $lret;
+eval {
+	IPC::Run::run(
+		[
+			'pg_recvlogical',
+			'--dbname' => $node_arch_primary->connstr('postgres'),
+			'--slot'   => 'arch_lslot',
+			'--file'   => '-',
+			'--start',
+			'--no-loop'
+		],
+		'>',  \$lout,
+		'2>', \$lerr,
+		IPC::Run::timeout(
+			$PostgreSQL::Test::Utils::timeout_default)
+	);
+	$lret = $? ? 1 : 0;
+};
+
+ok($lret, 'logical decoding fails when the WAL segment is missing');
+ok($lerr =~ /requested WAL segment .* has already been removed/,
+	'logical walsender does not restore the missing segment from the archive');
 
 done_testing();
