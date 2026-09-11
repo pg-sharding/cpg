@@ -78,6 +78,7 @@
 #include "replication/slot.h"
 #include "replication/slotsync.h"
 #include "replication/syncrep.h"
+#include "replication/walsender.h"
 #include "storage/aio.h"
 #include "storage/bufmgr.h"
 #include "storage/bufpage.h"
@@ -1247,6 +1248,20 @@ struct config_bool ConfigureNamesBool[] =
 		},
 		&ycmdb_skip_output_plugin_check,
 		true,
+		NULL, NULL, NULL
+	},
+
+	{
+		{"ycmdb.redacted_physical_backup", PGC_SIGHUP, REPLICATION_SENDING,
+			gettext_noop("Enables redacted physical backups for mdb_replication "
+						 "members."),
+			gettext_noop("New replication connections from mdb_replication members "
+						 "without full replication privileges receive redacted base "
+						 "backups and WAL."),
+			GUC_NOT_IN_SAMPLE
+		},
+		&ycmdb_redacted_physical_backup,
+		false,
 		NULL, NULL, NULL
 	},
 

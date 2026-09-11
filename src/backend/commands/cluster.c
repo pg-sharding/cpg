@@ -25,6 +25,7 @@
 #include "access/toast_internals.h"
 #include "access/transam.h"
 #include "access/xact.h"
+#include "backup/basebackup.h"
 #include "catalog/catalog.h"
 #include "catalog/dependency.h"
 #include "catalog/heap.h"
@@ -716,6 +717,7 @@ make_new_heap(Oid OIDOldHeap, Oid NewTableSpace, Oid NewAccessMethod,
 	Oid			namespaceid;
 
 	OldHeap = table_open(OIDOldHeap, lockmode);
+	DisableMDBRedactedBackupForRelation(OIDOldHeap);
 	OldHeapDesc = RelationGetDescr(OldHeap);
 
 	/*

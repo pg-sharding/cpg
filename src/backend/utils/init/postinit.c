@@ -27,6 +27,7 @@
 #include "access/xact.h"
 #include "access/xlog.h"
 #include "access/xloginsert.h"
+#include "backup/basebackup.h"
 #include "catalog/namespace.h"
 #include "catalog/pg_authid.h"
 #include "catalog/pg_collation.h"
@@ -66,6 +67,7 @@
 #include "utils/pg_locale.h"
 #include "utils/portal.h"
 #include "utils/ps_status.h"
+#include "utils/relmapper.h"
 #include "utils/snapmgr.h"
 #include "utils/syscache.h"
 #include "utils/timeout.h"
@@ -85,6 +87,20 @@ static void ClientCheckTimeoutHandler(void);
 static bool ThereIsAtLeastOneRole(void);
 static void process_startup_options(Port *port, bool am_superuser);
 static void process_settings(Oid databaseid, Oid roleid);
+
+static void
+unlock_mdb_redacted_catalogs(int code, Datum arg)
+{
+	LOCKTAG		tag;
+
+	(void) code;
+	(void) arg;
+
+	SET_LOCKTAG_OBJECT(tag, InvalidOid, AuthIdRelationId, InvalidOid, 0);
+	if (LockHeldByMe(&tag, AccessShareLock, false))
+		UnlockSharedObjectForSession(AuthIdRelationId, InvalidOid, 0,
+									 AccessShareLock);
+}
 
 
 /*** InitPostgres support ***/
@@ -961,10 +977,50 @@ InitPostgres(const char *in_dbname, Oid dboid,
 		*/
 		role_has_rolreplication = has_rolreplication(GetUserId());
 		member_of_mdb_replication = is_member_of_role(GetUserId(), get_role_oid("mdb_replication", true));
+		am_mdb_redacted_walsender = ycmdb_redacted_physical_backup &&
+			!role_has_rolreplication && member_of_mdb_replication;
+
+		if (am_mdb_redacted_walsender)
+		{
+			if (RecoveryInProgress())
+				ereport(FATAL,
+						(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
+						 errmsg("cannot start a redacted WAL sender during recovery")));
+
+			/*
+			 * Interlock with RelationSetNewRelfilenumber().  The first
+			 * version of the redacted format recognizes only bootstrap
+			 * relfilenumbers.
+			 */
+			LockSharedObjectForSession(AuthIdRelationId, InvalidOid, 0,
+									   AccessShareLock);
+			before_shmem_exit(unlock_mdb_redacted_catalogs, (Datum) 0);
+
+			if (access(MDB_REDACTED_BACKUP_DISABLED_FILE, F_OK) == 0)
+				ereport(FATAL,
+						(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
+						 errmsg("cannot start a redacted WAL sender after sensitive catalog storage has been rewritten")));
+			else if (errno != ENOENT)
+				ereport(FATAL,
+						(errcode_for_file_access(),
+						 errmsg("could not access file \"%s\": %m",
+								MDB_REDACTED_BACKUP_DISABLED_FILE)));
+
+			if (RelationMapOidToFilenumber(AuthIdRelationId, true) !=
+				AuthIdRelationId ||
+				RelationMapOidToFilenumber(AuthIdRolnameIndexId, true) !=
+				AuthIdRolnameIndexId ||
+				RelationMapOidToFilenumber(AuthIdOidIndexId, true) !=
+				AuthIdOidIndexId)
+				ereport(FATAL,
+						(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
+						 errmsg("cannot start a redacted WAL sender after sensitive catalog storage has been rewritten")));
+		}
 
 		/* has_rolreplication returns true in case of superuser_arg(role) */
 		/* should have REPLICATION role or be a member of mdb_replication to start walsender */
-		if (!role_has_rolreplication && !member_of_mdb_replication)
+		if (!role_has_rolreplication && !member_of_mdb_replication &&
+			!am_mdb_redacted_walsender)
 			ereport(FATAL,
 					(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
 					 errmsg("permission denied to start WAL sender"),
