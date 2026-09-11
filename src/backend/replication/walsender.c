@@ -53,6 +53,7 @@
 #include "access/transam.h"
 #include "access/xact.h"
 #include "access/xlog_internal.h"
+#include "access/xlogarchive.h"
 #include "access/xlogreader.h"
 #include "access/xlogrecovery.h"
 #include "access/xlogutils.h"
@@ -139,6 +140,7 @@ int			max_wal_senders = 10;	/* the maximum number of concurrent
 int			wal_sender_timeout = 60 * 1000; /* maximum time to send one WAL
 											 * data message */
 bool		log_replication_commands = false;
+bool		ycmdb_restore_missing_wal_phys_slots = false;
 
 /*
  * State for WalSndWakeupRequest
@@ -3253,6 +3255,25 @@ WalSndSegmentOpen(XLogReaderState *state, XLogSegNo nextSegNo,
 		int			save_errno = errno;
 
 		XLogFileName(xlogfname, *tli_p, nextSegNo, wal_segment_size);
+
+		/*
+		 * The segment is missing from pg_wal, but it may still be available
+		 * in the archive.  If enabled, try to restore it via the
+		 * restore_command before giving up, so that streaming can continue
+		 * even when the segment has been removed from pg_wal.  This is only
+		 * allowed for physical replication; logical decoding has to read and
+		 * interpret the WAL on the publisher, so restoring a segment from the
+		 * archive would be visible to the rest of the system and is not done.
+		 */
+		if (ycmdb_restore_missing_wal_phys_slots && !am_db_walsender &&
+			RestoreArchivedFile(path, xlogfname, xlogfname, wal_segment_size,
+								false))
+		{
+			state->seg.ws_file = BasicOpenFile(path, O_RDONLY | PG_BINARY);
+			if (state->seg.ws_file >= 0)
+				return;
+		}
+
 		errno = save_errno;
 		ereport(ERROR,
 				(errcode_for_file_access(),

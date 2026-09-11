@@ -61,6 +61,7 @@ tests += {
       't/054_unlogged_sequence_promotion.pl',
       't/055_cascade_reconnect.pl',
       't/130_every_sync_rep.pl',
+      't/140_phys_slot_invalidation.pl',
       't/102_mdb_replication_reserved_slots.pl',
       't/110_archive_shared.pl',
       't/111_archive_shared_checkpoint.pl',
