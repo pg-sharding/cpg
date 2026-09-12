@@ -157,6 +157,9 @@ static bool manifest_force_encode = false;
 static char *manifest_checksums = NULL;
 static DataDirSyncMethod sync_method = DATA_DIR_SYNC_METHOD_FSYNC;
 
+/* Hex-encoded encryption key for decrypting backup data */
+static char *encrypt_key = NULL;
+
 static bool success = false;
 static bool made_new_pgdata = false;
 static bool found_existing_pgdata = false;
@@ -437,6 +440,7 @@ usage(void)
 			 "                         do not verify checksums\n"));
 	printf(_("      --sync-method=METHOD\n"
 			 "                         set method for syncing files to disk\n"));
+	printf(_("      --encrypt-key=KEY  hex-encoded key to decrypt backup data\n"));
 	printf(_("  -?, --help             show this help, then exit\n"));
 	printf(_("\nConnection options:\n"));
 	printf(_("  -d, --dbname=CONNSTR   connection string\n"));
@@ -1254,6 +1258,14 @@ CreateBackupStreamer(char *archive_name, char *spclocation,
 		else if (compressed_tar_algorithm == PG_COMPRESSION_ZSTD)
 			streamer = astreamer_zstd_decompressor_new(streamer);
 	}
+
+	/*
+	 * If the user has supplied an encryption key, insert a decryptor
+	 * astreamer at the beginning of the chain to decrypt data before
+	 * any tar parsing or extraction.
+	 */
+	if (encrypt_key != NULL)
+		streamer = astreamer_decryptor_new(streamer, encrypt_key);
 
 	/* Return the results. */
 	*manifest_inject_streamer_p = manifest_inject_streamer;
@@ -2371,6 +2383,7 @@ main(int argc, char **argv)
 		{"manifest-force-encode", no_argument, NULL, 6},
 		{"manifest-checksums", required_argument, NULL, 7},
 		{"sync-method", required_argument, NULL, 8},
+		{"encrypt-key", required_argument, NULL, 9},
 		{NULL, 0, NULL, 0}
 	};
 	int			c;
@@ -2549,6 +2562,9 @@ main(int argc, char **argv)
 			case 8:
 				if (!parse_sync_method(optarg, &sync_method))
 					exit(1);
+				break;
+			case 9:
+				encrypt_key = pg_strdup(optarg);
 				break;
 			default:
 				/* getopt_long already emitted a complaint */

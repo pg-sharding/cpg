@@ -73,6 +73,7 @@
 %token K_PHYSICAL
 %token K_LOGICAL
 %token K_SLOT
+%token K_ENCRYPT
 %token K_RESERVE_WAL
 %token K_TEMPORARY
 %token K_TWO_PHASE
@@ -89,6 +90,8 @@
 %type <list>	generic_option_list
 %type <defelt>	generic_option
 %type <uintval>	opt_timeline
+%type <list>	opt_encrypt_option
+%type <node>	opt_encrypt_key
 %type <list>	plugin_options plugin_opt_list
 %type <defelt>	plugin_opt_elem
 %type <node>	plugin_opt_arg
@@ -279,10 +282,10 @@ alter_replication_slot:
 			;
 
 /*
- * START_REPLICATION [SLOT slot] [PHYSICAL] %X/%08X [TIMELINE %u]
+ * START_REPLICATION [SLOT slot] [PHYSICAL] %X/%08X [TIMELINE %u] [opt_plugin_options]
  */
 start_replication:
-			K_START_REPLICATION opt_slot opt_physical RECPTR opt_timeline
+			K_START_REPLICATION opt_slot opt_physical RECPTR opt_timeline opt_encrypt_option
 				{
 					StartReplicationCmd *cmd;
 
@@ -291,6 +294,7 @@ start_replication:
 					cmd->slotname = $2;
 					cmd->startpoint = $4;
 					cmd->timeline = $5;
+					cmd->options = $6;
 					$$ = (Node *) cmd;
 				}
 			;
@@ -363,8 +367,27 @@ opt_timeline:
 								 errmsg("invalid timeline %u", $2)));
 					$$ = $2;
 				}
-				| /* EMPTY */			{ $$ = 0; }
+			| /* EMPTY */			{ $$ = 0; }
 			;
+
+opt_encrypt_option:
+			'(' K_ENCRYPT opt_encrypt_key ')'
+				{
+					DefElem    *def;
+
+					if ($3 != NULL)
+						def = makeDefElem("encrypt", $3, -1);
+					else
+						def = makeDefElem("encrypt", (Node *) makeInteger(1), -1);
+					$$ = list_make1(def);
+				}
+			| /* EMPTY */			{ $$ = NIL; }
+		;
+
+opt_encrypt_key:
+			SCONST				{ $$ = (Node *) makeString($1); }
+			| /* EMPTY */		{ $$ = NULL; }
+		;
 
 
 plugin_options:

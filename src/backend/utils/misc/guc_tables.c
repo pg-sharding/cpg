@@ -50,6 +50,7 @@
 #include "commands/vacuum.h"
 #include "common/file_utils.h"
 #include "common/scram-common.h"
+#include "encrypt/encrypt_module.h"
 #include "jit/jit.h"
 #include "libpq/auth.h"
 #include "libpq/libpq.h"
@@ -752,6 +753,7 @@ const char *const config_group_names[] =
 	[WAL_SETTINGS] = gettext_noop("Write-Ahead Log / Settings"),
 	[WAL_CHECKPOINTS] = gettext_noop("Write-Ahead Log / Checkpoints"),
 	[WAL_ARCHIVING] = gettext_noop("Write-Ahead Log / Archiving"),
+	[WAL_ENCRYPTION] = gettext_noop("Write-Ahead Log / Encryption"),
 	[WAL_RECOVERY] = gettext_noop("Write-Ahead Log / Recovery"),
 	[WAL_ARCHIVE_RECOVERY] = gettext_noop("Write-Ahead Log / Archive Recovery"),
 	[WAL_RECOVERY_TARGET] = gettext_noop("Write-Ahead Log / Recovery Target"),

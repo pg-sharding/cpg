@@ -28,6 +28,7 @@
 #include "common/compression.h"
 #include "common/file_perm.h"
 #include "common/file_utils.h"
+#include "encrypt/encrypt_module.h"
 #include "lib/stringinfo.h"
 #include "miscadmin.h"
 #include "nodes/pg_list.h"
@@ -1053,6 +1054,24 @@ SendBaseBackup(BaseBackupCmd *cmd, IncrementalBackupInfo *ib)
 		sink = bbsink_lz4_new(sink, &opt.compression_specification);
 	else if (opt.compression == PG_COMPRESSION_ZSTD)
 		sink = bbsink_zstd_new(sink, &opt.compression_specification);
+
+	/*
+	 * If encryption is enabled via encrypt_command or encrypt_library,
+	 * insert an encryption sink after compression so that the compressed
+	 * (or uncompressed) data is encrypted before being sent to the client.
+	 */
+	if (EncryptCommand[0] != '\0' || EncryptLibrary[0] != '\0')
+	{
+		const EncryptModuleCallbacks *cb = GetEncryptCallbacks();
+
+		if (cb == NULL)
+		{
+			LoadEncryptLibrary();
+			cb = GetEncryptCallbacks();
+		}
+		if (cb != NULL && cb->encrypt_buffer_cb != NULL)
+			sink = bbsink_encrypt_new(sink);
+	}
 
 	/* Set up progress reporting. */
 	sink = bbsink_progress_new(sink, opt.progress, opt.incremental);

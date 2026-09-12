@@ -177,6 +177,9 @@ typedef struct
 		struct
 		{
 			TimeLineID	startpointTLI;	/* Starting timeline */
+			bool		encrypt;	/* Request WAL stream encryption */
+			char	   *encrypt_key;	/* Opaque key material for setup_cb */
+			size_t		encrypt_key_len; /* Length of encrypt_key */
 		}			physical;
 		struct
 		{

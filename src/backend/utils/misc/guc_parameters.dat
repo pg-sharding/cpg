@@ -746,6 +746,13 @@
   ifdef => 'DEBUG_NODE_TESTS_ENABLED',
 },
 
+{ name => 'decrypt_command', type => 'string', context => 'PGC_SIGHUP', group => 'WAL_ENCRYPTION',
+  short_desc => 'Sets the shell command that will be called to decrypt a file.',
+  long_desc => 'An empty string means use "encrypt_library".',
+  variable => 'DecryptCommand',
+  boot_val => '""',
+},
+
 { name => 'default_statistics_target', type => 'int', context => 'PGC_USERSET', group => 'QUERY_TUNING_OTHER',
   short_desc => 'Sets the default statistics target.',
   long_desc => 'This applies to table columns that have not had a column-specific target set via ALTER TABLE SET STATISTICS.',
@@ -1044,6 +1051,20 @@
   flags => 'GUC_EXPLAIN',
   variable => 'enable_tidscan',
   boot_val => 'true',
+},
+
+{ name => 'encrypt_command', type => 'string', context => 'PGC_SIGHUP', group => 'WAL_ENCRYPTION',
+  short_desc => 'Sets the shell command that will be called to encrypt a file.',
+  long_desc => 'An empty string means use "encrypt_library".',
+  variable => 'EncryptCommand',
+  boot_val => '""',
+},
+
+{ name => 'encrypt_library', type => 'string', context => 'PGC_SIGHUP', group => 'WAL_ENCRYPTION',
+  short_desc => 'Sets the library that will be called to encrypt files.',
+  long_desc => 'An empty string means use "encrypt_command".',
+  variable => 'EncryptLibrary',
+  boot_val => '""',
 },
 
 { name => 'event_source', type => 'string', context => 'PGC_POSTMASTER', group => 'LOGGING_WHERE',

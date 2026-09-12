@@ -4,6 +4,7 @@ backend_sources += files(
   'backup_manifest.c',
   'basebackup.c',
   'basebackup_copy.c',
+  'basebackup_encrypt.c',
   'basebackup_gzip.c',
   'basebackup_incremental.c',
   'basebackup_lz4.c',

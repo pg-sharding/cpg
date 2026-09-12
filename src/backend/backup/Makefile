@@ -18,6 +18,7 @@ OBJS = \
 	backup_manifest.o \
 	basebackup.o \
 	basebackup_copy.o \
+	basebackup_encrypt.o \
 	basebackup_gzip.o \
 	basebackup_incremental.o \
 	basebackup_lz4.o \
