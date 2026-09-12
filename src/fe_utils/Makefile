@@ -22,6 +22,7 @@ override CPPFLAGS := -DFRONTEND -I$(libpq_srcdir) $(CPPFLAGS)
 OBJS = \
 	archive.o \
 	astreamer_file.o \
+	astreamer_decryptor.o \
 	astreamer_gzip.o \
 	astreamer_lz4.o \
 	astreamer_tar.o \

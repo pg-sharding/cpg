@@ -224,6 +224,7 @@ extern astreamer *astreamer_lz4_decompressor_new(astreamer *next);
 extern astreamer *astreamer_zstd_compressor_new(astreamer *next,
 												pg_compress_specification *compress);
 extern astreamer *astreamer_zstd_decompressor_new(astreamer *next);
+extern astreamer *astreamer_decryptor_new(astreamer *next, const char *key_hex);
 extern astreamer *astreamer_tar_parser_new(astreamer *next);
 extern astreamer *astreamer_tar_terminator_new(astreamer *next);
 extern astreamer *astreamer_tar_archiver_new(astreamer *next);

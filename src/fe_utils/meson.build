@@ -2,6 +2,7 @@
 
 fe_utils_sources = files(
   'archive.c',
+  'astreamer_decryptor.c',
   'astreamer_file.c',
   'astreamer_gzip.c',
   'astreamer_lz4.c',
