@@ -61,6 +61,7 @@
 #include "access/xlogutils.h"
 #include "backup/basebackup.h"
 #include "backup/basebackup_incremental.h"
+#include "backup/parallel_backup.h"
 #include "catalog/pg_authid.h"
 #include "catalog/pg_type.h"
 #include "commands/defrem.h"
@@ -2328,6 +2329,34 @@ exec_replication_command(const char *cmd_string)
 			set_ps_display(cmdtag);
 			PreventInTransactionBlock(true, cmdtag);
 			UploadManifest();
+			EndReplicationCommand(cmdtag);
+			break;
+
+		case T_StartBackupCmd:
+			cmdtag = "START_BACKUP";
+			set_ps_display(cmdtag);
+			HandleStartBackup((StartBackupCmd *) cmd_node);
+			EndReplicationCommand(cmdtag);
+			break;
+
+		case T_SendFileListCmd:
+			cmdtag = "SEND_FILE_LIST";
+			set_ps_display(cmdtag);
+			HandleSendFileList();
+			EndReplicationCommand(cmdtag);
+			break;
+
+		case T_SendFileCmd:
+			cmdtag = "SEND_FILE";
+			set_ps_display(cmdtag);
+			HandleSendFile((SendFileCmd *) cmd_node);
+			EndReplicationCommand(cmdtag);
+			break;
+
+		case T_StopBackupCmd:
+			cmdtag = "STOP_BACKUP";
+			set_ps_display(cmdtag);
+			HandleStopBackup();
 			EndReplicationCommand(cmdtag);
 			break;
 

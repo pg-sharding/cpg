@@ -133,6 +133,8 @@ static char *basedir = NULL;
 static TablespaceList tablespace_dirs = {NULL, NULL};
 static char *xlog_dir = NULL;
 static char format = '\0';		/* p(lain)/t(ar) */
+
+static int njobs = 0;			/* number of parallel jobs, 0 = sequential */
 static char *label = "pg_basebackup base backup";
 static bool noclean = false;
 static bool checksum_failure = false;
@@ -226,6 +228,8 @@ static void BaseBackup(char *compression_algorithm, char *compression_detail,
 					   CompressionLocation compressloc,
 					   pg_compress_specification *client_compress,
 					   char *incremental_manifest);
+
+static void ParallelBaseBackup(void);
 
 static bool reached_end_position(XLogRecPtr segendpos, uint32 timeline,
 								 bool segment_finished);
@@ -423,6 +427,7 @@ usage(void)
 	printf(_("  -n, --no-clean         do not clean up after errors\n"));
 	printf(_("  -N, --no-sync          do not wait for changes to be written safely to disk\n"));
 	printf(_("  -P, --progress         show progress information\n"));
+	printf(_("  -j, --jobs=N           use N parallel workers for file transfer\n"));
 	printf(_("  -S, --slot=SLOTNAME    replication slot to use\n"));
 	printf(_("  -v, --verbose          output verbose messages\n"));
 	printf(_("  -V, --version          output version information, then exit\n"));
@@ -2332,6 +2337,337 @@ BaseBackup(char *compression_algorithm, char *compression_detail,
 }
 
 
+/* ------------------------------------------------------------------
+ *	ParallelBaseBackup
+ *
+ *	Performs a base backup using the parallel protocol:
+ *	  1. Coordinator sends START_BACKUP, gets backup_label
+ *	  2. Coordinator sends SEND_FILE_LIST, gets list of files
+ *	  3. Coordinator writes backup_label to disk
+ *	  4. Coordinator forks N worker processes, each connects and
+ *	     sends SEND_FILE for assigned files, writing to disk
+ *	  5. Coordinator waits for all workers to finish
+ *	  6. Coordinator sends STOP_BACKUP, gets stop LSN
+ * ------------------------------------------------------------------
+ */
+struct parallel_file_entry
+{
+	char	   *path;
+	int64		size;
+	int			mode;
+	bool		is_link;
+};
+
+static void
+ParallelBaseBackup(void)
+{
+	PGresult   *res;
+	char	   *backup_label = NULL;
+	char	   *start_lsn = NULL;
+	int			start_tli = 0;
+	int			nfiles = 0;
+	int			total_size = 0;
+	struct parallel_file_entry *files = NULL;
+	pid_t	   *worker_pids;
+	int			i;
+	int			nrows;
+	int			ncols;
+	char		query[256];
+
+	Assert(conn != NULL);
+	Assert(basedir != NULL);
+	Assert(format == 'p');		/* parallel backup only supports plain format */
+
+	/* 1. Send START_BACKUP */
+	snprintf(query, sizeof(query), "START_BACKUP (LABEL '%s')",
+			 label ? label : "parallel backup");
+	if (PQsendQuery(conn, query) == 0)
+		pg_fatal("could not send START_BACKUP: %s", PQerrorMessage(conn));
+	res = PQgetResult(conn);
+	if (PQresultStatus(res) != PGRES_TUPLES_OK)
+		pg_fatal("START_BACKUP failed: %s", PQerrorMessage(conn));
+	if (PQntuples(res) != 1)
+		pg_fatal("START_BACKUP returned unexpected number of rows");
+	backup_label = pg_strdup(PQgetvalue(res, 0, 0));
+	start_lsn = pg_strdup(PQgetvalue(res, 0, 1));
+	start_tli = atoi(PQgetvalue(res, 0, 2));
+	PQclear(res);
+
+	/* Consume ReadyForQuery */
+	res = PQgetResult(conn);
+	if (res != NULL)
+		PQclear(res);
+
+	pg_log_debug("START_BACKUP: lsn=%s tli=%d", start_lsn, start_tli);
+
+	/* 2. Send SEND_FILE_LIST */
+	if (PQsendQuery(conn, "SEND_FILE_LIST") == 0)
+		pg_fatal("could not send SEND_FILE_LIST: %s", PQerrorMessage(conn));
+	res = PQgetResult(conn);
+	if (PQresultStatus(res) != PGRES_TUPLES_OK)
+		pg_fatal("SEND_FILE_LIST failed: %s", PQerrorMessage(conn));
+
+	nrows = PQntuples(res);
+	ncols = PQnfields(res);
+	if (ncols < 4)
+		pg_fatal("SEND_FILE_LIST returned too few columns");
+
+	files = pg_malloc(nrows * sizeof(struct parallel_file_entry));
+	for (i = 0; i < nrows; i++)
+	{
+		files[i].path = pg_strdup(PQgetvalue(res, i, 0));
+		files[i].size = atoll(PQgetvalue(res, i, 1));
+		files[i].mode = atoi(PQgetvalue(res, i, 2));
+		files[i].is_link = (atoi(PQgetvalue(res, i, 3)) != 0);
+		total_size += files[i].size;
+	}
+	nfiles = nrows;
+	PQclear(res);
+
+	/* Consume ReadyForQuery */
+	res = PQgetResult(conn);
+	if (res != NULL)
+		PQclear(res);
+
+	pg_log_debug("SEND_FILE_LIST: %d files, %d bytes total", nfiles, total_size);
+
+	/* 3. Write backup_label to disk */
+	{
+		char		labelpath[MAXPGPATH];
+		FILE	   *fp;
+
+		snprintf(labelpath, sizeof(labelpath), "%s/backup_label", basedir);
+		fp = fopen(labelpath, "w");
+		if (!fp)
+			pg_fatal("could not create backup_label: %m");
+		fputs(backup_label, fp);
+		fclose(fp);
+	}
+
+	/* 4. Create directories and symlinks first, then fork workers */
+	for (i = 0; i < nfiles; i++)
+	{
+		char		pathbuf[MAXPGPATH * 2];
+
+		snprintf(pathbuf, sizeof(pathbuf), "%s/%s", basedir, files[i].path);
+
+		if (S_ISDIR(files[i].mode))
+		{
+			/* Create directory */
+			if (mkdir(pathbuf, pg_dir_create_mode) != 0 && errno != EEXIST)
+				pg_fatal("could not create directory \"%s\": %m", pathbuf);
+		}
+		else if (files[i].is_link)
+		{
+			/* Symlinks — skip for now, they need special handling */
+		}
+	}
+
+	/* 5. Fork workers */
+	worker_pids = pg_malloc(njobs * sizeof(pid_t));
+
+	/*
+	 * Simple round-robin assignment: worker w handles files
+	 * w, w+njobs, w+2*njobs, ...
+	 * A better approach would be work-stealing, but this is a prototype.
+	 */
+	for (i = 0; i < njobs; i++)
+	{
+		pid_t		pid;
+
+		pid = fork();
+		if (pid < 0)
+			pg_fatal("could not fork worker process: %m");
+
+		if (pid == 0)
+		{
+			/* Worker process */
+			PGconn	   *worker_conn;
+			int			j;
+
+			/*
+			 * Don't PQfinish(conn) — that would close the socket fd
+			 * which is shared with the coordinator process via fork().
+			 * Just clear the pointer so disconnect_atexit doesn't fire.
+			 */
+			conn = NULL;
+
+			/* Connect our own walsender connection */
+			worker_conn = GetConnection();
+			if (!worker_conn)
+			{
+				pg_log_error("worker %d: could not connect", i);
+				_exit(1);
+			}
+
+			pg_log_debug("worker %d: connected, processing files %d..%d step %d",
+						i, i, nfiles - 1, njobs);
+
+			for (j = i; j < nfiles; j += njobs)
+			{
+				char		qbuf[MAXPGPATH * 2];
+				char		fpath[MAXPGPATH * 2];
+				int			copy_result;
+				FILE	   *fp;
+
+				/* Skip directories and symlinks */
+				if (S_ISDIR(files[j].mode) || files[j].is_link)
+					continue;
+
+				/* Send SEND_FILE command */
+				snprintf(qbuf, sizeof(qbuf), "SEND_FILE '%s'", files[j].path);
+				if (PQsendQuery(worker_conn, qbuf) == 0)
+				{
+					pg_log_error("worker %d: could not send SEND_FILE: %s",
+								 i, PQerrorMessage(worker_conn));
+					_exit(1);
+				}
+
+				/* Expect CopyOutResponse */
+				res = PQgetResult(worker_conn);
+				if (PQresultStatus(res) == PGRES_FATAL_ERROR)
+				{
+					pg_log_error("worker %d: SEND_FILE '%s' failed: %s",
+								 i, files[j].path, PQerrorMessage(worker_conn));
+					PQclear(res);
+					_exit(1);
+				}
+
+				/*
+				 * If it's a copy out, read data. Otherwise skip.
+				 * We may get PGRES_COPY_OUT.
+				 */
+				if (PQresultStatus(res) != PGRES_COPY_OUT)
+				{
+					/* Non-copy result (shouldn't happen for regular files) */
+					PQclear(res);
+					/* Consume ReadyForQuery */
+					while ((res = PQgetResult(worker_conn)) != NULL)
+						PQclear(res);
+					continue;
+				}
+
+				PQclear(res);
+
+				/* Open output file (create parent dirs if needed) */
+				snprintf(fpath, sizeof(fpath), "%s/%s", basedir, files[j].path);
+				{
+					char	   *slash;
+
+					/* Create parent directories as needed */
+					char		dirpath[MAXPGPATH * 2];
+					snprintf(dirpath, sizeof(dirpath), "%s", fpath);
+					slash = strrchr(dirpath, '/');
+					if (slash != NULL)
+					{
+						*slash = '\0';
+						if (pg_mkdir_p(dirpath, pg_dir_create_mode) != 0 && errno != EEXIST)
+						{
+							pg_log_error("worker %d: could not create directory \"%s\": %m",
+										 i, dirpath);
+							_exit(1);
+						}
+					}
+				}
+				fp = fopen(fpath, "w");
+				if (!fp)
+				{
+					pg_log_error("worker %d: could not create file \"%s\": %m",
+								 i, fpath);
+					_exit(1);
+				}
+
+				/* Read COPY data */
+				for (;;)
+				{
+					char	   *copybuf;
+
+					copy_result = PQgetCopyData(worker_conn, &copybuf, 0);
+					if (copy_result > 0)
+					{
+						fwrite(copybuf, 1, copy_result, fp);
+						PQfreemem(copybuf);
+					}
+					else if (copy_result == 0)
+					{
+						/* Would block — shouldn't happen in blocking mode */
+						continue;
+					}
+					else if (copy_result == -1)
+					{
+						/* CopyDone */
+						break;
+					}
+					else if (copy_result == -2)
+					{
+						pg_log_error("worker %d: COPY read error: %s",
+									 i, PQerrorMessage(worker_conn));
+						fclose(fp);
+						_exit(1);
+					}
+				}
+
+				fclose(fp);
+
+				/* Consume command result and ReadyForQuery */
+				res = PQgetResult(worker_conn);
+				if (res)
+					PQclear(res);
+				while ((res = PQgetResult(worker_conn)) != NULL)
+					PQclear(res);
+			}
+
+			PQfinish(worker_conn);
+			_exit(0);
+		}
+
+		worker_pids[i] = pid;
+	}
+
+	/* 6. Wait for all workers */
+	for (i = 0; i < njobs; i++)
+	{
+		int			status;
+
+		waitpid(worker_pids[i], &status, 0);
+		if (WIFEXITED(status) && WEXITSTATUS(status) != 0)
+			pg_fatal("worker %d exited with status %d", i, WEXITSTATUS(status));
+		if (WIFSIGNALED(status))
+			pg_fatal("worker %d killed by signal %d", i, WTERMSIG(status));
+	}
+
+	pg_log_debug("all workers finished");
+
+	/* 7. Send STOP_BACKUP */
+	if (PQsendQuery(conn, "STOP_BACKUP") == 0)
+		pg_fatal("could not send STOP_BACKUP: %s", PQerrorMessage(conn));
+	res = PQgetResult(conn);
+	if (PQresultStatus(res) != PGRES_TUPLES_OK)
+		pg_fatal("STOP_BACKUP failed: %s", PQerrorMessage(conn));
+
+	{
+		char	   *stop_lsn = PQgetvalue(res, 0, 0);
+		int			stop_tli = atoi(PQgetvalue(res, 0, 1));
+
+		pg_log_debug("STOP_BACKUP: lsn=%s tli=%d", stop_lsn, stop_tli);
+	}
+	PQclear(res);
+
+	/* Consume ReadyForQuery */
+	res = PQgetResult(conn);
+	if (res != NULL)
+		PQclear(res);
+
+	/* Cleanup */
+	pfree(backup_label);
+	pfree(start_lsn);
+	for (i = 0; i < nfiles; i++)
+		pfree(files[i].path);
+	pfree(files);
+	pfree(worker_pids);
+}
+
+
 int
 main(int argc, char **argv)
 {
@@ -2370,8 +2706,9 @@ main(int argc, char **argv)
 		{"no-manifest", no_argument, NULL, 5},
 		{"manifest-force-encode", no_argument, NULL, 6},
 		{"manifest-checksums", required_argument, NULL, 7},
-		{"sync-method", required_argument, NULL, 8},
-		{NULL, 0, NULL, 0}
+ 		{"sync-method", required_argument, NULL, 8},
+ 		{"jobs", required_argument, NULL, 9},
+ 		{NULL, 0, NULL, 0}
 	};
 	int			c;
 
@@ -2403,7 +2740,7 @@ main(int argc, char **argv)
 
 	atexit(cleanup_directories_atexit);
 
-	while ((c = getopt_long(argc, argv, "c:Cd:D:F:h:i:l:nNp:Pr:Rs:S:t:T:U:vwWX:zZ:",
+	while ((c = getopt_long(argc, argv, "c:Cd:D:F:h:i:j:l:nNp:Pr:Rs:S:t:T:U:vwWX:zZ:",
 							long_options, &option_index)) != -1)
 	{
 		switch (c)
@@ -2549,6 +2886,11 @@ main(int argc, char **argv)
 			case 8:
 				if (!parse_sync_method(optarg, &sync_method))
 					exit(1);
+				break;
+			case 9:
+				njobs = atoi(optarg);
+				if (njobs < 1)
+					pg_fatal("--jobs must be a positive integer");
 				break;
 			default:
 				/* getopt_long already emitted a complaint */
@@ -2853,8 +3195,11 @@ main(int argc, char **argv)
 		pfree(linkloc);
 	}
 
-	BaseBackup(compression_algorithm, compression_detail, compressloc,
-			   &client_compress, incremental_manifest);
+	if (njobs >= 2)
+		ParallelBaseBackup();
+	else
+		BaseBackup(compression_algorithm, compression_detail, compressloc,
+				   &client_compress, incremental_manifest);
 
 	success = true;
 	return 0;

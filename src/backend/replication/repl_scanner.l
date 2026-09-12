@@ -144,6 +144,10 @@ NOEXPORT_SNAPSHOT	{ return K_NOEXPORT_SNAPSHOT; }
 USE_SNAPSHOT		{ return K_USE_SNAPSHOT; }
 WAIT				{ return K_WAIT; }
 UPLOAD_MANIFEST		{ return K_UPLOAD_MANIFEST; }
+START_BACKUP			{ return K_START_BACKUP; }
+SEND_FILE_LIST		{ return K_SEND_FILE_LIST; }
+SEND_FILE			{ return K_SEND_FILE; }
+STOP_BACKUP			{ return K_STOP_BACKUP; }
 
 {space}+		{ /* do nothing */ }
 
@@ -309,6 +313,10 @@ replication_scanner_is_replication_command(yyscan_t yyscanner)
 	{
 		case K_IDENTIFY_SYSTEM:
 		case K_BASE_BACKUP:
+		case K_START_BACKUP:
+		case K_SEND_FILE_LIST:
+		case K_SEND_FILE:
+		case K_STOP_BACKUP:
 		case K_START_REPLICATION:
 		case K_CREATE_REPLICATION_SLOT:
 		case K_DROP_REPLICATION_SLOT:

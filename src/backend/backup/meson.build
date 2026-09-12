@@ -13,6 +13,7 @@ backend_sources += files(
   'basebackup_target.c',
   'basebackup_throttle.c',
   'basebackup_zstd.c',
+  'parallel_backup.c',
   'walsummary.c',
   'walsummaryfuncs.c',
 )
