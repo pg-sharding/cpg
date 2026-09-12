@@ -29,6 +29,8 @@ static bool shell_encrypt_file(EncryptModuleState *state, const char *file,
 							   const char *path);
 static bool shell_decrypt_file(EncryptModuleState *state, const char *file,
 							   const char *path);
+static bool shell_encrypt_setup(EncryptModuleState *state,
+								char **key_data, size_t *key_len);
 static bool shell_encrypt_buffer(EncryptModuleState *state, char *buf,
 								 size_t len);
 static bool shell_decrypt_buffer(EncryptModuleState *state, char *buf,
@@ -40,6 +42,7 @@ static const EncryptModuleCallbacks shell_encrypt_callbacks = {
 	.check_configured_cb = shell_encrypt_configured,
 	.encrypt_file_cb = shell_encrypt_file,
 	.decrypt_file_cb = shell_decrypt_file,
+	.setup_cb = shell_encrypt_setup,
 	.encrypt_buffer_cb = shell_encrypt_buffer,
 	.decrypt_buffer_cb = shell_decrypt_buffer,
 	.shutdown_cb = shell_encrypt_shutdown
@@ -213,16 +216,73 @@ shell_decrypt_file(EncryptModuleState *state, const char *file,
 static void
 shell_encrypt_shutdown(EncryptModuleState *state)
 {
+	if (state->private_data != NULL)
+	{
+		pfree(state->private_data);
+		state->private_data = NULL;
+	}
 	elog(DEBUG1, "encryption module shutting down");
+}
+
+/*
+ * shell_encrypt_setup
+ *
+ * Two-phase key exchange for stream encryption:
+ *
+ * - On the receiver (walreceiver): key_data is NULL on input.  The module
+ *   generates a random key, stores it in state->private_data for later use
+ *   by decrypt_buffer_cb, and returns it via *key_data/*key_len.
+ *
+ * - On the sender (walsender): key_data is non-NULL.  The module stores it
+ *   in state->private_data for use by encrypt_buffer_cb.
+ */
+static bool
+shell_encrypt_setup(EncryptModuleState *state, char **key_data,
+					size_t *key_len)
+{
+	if (*key_data == NULL)
+	{
+		/* Receiver: generate a key */
+		size_t		klen = 32;
+		char	   *key = palloc(klen);
+
+		pg_strong_random(key, klen);
+		state->private_data = palloc(klen);
+		memcpy(state->private_data, key, klen);
+		/* Store length in a size_t before the key for decrypt to use */
+		/* We'll just store the key length in private_data alongside */
+		/* For simplicity, keep a struct { size_t len; char data[]; } */
+		{
+			struct { size_t len; char data[32]; } *kd;
+			kd = palloc(sizeof(*kd));
+			kd->len = klen;
+			memcpy(kd->data, key, klen);
+			pfree(state->private_data);
+			state->private_data = (void *) kd;
+		}
+		*key_data = key;
+		*key_len = klen;
+	}
+	else
+	{
+		/* Sender: consume the key received from the receiver */
+		struct { size_t len; char data[1]; } *kd;
+
+		kd = palloc(sizeof(size_t) + *key_len);
+		kd->len = *key_len;
+		memcpy(kd->data, *key_data, *key_len);
+		state->private_data = (void *) kd;
+	}
+
+	return true;
 }
 
 /*
  * shell_encrypt_buffer
  *
- * In-place XOR encryption of a buffer.  This is a trivial placeholder that
- * allows the shell-based module to be used for WAL stream encryption without
- * a round-trip to a shell command.  The key is derived from encrypt_command
- * (or a fixed default if empty).
+ * In-place XOR encryption of a buffer using the key negotiated by setup_cb.
+ * Falls back to encrypt_command-derived key if no setup was done (file-based
+ * path).
  */
 static bool
 shell_encrypt_buffer(EncryptModuleState *state, char *buf, size_t len)
@@ -231,8 +291,18 @@ shell_encrypt_buffer(EncryptModuleState *state, char *buf, size_t len)
 	size_t		keylen;
 	size_t		i;
 
-	key = EncryptCommand[0] != '\0' ? EncryptCommand : "pg_xor_default_key";
-	keylen = strlen(key);
+	if (state->private_data != NULL)
+	{
+		struct { size_t len; char data[1]; } *kd =
+			(struct { size_t len; char data[1]; } *) state->private_data;
+		key = kd->data;
+		keylen = kd->len;
+	}
+	else
+	{
+		key = EncryptCommand[0] != '\0' ? EncryptCommand : "pg_xor_default_key";
+		keylen = strlen(key);
+	}
 
 	for (i = 0; i < len; i++)
 		buf[i] ^= key[i % keylen];

@@ -497,6 +497,19 @@ WalReceiverMain(const void *startup_data, size_t startup_data_len)
 						(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
 						 errmsg("WAL stream encryption requested but no encryption module is loaded"),
 						 errhint("Set encrypt_command or encrypt_library.")));
+
+			/* Generate key material via setup_cb for the sender to use */
+			options.proto.physical.encrypt_key = NULL;
+			options.proto.physical.encrypt_key_len = 0;
+			if (cb->setup_cb != NULL)
+			{
+				char	   *key = NULL;
+				size_t		klen = 0;
+
+				cb->setup_cb(GetEncryptModuleState(), &key, &klen);
+				options.proto.physical.encrypt_key = key;
+				options.proto.physical.encrypt_key_len = klen;
+			}
 		}
 		if (walrcv_startstreaming(wrconn, &options))
 		{

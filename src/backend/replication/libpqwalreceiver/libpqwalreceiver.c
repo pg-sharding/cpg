@@ -648,7 +648,23 @@ libpqrcv_startstreaming(WalReceiverConn *conn,
 		appendStringInfo(&cmd, " TIMELINE %u",
 						 options->proto.physical.startpointTLI);
 		if (options->proto.physical.encrypt)
-			appendStringInfoString(&cmd, " (ENCRYPT)");
+		{
+			appendStringInfoString(&cmd, " (ENCRYPT");
+			if (options->proto.physical.encrypt_key != NULL &&
+				options->proto.physical.encrypt_key_len > 0)
+			{
+				StringInfoData hexkey;
+				size_t		i;
+
+				initStringInfo(&hexkey);
+				appendStringInfoString(&cmd, " '");
+				for (i = 0; i < options->proto.physical.encrypt_key_len; i++)
+					appendStringInfo(&cmd, "%02x",
+									 (unsigned char) options->proto.physical.encrypt_key[i]);
+				appendStringInfoChar(&cmd, '\'');
+			}
+			appendStringInfoChar(&cmd, ')');
+		}
 	}
 
 	/* Start streaming. */

@@ -91,6 +91,7 @@
 %type <defelt>	generic_option
 %type <uintval>	opt_timeline
 %type <list>	opt_encrypt_option
+%type <node>	opt_encrypt_key
 %type <list>	plugin_options plugin_opt_list
 %type <defelt>	plugin_opt_elem
 %type <node>	plugin_opt_arg
@@ -370,14 +371,22 @@ opt_timeline:
 			;
 
 opt_encrypt_option:
-			'(' K_ENCRYPT ')'
+			'(' K_ENCRYPT opt_encrypt_key ')'
 				{
 					DefElem    *def;
 
-					def = makeDefElem("encrypt", (Node *) makeInteger(1), -1);
+					if ($3 != NULL)
+						def = makeDefElem("encrypt", $3, -1);
+					else
+						def = makeDefElem("encrypt", (Node *) makeInteger(1), -1);
 					$$ = list_make1(def);
 				}
 			| /* EMPTY */			{ $$ = NIL; }
+		;
+
+opt_encrypt_key:
+			SCONST				{ $$ = (Node *) makeString($1); }
+			| /* EMPTY */		{ $$ = NULL; }
 		;
 
 

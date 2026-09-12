@@ -235,6 +235,12 @@ static bool WalSndCaughtUp = false;
  */
 static bool wal_stream_encryption = false;
 
+/*
+ * Hex-encoded key material received from the standby in the ENCRYPT option.
+ * NULL when no key was provided (module must derive its own key).
+ */
+static char *encrypt_key_hex = NULL;
+
 /* Flags set by signal handlers for later service in main loop */
 static volatile sig_atomic_t got_SIGUSR2 = false;
 static volatile sig_atomic_t got_STOPPING = false;
@@ -988,6 +994,7 @@ StartReplication(StartReplicationCmd *cmd)
 	 * passed as (ENCRYPT) in the START_REPLICATION command.
 	 */
 	wal_stream_encryption = false;
+	encrypt_key_hex = NULL;
 	if (cmd->options != NIL)
 	{
 		ListCell   *lc;
@@ -997,7 +1004,18 @@ StartReplication(StartReplicationCmd *cmd)
 			DefElem    *def = lfirst_node(DefElem, lc);
 
 			if (strcmp(def->defname, "encrypt") == 0)
-				wal_stream_encryption = defGetBoolean(def);
+			{
+				if (IsA(def->arg, Integer))
+					wal_stream_encryption = intVal(def->arg) != 0;
+				else if (IsA(def->arg, String))
+				{
+					wal_stream_encryption = true;
+					/* Hex-encoded key material from the receiver */
+					encrypt_key_hex = strVal(def->arg);
+				}
+				else
+					wal_stream_encryption = defGetBoolean(def);
+			}
 			else
 				ereport(ERROR,
 						(errcode(ERRCODE_SYNTAX_ERROR),
@@ -1008,7 +1026,8 @@ StartReplication(StartReplicationCmd *cmd)
 
 	/*
 	 * If encryption is requested, ensure the encrypt module is loaded and
-	 * has a buffer encryption callback.
+	 * has a buffer encryption callback.  If the receiver sent key material,
+	 * pass it to setup_cb to initialise the encryption state.
 	 */
 	if (wal_stream_encryption)
 	{
@@ -1024,6 +1043,45 @@ StartReplication(StartReplicationCmd *cmd)
 					(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
 					 errmsg("WAL stream encryption requested but no encryption module is loaded"),
 					 errhint("Set encrypt_command or encrypt_library.")));
+
+		if (encrypt_key_hex != NULL && cb->setup_cb != NULL)
+		{
+			size_t		hexlen = strlen(encrypt_key_hex);
+			size_t		klen = hexlen / 2;
+			char	   *key = palloc(klen);
+			size_t		i;
+			static const int8 hexlookup[256] = {
+				-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+				-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+				-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+				 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,-1,-1,-1,-1,-1,-1,
+				-1,10,11,12,13,14,15,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+				-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+				-1,10,11,12,13,14,15,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+				-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+				-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+				-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+				-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+				-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+				-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+				-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+				-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+				-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
+			};
+
+			for (i = 0; i < klen; i++)
+			{
+				int			hi = hexlookup[(unsigned char) encrypt_key_hex[i * 2]];
+				int			lo = hexlookup[(unsigned char) encrypt_key_hex[i * 2 + 1]];
+
+				if (hi < 0 || lo < 0)
+					ereport(ERROR,
+							(errcode(ERRCODE_PROTOCOL_VIOLATION),
+							 errmsg("invalid hex key in ENCRYPT option")));
+				key[i] = (hi << 4) | lo;
+			}
+			cb->setup_cb(GetEncryptModuleState(), &key, &klen);
+		}
 	}
 
 	/* If there is nothing to stream, don't even enter COPY mode */

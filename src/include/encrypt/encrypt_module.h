@@ -34,9 +34,12 @@ typedef struct EncryptModuleState
  * Encryption module callbacks
  *
  * These callback functions should be defined by encryption libraries and
- * returned via _PG_encrypt_module_init().  The encrypt callback is the only
- * required callback.  For more information about the purpose of each
- * callback, refer to the encryption modules documentation.
+ * returned via _PG_encrypt_module_init().  The encrypt_file_cb callback is
+ * the only required callback for file-based encryption.  For WAL stream
+ * encryption, encrypt_buffer_cb and decrypt_buffer_cb are used together
+ * with setup_cb, which negotiates the opaque key material.  For more
+ * information about the purpose of each callback, refer to the encryption
+ * modules documentation.
  */
 typedef void (*EncryptStartupCB) (EncryptModuleState *state);
 typedef bool (*EncryptCheckConfiguredCB) (EncryptModuleState *state);
@@ -44,6 +47,22 @@ typedef bool (*EncryptFileCB) (EncryptModuleState *state, const char *file,
 							   const char *path);
 typedef bool (*DecryptFileCB) (EncryptModuleState *state, const char *file,
 							   const char *path);
+
+/*
+ * Setup callback for stream encryption.  Called on the receiving side
+ * (walreceiver) to generate opaque key material that will be sent to the
+ * sending side (walsender).  Returns the key in *key_data (palloc'd) and
+ * *key_len.  Called on the sending side with key_data received from the
+ * receiver to initialise the stream encryption state.
+ *
+ * When called on the receiver: key_data is NULL, the module must allocate
+ * and return key material.
+ * When called on the sender: key_data is non-NULL, the module must consume
+ * it to set up its encryption state.
+ */
+typedef bool (*EncryptSetupCB) (EncryptModuleState *state,
+								char **key_data, size_t *key_len);
+
 typedef bool (*EncryptBufferCB) (EncryptModuleState *state, char *buf,
 								 size_t len);
 typedef bool (*DecryptBufferCB) (EncryptModuleState *state, char *buf,
@@ -56,6 +75,7 @@ typedef struct EncryptModuleCallbacks
 	EncryptCheckConfiguredCB check_configured_cb;
 	EncryptFileCB encrypt_file_cb;
 	DecryptFileCB decrypt_file_cb;
+	EncryptSetupCB setup_cb;
 	EncryptBufferCB encrypt_buffer_cb;
 	DecryptBufferCB decrypt_buffer_cb;
 	EncryptShutdownCB shutdown_cb;
