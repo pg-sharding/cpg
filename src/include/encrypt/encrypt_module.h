@@ -44,6 +44,10 @@ typedef bool (*EncryptFileCB) (EncryptModuleState *state, const char *file,
 							   const char *path);
 typedef bool (*DecryptFileCB) (EncryptModuleState *state, const char *file,
 							   const char *path);
+typedef bool (*EncryptBufferCB) (EncryptModuleState *state, char *buf,
+								 size_t len);
+typedef bool (*DecryptBufferCB) (EncryptModuleState *state, char *buf,
+								 size_t len);
 typedef void (*EncryptShutdownCB) (EncryptModuleState *state);
 
 typedef struct EncryptModuleCallbacks
@@ -52,6 +56,8 @@ typedef struct EncryptModuleCallbacks
 	EncryptCheckConfiguredCB check_configured_cb;
 	EncryptFileCB encrypt_file_cb;
 	DecryptFileCB decrypt_file_cb;
+	EncryptBufferCB encrypt_buffer_cb;
+	DecryptBufferCB decrypt_buffer_cb;
 	EncryptShutdownCB shutdown_cb;
 } EncryptModuleCallbacks;
 

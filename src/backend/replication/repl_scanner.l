@@ -137,6 +137,7 @@ PHYSICAL			{ return K_PHYSICAL; }
 RESERVE_WAL			{ return K_RESERVE_WAL; }
 LOGICAL				{ return K_LOGICAL; }
 SLOT				{ return K_SLOT; }
+ENCRYPT				{ return K_ENCRYPT; }
 TEMPORARY			{ return K_TEMPORARY; }
 TWO_PHASE			{ return K_TWO_PHASE; }
 EXPORT_SNAPSHOT		{ return K_EXPORT_SNAPSHOT; }

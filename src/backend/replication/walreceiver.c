@@ -60,6 +60,7 @@
 #include "access/xlogrecovery.h"
 #include "access/xlogwait.h"
 #include "catalog/pg_authid.h"
+#include "encrypt/encrypt_module.h"
 #include "funcapi.h"
 #include "libpq/pqformat.h"
 #include "libpq/pqsignal.h"
@@ -104,6 +105,12 @@ WalReceiverFunctionsType *WalReceiverFunctions = NULL;
 static int	recvFile = -1;
 static TimeLineID recvFileTLI = 0;
 static XLogSegNo recvSegNo = 0;
+
+/*
+ * If true, incoming WAL data is encrypted and must be decrypted before
+ * writing to disk.  Set when the primary sends encrypted WAL.
+ */
+static bool wal_stream_encryption = false;
 
 /*
  * LogstreamResult indicates the byte positions that we have already
@@ -473,6 +480,24 @@ WalReceiverMain(const void *startup_data, size_t startup_data_len)
 		options.startpoint = startpoint;
 		options.slotname = slotname[0] != '\0' ? slotname : NULL;
 		options.proto.physical.startpointTLI = startpointTLI;
+		options.proto.physical.encrypt = (EncryptCommand[0] != '\0' ||
+										 EncryptLibrary[0] != '\0');
+		wal_stream_encryption = options.proto.physical.encrypt;
+		if (wal_stream_encryption)
+		{
+			const EncryptModuleCallbacks *cb = GetEncryptCallbacks();
+
+			if (cb == NULL)
+			{
+				LoadEncryptLibrary();
+				cb = GetEncryptCallbacks();
+			}
+			if (cb == NULL || cb->decrypt_buffer_cb == NULL)
+				ereport(ERROR,
+						(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
+						 errmsg("WAL stream encryption requested but no encryption module is loaded"),
+						 errhint("Set encrypt_command or encrypt_library.")));
+		}
 		if (walrcv_startstreaming(wrconn, &options))
 		{
 			if (first_stream)
@@ -947,9 +972,22 @@ XLogWalRcvProcessMsg(unsigned char type, char *buf, Size len, TimeLineID tli)
 				sendTime = pq_getmsgint64(&incoming_message);
 				ProcessWalSndrMessage(walEnd, sendTime);
 
-				buf += hdrlen;
-				len -= hdrlen;
-				XLogWalRcvWrite(buf, len, dataStart, tli);
+			buf += hdrlen;
+			len -= hdrlen;
+
+			/*
+			 * If WAL stream encryption is enabled, decrypt the WAL payload
+			 * in place before writing it to disk.
+			 */
+			if (wal_stream_encryption)
+			{
+				const EncryptModuleCallbacks *cb = GetEncryptCallbacks();
+
+				if (cb != NULL && cb->decrypt_buffer_cb != NULL)
+					cb->decrypt_buffer_cb(GetEncryptModuleState(), buf, len);
+			}
+
+			XLogWalRcvWrite(buf, len, dataStart, tli);
 				break;
 			}
 		case PqReplMsg_Keepalive:

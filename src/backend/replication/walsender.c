@@ -64,6 +64,7 @@
 #include "catalog/pg_authid.h"
 #include "catalog/pg_type.h"
 #include "commands/defrem.h"
+#include "encrypt/encrypt_module.h"
 #include "funcapi.h"
 #include "libpq/libpq.h"
 #include "libpq/pqformat.h"
@@ -227,6 +228,12 @@ static bool streamingDoneReceiving;
 
 /* Are we there yet? */
 static bool WalSndCaughtUp = false;
+
+/*
+ * If true, the WAL payload in each WALData message is encrypted before
+ * sending.  Set when the standby requests encryption in START_REPLICATION.
+ */
+static bool wal_stream_encryption = false;
 
 /* Flags set by signal handlers for later service in main loop */
 static volatile sig_atomic_t got_SIGUSR2 = false;
@@ -975,6 +982,49 @@ StartReplication(StartReplicationCmd *cmd)
 	}
 
 	streamingDoneSending = streamingDoneReceiving = false;
+
+	/*
+	 * Check if the standby requested WAL stream encryption.  The option is
+	 * passed as (ENCRYPT) in the START_REPLICATION command.
+	 */
+	wal_stream_encryption = false;
+	if (cmd->options != NIL)
+	{
+		ListCell   *lc;
+
+		foreach(lc, cmd->options)
+		{
+			DefElem    *def = lfirst_node(DefElem, lc);
+
+			if (strcmp(def->defname, "encrypt") == 0)
+				wal_stream_encryption = defGetBoolean(def);
+			else
+				ereport(ERROR,
+						(errcode(ERRCODE_SYNTAX_ERROR),
+						 errmsg("unrecognized START_REPLICATION option \"%s\"",
+								def->defname)));
+		}
+	}
+
+	/*
+	 * If encryption is requested, ensure the encrypt module is loaded and
+	 * has a buffer encryption callback.
+	 */
+	if (wal_stream_encryption)
+	{
+		const EncryptModuleCallbacks *cb = GetEncryptCallbacks();
+
+		if (cb == NULL)
+		{
+			LoadEncryptLibrary();
+			cb = GetEncryptCallbacks();
+		}
+		if (cb == NULL || cb->encrypt_buffer_cb == NULL)
+			ereport(ERROR,
+					(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
+					 errmsg("WAL stream encryption requested but no encryption module is loaded"),
+					 errhint("Set encrypt_command or encrypt_library.")));
+	}
 
 	/* If there is nothing to stream, don't even enter COPY mode */
 	if (!sendTimeLineIsHistoric || cmd->startpoint < sendTimeLineValidUpto)
@@ -3663,6 +3713,22 @@ retry:
 	pq_sendint64(&tmpbuf, GetCurrentTimestamp());
 	memcpy(&output_message.data[1 + sizeof(int64) + sizeof(int64)],
 		   tmpbuf.data, sizeof(int64));
+
+	/*
+	 * If WAL stream encryption is enabled, encrypt the WAL payload in place.
+	 * The header (type byte + 3 int64 fields) remains in cleartext so the
+	 * receiver can parse the message before decrypting.
+	 */
+	if (wal_stream_encryption)
+	{
+		const EncryptModuleCallbacks *cb = GetEncryptCallbacks();
+		size_t		hdrsz = 1 + 3 * sizeof(int64);
+
+		if (cb != NULL && cb->encrypt_buffer_cb != NULL)
+			cb->encrypt_buffer_cb(GetEncryptModuleState(),
+								 &output_message.data[hdrsz],
+								 output_message.len - hdrsz);
+	}
 
 	pq_putmessage_noblock(PqMsg_CopyData, output_message.data, output_message.len);
 

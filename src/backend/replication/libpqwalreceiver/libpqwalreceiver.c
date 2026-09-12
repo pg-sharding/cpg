@@ -644,8 +644,12 @@ libpqrcv_startstreaming(WalReceiverConn *conn,
 		appendStringInfoChar(&cmd, ')');
 	}
 	else
+	{
 		appendStringInfo(&cmd, " TIMELINE %u",
 						 options->proto.physical.startpointTLI);
+		if (options->proto.physical.encrypt)
+			appendStringInfoString(&cmd, " (ENCRYPT)");
+	}
 
 	/* Start streaming. */
 	res = libpqsrv_exec(conn->streamConn,

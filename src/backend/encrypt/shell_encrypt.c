@@ -29,6 +29,10 @@ static bool shell_encrypt_file(EncryptModuleState *state, const char *file,
 							   const char *path);
 static bool shell_decrypt_file(EncryptModuleState *state, const char *file,
 							   const char *path);
+static bool shell_encrypt_buffer(EncryptModuleState *state, char *buf,
+								 size_t len);
+static bool shell_decrypt_buffer(EncryptModuleState *state, char *buf,
+								 size_t len);
 static void shell_encrypt_shutdown(EncryptModuleState *state);
 
 static const EncryptModuleCallbacks shell_encrypt_callbacks = {
@@ -36,6 +40,8 @@ static const EncryptModuleCallbacks shell_encrypt_callbacks = {
 	.check_configured_cb = shell_encrypt_configured,
 	.encrypt_file_cb = shell_encrypt_file,
 	.decrypt_file_cb = shell_decrypt_file,
+	.encrypt_buffer_cb = shell_encrypt_buffer,
+	.decrypt_buffer_cb = shell_decrypt_buffer,
 	.shutdown_cb = shell_encrypt_shutdown
 };
 
@@ -208,4 +214,39 @@ static void
 shell_encrypt_shutdown(EncryptModuleState *state)
 {
 	elog(DEBUG1, "encryption module shutting down");
+}
+
+/*
+ * shell_encrypt_buffer
+ *
+ * In-place XOR encryption of a buffer.  This is a trivial placeholder that
+ * allows the shell-based module to be used for WAL stream encryption without
+ * a round-trip to a shell command.  The key is derived from encrypt_command
+ * (or a fixed default if empty).
+ */
+static bool
+shell_encrypt_buffer(EncryptModuleState *state, char *buf, size_t len)
+{
+	const char *key;
+	size_t		keylen;
+	size_t		i;
+
+	key = EncryptCommand[0] != '\0' ? EncryptCommand : "pg_xor_default_key";
+	keylen = strlen(key);
+
+	for (i = 0; i < len; i++)
+		buf[i] ^= key[i % keylen];
+
+	return true;
+}
+
+/*
+ * shell_decrypt_buffer
+ *
+ * XOR is symmetric, so decryption is identical to encryption.
+ */
+static bool
+shell_decrypt_buffer(EncryptModuleState *state, char *buf, size_t len)
+{
+	return shell_encrypt_buffer(state, buf, len);
 }
