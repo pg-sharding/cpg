@@ -24,6 +24,7 @@ SUBDIRS = \
 	catalog \
 	parser \
 	commands \
+	encrypt \
 	executor \
 	foreign \
 	lib \
