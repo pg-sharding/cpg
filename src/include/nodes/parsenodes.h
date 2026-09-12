@@ -2827,6 +2827,25 @@ typedef struct CreateStmt
 } CreateStmt;
 
 /* ----------
+ * CreateTempTemplateStmt - CREATE TEMP TABLE TEMPLATE
+ *
+ * Creates a persistent template for a temporary table. The template
+ * stores the table definition (columns, types) in pg_temp_template.
+ * Per-session instances (storage, statistics) are created on first
+ * access. This avoids catalog bloat from repeated CREATE/DROP TEMP TABLE.
+ * ----------
+ */
+typedef struct CreateTempTemplateStmt
+{
+	NodeTag		type;
+	RangeVar   *relation;		/* template name (in temp schema) */
+	List	   *tableElts;		/* column definitions (list of ColumnDef) */
+	char	   *accessMethod;	/* table access method */
+	OnCommitAction oncommit;	/* what do we do at COMMIT? */
+	bool		if_not_exists;	/* just do nothing if it already exists? */
+} CreateTempTemplateStmt;
+
+/* ----------
  * Definitions for constraints in CreateStmt
  *
  * Note that column defaults are treated as a type of constraint,

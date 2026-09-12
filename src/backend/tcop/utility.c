@@ -21,8 +21,11 @@
 #include "access/xact.h"
 #include "access/xlog.h"
 #include "catalog/namespace.h"
+#include "catalog/pg_am_d.h"
+#include "catalog/pg_namespace_d.h"
 #include "catalog/pg_authid.h"
 #include "catalog/pg_inherits.h"
+#include "catalog/temp_template.h"
 #include "catalog/toasting.h"
 #include "commands/alter.h"
 #include "commands/async.h"
@@ -186,6 +189,7 @@ ClassifyUtilityCommandAsReadOnly(Node *parsetree)
 		case T_CreateSeqStmt:
 		case T_CreateStatsStmt:
 		case T_CreateStmt:
+		case T_CreateTempTemplateStmt:
 		case T_CreateSubscriptionStmt:
 		case T_CreateTableAsStmt:
 		case T_CreateTableSpaceStmt:
@@ -556,6 +560,8 @@ standard_ProcessUtility(PlannedStmt *pstmt,
 	bool		isAtomicContext = (!(context == PROCESS_UTILITY_TOPLEVEL || context == PROCESS_UTILITY_QUERY_NONATOMIC) || IsTransactionBlock());
 	ParseState *pstate;
 	int			readonly_flags;
+
+	elog(DEBUG1, "ProcessUtility: nodeType=%d", (int) nodeTag(parsetree));
 
 	/* This can recurse, so check for excessive recursion */
 	check_stack_depth();
@@ -1130,6 +1136,90 @@ ProcessUtilitySlow(ParseState *pstate,
 				 * CreateSchemaCommand
 				 */
 				commandCollected = true;
+				break;
+
+			case T_CreateTempTemplateStmt:
+				{
+					CreateTempTemplateStmt *stmt = (CreateTempTemplateStmt *) parsetree;
+					Oid			namespaceId;
+					Oid			amoid;
+					ListCell   *lc;
+					int16		attnum = 1;
+					Oid			tmplid;
+
+					/* Resolve namespace — use public schema by default */
+					namespaceId = PG_PUBLIC_NAMESPACE;
+					if (stmt->relation->schemaname != NULL)
+						namespaceId = get_namespace_oid(stmt->relation->schemaname, false);
+
+					/* Check if template already exists */
+					if (GetTempTemplateByName(stmt->relation->relname, namespaceId) != InvalidOid)
+					{
+						if (stmt->if_not_exists)
+						{
+							elog(NOTICE, "template table \"%s\" already exists, skipping",
+								 stmt->relation->relname);
+							break;
+						}
+						ereport(ERROR,
+								(errcode(ERRCODE_DUPLICATE_TABLE),
+								 errmsg("template table \"%s\" already exists",
+										stmt->relation->relname)));
+					}
+
+					/* Resolve access method */
+					amoid = HEAP_TABLE_AM_OID;
+					if (stmt->accessMethod != NULL)
+						amoid = get_am_oid(stmt->accessMethod, false);
+
+					/* Create the template entry in pg_temp_template */
+					tmplid = CreateTempTemplate(stmt->relation->relname,
+												namespaceId,
+												GetUserId(),
+												RELKIND_RELATION,
+												list_length(stmt->tableElts),
+												amoid,
+												stmt->oncommit);
+
+					/* Add column definitions to pg_temp_template_attribute */
+					foreach(lc, stmt->tableElts)
+					{
+						ColumnDef  *col = (ColumnDef *) lfirst(lc);
+						Oid			typoid;
+						int16		typlen;
+						int32		typmod = -1;
+						char	   *typname;
+
+						/* Get type name from TypeName (last element of names list) */
+						if (list_length(col->typeName->names) > 0)
+							typname = strVal(llast(col->typeName->names));
+						else
+							typname = "unknown";
+
+						/* Resolve type */
+						typoid = TypenameGetTypidExtended(typname, true);
+						if (!OidIsValid(typoid))
+							ereport(ERROR,
+									(errcode(ERRCODE_UNDEFINED_OBJECT),
+									 errmsg("type \"%s\" does not exist", typname)));
+
+						/* Get type length */
+						typlen = get_typlen(typoid);
+
+						AddTempTemplateAttribute(tmplid, attnum,
+												 col->colname,
+												 typoid, typlen, typmod,
+												 col->is_not_null,
+												 col->identity,
+												 col->generated);
+						attnum++;
+					}
+
+					elog(NOTICE, "CREATE TEMP TABLE TEMPLATE %s created (OID %u)",
+						 stmt->relation->relname, tmplid);
+					elog(NOTICE, "Use CREATE TEMP TABLE %s to create a temp table from this template",
+						 stmt->relation->relname);
+				}
 				break;
 
 			case T_CreateStmt:
@@ -2505,6 +2595,10 @@ CreateCommandTag(Node *parsetree)
 			tag = CMDTAG_CREATE_TABLE;
 			break;
 
+		case T_CreateTempTemplateStmt:
+			tag = CMDTAG_CREATE_TEMP_TEMPLATE;
+			break;
+
 		case T_CreateTableSpaceStmt:
 			tag = CMDTAG_CREATE_TABLESPACE;
 			break;
@@ -3330,6 +3424,7 @@ GetCommandLogLevel(Node *parsetree)
 
 		case T_CreateStmt:
 		case T_CreateForeignTableStmt:
+		case T_CreateTempTemplateStmt:
 			lev = LOGSTMT_DDL;
 			break;
 

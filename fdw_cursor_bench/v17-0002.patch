@@ -1,0 +1,3386 @@
+From bb734f5c1c61900ba20364a0cc03804100959af6 Mon Sep 17 00:00:00 2001
+From: Rafia Sabih <rafia.sabih@cybertec.at>
+Date: Wed, 2 Sep 2026 13:01:25 +0200
+Subject: [PATCH v17 2/2] postgres_fdw: Add streaming_fetch option for
+ cursor-free fetching
+
+postgres_fdw uses cursors to fetch tuples from the remote server
+incrementally. While this works correctly, cursors prevent the remote
+side from using parallel query execution, which can significantly limit
+performance for large scans.
+
+This adds a new boolean option streaming_fetch, available at both the
+server and table level and defaulting to false. Instead of a cursor,
+the scan is run with libpq's chunked-rows mode using fetch_size as the
+chunk size, so the remote query is free to use parallel execution.
+Asynchronous execution is not supported in this mode and is disabled
+automatically when streaming_fetch is enabled.
+
+A connection can hold only one chunked-rows result at a time. When a
+second scan begins on the same connection while another is still in
+progress, the remaining tuples of the active scan are drained into a
+tuplestore (bounded by work_mem) and replayed when execution returns to
+that scan, preserving correct results across nested or interleaved
+scans without an additional connection. If a drain is interrupted by an
+error, the partially filled tuplestore is marked so that a later read
+raises an error instead of returning silently short results, since the
+drain may have aborted only a subtransaction.
+
+A scan that stops before reading all rows, such as an un-pushed-down
+LIMIT or a rescan, must drain and discard the rest of the remote result
+before the connection can be reused, and a parameterized rescan re-runs
+the remote query from scratch, so streaming_fetch can be slower than
+the cursor path when few rows are read.
+
+Incidentally, pgfdw_exec_query() now always drains an in-progress
+streaming_fetch scan before sending its query and requires a non-NULL
+connection state, and fetch_more_data() counts a fetch on entry rather
+than on success. create_cursor()'s parameter setup and connection
+draining are split out into prepare_query() and shared with the new init_scan().
+
+Original idea: Bernd Helmle
+Key suggestions and review: Robert Haas
+---
+ contrib/postgres_fdw/connection.c             |   75 +-
+ .../postgres_fdw/expected/postgres_fdw.out    | 1275 ++++++++++++++++-
+ .../postgres_fdw/expected/query_cancel.out    |   23 +
+ contrib/postgres_fdw/option.c                 |    4 +
+ contrib/postgres_fdw/postgres_fdw.c           |  587 +++++++-
+ contrib/postgres_fdw/postgres_fdw.h           |    8 +
+ contrib/postgres_fdw/sql/postgres_fdw.sql     |  505 +++++++
+ contrib/postgres_fdw/sql/query_cancel.sql     |   16 +
+ doc/src/sgml/postgres-fdw.sgml                |   41 +
+ 9 files changed, 2412 insertions(+), 122 deletions(-)
+
+diff --git a/contrib/postgres_fdw/connection.c b/contrib/postgres_fdw/connection.c
+index b5d4cf3dccc..0ae4d39944d 100644
+--- a/contrib/postgres_fdw/connection.c
++++ b/contrib/postgres_fdw/connection.c
+@@ -163,11 +163,10 @@ static void pgfdw_inval_callback(Datum arg, SysCacheIdentifier cacheid,
+ 								 uint32 hashvalue);
+ static void pgfdw_reject_incomplete_xact_state_change(ConnCacheEntry *entry);
+ static void pgfdw_reset_xact_state(ConnCacheEntry *entry, bool toplevel);
+-static bool pgfdw_cancel_query(PGconn *conn);
+ static bool pgfdw_cancel_query_begin(PGconn *conn, TimestampTz endtime);
+ static bool pgfdw_cancel_query_end(PGconn *conn, TimestampTz endtime,
+ 								   TimestampTz retrycanceltime,
+-								   bool consume_input);
++								   bool consume_input, PgFdwConnState *state);
+ static bool pgfdw_exec_cleanup_query(PGconn *conn, const char *query,
+ 									 bool ignore_errors);
+ static bool pgfdw_exec_cleanup_query_begin(PGconn *conn, const char *query);
+@@ -299,6 +298,13 @@ GetConnection(UserMapping *user, bool will_prep_stmt, PgFdwConnState **state)
+ 		/* Process a pending asynchronous request if any. */
+ 		if (entry->state.pendingAreq)
+ 			process_pending_request(entry->state.pendingAreq);
++
++		/*
++		 * If the scan on this connection is using streaming_fetch and still
++		 * has an unconsumed result, drain it too, so the caller gets an idle
++		 * connection back.
++		 */
++		drain_active_scan(&entry->state);
+ 		/* Start a new transaction or subtransaction if needed. */
+ 		begin_remote_xact(entry);
+ 	}
+@@ -1069,14 +1075,26 @@ GetPrepStmtNumber(PGconn *conn)
+  * ignore that for now.
+  *
+  * Caller is responsible for the error handling on the result.
++ *
++ * Every caller must pass the PgFdwConnState for the connection (not NULL),
++ * so that if a streaming_fetch scan on this connection still has
++ * an unconsumed result pending, we can drain it before sending a new query
++ * down the same connection.
+  */
+ PGresult *
+ pgfdw_exec_query(PGconn *conn, const char *query, PgFdwConnState *state)
+ {
+ 	/* First, process a pending asynchronous request, if any. */
+-	if (state && state->pendingAreq)
++	if (state->pendingAreq)
+ 		process_pending_request(state->pendingAreq);
+ 
++	/*
++	 * If the scan on this connection is using streaming_fetch and still has
++	 * an unconsumed result, drain it now so the connection is idle before we
++	 * send a new query.
++	 */
++	drain_active_scan(state);
++
+ 	if (!PQsendQuery(conn, query))
+ 		return NULL;
+ 	return pgfdw_get_result(conn);
+@@ -1093,6 +1111,16 @@ pgfdw_get_result(PGconn *conn)
+ 	return libpqsrv_get_result_last(conn, pgfdw_we_get_result);
+ }
+ 
++/*
++ * Used in case of streaming_fetch mode.
++ * Caller is responsible for the error handling on the result.
++ */
++PGresult *
++pgfdw_get_next_result(PGconn *conn)
++{
++	return libpqsrv_get_result(conn, pgfdw_we_get_result);
++}
++
+ /*
+  * Report an error we got from the remote server.
+  *
+@@ -1243,7 +1271,7 @@ pgfdw_xact_callback(XactEvent event, void *arg)
+ 					if (entry->have_prep_stmt && entry->have_error)
+ 					{
+ 						res = pgfdw_exec_query(entry->conn, "DEALLOCATE ALL",
+-											   NULL);
++											   &entry->state);
+ 						PQclear(res);
+ 					}
+ 					entry->have_prep_stmt = false;
+@@ -1569,9 +1597,10 @@ pgfdw_reset_xact_state(ConnCacheEntry *entry, bool toplevel)
+  * XXX: if the query was one sent by fetch_more_data_begin(), we could get the
+  * query text from the pendingAreq saved in the per-connection state, then
+  * report the query using it.
++ * On success, also clears conn_state->active_scan via call to pgfdw_cancel_query_end.
+  */
+-static bool
+-pgfdw_cancel_query(PGconn *conn)
++bool
++pgfdw_cancel_query(PGconn *conn, PgFdwConnState *state)
+ {
+ 	TimestampTz now = GetCurrentTimestamp();
+ 	TimestampTz endtime;
+@@ -1591,7 +1620,7 @@ pgfdw_cancel_query(PGconn *conn)
+ 
+ 	if (!pgfdw_cancel_query_begin(conn, endtime))
+ 		return false;
+-	return pgfdw_cancel_query_end(conn, endtime, retrycanceltime, false);
++	return pgfdw_cancel_query_end(conn, endtime, retrycanceltime, false, state);
+ }
+ 
+ /*
+@@ -1618,7 +1647,8 @@ pgfdw_cancel_query_begin(PGconn *conn, TimestampTz endtime)
+ 
+ static bool
+ pgfdw_cancel_query_end(PGconn *conn, TimestampTz endtime,
+-					   TimestampTz retrycanceltime, bool consume_input)
++					   TimestampTz retrycanceltime, bool consume_input,
++					   PgFdwConnState *state)
+ {
+ 	PGresult   *result;
+ 	bool		timed_out;
+@@ -1654,6 +1684,8 @@ pgfdw_cancel_query_end(PGconn *conn, TimestampTz endtime,
+ 		return false;
+ 	}
+ 	PQclear(result);
++	/* Clear the active_scan */
++	state->active_scan = NULL;
+ 
+ 	return true;
+ }
+@@ -1906,7 +1938,7 @@ pgfdw_abort_cleanup(ConnCacheEntry *entry, bool toplevel)
+ 	 * remote server, and if so, request cancellation of the command.
+ 	 */
+ 	if (PQtransactionStatus(entry->conn) == PQTRANS_ACTIVE &&
+-		!pgfdw_cancel_query(entry->conn))
++		!pgfdw_cancel_query(entry->conn, &entry->state))
+ 		return;					/* Unable to cancel running query */
+ 
+ 	CONSTRUCT_ABORT_COMMAND(sql, entry, toplevel);
+@@ -1929,10 +1961,15 @@ pgfdw_abort_cleanup(ConnCacheEntry *entry, bool toplevel)
+ 	 * If pendingAreq of the per-connection state is not NULL, it means that
+ 	 * an asynchronous fetch begun by fetch_more_data_begin() was not done
+ 	 * successfully and thus the per-connection state was not reset in
+-	 * fetch_more_data(); in that case reset the per-connection state here.
++	 * fetch_more_data().  Likewise, active_scan may still be pointing at a
++	 * streaming_fetch scan whose unconsumed result was never drained.  The
++	 * abort we just sent has already discarded any such state on the remote
++	 * side, and the (sub)transaction that owned that scan is going away, so
++	 * reset both unconditionally here rather than leave a dangling pointer
++	 * for the connection's next user.
+ 	 */
+-	if (entry->state.pendingAreq)
+-		memset(&entry->state, 0, sizeof(entry->state));
++	entry->state.pendingAreq = NULL;
++	entry->state.active_scan = NULL;
+ 
+ 	/* Disarm changing_xact_state if it all worked */
+ 	entry->changing_xact_state = false;
+@@ -2151,7 +2188,7 @@ pgfdw_finish_abort_cleanup(List *pending_entries, List *cancel_requested,
+ 														  RETRY_CANCEL_TIMEOUT);
+ 
+ 			if (!pgfdw_cancel_query_end(entry->conn, endtime,
+-										retrycanceltime, true))
++										retrycanceltime, true, &entry->state))
+ 			{
+ 				/* Unable to cancel running query */
+ 				pgfdw_reset_xact_state(entry, toplevel);
+@@ -2221,9 +2258,9 @@ pgfdw_finish_abort_cleanup(List *pending_entries, List *cancel_requested,
+ 			entry->have_error = false;
+ 		}
+ 
+-		/* Reset the per-connection state if needed */
+-		if (entry->state.pendingAreq)
+-			memset(&entry->state, 0, sizeof(entry->state));
++		/* Reset the async request and any undrained streaming_fetch scan */
++		entry->state.pendingAreq = NULL;
++		entry->state.active_scan = NULL;
+ 
+ 		/* We're done with this entry; unset the changing_xact_state flag */
+ 		entry->changing_xact_state = false;
+@@ -2266,9 +2303,9 @@ pgfdw_finish_abort_cleanup(List *pending_entries, List *cancel_requested,
+ 		entry->have_prep_stmt = false;
+ 		entry->have_error = false;
+ 
+-		/* Reset the per-connection state if needed */
+-		if (entry->state.pendingAreq)
+-			memset(&entry->state, 0, sizeof(entry->state));
++		/* Reset the async request and any undrained streaming_fetch scan */
++		entry->state.pendingAreq = NULL;
++		entry->state.active_scan = NULL;
+ 
+ 		/* We're done with this entry; unset the changing_xact_state flag */
+ 		entry->changing_xact_state = false;
+diff --git a/contrib/postgres_fdw/expected/postgres_fdw.out b/contrib/postgres_fdw/expected/postgres_fdw.out
+index 517d15cf1fa..e0ae112b2e9 100644
+--- a/contrib/postgres_fdw/expected/postgres_fdw.out
++++ b/contrib/postgres_fdw/expected/postgres_fdw.out
+@@ -277,6 +277,265 @@ SELECT c3, c4 FROM ft1 ORDER BY c3, c1 LIMIT 1;  -- should work again
+ ANALYZE ft1;
+ ALTER FOREIGN TABLE ft2 OPTIONS (use_remote_estimate 'true');
+ -- ===================================================================
++-- test streaming_fetch option
++-- ===================================================================
++CREATE SERVER fetch_stream_srv
++    FOREIGN DATA WRAPPER postgres_fdw
++    OPTIONS (dbname :'current_database', port :'current_port');
++CREATE USER MAPPING FOR CURRENT_USER SERVER fetch_stream_srv;
++CREATE TABLE local_tbl (id int, val text);
++INSERT INTO local_tbl VALUES (1, 'a'), (2, 'b'), (3, 'c');
++CREATE FOREIGN TABLE ft_server (id int, val text)
++    SERVER fetch_stream_srv
++    OPTIONS (schema_name 'public', table_name 'local_tbl');
++-- Combined view of the option at both levels, used by the checks below.
++CREATE VIEW streaming_fetch_opt AS
++SELECT (SELECT option_value FROM pg_foreign_server,
++               LATERAL pg_options_to_table(srvoptions)
++        WHERE srvname = 'fetch_stream_srv'
++          AND option_name = 'streaming_fetch') AS server_val,
++       (SELECT ftoptions FROM pg_foreign_table
++        WHERE ftrelid = 'ft_server'::regclass) AS table_opts;
++-- 1. streaming_fetch set at SERVER level only: value tracks the server,
++-- and (being unset) never shows up in the table's own ftoptions.
++ALTER SERVER fetch_stream_srv OPTIONS (ADD streaming_fetch 'true');
++SELECT * FROM streaming_fetch_opt;
++ server_val |                table_opts                 
++------------+-------------------------------------------
++ true       | {schema_name=public,table_name=local_tbl}
++(1 row)
++
++ALTER SERVER fetch_stream_srv OPTIONS (SET streaming_fetch 'false');
++SELECT * FROM streaming_fetch_opt;
++ server_val |                table_opts                 
++------------+-------------------------------------------
++ false      | {schema_name=public,table_name=local_tbl}
++(1 row)
++
++-- 2. streaming_fetch set at TABLE level only (no server-level option);
++-- query results must be correct for both true and false.
++ALTER SERVER fetch_stream_srv OPTIONS (DROP streaming_fetch);
++ALTER FOREIGN TABLE ft_server OPTIONS (ADD streaming_fetch 'true');
++SELECT * FROM streaming_fetch_opt;
++ server_val |                           table_opts                           
++------------+----------------------------------------------------------------
++            | {schema_name=public,table_name=local_tbl,streaming_fetch=true}
++(1 row)
++
++SELECT * FROM ft_server ORDER BY id;
++ id | val 
++----+-----
++  1 | a
++  2 | b
++  3 | c
++(3 rows)
++
++ALTER FOREIGN TABLE ft_server OPTIONS (SET streaming_fetch 'false');
++SELECT * FROM streaming_fetch_opt;
++ server_val |                           table_opts                            
++------------+-----------------------------------------------------------------
++            | {schema_name=public,table_name=local_tbl,streaming_fetch=false}
++(1 row)
++
++SELECT * FROM ft_server ORDER BY id;
++ id | val 
++----+-----
++  1 | a
++  2 | b
++  3 | c
++(3 rows)
++
++-- 3. TABLE-level value overrides SERVER-level value; query must use the
++-- effective (table-level) value in both directions.
++ALTER SERVER fetch_stream_srv OPTIONS (ADD streaming_fetch 'true');
++ALTER FOREIGN TABLE ft_server OPTIONS (SET streaming_fetch 'false');
++SELECT * FROM streaming_fetch_opt;  -- server=true, table overrides to false
++ server_val |                           table_opts                            
++------------+-----------------------------------------------------------------
++ true       | {schema_name=public,table_name=local_tbl,streaming_fetch=false}
++(1 row)
++
++SELECT * FROM ft_server ORDER BY id;
++ id | val 
++----+-----
++  1 | a
++  2 | b
++  3 | c
++(3 rows)
++
++ALTER SERVER fetch_stream_srv OPTIONS (SET streaming_fetch 'false');
++ALTER FOREIGN TABLE ft_server OPTIONS (SET streaming_fetch 'true');
++SELECT * FROM streaming_fetch_opt;  -- server=false, table overrides to true
++ server_val |                           table_opts                           
++------------+----------------------------------------------------------------
++ false      | {schema_name=public,table_name=local_tbl,streaming_fetch=true}
++(1 row)
++
++SELECT * FROM ft_server ORDER BY id;
++ id | val 
++----+-----
++  1 | a
++  2 | b
++  3 | c
++(3 rows)
++
++DROP VIEW streaming_fetch_opt;
++-- 4. Negative tests: invalid values must be rejected, at both table and
++-- server level.
++\set VERBOSITY terse
++CREATE FOREIGN TABLE ft_invalid (id int, val text)
++    SERVER fetch_stream_srv
++    OPTIONS (schema_name 'public', table_name 'local_tbl', streaming_fetch 'yes');  -- ERROR
++ERROR:  streaming_fetch requires a Boolean value
++ALTER SERVER fetch_stream_srv OPTIONS (SET streaming_fetch '1');       -- ERROR
++ERROR:  streaming_fetch requires a Boolean value
++ALTER SERVER fetch_stream_srv OPTIONS (SET streaming_fetch '');        -- ERROR
++ERROR:  streaming_fetch requires a Boolean value
++ALTER SERVER fetch_stream_srv OPTIONS (SET streaming_fetch 'notabool'); -- ERROR
++ERROR:  streaming_fetch requires a Boolean value
++\set VERBOSITY default
++-- 5. ALTER FOREIGN TABLE: add, change, and drop streaming_fetch
++ALTER SERVER fetch_stream_srv OPTIONS (SET streaming_fetch 'true');
++CREATE FOREIGN TABLE ft_alter_test (id int, val text)
++    SERVER fetch_stream_srv
++    OPTIONS (schema_name 'public', table_name 'local_tbl');
++-- No table-level option yet
++SELECT ftoptions FROM pg_foreign_table WHERE ftrelid = 'ft_alter_test'::regclass;
++                 ftoptions                 
++-------------------------------------------
++ {schema_name=public,table_name=local_tbl}
++(1 row)
++
++ALTER FOREIGN TABLE ft_alter_test OPTIONS (ADD streaming_fetch 'false');
++SELECT ftoptions FROM pg_foreign_table WHERE ftrelid = 'ft_alter_test'::regclass;
++                            ftoptions                            
++-----------------------------------------------------------------
++ {schema_name=public,table_name=local_tbl,streaming_fetch=false}
++(1 row)
++
++ALTER FOREIGN TABLE ft_alter_test OPTIONS (SET streaming_fetch 'true');
++SELECT ftoptions FROM pg_foreign_table WHERE ftrelid = 'ft_alter_test'::regclass;
++                           ftoptions                            
++----------------------------------------------------------------
++ {schema_name=public,table_name=local_tbl,streaming_fetch=true}
++(1 row)
++
++-- DROP table-level option (falls back to server-level), and confirm the
++-- fallback value is functionally correct.
++ALTER FOREIGN TABLE ft_alter_test OPTIONS (DROP streaming_fetch);
++SELECT ftoptions FROM pg_foreign_table WHERE ftrelid = 'ft_alter_test'::regclass;
++                 ftoptions                 
++-------------------------------------------
++ {schema_name=public,table_name=local_tbl}
++(1 row)
++
++SELECT * FROM ft_alter_test ORDER BY id;
++ id | val 
++----+-----
++  1 | a
++  2 | b
++  3 | c
++(3 rows)
++
++DROP FOREIGN TABLE ft_alter_test;
++-- 6. streaming_fetch with non-default fetch_size values
++-- Use a 12-row table so chunk boundaries are distinct and predictable:
++-- fetch_size=1 gives 12 single-row chunks, fetch_size=5 gives chunks
++-- of 5+5+2, and fetch_size=1000 puts all rows in a single chunk.
++CREATE TABLE local_tbl_large (id int, val text);
++INSERT INTO local_tbl_large SELECT id, 'val' || id FROM generate_series(1, 12) id;
++-- fetch_size = 1: every row is its own libpq chunk; exercises the path
++-- where pgfdw_get_next_result is called once per row.
++CREATE FOREIGN TABLE ft_fetchsize (id int, val text)
++    SERVER fetch_stream_srv
++    OPTIONS (schema_name 'public', table_name 'local_tbl_large', fetch_size '1');
++SELECT count(*) FROM ft_fetchsize;
++ count 
++-------
++    12
++(1 row)
++
++-- fetch_size = 5: three chunks with a partial last chunk (5+5+2);
++-- the final chunk is smaller than fetch_size.
++ALTER FOREIGN TABLE ft_fetchsize OPTIONS (SET fetch_size '5');
++SELECT count(*) FROM ft_fetchsize;
++ count 
++-------
++    12
++(1 row)
++
++SELECT * FROM ft_fetchsize ORDER BY id;
++ id |  val  
++----+-------
++  1 | val1
++  2 | val2
++  3 | val3
++  4 | val4
++  5 | val5
++  6 | val6
++  7 | val7
++  8 | val8
++  9 | val9
++ 10 | val10
++ 11 | val11
++ 12 | val12
++(12 rows)
++
++-- fetch_size exceeds the table row count: all rows arrive in one chunk
++-- followed immediately by the final empty PGRES_TUPLES_OK result.
++ALTER FOREIGN TABLE ft_fetchsize OPTIONS (SET fetch_size '1000');
++SELECT count(*) FROM ft_fetchsize;
++ count 
++-------
++    12
++(1 row)
++
++DROP FOREIGN TABLE ft_fetchsize;
++DROP TABLE local_tbl_large;
++-- 7. streaming_fetch combined with use_remote_estimate
++-- use_remote_estimate issues a remote EXPLAIN to size the scan at plan
++-- time; streaming_fetch must not interfere with that EXPLAIN call.
++-- ft_server's table-level option is still 'true' from step 3 above.
++ALTER SERVER fetch_stream_srv OPTIONS (ADD use_remote_estimate 'true');
++-- Verify both options are active.
++SELECT srvname, option_name, option_value
++FROM pg_foreign_server,
++     LATERAL pg_options_to_table(srvoptions)
++WHERE srvname = 'fetch_stream_srv'
++  AND option_name IN ('streaming_fetch', 'use_remote_estimate')
++ORDER BY option_name;
++     srvname      |     option_name     | option_value 
++------------------+---------------------+--------------
++ fetch_stream_srv | streaming_fetch     | true
++ fetch_stream_srv | use_remote_estimate | true
++(2 rows)
++
++-- Both options active: use_remote_estimate sizes the scan remotely via
++-- EXPLAIN, then streaming_fetch fetches rows without a cursor.
++EXPLAIN (VERBOSE, COSTS OFF) SELECT * FROM ft_server ORDER BY id;
++                                  QUERY PLAN                                   
++-------------------------------------------------------------------------------
++ Foreign Scan on public.ft_server
++   Output: id, val
++   Remote SQL: SELECT id, val FROM public.local_tbl ORDER BY id ASC NULLS LAST
++   Streaming Fetch: true
++(4 rows)
++
++SELECT * FROM ft_server ORDER BY id;
++ id | val 
++----+-----
++  1 | a
++  2 | b
++  3 | c
++(3 rows)
++
++ALTER SERVER fetch_stream_srv OPTIONS (DROP use_remote_estimate);
++-- Cleanup
++DROP FOREIGN TABLE ft_server;
++DROP USER MAPPING FOR CURRENT_USER SERVER fetch_stream_srv;
++DROP SERVER fetch_stream_srv CASCADE;
++DROP TABLE local_tbl;
++-- ===================================================================
+ -- test subscription
+ -- ===================================================================
+ CREATE SUBSCRIPTION regress_pgfdw_subscription SERVER testserver1
+@@ -448,6 +707,89 @@ SELECT * FROM ft1 t1 WHERE t1.c3 = (SELECT MAX(c3) FROM ft2 t2) ORDER BY c1;
+  1000 |  0 | 01000 | Thu Jan 01 00:00:00 1970 PST | Thu Jan 01 00:00:00 1970 | 0  | 0          | foo
+ (1 row)
+ 
++-- Test in streaming_fetch mode to cover path from subquery params
++-- with only one table using streaming_fetch
++ALTER FOREIGN TABLE ft1 OPTIONS (streaming_fetch 'true');
++SELECT * FROM ft1 t1 WHERE t1.c3 = (SELECT MAX(c3) FROM ft2 t2) ORDER BY c1;
++  c1  | c2 |  c3   |              c4              |            c5            | c6 |     c7     | c8  
++------+----+-------+------------------------------+--------------------------+----+------------+-----
++ 1000 |  0 | 01000 | Thu Jan 01 00:00:00 1970 PST | Thu Jan 01 00:00:00 1970 | 0  | 0          | foo
++(1 row)
++
++-- Test join with only one table using streaming_fetch at a time
++SELECT t1.c1, t2."C 1" FROM ft2 t1 JOIN "S 1"."T 1" t2 ON (t1.c1 = t2."C 1") OFFSET 100 LIMIT 10;
++ c1  | C 1 
++-----+-----
++ 101 | 101
++ 102 | 102
++ 103 | 103
++ 104 | 104
++ 105 | 105
++ 106 | 106
++ 107 | 107
++ 108 | 108
++ 109 | 109
++ 110 | 110
++(10 rows)
++
++ALTER FOREIGN TABLE ft1 OPTIONS (SET streaming_fetch 'false');
++ALTER FOREIGN TABLE ft2 OPTIONS (streaming_fetch 'true');
++SELECT t1.c1, t2."C 1" FROM ft2 t1 JOIN "S 1"."T 1" t2 ON (t1.c1 = t2."C 1") OFFSET 100 LIMIT 10;
++ c1  | C 1 
++-----+-----
++ 101 | 101
++ 102 | 102
++ 103 | 103
++ 104 | 104
++ 105 | 105
++ 106 | 106
++ 107 | 107
++ 108 | 108
++ 109 | 109
++ 110 | 110
++(10 rows)
++
++-- with both the tables using streaming_fetch
++ALTER FOREIGN TABLE ft1 OPTIONS (SET streaming_fetch 'true');
++SELECT * FROM ft1 t1 WHERE t1.c3 = (SELECT MAX(c3) FROM ft2 t2) ORDER BY c1;
++  c1  | c2 |  c3   |              c4              |            c5            | c6 |     c7     | c8  
++------+----+-------+------------------------------+--------------------------+----+------------+-----
++ 1000 |  0 | 01000 | Thu Jan 01 00:00:00 1970 PST | Thu Jan 01 00:00:00 1970 | 0  | 0          | foo
++(1 row)
++
++-- Test join with both the tables using streaming_fetch
++SELECT t1.c1, t2."C 1" FROM ft2 t1 JOIN "S 1"."T 1" t2 ON (t1.c1 = t2."C 1") OFFSET 100 LIMIT 10;
++ c1  | C 1 
++-----+-----
++ 101 | 101
++ 102 | 102
++ 103 | 103
++ 104 | 104
++ 105 | 105
++ 106 | 106
++ 107 | 107
++ 108 | 108
++ 109 | 109
++ 110 | 110
++(10 rows)
++
++ALTER FOREIGN TABLE ft1 OPTIONS (SET streaming_fetch 'false');
++ALTER FOREIGN TABLE ft2 OPTIONS (SET streaming_fetch 'false');
++-- streaming_fetch: verify correct results when parallel-friendly settings
++-- are active locally.  With no cursor on the remote side, the remote
++-- planner is free to choose a parallel plan; results must match exactly.
++ALTER FOREIGN TABLE ft1 OPTIONS (SET streaming_fetch 'true');
++SET max_parallel_workers_per_gather = 2;
++SET min_parallel_table_scan_size = 0;
++SELECT count(*) FROM ft1;
++ count 
++-------
++  1000
++(1 row)
++
++RESET max_parallel_workers_per_gather;
++RESET min_parallel_table_scan_size;
++ALTER FOREIGN TABLE ft1 OPTIONS (SET streaming_fetch 'false');
+ -- used in CTE
+ WITH t1 AS (SELECT * FROM ft1 WHERE c1 <= 10) SELECT t2.c1, t2.c2, t2.c3, t2.c4 FROM t1, ft2 t2 WHERE t1.c1 = t2.c1 ORDER BY t1.c1;
+  c1 | c2 |  c3   |              c4              
+@@ -752,48 +1094,629 @@ EXPLAIN (VERBOSE, COSTS OFF) SELECT * FROM ft1 t1 WHERE c1 = (ARRAY[c1,c2,3])[1]
+    Remote SQL: SELECT "C 1", c2, c3, c4, c5, c6, c7, c8 FROM "S 1"."T 1" WHERE (("C 1" = ((ARRAY["C 1", c2, 3])[1])))
+ (3 rows)
+ 
+-EXPLAIN (VERBOSE, COSTS OFF) SELECT * FROM ft1 t1 WHERE c6 = E'foo''s\\bar';  -- check special chars
+-                                              QUERY PLAN                                               
+--------------------------------------------------------------------------------------------------------
+- Foreign Scan on public.ft1 t1
+-   Output: c1, c2, c3, c4, c5, c6, c7, c8
+-   Remote SQL: SELECT "C 1", c2, c3, c4, c5, c6, c7, c8 FROM "S 1"."T 1" WHERE ((c6 = E'foo''s\\bar'))
++EXPLAIN (VERBOSE, COSTS OFF) SELECT * FROM ft1 t1 WHERE c6 = E'foo''s\\bar';  -- check special chars
++                                              QUERY PLAN                                               
++-------------------------------------------------------------------------------------------------------
++ Foreign Scan on public.ft1 t1
++   Output: c1, c2, c3, c4, c5, c6, c7, c8
++   Remote SQL: SELECT "C 1", c2, c3, c4, c5, c6, c7, c8 FROM "S 1"."T 1" WHERE ((c6 = E'foo''s\\bar'))
++(3 rows)
++
++EXPLAIN (VERBOSE, COSTS OFF) SELECT * FROM ft1 t1 WHERE c8 = 'foo';  -- can't be sent to remote
++                               QUERY PLAN                                
++-------------------------------------------------------------------------
++ Foreign Scan on public.ft1 t1
++   Output: c1, c2, c3, c4, c5, c6, c7, c8
++   Filter: (t1.c8 = 'foo'::user_enum)
++   Remote SQL: SELECT "C 1", c2, c3, c4, c5, c6, c7, c8 FROM "S 1"."T 1"
++(4 rows)
++
++-- parameterized remote path for foreign table
++EXPLAIN (VERBOSE, COSTS OFF)
++  SELECT * FROM "S 1"."T 1" a, ft2 b WHERE a."C 1" = 47 AND b.c1 = a.c2;
++                                                 QUERY PLAN                                                  
++-------------------------------------------------------------------------------------------------------------
++ Nested Loop
++   Output: a."C 1", a.c2, a.c3, a.c4, a.c5, a.c6, a.c7, a.c8, b.c1, b.c2, b.c3, b.c4, b.c5, b.c6, b.c7, b.c8
++   ->  Index Scan using t1_pkey on "S 1"."T 1" a
++         Output: a."C 1", a.c2, a.c3, a.c4, a.c5, a.c6, a.c7, a.c8
++         Index Cond: (a."C 1" = 47)
++   ->  Foreign Scan on public.ft2 b
++         Output: b.c1, b.c2, b.c3, b.c4, b.c5, b.c6, b.c7, b.c8
++         Remote SQL: SELECT "C 1", c2, c3, c4, c5, c6, c7, c8 FROM "S 1"."T 1" WHERE (("C 1" = $1::integer))
++(8 rows)
++
++SELECT * FROM "S 1"."T 1" a, ft2 b WHERE a."C 1" = 47 AND b.c1 = a.c2;
++ C 1 | c2 |  c3   |              c4              |            c5            | c6 |     c7     | c8  | c1 | c2 |  c3   |              c4              |            c5            | c6 |     c7     | c8  
++-----+----+-------+------------------------------+--------------------------+----+------------+-----+----+----+-------+------------------------------+--------------------------+----+------------+-----
++  47 |  7 | 00047 | Tue Feb 17 00:00:00 1970 PST | Tue Feb 17 00:00:00 1970 | 7  | 7          | foo |  7 |  7 | 00007 | Thu Jan 08 00:00:00 1970 PST | Thu Jan 08 00:00:00 1970 | 7  | 7          | foo
++(1 row)
++
++-- check both safe and unsafe join conditions
++EXPLAIN (VERBOSE, COSTS OFF)
++  SELECT * FROM ft2 a, ft2 b
++  WHERE a.c2 = 6 AND b.c1 = a.c1 AND a.c8 = 'foo' AND b.c7 = upper(a.c7);
++                                                 QUERY PLAN                                                  
++-------------------------------------------------------------------------------------------------------------
++ Nested Loop
++   Output: a.c1, a.c2, a.c3, a.c4, a.c5, a.c6, a.c7, a.c8, b.c1, b.c2, b.c3, b.c4, b.c5, b.c6, b.c7, b.c8
++   ->  Foreign Scan on public.ft2 a
++         Output: a.c1, a.c2, a.c3, a.c4, a.c5, a.c6, a.c7, a.c8
++         Filter: (a.c8 = 'foo'::user_enum)
++         Remote SQL: SELECT "C 1", c2, c3, c4, c5, c6, c7, c8 FROM "S 1"."T 1" WHERE ((c2 = 6))
++   ->  Foreign Scan on public.ft2 b
++         Output: b.c1, b.c2, b.c3, b.c4, b.c5, b.c6, b.c7, b.c8
++         Filter: ((b.c7)::text = upper((a.c7)::text))
++         Remote SQL: SELECT "C 1", c2, c3, c4, c5, c6, c7, c8 FROM "S 1"."T 1" WHERE (($1::integer = "C 1"))
++(10 rows)
++
++SELECT * FROM ft2 a, ft2 b
++WHERE a.c2 = 6 AND b.c1 = a.c1 AND a.c8 = 'foo' AND b.c7 = upper(a.c7);
++ c1  | c2 |  c3   |              c4              |            c5            | c6 |     c7     | c8  | c1  | c2 |  c3   |              c4              |            c5            | c6 |     c7     | c8  
++-----+----+-------+------------------------------+--------------------------+----+------------+-----+-----+----+-------+------------------------------+--------------------------+----+------------+-----
++   6 |  6 | 00006 | Wed Jan 07 00:00:00 1970 PST | Wed Jan 07 00:00:00 1970 | 6  | 6          | foo |   6 |  6 | 00006 | Wed Jan 07 00:00:00 1970 PST | Wed Jan 07 00:00:00 1970 | 6  | 6          | foo
++  16 |  6 | 00016 | Sat Jan 17 00:00:00 1970 PST | Sat Jan 17 00:00:00 1970 | 6  | 6          | foo |  16 |  6 | 00016 | Sat Jan 17 00:00:00 1970 PST | Sat Jan 17 00:00:00 1970 | 6  | 6          | foo
++  26 |  6 | 00026 | Tue Jan 27 00:00:00 1970 PST | Tue Jan 27 00:00:00 1970 | 6  | 6          | foo |  26 |  6 | 00026 | Tue Jan 27 00:00:00 1970 PST | Tue Jan 27 00:00:00 1970 | 6  | 6          | foo
++  36 |  6 | 00036 | Fri Feb 06 00:00:00 1970 PST | Fri Feb 06 00:00:00 1970 | 6  | 6          | foo |  36 |  6 | 00036 | Fri Feb 06 00:00:00 1970 PST | Fri Feb 06 00:00:00 1970 | 6  | 6          | foo
++  46 |  6 | 00046 | Mon Feb 16 00:00:00 1970 PST | Mon Feb 16 00:00:00 1970 | 6  | 6          | foo |  46 |  6 | 00046 | Mon Feb 16 00:00:00 1970 PST | Mon Feb 16 00:00:00 1970 | 6  | 6          | foo
++  56 |  6 | 00056 | Thu Feb 26 00:00:00 1970 PST | Thu Feb 26 00:00:00 1970 | 6  | 6          | foo |  56 |  6 | 00056 | Thu Feb 26 00:00:00 1970 PST | Thu Feb 26 00:00:00 1970 | 6  | 6          | foo
++  66 |  6 | 00066 | Sun Mar 08 00:00:00 1970 PST | Sun Mar 08 00:00:00 1970 | 6  | 6          | foo |  66 |  6 | 00066 | Sun Mar 08 00:00:00 1970 PST | Sun Mar 08 00:00:00 1970 | 6  | 6          | foo
++  76 |  6 | 00076 | Wed Mar 18 00:00:00 1970 PST | Wed Mar 18 00:00:00 1970 | 6  | 6          | foo |  76 |  6 | 00076 | Wed Mar 18 00:00:00 1970 PST | Wed Mar 18 00:00:00 1970 | 6  | 6          | foo
++  86 |  6 | 00086 | Sat Mar 28 00:00:00 1970 PST | Sat Mar 28 00:00:00 1970 | 6  | 6          | foo |  86 |  6 | 00086 | Sat Mar 28 00:00:00 1970 PST | Sat Mar 28 00:00:00 1970 | 6  | 6          | foo
++  96 |  6 | 00096 | Tue Apr 07 00:00:00 1970 PST | Tue Apr 07 00:00:00 1970 | 6  | 6          | foo |  96 |  6 | 00096 | Tue Apr 07 00:00:00 1970 PST | Tue Apr 07 00:00:00 1970 | 6  | 6          | foo
++ 106 |  6 | 00106 | Wed Jan 07 00:00:00 1970 PST | Wed Jan 07 00:00:00 1970 | 6  | 6          | foo | 106 |  6 | 00106 | Wed Jan 07 00:00:00 1970 PST | Wed Jan 07 00:00:00 1970 | 6  | 6          | foo
++ 116 |  6 | 00116 | Sat Jan 17 00:00:00 1970 PST | Sat Jan 17 00:00:00 1970 | 6  | 6          | foo | 116 |  6 | 00116 | Sat Jan 17 00:00:00 1970 PST | Sat Jan 17 00:00:00 1970 | 6  | 6          | foo
++ 126 |  6 | 00126 | Tue Jan 27 00:00:00 1970 PST | Tue Jan 27 00:00:00 1970 | 6  | 6          | foo | 126 |  6 | 00126 | Tue Jan 27 00:00:00 1970 PST | Tue Jan 27 00:00:00 1970 | 6  | 6          | foo
++ 136 |  6 | 00136 | Fri Feb 06 00:00:00 1970 PST | Fri Feb 06 00:00:00 1970 | 6  | 6          | foo | 136 |  6 | 00136 | Fri Feb 06 00:00:00 1970 PST | Fri Feb 06 00:00:00 1970 | 6  | 6          | foo
++ 146 |  6 | 00146 | Mon Feb 16 00:00:00 1970 PST | Mon Feb 16 00:00:00 1970 | 6  | 6          | foo | 146 |  6 | 00146 | Mon Feb 16 00:00:00 1970 PST | Mon Feb 16 00:00:00 1970 | 6  | 6          | foo
++ 156 |  6 | 00156 | Thu Feb 26 00:00:00 1970 PST | Thu Feb 26 00:00:00 1970 | 6  | 6          | foo | 156 |  6 | 00156 | Thu Feb 26 00:00:00 1970 PST | Thu Feb 26 00:00:00 1970 | 6  | 6          | foo
++ 166 |  6 | 00166 | Sun Mar 08 00:00:00 1970 PST | Sun Mar 08 00:00:00 1970 | 6  | 6          | foo | 166 |  6 | 00166 | Sun Mar 08 00:00:00 1970 PST | Sun Mar 08 00:00:00 1970 | 6  | 6          | foo
++ 176 |  6 | 00176 | Wed Mar 18 00:00:00 1970 PST | Wed Mar 18 00:00:00 1970 | 6  | 6          | foo | 176 |  6 | 00176 | Wed Mar 18 00:00:00 1970 PST | Wed Mar 18 00:00:00 1970 | 6  | 6          | foo
++ 186 |  6 | 00186 | Sat Mar 28 00:00:00 1970 PST | Sat Mar 28 00:00:00 1970 | 6  | 6          | foo | 186 |  6 | 00186 | Sat Mar 28 00:00:00 1970 PST | Sat Mar 28 00:00:00 1970 | 6  | 6          | foo
++ 196 |  6 | 00196 | Tue Apr 07 00:00:00 1970 PST | Tue Apr 07 00:00:00 1970 | 6  | 6          | foo | 196 |  6 | 00196 | Tue Apr 07 00:00:00 1970 PST | Tue Apr 07 00:00:00 1970 | 6  | 6          | foo
++ 206 |  6 | 00206 | Wed Jan 07 00:00:00 1970 PST | Wed Jan 07 00:00:00 1970 | 6  | 6          | foo | 206 |  6 | 00206 | Wed Jan 07 00:00:00 1970 PST | Wed Jan 07 00:00:00 1970 | 6  | 6          | foo
++ 216 |  6 | 00216 | Sat Jan 17 00:00:00 1970 PST | Sat Jan 17 00:00:00 1970 | 6  | 6          | foo | 216 |  6 | 00216 | Sat Jan 17 00:00:00 1970 PST | Sat Jan 17 00:00:00 1970 | 6  | 6          | foo
++ 226 |  6 | 00226 | Tue Jan 27 00:00:00 1970 PST | Tue Jan 27 00:00:00 1970 | 6  | 6          | foo | 226 |  6 | 00226 | Tue Jan 27 00:00:00 1970 PST | Tue Jan 27 00:00:00 1970 | 6  | 6          | foo
++ 236 |  6 | 00236 | Fri Feb 06 00:00:00 1970 PST | Fri Feb 06 00:00:00 1970 | 6  | 6          | foo | 236 |  6 | 00236 | Fri Feb 06 00:00:00 1970 PST | Fri Feb 06 00:00:00 1970 | 6  | 6          | foo
++ 246 |  6 | 00246 | Mon Feb 16 00:00:00 1970 PST | Mon Feb 16 00:00:00 1970 | 6  | 6          | foo | 246 |  6 | 00246 | Mon Feb 16 00:00:00 1970 PST | Mon Feb 16 00:00:00 1970 | 6  | 6          | foo
++ 256 |  6 | 00256 | Thu Feb 26 00:00:00 1970 PST | Thu Feb 26 00:00:00 1970 | 6  | 6          | foo | 256 |  6 | 00256 | Thu Feb 26 00:00:00 1970 PST | Thu Feb 26 00:00:00 1970 | 6  | 6          | foo
++ 266 |  6 | 00266 | Sun Mar 08 00:00:00 1970 PST | Sun Mar 08 00:00:00 1970 | 6  | 6          | foo | 266 |  6 | 00266 | Sun Mar 08 00:00:00 1970 PST | Sun Mar 08 00:00:00 1970 | 6  | 6          | foo
++ 276 |  6 | 00276 | Wed Mar 18 00:00:00 1970 PST | Wed Mar 18 00:00:00 1970 | 6  | 6          | foo | 276 |  6 | 00276 | Wed Mar 18 00:00:00 1970 PST | Wed Mar 18 00:00:00 1970 | 6  | 6          | foo
++ 286 |  6 | 00286 | Sat Mar 28 00:00:00 1970 PST | Sat Mar 28 00:00:00 1970 | 6  | 6          | foo | 286 |  6 | 00286 | Sat Mar 28 00:00:00 1970 PST | Sat Mar 28 00:00:00 1970 | 6  | 6          | foo
++ 296 |  6 | 00296 | Tue Apr 07 00:00:00 1970 PST | Tue Apr 07 00:00:00 1970 | 6  | 6          | foo | 296 |  6 | 00296 | Tue Apr 07 00:00:00 1970 PST | Tue Apr 07 00:00:00 1970 | 6  | 6          | foo
++ 306 |  6 | 00306 | Wed Jan 07 00:00:00 1970 PST | Wed Jan 07 00:00:00 1970 | 6  | 6          | foo | 306 |  6 | 00306 | Wed Jan 07 00:00:00 1970 PST | Wed Jan 07 00:00:00 1970 | 6  | 6          | foo
++ 316 |  6 | 00316 | Sat Jan 17 00:00:00 1970 PST | Sat Jan 17 00:00:00 1970 | 6  | 6          | foo | 316 |  6 | 00316 | Sat Jan 17 00:00:00 1970 PST | Sat Jan 17 00:00:00 1970 | 6  | 6          | foo
++ 326 |  6 | 00326 | Tue Jan 27 00:00:00 1970 PST | Tue Jan 27 00:00:00 1970 | 6  | 6          | foo | 326 |  6 | 00326 | Tue Jan 27 00:00:00 1970 PST | Tue Jan 27 00:00:00 1970 | 6  | 6          | foo
++ 336 |  6 | 00336 | Fri Feb 06 00:00:00 1970 PST | Fri Feb 06 00:00:00 1970 | 6  | 6          | foo | 336 |  6 | 00336 | Fri Feb 06 00:00:00 1970 PST | Fri Feb 06 00:00:00 1970 | 6  | 6          | foo
++ 346 |  6 | 00346 | Mon Feb 16 00:00:00 1970 PST | Mon Feb 16 00:00:00 1970 | 6  | 6          | foo | 346 |  6 | 00346 | Mon Feb 16 00:00:00 1970 PST | Mon Feb 16 00:00:00 1970 | 6  | 6          | foo
++ 356 |  6 | 00356 | Thu Feb 26 00:00:00 1970 PST | Thu Feb 26 00:00:00 1970 | 6  | 6          | foo | 356 |  6 | 00356 | Thu Feb 26 00:00:00 1970 PST | Thu Feb 26 00:00:00 1970 | 6  | 6          | foo
++ 366 |  6 | 00366 | Sun Mar 08 00:00:00 1970 PST | Sun Mar 08 00:00:00 1970 | 6  | 6          | foo | 366 |  6 | 00366 | Sun Mar 08 00:00:00 1970 PST | Sun Mar 08 00:00:00 1970 | 6  | 6          | foo
++ 376 |  6 | 00376 | Wed Mar 18 00:00:00 1970 PST | Wed Mar 18 00:00:00 1970 | 6  | 6          | foo | 376 |  6 | 00376 | Wed Mar 18 00:00:00 1970 PST | Wed Mar 18 00:00:00 1970 | 6  | 6          | foo
++ 386 |  6 | 00386 | Sat Mar 28 00:00:00 1970 PST | Sat Mar 28 00:00:00 1970 | 6  | 6          | foo | 386 |  6 | 00386 | Sat Mar 28 00:00:00 1970 PST | Sat Mar 28 00:00:00 1970 | 6  | 6          | foo
++ 396 |  6 | 00396 | Tue Apr 07 00:00:00 1970 PST | Tue Apr 07 00:00:00 1970 | 6  | 6          | foo | 396 |  6 | 00396 | Tue Apr 07 00:00:00 1970 PST | Tue Apr 07 00:00:00 1970 | 6  | 6          | foo
++ 406 |  6 | 00406 | Wed Jan 07 00:00:00 1970 PST | Wed Jan 07 00:00:00 1970 | 6  | 6          | foo | 406 |  6 | 00406 | Wed Jan 07 00:00:00 1970 PST | Wed Jan 07 00:00:00 1970 | 6  | 6          | foo
++ 416 |  6 | 00416 | Sat Jan 17 00:00:00 1970 PST | Sat Jan 17 00:00:00 1970 | 6  | 6          | foo | 416 |  6 | 00416 | Sat Jan 17 00:00:00 1970 PST | Sat Jan 17 00:00:00 1970 | 6  | 6          | foo
++ 426 |  6 | 00426 | Tue Jan 27 00:00:00 1970 PST | Tue Jan 27 00:00:00 1970 | 6  | 6          | foo | 426 |  6 | 00426 | Tue Jan 27 00:00:00 1970 PST | Tue Jan 27 00:00:00 1970 | 6  | 6          | foo
++ 436 |  6 | 00436 | Fri Feb 06 00:00:00 1970 PST | Fri Feb 06 00:00:00 1970 | 6  | 6          | foo | 436 |  6 | 00436 | Fri Feb 06 00:00:00 1970 PST | Fri Feb 06 00:00:00 1970 | 6  | 6          | foo
++ 446 |  6 | 00446 | Mon Feb 16 00:00:00 1970 PST | Mon Feb 16 00:00:00 1970 | 6  | 6          | foo | 446 |  6 | 00446 | Mon Feb 16 00:00:00 1970 PST | Mon Feb 16 00:00:00 1970 | 6  | 6          | foo
++ 456 |  6 | 00456 | Thu Feb 26 00:00:00 1970 PST | Thu Feb 26 00:00:00 1970 | 6  | 6          | foo | 456 |  6 | 00456 | Thu Feb 26 00:00:00 1970 PST | Thu Feb 26 00:00:00 1970 | 6  | 6          | foo
++ 466 |  6 | 00466 | Sun Mar 08 00:00:00 1970 PST | Sun Mar 08 00:00:00 1970 | 6  | 6          | foo | 466 |  6 | 00466 | Sun Mar 08 00:00:00 1970 PST | Sun Mar 08 00:00:00 1970 | 6  | 6          | foo
++ 476 |  6 | 00476 | Wed Mar 18 00:00:00 1970 PST | Wed Mar 18 00:00:00 1970 | 6  | 6          | foo | 476 |  6 | 00476 | Wed Mar 18 00:00:00 1970 PST | Wed Mar 18 00:00:00 1970 | 6  | 6          | foo
++ 486 |  6 | 00486 | Sat Mar 28 00:00:00 1970 PST | Sat Mar 28 00:00:00 1970 | 6  | 6          | foo | 486 |  6 | 00486 | Sat Mar 28 00:00:00 1970 PST | Sat Mar 28 00:00:00 1970 | 6  | 6          | foo
++ 496 |  6 | 00496 | Tue Apr 07 00:00:00 1970 PST | Tue Apr 07 00:00:00 1970 | 6  | 6          | foo | 496 |  6 | 00496 | Tue Apr 07 00:00:00 1970 PST | Tue Apr 07 00:00:00 1970 | 6  | 6          | foo
++ 506 |  6 | 00506 | Wed Jan 07 00:00:00 1970 PST | Wed Jan 07 00:00:00 1970 | 6  | 6          | foo | 506 |  6 | 00506 | Wed Jan 07 00:00:00 1970 PST | Wed Jan 07 00:00:00 1970 | 6  | 6          | foo
++ 516 |  6 | 00516 | Sat Jan 17 00:00:00 1970 PST | Sat Jan 17 00:00:00 1970 | 6  | 6          | foo | 516 |  6 | 00516 | Sat Jan 17 00:00:00 1970 PST | Sat Jan 17 00:00:00 1970 | 6  | 6          | foo
++ 526 |  6 | 00526 | Tue Jan 27 00:00:00 1970 PST | Tue Jan 27 00:00:00 1970 | 6  | 6          | foo | 526 |  6 | 00526 | Tue Jan 27 00:00:00 1970 PST | Tue Jan 27 00:00:00 1970 | 6  | 6          | foo
++ 536 |  6 | 00536 | Fri Feb 06 00:00:00 1970 PST | Fri Feb 06 00:00:00 1970 | 6  | 6          | foo | 536 |  6 | 00536 | Fri Feb 06 00:00:00 1970 PST | Fri Feb 06 00:00:00 1970 | 6  | 6          | foo
++ 546 |  6 | 00546 | Mon Feb 16 00:00:00 1970 PST | Mon Feb 16 00:00:00 1970 | 6  | 6          | foo | 546 |  6 | 00546 | Mon Feb 16 00:00:00 1970 PST | Mon Feb 16 00:00:00 1970 | 6  | 6          | foo
++ 556 |  6 | 00556 | Thu Feb 26 00:00:00 1970 PST | Thu Feb 26 00:00:00 1970 | 6  | 6          | foo | 556 |  6 | 00556 | Thu Feb 26 00:00:00 1970 PST | Thu Feb 26 00:00:00 1970 | 6  | 6          | foo
++ 566 |  6 | 00566 | Sun Mar 08 00:00:00 1970 PST | Sun Mar 08 00:00:00 1970 | 6  | 6          | foo | 566 |  6 | 00566 | Sun Mar 08 00:00:00 1970 PST | Sun Mar 08 00:00:00 1970 | 6  | 6          | foo
++ 576 |  6 | 00576 | Wed Mar 18 00:00:00 1970 PST | Wed Mar 18 00:00:00 1970 | 6  | 6          | foo | 576 |  6 | 00576 | Wed Mar 18 00:00:00 1970 PST | Wed Mar 18 00:00:00 1970 | 6  | 6          | foo
++ 586 |  6 | 00586 | Sat Mar 28 00:00:00 1970 PST | Sat Mar 28 00:00:00 1970 | 6  | 6          | foo | 586 |  6 | 00586 | Sat Mar 28 00:00:00 1970 PST | Sat Mar 28 00:00:00 1970 | 6  | 6          | foo
++ 596 |  6 | 00596 | Tue Apr 07 00:00:00 1970 PST | Tue Apr 07 00:00:00 1970 | 6  | 6          | foo | 596 |  6 | 00596 | Tue Apr 07 00:00:00 1970 PST | Tue Apr 07 00:00:00 1970 | 6  | 6          | foo
++ 606 |  6 | 00606 | Wed Jan 07 00:00:00 1970 PST | Wed Jan 07 00:00:00 1970 | 6  | 6          | foo | 606 |  6 | 00606 | Wed Jan 07 00:00:00 1970 PST | Wed Jan 07 00:00:00 1970 | 6  | 6          | foo
++ 616 |  6 | 00616 | Sat Jan 17 00:00:00 1970 PST | Sat Jan 17 00:00:00 1970 | 6  | 6          | foo | 616 |  6 | 00616 | Sat Jan 17 00:00:00 1970 PST | Sat Jan 17 00:00:00 1970 | 6  | 6          | foo
++ 626 |  6 | 00626 | Tue Jan 27 00:00:00 1970 PST | Tue Jan 27 00:00:00 1970 | 6  | 6          | foo | 626 |  6 | 00626 | Tue Jan 27 00:00:00 1970 PST | Tue Jan 27 00:00:00 1970 | 6  | 6          | foo
++ 636 |  6 | 00636 | Fri Feb 06 00:00:00 1970 PST | Fri Feb 06 00:00:00 1970 | 6  | 6          | foo | 636 |  6 | 00636 | Fri Feb 06 00:00:00 1970 PST | Fri Feb 06 00:00:00 1970 | 6  | 6          | foo
++ 646 |  6 | 00646 | Mon Feb 16 00:00:00 1970 PST | Mon Feb 16 00:00:00 1970 | 6  | 6          | foo | 646 |  6 | 00646 | Mon Feb 16 00:00:00 1970 PST | Mon Feb 16 00:00:00 1970 | 6  | 6          | foo
++ 656 |  6 | 00656 | Thu Feb 26 00:00:00 1970 PST | Thu Feb 26 00:00:00 1970 | 6  | 6          | foo | 656 |  6 | 00656 | Thu Feb 26 00:00:00 1970 PST | Thu Feb 26 00:00:00 1970 | 6  | 6          | foo
++ 666 |  6 | 00666 | Sun Mar 08 00:00:00 1970 PST | Sun Mar 08 00:00:00 1970 | 6  | 6          | foo | 666 |  6 | 00666 | Sun Mar 08 00:00:00 1970 PST | Sun Mar 08 00:00:00 1970 | 6  | 6          | foo
++ 676 |  6 | 00676 | Wed Mar 18 00:00:00 1970 PST | Wed Mar 18 00:00:00 1970 | 6  | 6          | foo | 676 |  6 | 00676 | Wed Mar 18 00:00:00 1970 PST | Wed Mar 18 00:00:00 1970 | 6  | 6          | foo
++ 686 |  6 | 00686 | Sat Mar 28 00:00:00 1970 PST | Sat Mar 28 00:00:00 1970 | 6  | 6          | foo | 686 |  6 | 00686 | Sat Mar 28 00:00:00 1970 PST | Sat Mar 28 00:00:00 1970 | 6  | 6          | foo
++ 696 |  6 | 00696 | Tue Apr 07 00:00:00 1970 PST | Tue Apr 07 00:00:00 1970 | 6  | 6          | foo | 696 |  6 | 00696 | Tue Apr 07 00:00:00 1970 PST | Tue Apr 07 00:00:00 1970 | 6  | 6          | foo
++ 706 |  6 | 00706 | Wed Jan 07 00:00:00 1970 PST | Wed Jan 07 00:00:00 1970 | 6  | 6          | foo | 706 |  6 | 00706 | Wed Jan 07 00:00:00 1970 PST | Wed Jan 07 00:00:00 1970 | 6  | 6          | foo
++ 716 |  6 | 00716 | Sat Jan 17 00:00:00 1970 PST | Sat Jan 17 00:00:00 1970 | 6  | 6          | foo | 716 |  6 | 00716 | Sat Jan 17 00:00:00 1970 PST | Sat Jan 17 00:00:00 1970 | 6  | 6          | foo
++ 726 |  6 | 00726 | Tue Jan 27 00:00:00 1970 PST | Tue Jan 27 00:00:00 1970 | 6  | 6          | foo | 726 |  6 | 00726 | Tue Jan 27 00:00:00 1970 PST | Tue Jan 27 00:00:00 1970 | 6  | 6          | foo
++ 736 |  6 | 00736 | Fri Feb 06 00:00:00 1970 PST | Fri Feb 06 00:00:00 1970 | 6  | 6          | foo | 736 |  6 | 00736 | Fri Feb 06 00:00:00 1970 PST | Fri Feb 06 00:00:00 1970 | 6  | 6          | foo
++ 746 |  6 | 00746 | Mon Feb 16 00:00:00 1970 PST | Mon Feb 16 00:00:00 1970 | 6  | 6          | foo | 746 |  6 | 00746 | Mon Feb 16 00:00:00 1970 PST | Mon Feb 16 00:00:00 1970 | 6  | 6          | foo
++ 756 |  6 | 00756 | Thu Feb 26 00:00:00 1970 PST | Thu Feb 26 00:00:00 1970 | 6  | 6          | foo | 756 |  6 | 00756 | Thu Feb 26 00:00:00 1970 PST | Thu Feb 26 00:00:00 1970 | 6  | 6          | foo
++ 766 |  6 | 00766 | Sun Mar 08 00:00:00 1970 PST | Sun Mar 08 00:00:00 1970 | 6  | 6          | foo | 766 |  6 | 00766 | Sun Mar 08 00:00:00 1970 PST | Sun Mar 08 00:00:00 1970 | 6  | 6          | foo
++ 776 |  6 | 00776 | Wed Mar 18 00:00:00 1970 PST | Wed Mar 18 00:00:00 1970 | 6  | 6          | foo | 776 |  6 | 00776 | Wed Mar 18 00:00:00 1970 PST | Wed Mar 18 00:00:00 1970 | 6  | 6          | foo
++ 786 |  6 | 00786 | Sat Mar 28 00:00:00 1970 PST | Sat Mar 28 00:00:00 1970 | 6  | 6          | foo | 786 |  6 | 00786 | Sat Mar 28 00:00:00 1970 PST | Sat Mar 28 00:00:00 1970 | 6  | 6          | foo
++ 796 |  6 | 00796 | Tue Apr 07 00:00:00 1970 PST | Tue Apr 07 00:00:00 1970 | 6  | 6          | foo | 796 |  6 | 00796 | Tue Apr 07 00:00:00 1970 PST | Tue Apr 07 00:00:00 1970 | 6  | 6          | foo
++ 806 |  6 | 00806 | Wed Jan 07 00:00:00 1970 PST | Wed Jan 07 00:00:00 1970 | 6  | 6          | foo | 806 |  6 | 00806 | Wed Jan 07 00:00:00 1970 PST | Wed Jan 07 00:00:00 1970 | 6  | 6          | foo
++ 816 |  6 | 00816 | Sat Jan 17 00:00:00 1970 PST | Sat Jan 17 00:00:00 1970 | 6  | 6          | foo | 816 |  6 | 00816 | Sat Jan 17 00:00:00 1970 PST | Sat Jan 17 00:00:00 1970 | 6  | 6          | foo
++ 826 |  6 | 00826 | Tue Jan 27 00:00:00 1970 PST | Tue Jan 27 00:00:00 1970 | 6  | 6          | foo | 826 |  6 | 00826 | Tue Jan 27 00:00:00 1970 PST | Tue Jan 27 00:00:00 1970 | 6  | 6          | foo
++ 836 |  6 | 00836 | Fri Feb 06 00:00:00 1970 PST | Fri Feb 06 00:00:00 1970 | 6  | 6          | foo | 836 |  6 | 00836 | Fri Feb 06 00:00:00 1970 PST | Fri Feb 06 00:00:00 1970 | 6  | 6          | foo
++ 846 |  6 | 00846 | Mon Feb 16 00:00:00 1970 PST | Mon Feb 16 00:00:00 1970 | 6  | 6          | foo | 846 |  6 | 00846 | Mon Feb 16 00:00:00 1970 PST | Mon Feb 16 00:00:00 1970 | 6  | 6          | foo
++ 856 |  6 | 00856 | Thu Feb 26 00:00:00 1970 PST | Thu Feb 26 00:00:00 1970 | 6  | 6          | foo | 856 |  6 | 00856 | Thu Feb 26 00:00:00 1970 PST | Thu Feb 26 00:00:00 1970 | 6  | 6          | foo
++ 866 |  6 | 00866 | Sun Mar 08 00:00:00 1970 PST | Sun Mar 08 00:00:00 1970 | 6  | 6          | foo | 866 |  6 | 00866 | Sun Mar 08 00:00:00 1970 PST | Sun Mar 08 00:00:00 1970 | 6  | 6          | foo
++ 876 |  6 | 00876 | Wed Mar 18 00:00:00 1970 PST | Wed Mar 18 00:00:00 1970 | 6  | 6          | foo | 876 |  6 | 00876 | Wed Mar 18 00:00:00 1970 PST | Wed Mar 18 00:00:00 1970 | 6  | 6          | foo
++ 886 |  6 | 00886 | Sat Mar 28 00:00:00 1970 PST | Sat Mar 28 00:00:00 1970 | 6  | 6          | foo | 886 |  6 | 00886 | Sat Mar 28 00:00:00 1970 PST | Sat Mar 28 00:00:00 1970 | 6  | 6          | foo
++ 896 |  6 | 00896 | Tue Apr 07 00:00:00 1970 PST | Tue Apr 07 00:00:00 1970 | 6  | 6          | foo | 896 |  6 | 00896 | Tue Apr 07 00:00:00 1970 PST | Tue Apr 07 00:00:00 1970 | 6  | 6          | foo
++ 906 |  6 | 00906 | Wed Jan 07 00:00:00 1970 PST | Wed Jan 07 00:00:00 1970 | 6  | 6          | foo | 906 |  6 | 00906 | Wed Jan 07 00:00:00 1970 PST | Wed Jan 07 00:00:00 1970 | 6  | 6          | foo
++ 916 |  6 | 00916 | Sat Jan 17 00:00:00 1970 PST | Sat Jan 17 00:00:00 1970 | 6  | 6          | foo | 916 |  6 | 00916 | Sat Jan 17 00:00:00 1970 PST | Sat Jan 17 00:00:00 1970 | 6  | 6          | foo
++ 926 |  6 | 00926 | Tue Jan 27 00:00:00 1970 PST | Tue Jan 27 00:00:00 1970 | 6  | 6          | foo | 926 |  6 | 00926 | Tue Jan 27 00:00:00 1970 PST | Tue Jan 27 00:00:00 1970 | 6  | 6          | foo
++ 936 |  6 | 00936 | Fri Feb 06 00:00:00 1970 PST | Fri Feb 06 00:00:00 1970 | 6  | 6          | foo | 936 |  6 | 00936 | Fri Feb 06 00:00:00 1970 PST | Fri Feb 06 00:00:00 1970 | 6  | 6          | foo
++ 946 |  6 | 00946 | Mon Feb 16 00:00:00 1970 PST | Mon Feb 16 00:00:00 1970 | 6  | 6          | foo | 946 |  6 | 00946 | Mon Feb 16 00:00:00 1970 PST | Mon Feb 16 00:00:00 1970 | 6  | 6          | foo
++ 956 |  6 | 00956 | Thu Feb 26 00:00:00 1970 PST | Thu Feb 26 00:00:00 1970 | 6  | 6          | foo | 956 |  6 | 00956 | Thu Feb 26 00:00:00 1970 PST | Thu Feb 26 00:00:00 1970 | 6  | 6          | foo
++ 966 |  6 | 00966 | Sun Mar 08 00:00:00 1970 PST | Sun Mar 08 00:00:00 1970 | 6  | 6          | foo | 966 |  6 | 00966 | Sun Mar 08 00:00:00 1970 PST | Sun Mar 08 00:00:00 1970 | 6  | 6          | foo
++ 976 |  6 | 00976 | Wed Mar 18 00:00:00 1970 PST | Wed Mar 18 00:00:00 1970 | 6  | 6          | foo | 976 |  6 | 00976 | Wed Mar 18 00:00:00 1970 PST | Wed Mar 18 00:00:00 1970 | 6  | 6          | foo
++ 986 |  6 | 00986 | Sat Mar 28 00:00:00 1970 PST | Sat Mar 28 00:00:00 1970 | 6  | 6          | foo | 986 |  6 | 00986 | Sat Mar 28 00:00:00 1970 PST | Sat Mar 28 00:00:00 1970 | 6  | 6          | foo
++ 996 |  6 | 00996 | Tue Apr 07 00:00:00 1970 PST | Tue Apr 07 00:00:00 1970 | 6  | 6          | foo | 996 |  6 | 00996 | Tue Apr 07 00:00:00 1970 PST | Tue Apr 07 00:00:00 1970 | 6  | 6          | foo
++(100 rows)
++
++-- Test in streaming_fetch mode for rescan path
++ALTER FOREIGN TABLE ft2 OPTIONS (SET streaming_fetch 'true');
++SELECT * FROM ft2 a, ft2 b
++WHERE a.c2 = 6 AND b.c1 = a.c1 AND a.c8 = 'foo' AND b.c7 = upper(a.c7);
++ c1  | c2 |  c3   |              c4              |            c5            | c6 |     c7     | c8  | c1  | c2 |  c3   |              c4              |            c5            | c6 |     c7     | c8  
++-----+----+-------+------------------------------+--------------------------+----+------------+-----+-----+----+-------+------------------------------+--------------------------+----+------------+-----
++   6 |  6 | 00006 | Wed Jan 07 00:00:00 1970 PST | Wed Jan 07 00:00:00 1970 | 6  | 6          | foo |   6 |  6 | 00006 | Wed Jan 07 00:00:00 1970 PST | Wed Jan 07 00:00:00 1970 | 6  | 6          | foo
++  16 |  6 | 00016 | Sat Jan 17 00:00:00 1970 PST | Sat Jan 17 00:00:00 1970 | 6  | 6          | foo |  16 |  6 | 00016 | Sat Jan 17 00:00:00 1970 PST | Sat Jan 17 00:00:00 1970 | 6  | 6          | foo
++  26 |  6 | 00026 | Tue Jan 27 00:00:00 1970 PST | Tue Jan 27 00:00:00 1970 | 6  | 6          | foo |  26 |  6 | 00026 | Tue Jan 27 00:00:00 1970 PST | Tue Jan 27 00:00:00 1970 | 6  | 6          | foo
++  36 |  6 | 00036 | Fri Feb 06 00:00:00 1970 PST | Fri Feb 06 00:00:00 1970 | 6  | 6          | foo |  36 |  6 | 00036 | Fri Feb 06 00:00:00 1970 PST | Fri Feb 06 00:00:00 1970 | 6  | 6          | foo
++  46 |  6 | 00046 | Mon Feb 16 00:00:00 1970 PST | Mon Feb 16 00:00:00 1970 | 6  | 6          | foo |  46 |  6 | 00046 | Mon Feb 16 00:00:00 1970 PST | Mon Feb 16 00:00:00 1970 | 6  | 6          | foo
++  56 |  6 | 00056 | Thu Feb 26 00:00:00 1970 PST | Thu Feb 26 00:00:00 1970 | 6  | 6          | foo |  56 |  6 | 00056 | Thu Feb 26 00:00:00 1970 PST | Thu Feb 26 00:00:00 1970 | 6  | 6          | foo
++  66 |  6 | 00066 | Sun Mar 08 00:00:00 1970 PST | Sun Mar 08 00:00:00 1970 | 6  | 6          | foo |  66 |  6 | 00066 | Sun Mar 08 00:00:00 1970 PST | Sun Mar 08 00:00:00 1970 | 6  | 6          | foo
++  76 |  6 | 00076 | Wed Mar 18 00:00:00 1970 PST | Wed Mar 18 00:00:00 1970 | 6  | 6          | foo |  76 |  6 | 00076 | Wed Mar 18 00:00:00 1970 PST | Wed Mar 18 00:00:00 1970 | 6  | 6          | foo
++  86 |  6 | 00086 | Sat Mar 28 00:00:00 1970 PST | Sat Mar 28 00:00:00 1970 | 6  | 6          | foo |  86 |  6 | 00086 | Sat Mar 28 00:00:00 1970 PST | Sat Mar 28 00:00:00 1970 | 6  | 6          | foo
++  96 |  6 | 00096 | Tue Apr 07 00:00:00 1970 PST | Tue Apr 07 00:00:00 1970 | 6  | 6          | foo |  96 |  6 | 00096 | Tue Apr 07 00:00:00 1970 PST | Tue Apr 07 00:00:00 1970 | 6  | 6          | foo
++ 106 |  6 | 00106 | Wed Jan 07 00:00:00 1970 PST | Wed Jan 07 00:00:00 1970 | 6  | 6          | foo | 106 |  6 | 00106 | Wed Jan 07 00:00:00 1970 PST | Wed Jan 07 00:00:00 1970 | 6  | 6          | foo
++ 116 |  6 | 00116 | Sat Jan 17 00:00:00 1970 PST | Sat Jan 17 00:00:00 1970 | 6  | 6          | foo | 116 |  6 | 00116 | Sat Jan 17 00:00:00 1970 PST | Sat Jan 17 00:00:00 1970 | 6  | 6          | foo
++ 126 |  6 | 00126 | Tue Jan 27 00:00:00 1970 PST | Tue Jan 27 00:00:00 1970 | 6  | 6          | foo | 126 |  6 | 00126 | Tue Jan 27 00:00:00 1970 PST | Tue Jan 27 00:00:00 1970 | 6  | 6          | foo
++ 136 |  6 | 00136 | Fri Feb 06 00:00:00 1970 PST | Fri Feb 06 00:00:00 1970 | 6  | 6          | foo | 136 |  6 | 00136 | Fri Feb 06 00:00:00 1970 PST | Fri Feb 06 00:00:00 1970 | 6  | 6          | foo
++ 146 |  6 | 00146 | Mon Feb 16 00:00:00 1970 PST | Mon Feb 16 00:00:00 1970 | 6  | 6          | foo | 146 |  6 | 00146 | Mon Feb 16 00:00:00 1970 PST | Mon Feb 16 00:00:00 1970 | 6  | 6          | foo
++ 156 |  6 | 00156 | Thu Feb 26 00:00:00 1970 PST | Thu Feb 26 00:00:00 1970 | 6  | 6          | foo | 156 |  6 | 00156 | Thu Feb 26 00:00:00 1970 PST | Thu Feb 26 00:00:00 1970 | 6  | 6          | foo
++ 166 |  6 | 00166 | Sun Mar 08 00:00:00 1970 PST | Sun Mar 08 00:00:00 1970 | 6  | 6          | foo | 166 |  6 | 00166 | Sun Mar 08 00:00:00 1970 PST | Sun Mar 08 00:00:00 1970 | 6  | 6          | foo
++ 176 |  6 | 00176 | Wed Mar 18 00:00:00 1970 PST | Wed Mar 18 00:00:00 1970 | 6  | 6          | foo | 176 |  6 | 00176 | Wed Mar 18 00:00:00 1970 PST | Wed Mar 18 00:00:00 1970 | 6  | 6          | foo
++ 186 |  6 | 00186 | Sat Mar 28 00:00:00 1970 PST | Sat Mar 28 00:00:00 1970 | 6  | 6          | foo | 186 |  6 | 00186 | Sat Mar 28 00:00:00 1970 PST | Sat Mar 28 00:00:00 1970 | 6  | 6          | foo
++ 196 |  6 | 00196 | Tue Apr 07 00:00:00 1970 PST | Tue Apr 07 00:00:00 1970 | 6  | 6          | foo | 196 |  6 | 00196 | Tue Apr 07 00:00:00 1970 PST | Tue Apr 07 00:00:00 1970 | 6  | 6          | foo
++ 206 |  6 | 00206 | Wed Jan 07 00:00:00 1970 PST | Wed Jan 07 00:00:00 1970 | 6  | 6          | foo | 206 |  6 | 00206 | Wed Jan 07 00:00:00 1970 PST | Wed Jan 07 00:00:00 1970 | 6  | 6          | foo
++ 216 |  6 | 00216 | Sat Jan 17 00:00:00 1970 PST | Sat Jan 17 00:00:00 1970 | 6  | 6          | foo | 216 |  6 | 00216 | Sat Jan 17 00:00:00 1970 PST | Sat Jan 17 00:00:00 1970 | 6  | 6          | foo
++ 226 |  6 | 00226 | Tue Jan 27 00:00:00 1970 PST | Tue Jan 27 00:00:00 1970 | 6  | 6          | foo | 226 |  6 | 00226 | Tue Jan 27 00:00:00 1970 PST | Tue Jan 27 00:00:00 1970 | 6  | 6          | foo
++ 236 |  6 | 00236 | Fri Feb 06 00:00:00 1970 PST | Fri Feb 06 00:00:00 1970 | 6  | 6          | foo | 236 |  6 | 00236 | Fri Feb 06 00:00:00 1970 PST | Fri Feb 06 00:00:00 1970 | 6  | 6          | foo
++ 246 |  6 | 00246 | Mon Feb 16 00:00:00 1970 PST | Mon Feb 16 00:00:00 1970 | 6  | 6          | foo | 246 |  6 | 00246 | Mon Feb 16 00:00:00 1970 PST | Mon Feb 16 00:00:00 1970 | 6  | 6          | foo
++ 256 |  6 | 00256 | Thu Feb 26 00:00:00 1970 PST | Thu Feb 26 00:00:00 1970 | 6  | 6          | foo | 256 |  6 | 00256 | Thu Feb 26 00:00:00 1970 PST | Thu Feb 26 00:00:00 1970 | 6  | 6          | foo
++ 266 |  6 | 00266 | Sun Mar 08 00:00:00 1970 PST | Sun Mar 08 00:00:00 1970 | 6  | 6          | foo | 266 |  6 | 00266 | Sun Mar 08 00:00:00 1970 PST | Sun Mar 08 00:00:00 1970 | 6  | 6          | foo
++ 276 |  6 | 00276 | Wed Mar 18 00:00:00 1970 PST | Wed Mar 18 00:00:00 1970 | 6  | 6          | foo | 276 |  6 | 00276 | Wed Mar 18 00:00:00 1970 PST | Wed Mar 18 00:00:00 1970 | 6  | 6          | foo
++ 286 |  6 | 00286 | Sat Mar 28 00:00:00 1970 PST | Sat Mar 28 00:00:00 1970 | 6  | 6          | foo | 286 |  6 | 00286 | Sat Mar 28 00:00:00 1970 PST | Sat Mar 28 00:00:00 1970 | 6  | 6          | foo
++ 296 |  6 | 00296 | Tue Apr 07 00:00:00 1970 PST | Tue Apr 07 00:00:00 1970 | 6  | 6          | foo | 296 |  6 | 00296 | Tue Apr 07 00:00:00 1970 PST | Tue Apr 07 00:00:00 1970 | 6  | 6          | foo
++ 306 |  6 | 00306 | Wed Jan 07 00:00:00 1970 PST | Wed Jan 07 00:00:00 1970 | 6  | 6          | foo | 306 |  6 | 00306 | Wed Jan 07 00:00:00 1970 PST | Wed Jan 07 00:00:00 1970 | 6  | 6          | foo
++ 316 |  6 | 00316 | Sat Jan 17 00:00:00 1970 PST | Sat Jan 17 00:00:00 1970 | 6  | 6          | foo | 316 |  6 | 00316 | Sat Jan 17 00:00:00 1970 PST | Sat Jan 17 00:00:00 1970 | 6  | 6          | foo
++ 326 |  6 | 00326 | Tue Jan 27 00:00:00 1970 PST | Tue Jan 27 00:00:00 1970 | 6  | 6          | foo | 326 |  6 | 00326 | Tue Jan 27 00:00:00 1970 PST | Tue Jan 27 00:00:00 1970 | 6  | 6          | foo
++ 336 |  6 | 00336 | Fri Feb 06 00:00:00 1970 PST | Fri Feb 06 00:00:00 1970 | 6  | 6          | foo | 336 |  6 | 00336 | Fri Feb 06 00:00:00 1970 PST | Fri Feb 06 00:00:00 1970 | 6  | 6          | foo
++ 346 |  6 | 00346 | Mon Feb 16 00:00:00 1970 PST | Mon Feb 16 00:00:00 1970 | 6  | 6          | foo | 346 |  6 | 00346 | Mon Feb 16 00:00:00 1970 PST | Mon Feb 16 00:00:00 1970 | 6  | 6          | foo
++ 356 |  6 | 00356 | Thu Feb 26 00:00:00 1970 PST | Thu Feb 26 00:00:00 1970 | 6  | 6          | foo | 356 |  6 | 00356 | Thu Feb 26 00:00:00 1970 PST | Thu Feb 26 00:00:00 1970 | 6  | 6          | foo
++ 366 |  6 | 00366 | Sun Mar 08 00:00:00 1970 PST | Sun Mar 08 00:00:00 1970 | 6  | 6          | foo | 366 |  6 | 00366 | Sun Mar 08 00:00:00 1970 PST | Sun Mar 08 00:00:00 1970 | 6  | 6          | foo
++ 376 |  6 | 00376 | Wed Mar 18 00:00:00 1970 PST | Wed Mar 18 00:00:00 1970 | 6  | 6          | foo | 376 |  6 | 00376 | Wed Mar 18 00:00:00 1970 PST | Wed Mar 18 00:00:00 1970 | 6  | 6          | foo
++ 386 |  6 | 00386 | Sat Mar 28 00:00:00 1970 PST | Sat Mar 28 00:00:00 1970 | 6  | 6          | foo | 386 |  6 | 00386 | Sat Mar 28 00:00:00 1970 PST | Sat Mar 28 00:00:00 1970 | 6  | 6          | foo
++ 396 |  6 | 00396 | Tue Apr 07 00:00:00 1970 PST | Tue Apr 07 00:00:00 1970 | 6  | 6          | foo | 396 |  6 | 00396 | Tue Apr 07 00:00:00 1970 PST | Tue Apr 07 00:00:00 1970 | 6  | 6          | foo
++ 406 |  6 | 00406 | Wed Jan 07 00:00:00 1970 PST | Wed Jan 07 00:00:00 1970 | 6  | 6          | foo | 406 |  6 | 00406 | Wed Jan 07 00:00:00 1970 PST | Wed Jan 07 00:00:00 1970 | 6  | 6          | foo
++ 416 |  6 | 00416 | Sat Jan 17 00:00:00 1970 PST | Sat Jan 17 00:00:00 1970 | 6  | 6          | foo | 416 |  6 | 00416 | Sat Jan 17 00:00:00 1970 PST | Sat Jan 17 00:00:00 1970 | 6  | 6          | foo
++ 426 |  6 | 00426 | Tue Jan 27 00:00:00 1970 PST | Tue Jan 27 00:00:00 1970 | 6  | 6          | foo | 426 |  6 | 00426 | Tue Jan 27 00:00:00 1970 PST | Tue Jan 27 00:00:00 1970 | 6  | 6          | foo
++ 436 |  6 | 00436 | Fri Feb 06 00:00:00 1970 PST | Fri Feb 06 00:00:00 1970 | 6  | 6          | foo | 436 |  6 | 00436 | Fri Feb 06 00:00:00 1970 PST | Fri Feb 06 00:00:00 1970 | 6  | 6          | foo
++ 446 |  6 | 00446 | Mon Feb 16 00:00:00 1970 PST | Mon Feb 16 00:00:00 1970 | 6  | 6          | foo | 446 |  6 | 00446 | Mon Feb 16 00:00:00 1970 PST | Mon Feb 16 00:00:00 1970 | 6  | 6          | foo
++ 456 |  6 | 00456 | Thu Feb 26 00:00:00 1970 PST | Thu Feb 26 00:00:00 1970 | 6  | 6          | foo | 456 |  6 | 00456 | Thu Feb 26 00:00:00 1970 PST | Thu Feb 26 00:00:00 1970 | 6  | 6          | foo
++ 466 |  6 | 00466 | Sun Mar 08 00:00:00 1970 PST | Sun Mar 08 00:00:00 1970 | 6  | 6          | foo | 466 |  6 | 00466 | Sun Mar 08 00:00:00 1970 PST | Sun Mar 08 00:00:00 1970 | 6  | 6          | foo
++ 476 |  6 | 00476 | Wed Mar 18 00:00:00 1970 PST | Wed Mar 18 00:00:00 1970 | 6  | 6          | foo | 476 |  6 | 00476 | Wed Mar 18 00:00:00 1970 PST | Wed Mar 18 00:00:00 1970 | 6  | 6          | foo
++ 486 |  6 | 00486 | Sat Mar 28 00:00:00 1970 PST | Sat Mar 28 00:00:00 1970 | 6  | 6          | foo | 486 |  6 | 00486 | Sat Mar 28 00:00:00 1970 PST | Sat Mar 28 00:00:00 1970 | 6  | 6          | foo
++ 496 |  6 | 00496 | Tue Apr 07 00:00:00 1970 PST | Tue Apr 07 00:00:00 1970 | 6  | 6          | foo | 496 |  6 | 00496 | Tue Apr 07 00:00:00 1970 PST | Tue Apr 07 00:00:00 1970 | 6  | 6          | foo
++ 506 |  6 | 00506 | Wed Jan 07 00:00:00 1970 PST | Wed Jan 07 00:00:00 1970 | 6  | 6          | foo | 506 |  6 | 00506 | Wed Jan 07 00:00:00 1970 PST | Wed Jan 07 00:00:00 1970 | 6  | 6          | foo
++ 516 |  6 | 00516 | Sat Jan 17 00:00:00 1970 PST | Sat Jan 17 00:00:00 1970 | 6  | 6          | foo | 516 |  6 | 00516 | Sat Jan 17 00:00:00 1970 PST | Sat Jan 17 00:00:00 1970 | 6  | 6          | foo
++ 526 |  6 | 00526 | Tue Jan 27 00:00:00 1970 PST | Tue Jan 27 00:00:00 1970 | 6  | 6          | foo | 526 |  6 | 00526 | Tue Jan 27 00:00:00 1970 PST | Tue Jan 27 00:00:00 1970 | 6  | 6          | foo
++ 536 |  6 | 00536 | Fri Feb 06 00:00:00 1970 PST | Fri Feb 06 00:00:00 1970 | 6  | 6          | foo | 536 |  6 | 00536 | Fri Feb 06 00:00:00 1970 PST | Fri Feb 06 00:00:00 1970 | 6  | 6          | foo
++ 546 |  6 | 00546 | Mon Feb 16 00:00:00 1970 PST | Mon Feb 16 00:00:00 1970 | 6  | 6          | foo | 546 |  6 | 00546 | Mon Feb 16 00:00:00 1970 PST | Mon Feb 16 00:00:00 1970 | 6  | 6          | foo
++ 556 |  6 | 00556 | Thu Feb 26 00:00:00 1970 PST | Thu Feb 26 00:00:00 1970 | 6  | 6          | foo | 556 |  6 | 00556 | Thu Feb 26 00:00:00 1970 PST | Thu Feb 26 00:00:00 1970 | 6  | 6          | foo
++ 566 |  6 | 00566 | Sun Mar 08 00:00:00 1970 PST | Sun Mar 08 00:00:00 1970 | 6  | 6          | foo | 566 |  6 | 00566 | Sun Mar 08 00:00:00 1970 PST | Sun Mar 08 00:00:00 1970 | 6  | 6          | foo
++ 576 |  6 | 00576 | Wed Mar 18 00:00:00 1970 PST | Wed Mar 18 00:00:00 1970 | 6  | 6          | foo | 576 |  6 | 00576 | Wed Mar 18 00:00:00 1970 PST | Wed Mar 18 00:00:00 1970 | 6  | 6          | foo
++ 586 |  6 | 00586 | Sat Mar 28 00:00:00 1970 PST | Sat Mar 28 00:00:00 1970 | 6  | 6          | foo | 586 |  6 | 00586 | Sat Mar 28 00:00:00 1970 PST | Sat Mar 28 00:00:00 1970 | 6  | 6          | foo
++ 596 |  6 | 00596 | Tue Apr 07 00:00:00 1970 PST | Tue Apr 07 00:00:00 1970 | 6  | 6          | foo | 596 |  6 | 00596 | Tue Apr 07 00:00:00 1970 PST | Tue Apr 07 00:00:00 1970 | 6  | 6          | foo
++ 606 |  6 | 00606 | Wed Jan 07 00:00:00 1970 PST | Wed Jan 07 00:00:00 1970 | 6  | 6          | foo | 606 |  6 | 00606 | Wed Jan 07 00:00:00 1970 PST | Wed Jan 07 00:00:00 1970 | 6  | 6          | foo
++ 616 |  6 | 00616 | Sat Jan 17 00:00:00 1970 PST | Sat Jan 17 00:00:00 1970 | 6  | 6          | foo | 616 |  6 | 00616 | Sat Jan 17 00:00:00 1970 PST | Sat Jan 17 00:00:00 1970 | 6  | 6          | foo
++ 626 |  6 | 00626 | Tue Jan 27 00:00:00 1970 PST | Tue Jan 27 00:00:00 1970 | 6  | 6          | foo | 626 |  6 | 00626 | Tue Jan 27 00:00:00 1970 PST | Tue Jan 27 00:00:00 1970 | 6  | 6          | foo
++ 636 |  6 | 00636 | Fri Feb 06 00:00:00 1970 PST | Fri Feb 06 00:00:00 1970 | 6  | 6          | foo | 636 |  6 | 00636 | Fri Feb 06 00:00:00 1970 PST | Fri Feb 06 00:00:00 1970 | 6  | 6          | foo
++ 646 |  6 | 00646 | Mon Feb 16 00:00:00 1970 PST | Mon Feb 16 00:00:00 1970 | 6  | 6          | foo | 646 |  6 | 00646 | Mon Feb 16 00:00:00 1970 PST | Mon Feb 16 00:00:00 1970 | 6  | 6          | foo
++ 656 |  6 | 00656 | Thu Feb 26 00:00:00 1970 PST | Thu Feb 26 00:00:00 1970 | 6  | 6          | foo | 656 |  6 | 00656 | Thu Feb 26 00:00:00 1970 PST | Thu Feb 26 00:00:00 1970 | 6  | 6          | foo
++ 666 |  6 | 00666 | Sun Mar 08 00:00:00 1970 PST | Sun Mar 08 00:00:00 1970 | 6  | 6          | foo | 666 |  6 | 00666 | Sun Mar 08 00:00:00 1970 PST | Sun Mar 08 00:00:00 1970 | 6  | 6          | foo
++ 676 |  6 | 00676 | Wed Mar 18 00:00:00 1970 PST | Wed Mar 18 00:00:00 1970 | 6  | 6          | foo | 676 |  6 | 00676 | Wed Mar 18 00:00:00 1970 PST | Wed Mar 18 00:00:00 1970 | 6  | 6          | foo
++ 686 |  6 | 00686 | Sat Mar 28 00:00:00 1970 PST | Sat Mar 28 00:00:00 1970 | 6  | 6          | foo | 686 |  6 | 00686 | Sat Mar 28 00:00:00 1970 PST | Sat Mar 28 00:00:00 1970 | 6  | 6          | foo
++ 696 |  6 | 00696 | Tue Apr 07 00:00:00 1970 PST | Tue Apr 07 00:00:00 1970 | 6  | 6          | foo | 696 |  6 | 00696 | Tue Apr 07 00:00:00 1970 PST | Tue Apr 07 00:00:00 1970 | 6  | 6          | foo
++ 706 |  6 | 00706 | Wed Jan 07 00:00:00 1970 PST | Wed Jan 07 00:00:00 1970 | 6  | 6          | foo | 706 |  6 | 00706 | Wed Jan 07 00:00:00 1970 PST | Wed Jan 07 00:00:00 1970 | 6  | 6          | foo
++ 716 |  6 | 00716 | Sat Jan 17 00:00:00 1970 PST | Sat Jan 17 00:00:00 1970 | 6  | 6          | foo | 716 |  6 | 00716 | Sat Jan 17 00:00:00 1970 PST | Sat Jan 17 00:00:00 1970 | 6  | 6          | foo
++ 726 |  6 | 00726 | Tue Jan 27 00:00:00 1970 PST | Tue Jan 27 00:00:00 1970 | 6  | 6          | foo | 726 |  6 | 00726 | Tue Jan 27 00:00:00 1970 PST | Tue Jan 27 00:00:00 1970 | 6  | 6          | foo
++ 736 |  6 | 00736 | Fri Feb 06 00:00:00 1970 PST | Fri Feb 06 00:00:00 1970 | 6  | 6          | foo | 736 |  6 | 00736 | Fri Feb 06 00:00:00 1970 PST | Fri Feb 06 00:00:00 1970 | 6  | 6          | foo
++ 746 |  6 | 00746 | Mon Feb 16 00:00:00 1970 PST | Mon Feb 16 00:00:00 1970 | 6  | 6          | foo | 746 |  6 | 00746 | Mon Feb 16 00:00:00 1970 PST | Mon Feb 16 00:00:00 1970 | 6  | 6          | foo
++ 756 |  6 | 00756 | Thu Feb 26 00:00:00 1970 PST | Thu Feb 26 00:00:00 1970 | 6  | 6          | foo | 756 |  6 | 00756 | Thu Feb 26 00:00:00 1970 PST | Thu Feb 26 00:00:00 1970 | 6  | 6          | foo
++ 766 |  6 | 00766 | Sun Mar 08 00:00:00 1970 PST | Sun Mar 08 00:00:00 1970 | 6  | 6          | foo | 766 |  6 | 00766 | Sun Mar 08 00:00:00 1970 PST | Sun Mar 08 00:00:00 1970 | 6  | 6          | foo
++ 776 |  6 | 00776 | Wed Mar 18 00:00:00 1970 PST | Wed Mar 18 00:00:00 1970 | 6  | 6          | foo | 776 |  6 | 00776 | Wed Mar 18 00:00:00 1970 PST | Wed Mar 18 00:00:00 1970 | 6  | 6          | foo
++ 786 |  6 | 00786 | Sat Mar 28 00:00:00 1970 PST | Sat Mar 28 00:00:00 1970 | 6  | 6          | foo | 786 |  6 | 00786 | Sat Mar 28 00:00:00 1970 PST | Sat Mar 28 00:00:00 1970 | 6  | 6          | foo
++ 796 |  6 | 00796 | Tue Apr 07 00:00:00 1970 PST | Tue Apr 07 00:00:00 1970 | 6  | 6          | foo | 796 |  6 | 00796 | Tue Apr 07 00:00:00 1970 PST | Tue Apr 07 00:00:00 1970 | 6  | 6          | foo
++ 806 |  6 | 00806 | Wed Jan 07 00:00:00 1970 PST | Wed Jan 07 00:00:00 1970 | 6  | 6          | foo | 806 |  6 | 00806 | Wed Jan 07 00:00:00 1970 PST | Wed Jan 07 00:00:00 1970 | 6  | 6          | foo
++ 816 |  6 | 00816 | Sat Jan 17 00:00:00 1970 PST | Sat Jan 17 00:00:00 1970 | 6  | 6          | foo | 816 |  6 | 00816 | Sat Jan 17 00:00:00 1970 PST | Sat Jan 17 00:00:00 1970 | 6  | 6          | foo
++ 826 |  6 | 00826 | Tue Jan 27 00:00:00 1970 PST | Tue Jan 27 00:00:00 1970 | 6  | 6          | foo | 826 |  6 | 00826 | Tue Jan 27 00:00:00 1970 PST | Tue Jan 27 00:00:00 1970 | 6  | 6          | foo
++ 836 |  6 | 00836 | Fri Feb 06 00:00:00 1970 PST | Fri Feb 06 00:00:00 1970 | 6  | 6          | foo | 836 |  6 | 00836 | Fri Feb 06 00:00:00 1970 PST | Fri Feb 06 00:00:00 1970 | 6  | 6          | foo
++ 846 |  6 | 00846 | Mon Feb 16 00:00:00 1970 PST | Mon Feb 16 00:00:00 1970 | 6  | 6          | foo | 846 |  6 | 00846 | Mon Feb 16 00:00:00 1970 PST | Mon Feb 16 00:00:00 1970 | 6  | 6          | foo
++ 856 |  6 | 00856 | Thu Feb 26 00:00:00 1970 PST | Thu Feb 26 00:00:00 1970 | 6  | 6          | foo | 856 |  6 | 00856 | Thu Feb 26 00:00:00 1970 PST | Thu Feb 26 00:00:00 1970 | 6  | 6          | foo
++ 866 |  6 | 00866 | Sun Mar 08 00:00:00 1970 PST | Sun Mar 08 00:00:00 1970 | 6  | 6          | foo | 866 |  6 | 00866 | Sun Mar 08 00:00:00 1970 PST | Sun Mar 08 00:00:00 1970 | 6  | 6          | foo
++ 876 |  6 | 00876 | Wed Mar 18 00:00:00 1970 PST | Wed Mar 18 00:00:00 1970 | 6  | 6          | foo | 876 |  6 | 00876 | Wed Mar 18 00:00:00 1970 PST | Wed Mar 18 00:00:00 1970 | 6  | 6          | foo
++ 886 |  6 | 00886 | Sat Mar 28 00:00:00 1970 PST | Sat Mar 28 00:00:00 1970 | 6  | 6          | foo | 886 |  6 | 00886 | Sat Mar 28 00:00:00 1970 PST | Sat Mar 28 00:00:00 1970 | 6  | 6          | foo
++ 896 |  6 | 00896 | Tue Apr 07 00:00:00 1970 PST | Tue Apr 07 00:00:00 1970 | 6  | 6          | foo | 896 |  6 | 00896 | Tue Apr 07 00:00:00 1970 PST | Tue Apr 07 00:00:00 1970 | 6  | 6          | foo
++ 906 |  6 | 00906 | Wed Jan 07 00:00:00 1970 PST | Wed Jan 07 00:00:00 1970 | 6  | 6          | foo | 906 |  6 | 00906 | Wed Jan 07 00:00:00 1970 PST | Wed Jan 07 00:00:00 1970 | 6  | 6          | foo
++ 916 |  6 | 00916 | Sat Jan 17 00:00:00 1970 PST | Sat Jan 17 00:00:00 1970 | 6  | 6          | foo | 916 |  6 | 00916 | Sat Jan 17 00:00:00 1970 PST | Sat Jan 17 00:00:00 1970 | 6  | 6          | foo
++ 926 |  6 | 00926 | Tue Jan 27 00:00:00 1970 PST | Tue Jan 27 00:00:00 1970 | 6  | 6          | foo | 926 |  6 | 00926 | Tue Jan 27 00:00:00 1970 PST | Tue Jan 27 00:00:00 1970 | 6  | 6          | foo
++ 936 |  6 | 00936 | Fri Feb 06 00:00:00 1970 PST | Fri Feb 06 00:00:00 1970 | 6  | 6          | foo | 936 |  6 | 00936 | Fri Feb 06 00:00:00 1970 PST | Fri Feb 06 00:00:00 1970 | 6  | 6          | foo
++ 946 |  6 | 00946 | Mon Feb 16 00:00:00 1970 PST | Mon Feb 16 00:00:00 1970 | 6  | 6          | foo | 946 |  6 | 00946 | Mon Feb 16 00:00:00 1970 PST | Mon Feb 16 00:00:00 1970 | 6  | 6          | foo
++ 956 |  6 | 00956 | Thu Feb 26 00:00:00 1970 PST | Thu Feb 26 00:00:00 1970 | 6  | 6          | foo | 956 |  6 | 00956 | Thu Feb 26 00:00:00 1970 PST | Thu Feb 26 00:00:00 1970 | 6  | 6          | foo
++ 966 |  6 | 00966 | Sun Mar 08 00:00:00 1970 PST | Sun Mar 08 00:00:00 1970 | 6  | 6          | foo | 966 |  6 | 00966 | Sun Mar 08 00:00:00 1970 PST | Sun Mar 08 00:00:00 1970 | 6  | 6          | foo
++ 976 |  6 | 00976 | Wed Mar 18 00:00:00 1970 PST | Wed Mar 18 00:00:00 1970 | 6  | 6          | foo | 976 |  6 | 00976 | Wed Mar 18 00:00:00 1970 PST | Wed Mar 18 00:00:00 1970 | 6  | 6          | foo
++ 986 |  6 | 00986 | Sat Mar 28 00:00:00 1970 PST | Sat Mar 28 00:00:00 1970 | 6  | 6          | foo | 986 |  6 | 00986 | Sat Mar 28 00:00:00 1970 PST | Sat Mar 28 00:00:00 1970 | 6  | 6          | foo
++ 996 |  6 | 00996 | Tue Apr 07 00:00:00 1970 PST | Tue Apr 07 00:00:00 1970 | 6  | 6          | foo | 996 |  6 | 00996 | Tue Apr 07 00:00:00 1970 PST | Tue Apr 07 00:00:00 1970 | 6  | 6          | foo
++(100 rows)
++
++-- Test for streaming_fetch covering rescans and three active cursors
++SELECT count(*) FROM ft2 a, ft2 b, ft2 c
++WHERE a.c2 = 6 AND b.c1 = a.c1 AND c.c1 = b.c1 AND a.c8 = 'foo'
++AND b.c7 = upper(a.c7);
++ count 
++-------
++   100
++(1 row)
++
++-- Test in streaming_fetch mode when a scan that is still the
++-- connection's active_scan (i.e. it has not reached EOF) correctly clears
++-- active_scan.
++ALTER FOREIGN TABLE ft2 OPTIONS (ADD fetch_size '1');
++SET enable_hashagg = off;
++SET enable_hashjoin = off;
++SET enable_mergejoin = off;
++SET enable_material = off;
++SET statement_timeout = '20s';
++EXPLAIN (VERBOSE, COSTS OFF)
++SELECT a.c1, a.c2 FROM ft1 a
++WHERE a.c1 < 20 AND a.c8 = 'foo' AND EXISTS (SELECT 1 FROM ft2 b WHERE b.c2 = a.c2)
++ORDER BY a.c1;
++                                                  QUERY PLAN                                                  
++--------------------------------------------------------------------------------------------------------------
++ Nested Loop Semi Join
++   Output: a.c1, a.c2
++   ->  Foreign Scan on public.ft1 a
++         Output: a.c1, a.c2
++         Filter: (a.c8 = 'foo'::user_enum)
++         Remote SQL: SELECT "C 1", c2, c8 FROM "S 1"."T 1" WHERE (("C 1" < 20)) ORDER BY "C 1" ASC NULLS LAST
++   ->  Foreign Scan on public.ft2 b
++         Output: b.c2
++         Remote SQL: SELECT c2 FROM "S 1"."T 1" WHERE ((c2 = $1::integer))
++         Streaming Fetch: true
++(10 rows)
++
++SELECT a.c1, a.c2 FROM ft1 a
++WHERE a.c1 < 20 AND a.c8 = 'foo' AND EXISTS (SELECT 1 FROM ft2 b WHERE b.c2 = a.c2)
++ORDER BY a.c1;
++ c1 | c2 
++----+----
++  1 |  1
++  2 |  2
++  3 |  3
++  4 |  4
++  5 |  5
++  6 |  6
++  7 |  7
++  8 |  8
++  9 |  9
++ 10 |  0
++ 11 |  1
++ 12 |  2
++ 13 |  3
++ 14 |  4
++ 15 |  5
++ 16 |  6
++ 17 |  7
++ 18 |  8
++ 19 |  9
++(19 rows)
++
++RESET statement_timeout;
++RESET enable_hashagg;
++RESET enable_hashjoin;
++RESET enable_mergejoin;
++RESET enable_material;
++ALTER FOREIGN TABLE ft2 OPTIONS (SET fetch_size '100');
++ALTER FOREIGN TABLE ft2 OPTIONS (SET streaming_fetch 'false');
++-- Verify that aborting a transaction while a streaming_fetch scan still has
++-- an unconsumed chunked result correctly resets active_scan, so the
++-- connection can be reused afterward.
++ALTER FOREIGN TABLE ft1 OPTIONS (SET streaming_fetch 'true');
++ALTER FOREIGN TABLE ft1 OPTIONS (ADD fetch_size '1');
++BEGIN;
++-- Fetch only the first row, leaving the stream unconsumed.
++SELECT c1 FROM ft1 ORDER BY c1 LIMIT 1;
++ c1 
++----
++  1
++(1 row)
++
++SELECT 1/0;  -- force an error, aborting with the scan still active
++ERROR:  division by zero
++ROLLBACK;
++SELECT count(*) FROM ft1;  -- must succeed
++ count 
++-------
++  1000
++(1 row)
++
++ALTER FOREIGN TABLE ft1 OPTIONS (DROP fetch_size);
++ALTER FOREIGN TABLE ft1 OPTIONS (SET streaming_fetch 'false');
++-- Test that fetch_more_data()'s plain cursor-mode FETCH on ft1's own
++-- already-open cursor correctly accounts for another scan's active_scan.
++-- ft1's fetch_size is set below its matching row count, so its cursor
++-- needs a second FETCH; each outer row's EXISTS subplan on ft2 leaves the
++-- inner streaming_fetch scan as the connection's active_scan without
++-- reaching EOF (fetch_size '1' on ft2, and EXISTS only needs one match),
++-- so that second FETCH must drain it first (pgfdw_exec_query() does this
++-- automatically) or ft2's unconsumed chunked result would desync the
++-- connection's result stream.
++ALTER FOREIGN TABLE ft1 OPTIONS (ADD fetch_size '5');
++ALTER FOREIGN TABLE ft2 OPTIONS (SET streaming_fetch 'true');
++ALTER FOREIGN TABLE ft2 OPTIONS (ADD fetch_size '1');
++ERROR:  option "fetch_size" provided more than once
++SET enable_hashagg = off;
++SET enable_hashjoin = off;
++SET enable_mergejoin = off;
++SET enable_material = off;
++EXPLAIN (VERBOSE, COSTS OFF)
++SELECT a.c1, a.c2 FROM ft1 a
++WHERE a.c1 < 20 AND a.c8 = 'foo' AND EXISTS (SELECT 1 FROM ft2 b WHERE b.c2 = a.c2)
++ORDER BY a.c1;
++                                                  QUERY PLAN                                                  
++--------------------------------------------------------------------------------------------------------------
++ Nested Loop Semi Join
++   Output: a.c1, a.c2
++   ->  Foreign Scan on public.ft1 a
++         Output: a.c1, a.c2
++         Filter: (a.c8 = 'foo'::user_enum)
++         Remote SQL: SELECT "C 1", c2, c8 FROM "S 1"."T 1" WHERE (("C 1" < 20)) ORDER BY "C 1" ASC NULLS LAST
++   ->  Foreign Scan on public.ft2 b
++         Output: b.c2
++         Remote SQL: SELECT c2 FROM "S 1"."T 1" WHERE ((c2 = $1::integer))
++         Streaming Fetch: true
++(10 rows)
++
++SELECT a.c1, a.c2 FROM ft1 a
++WHERE a.c1 < 20 AND a.c8 = 'foo' AND EXISTS (SELECT 1 FROM ft2 b WHERE b.c2 = a.c2)
++ORDER BY a.c1;
++ c1 | c2 
++----+----
++  1 |  1
++  2 |  2
++  3 |  3
++  4 |  4
++  5 |  5
++  6 |  6
++  7 |  7
++  8 |  8
++  9 |  9
++ 10 |  0
++ 11 |  1
++ 12 |  2
++ 13 |  3
++ 14 |  4
++ 15 |  5
++ 16 |  6
++ 17 |  7
++ 18 |  8
++ 19 |  9
++(19 rows)
++
++RESET enable_hashagg;
++RESET enable_hashjoin;
++RESET enable_mergejoin;
++RESET enable_material;
++ALTER FOREIGN TABLE ft1 OPTIONS (DROP fetch_size);
++ALTER FOREIGN TABLE ft2 OPTIONS (DROP fetch_size);
++ALTER FOREIGN TABLE ft2 OPTIONS (SET streaming_fetch 'false');
++-- Test that fetch_from_tuplestore() correctly drains a large backlog in
++-- fetch_size-sized batches rather than all at once: with a small
++-- fetch_size and a self-join matching many rows per outer row, the outer
++-- scan's tuplestore (populated when the inner scan interrupts it to reuse
++-- the connection) needs several batched reads to fully drain.  If a batch
++-- were dropped or duplicated, the count below would not match.
++ALTER FOREIGN TABLE ft2 OPTIONS (SET streaming_fetch 'true');
++ALTER FOREIGN TABLE ft2 OPTIONS (ADD fetch_size '5');
++SELECT count(*) FROM ft2 a, ft2 b
++WHERE a.c2 = 6 AND b.c1 = a.c1 AND a.c8 = 'foo' AND b.c7 = upper(a.c7);
++ count 
++-------
++   100
++(1 row)
++
++ALTER FOREIGN TABLE ft2 OPTIONS (DROP fetch_size);
++ALTER FOREIGN TABLE ft2 OPTIONS (SET streaming_fetch 'false');
++-- Test that execute_foreign_modify() correctly drains another scan's
++-- undrained streaming_fetch result before sending its own prepared
++-- statement.  The EXISTS subplan against ft2 (streaming_fetch, fetch_size
++-- 1) leaves ft2 as the connection's active_scan without reaching EOF after
++-- each outer row (short-circuiting on the first match), so each matching
++-- row's UPDATE on ft1 -- sent as a separate prepared statement per row,
++-- since the EXISTS subplan prevents direct modify -- must drain it first.
++-- The returned c1 values must match the known-correct row set for this
++-- same EXISTS predicate (see the plain SELECT variant of this query above).
++ALTER FOREIGN TABLE ft2 OPTIONS (SET streaming_fetch 'true');
++ALTER FOREIGN TABLE ft2 OPTIONS (ADD fetch_size '1');
++SET enable_hashagg = off;
++SET enable_hashjoin = off;
++SET enable_mergejoin = off;
++SET enable_material = off;
++EXPLAIN (VERBOSE, COSTS OFF)
++UPDATE ft1 SET c3 = c3
++WHERE c1 < 20 AND c8 = 'foo' AND EXISTS (SELECT 1 FROM ft2 b WHERE b.c2 = ft1.c2);
++                                                        QUERY PLAN                                                         
++---------------------------------------------------------------------------------------------------------------------------
++ Update on public.ft1
++   Remote SQL: UPDATE "S 1"."T 1" SET c3 = $2 WHERE ctid = $1
++   ->  Nested Loop Semi Join
++         Output: ft1.c3, ft1.ctid, ft1.*, b.*
++         ->  Foreign Scan on public.ft1
++               Output: ft1.c3, ft1.ctid, ft1.*, ft1.c2
++               Filter: (ft1.c8 = 'foo'::user_enum)
++               Remote SQL: SELECT "C 1", c2, c3, c4, c5, c6, c7, c8, ctid FROM "S 1"."T 1" WHERE (("C 1" < 20)) FOR UPDATE
++         ->  Foreign Scan on public.ft2 b
++               Output: b.*, b.c2
++               Remote SQL: SELECT "C 1", c2, c3, c4, c5, c6, c7, c8 FROM "S 1"."T 1" WHERE ((c2 = $1::integer))
++               Streaming Fetch: true
++(12 rows)
++
++BEGIN;
++UPDATE ft1 SET c3 = c3
++WHERE c1 < 20 AND c8 = 'foo' AND EXISTS (SELECT 1 FROM ft2 b WHERE b.c2 = ft1.c2)
++RETURNING c1;
++ c1 
++----
++  1
++  2
++  3
++  4
++  5
++  6
++  7
++  8
++  9
++ 10
++ 11
++ 12
++ 13
++ 14
++ 15
++ 16
++ 17
++ 18
++ 19
++(19 rows)
++
++ROLLBACK;
++RESET enable_hashagg;
++RESET enable_hashjoin;
++RESET enable_mergejoin;
++RESET enable_material;
++ALTER FOREIGN TABLE ft2 OPTIONS (DROP fetch_size);
++ALTER FOREIGN TABLE ft2 OPTIONS (SET streaming_fetch 'false');
++-- Test that execute_dml_stmt() (a fully pushed-down direct-modify
++-- UPDATE/DELETE) also drains another scan's undrained streaming_fetch
++-- result before sending its own query down the shared connection.  ft4
++-- shares the loopback connection with ft2; direct_modify_ft4() performs a
++-- self-contained, direct-modify-eligible UPDATE on ft4, called once per
++-- matching ft1 row while ft2's streaming EXISTS subplan is mid-stream.
++CREATE FUNCTION direct_modify_ft4(id int) RETURNS void AS $$
++  UPDATE ft4 SET c3 = c3 WHERE c1 = id;
++$$ LANGUAGE sql;
++EXPLAIN (VERBOSE, COSTS OFF) UPDATE ft4 SET c3 = c3 WHERE c1 = 1;
++                             QUERY PLAN                              
++---------------------------------------------------------------------
++ Update on public.ft4
++   ->  Foreign Update on public.ft4
++         Remote SQL: UPDATE "S 1"."T 3" SET c3 = c3 WHERE ((c1 = 1))
+ (3 rows)
+ 
+-EXPLAIN (VERBOSE, COSTS OFF) SELECT * FROM ft1 t1 WHERE c8 = 'foo';  -- can't be sent to remote
+-                               QUERY PLAN                                
+--------------------------------------------------------------------------
+- Foreign Scan on public.ft1 t1
+-   Output: c1, c2, c3, c4, c5, c6, c7, c8
+-   Filter: (t1.c8 = 'foo'::user_enum)
+-   Remote SQL: SELECT "C 1", c2, c3, c4, c5, c6, c7, c8 FROM "S 1"."T 1"
+-(4 rows)
++ALTER FOREIGN TABLE ft2 OPTIONS (SET streaming_fetch 'true');
++ALTER FOREIGN TABLE ft2 OPTIONS (ADD fetch_size '1');
++SET enable_hashagg = off;
++SET enable_hashjoin = off;
++SET enable_mergejoin = off;
++SET enable_material = off;
++BEGIN;
++SELECT direct_modify_ft4(a.c1) FROM ft1 a
++WHERE a.c1 < 20 AND a.c8 = 'foo' AND EXISTS (SELECT 1 FROM ft2 b WHERE b.c2 = a.c2)
++ORDER BY a.c1;
++ direct_modify_ft4 
++-------------------
++ 
++ 
++ 
++ 
++ 
++ 
++ 
++ 
++ 
++ 
++ 
++ 
++ 
++ 
++ 
++ 
++ 
++ 
++ 
++(19 rows)
+ 
+--- parameterized remote path for foreign table
+-EXPLAIN (VERBOSE, COSTS OFF)
+-  SELECT * FROM "S 1"."T 1" a, ft2 b WHERE a."C 1" = 47 AND b.c1 = a.c2;
+-                                                 QUERY PLAN                                                  
+--------------------------------------------------------------------------------------------------------------
+- Nested Loop
+-   Output: a."C 1", a.c2, a.c3, a.c4, a.c5, a.c6, a.c7, a.c8, b.c1, b.c2, b.c3, b.c4, b.c5, b.c6, b.c7, b.c8
+-   ->  Index Scan using t1_pkey on "S 1"."T 1" a
+-         Output: a."C 1", a.c2, a.c3, a.c4, a.c5, a.c6, a.c7, a.c8
+-         Index Cond: (a."C 1" = 47)
+-   ->  Foreign Scan on public.ft2 b
+-         Output: b.c1, b.c2, b.c3, b.c4, b.c5, b.c6, b.c7, b.c8
+-         Remote SQL: SELECT "C 1", c2, c3, c4, c5, c6, c7, c8 FROM "S 1"."T 1" WHERE (("C 1" = $1::integer))
+-(8 rows)
++ROLLBACK;
++RESET enable_hashagg;
++RESET enable_hashjoin;
++RESET enable_mergejoin;
++RESET enable_material;
++ALTER FOREIGN TABLE ft2 OPTIONS (DROP fetch_size);
++ALTER FOREIGN TABLE ft2 OPTIONS (SET streaming_fetch 'false');
++DROP FUNCTION direct_modify_ft4(int);
++-- Test that a drain which fails part-way through does not leave a
++-- silently-truncated tuplestore usable by an outer transaction level.
++-- A local type-conversion error is raised while draining a suspended
++-- streaming_fetch scan inside a subtransaction; the outer level then
++-- resumes the scan and must get an error, not short results.
++CREATE TABLE loct_lost (id int, x text);
++INSERT INTO loct_lost SELECT g, g::text FROM generate_series(1, 5) g;
++INSERT INTO loct_lost VALUES (6, 'not_an_int'), (7, '7'), (8, '8');
++CREATE FOREIGN TABLE ft_lost (id int, x int)
++  SERVER loopback OPTIONS (schema_name 'public', table_name 'loct_lost',
++                           streaming_fetch 'true', fetch_size '2');
++CREATE FOREIGN TABLE ft_lost_other (id int)
++  SERVER loopback OPTIONS (schema_name 'public', table_name 'loct_lost');
++\set VERBOSITY terse
++BEGIN;
++DECLARE c_lost CURSOR FOR SELECT id, x FROM ft_lost ORDER BY id;
++FETCH 2 FROM c_lost;
++ id | x 
++----+---
++  1 | 1
++  2 | 2
++(2 rows)
+ 
+-SELECT * FROM "S 1"."T 1" a, ft2 b WHERE a."C 1" = 47 AND b.c1 = a.c2;
+- C 1 | c2 |  c3   |              c4              |            c5            | c6 |     c7     | c8  | c1 | c2 |  c3   |              c4              |            c5            | c6 |     c7     | c8  
+------+----+-------+------------------------------+--------------------------+----+------------+-----+----+----+-------+------------------------------+--------------------------+----+------------+-----
+-  47 |  7 | 00047 | Tue Feb 17 00:00:00 1970 PST | Tue Feb 17 00:00:00 1970 | 7  | 7          | foo |  7 |  7 | 00007 | Thu Jan 08 00:00:00 1970 PST | Thu Jan 08 00:00:00 1970 | 7  | 7          | foo
++SAVEPOINT sp;
++SELECT id FROM ft_lost_other ORDER BY id LIMIT 1;  -- hits row 6
++ERROR:  invalid input syntax for type integer: "not_an_int"
++ROLLBACK TO SAVEPOINT sp;
++FETCH ALL FROM c_lost;                             -- ERROR
++ERROR:  could not obtain all rows from remote server
++COMMIT;
++SELECT count(*) FROM ft_lost_other;               -- connection still healthy
++ count 
++-------
++     8
+ (1 row)
+ 
+--- check both safe and unsafe join conditions
++\set VERBOSITY default
++DROP FOREIGN TABLE ft_lost, ft_lost_other;
++DROP TABLE loct_lost;
++-- Test in streaming_fetch mode for interleaved scans.
++-- The non-shippable condition a.c8 = 'foo' prevents full
++-- join pushdown, so the planner issues two separate FDW scans.
++-- When the inner scan is initiated it first drains the outer scan's unread rows.
++ ALTER FOREIGN TABLE ft2 OPTIONS (SET streaming_fetch 'true');
++-- Show the plan: ft2 must appear as two independent ForeignScan nodes, not
++-- a single pushed-down remote join.
+ EXPLAIN (VERBOSE, COSTS OFF)
+-  SELECT * FROM ft2 a, ft2 b
+-  WHERE a.c2 = 6 AND b.c1 = a.c1 AND a.c8 = 'foo' AND b.c7 = upper(a.c7);
++SELECT * FROM ft2 a, ft2 b
++WHERE a.c2 = 6 AND b.c1 = a.c1 AND a.c8 = 'foo' AND b.c7 = upper(a.c7);
+                                                  QUERY PLAN                                                  
+ -------------------------------------------------------------------------------------------------------------
+  Nested Loop
+@@ -802,12 +1725,16 @@ EXPLAIN (VERBOSE, COSTS OFF)
+          Output: a.c1, a.c2, a.c3, a.c4, a.c5, a.c6, a.c7, a.c8
+          Filter: (a.c8 = 'foo'::user_enum)
+          Remote SQL: SELECT "C 1", c2, c3, c4, c5, c6, c7, c8 FROM "S 1"."T 1" WHERE ((c2 = 6))
++         Streaming Fetch: true
+    ->  Foreign Scan on public.ft2 b
+          Output: b.c1, b.c2, b.c3, b.c4, b.c5, b.c6, b.c7, b.c8
+          Filter: ((b.c7)::text = upper((a.c7)::text))
+          Remote SQL: SELECT "C 1", c2, c3, c4, c5, c6, c7, c8 FROM "S 1"."T 1" WHERE (($1::integer = "C 1"))
+-(10 rows)
++         Streaming Fetch: true
++(12 rows)
+ 
++-- Verify results with cursor path.
++ALTER FOREIGN TABLE ft2 OPTIONS (SET streaming_fetch 'false');
+ SELECT * FROM ft2 a, ft2 b
+ WHERE a.c2 = 6 AND b.c1 = a.c1 AND a.c8 = 'foo' AND b.c7 = upper(a.c7);
+  c1  | c2 |  c3   |              c4              |            c5            | c6 |     c7     | c8  | c1  | c2 |  c3   |              c4              |            c5            | c6 |     c7     | c8  
+@@ -914,6 +1841,53 @@ WHERE a.c2 = 6 AND b.c1 = a.c1 AND a.c8 = 'foo' AND b.c7 = upper(a.c7);
+  996 |  6 | 00996 | Tue Apr 07 00:00:00 1970 PST | Tue Apr 07 00:00:00 1970 | 6  | 6          | foo | 996 |  6 | 00996 | Tue Apr 07 00:00:00 1970 PST | Tue Apr 07 00:00:00 1970 | 6  | 6          | foo
+ (100 rows)
+ 
++ALTER FOREIGN TABLE ft2 OPTIONS (SET streaming_fetch 'true');
++-- Three-way self-join to test streaming_fetch
++EXPLAIN (VERBOSE, COSTS OFF)
++SELECT count(*) FROM ft2 a, ft2 b, ft2 c
++WHERE a.c2 = 6 AND b.c1 = a.c1 AND c.c1 = b.c1
++AND a.c8 = 'foo' AND b.c7 = upper(a.c7);
++                                           QUERY PLAN                                            
++-------------------------------------------------------------------------------------------------
++ Aggregate
++   Output: count(*)
++   ->  Nested Loop
++         ->  Nested Loop
++               Output: a.c1, b.c1
++               ->  Foreign Scan on public.ft2 a
++                     Output: a.c1, a.c7
++                     Filter: (a.c8 = 'foo'::user_enum)
++                     Remote SQL: SELECT "C 1", c7, c8 FROM "S 1"."T 1" WHERE ((c2 = 6))
++                     Streaming Fetch: true
++               ->  Foreign Scan on public.ft2 b
++                     Output: b.c1, b.c7
++                     Filter: ((b.c7)::text = upper((a.c7)::text))
++                     Remote SQL: SELECT "C 1", c7 FROM "S 1"."T 1" WHERE (($1::integer = "C 1"))
++                     Streaming Fetch: true
++         ->  Foreign Scan on public.ft2 c
++               Output: c.c1
++               Remote SQL: SELECT "C 1" FROM "S 1"."T 1" WHERE (($1::integer = "C 1"))
++               Streaming Fetch: true
++(19 rows)
++
++SELECT count(*) FROM ft2 a, ft2 b, ft2 c
++WHERE a.c2 = 6 AND b.c1 = a.c1 AND c.c1 = b.c1
++AND a.c8 = 'foo' AND b.c7 = upper(a.c7);
++ count 
++-------
++   100
++(1 row)
++
++-- output matches in cursor mode
++ALTER FOREIGN TABLE ft2 OPTIONS (SET streaming_fetch 'false');
++SELECT count(*) FROM ft2 a, ft2 b, ft2 c
++WHERE a.c2 = 6 AND b.c1 = a.c1 AND c.c1 = b.c1
++AND a.c8 = 'foo' AND b.c7 = upper(a.c7);
++ count 
++-------
++   100
++(1 row)
++
+ -- bug before 9.3.5 due to sloppy handling of remote-estimate parameters
+ SELECT * FROM ft1 WHERE c1 = ANY (ARRAY(SELECT c1 FROM ft2 WHERE c1 < 5));
+  c1 | c2 |  c3   |              c4              |            c5            | c6 |     c7     | c8  
+@@ -2258,6 +3232,43 @@ SELECT t1.c1 FROM ft1 t1 WHERE NOT EXISTS (SELECT 1 FROM ft2 t2 WHERE t1.c1 = t2
+  119
+ (10 rows)
+ 
++-- Test in streaming_fetch mode to cover the patch for two simultaneous active cursors
++-- with only one table using streaming_fetch
++ALTER FOREIGN TABLE ft1 OPTIONS (SET streaming_fetch 'true');
++SELECT t1.c1 FROM ft1 t1 WHERE NOT EXISTS (SELECT 1 FROM ft2 t2 WHERE t1.c1 = t2.c2) ORDER BY t1.c1 OFFSET 100 LIMIT 10;
++ c1  
++-----
++ 110
++ 111
++ 112
++ 113
++ 114
++ 115
++ 116
++ 117
++ 118
++ 119
++(10 rows)
++
++-- with both the tables using streaming_fetch
++ALTER FOREIGN TABLE ft2 OPTIONS (SET streaming_fetch 'true');
++SELECT t1.c1 FROM ft1 t1 WHERE NOT EXISTS (SELECT 1 FROM ft2 t2 WHERE t1.c1 = t2.c2) ORDER BY t1.c1 OFFSET 100 LIMIT 10;
++ c1  
++-----
++ 110
++ 111
++ 112
++ 113
++ 114
++ 115
++ 116
++ 117
++ 118
++ 119
++(10 rows)
++
++ALTER FOREIGN TABLE ft1 OPTIONS (SET streaming_fetch 'false');
++ALTER FOREIGN TABLE ft2 OPTIONS (SET streaming_fetch 'false');
+ -- CROSS JOIN can be pushed down
+ EXPLAIN (VERBOSE, COSTS OFF)
+ SELECT t1.c1, t2.c1 FROM ft1 t1 CROSS JOIN ft2 t2 ORDER BY t1.c1, t2.c1 OFFSET 100 LIMIT 10;
+@@ -2309,6 +3320,16 @@ SELECT t1.c1, t2.c1 FROM ft5 t1 JOIN ft6 t2 ON (t1.c1 = t2.c1) ORDER BY t1.c1, t
+ ----+----
+ (0 rows)
+ 
++-- Test in streaming_fetch mode to cover the case with multiple cursors but only one active cursor at a time
++ALTER FOREIGN TABLE ft5 OPTIONS (streaming_fetch 'true');
++ALTER FOREIGN TABLE ft6 OPTIONS (streaming_fetch 'true');
++SELECT t1.c1, t2.c1 FROM ft5 t1 JOIN ft6 t2 ON (t1.c1 = t2.c1) ORDER BY t1.c1, t2.c1 OFFSET 100 LIMIT 10;
++ c1 | c1 
++----+----
++(0 rows)
++
++ALTER FOREIGN TABLE ft5 OPTIONS (SET streaming_fetch 'false');
++ALTER FOREIGN TABLE ft6 OPTIONS (SET streaming_fetch 'false');
+ -- unsafe join conditions (c8 has a UDT), not pushed down. Practically a CROSS
+ -- JOIN since c8 in both tables has same value.
+ EXPLAIN (VERBOSE, COSTS OFF)
+@@ -3670,6 +4691,72 @@ select count(c6), sum(c1), avg(c1), min(c2), max(c1), stddev(c2), sum(c1) * (ran
+    100 | 49600 | 496.0000000000000000 |   1 | 991 |      0 | 49600
+ (1 row)
+ 
++-- Test with limit and streaming_fetch
++ALTER FOREIGN TABLE ft1 OPTIONS (SET streaming_fetch 'true');
++select count(c6), sum(c1), avg(c1), min(c2), max(c1), stddev(c2), sum(c1) * (random() <= 1)::int as sum2 from ft1 where c2 < 5 group by c2 order by 1, 2 limit 1;
++ count |  sum  |         avg          | min | max | stddev | sum2  
++-------+-------+----------------------+-----+-----+--------+-------
++   100 | 49600 | 496.0000000000000000 |   1 | 991 |      0 | 49600
++(1 row)
++
++ALTER FOREIGN TABLE ft1 OPTIONS (SET streaming_fetch 'false');
++-- Test LIMIT stopping before all tuples are consumed.
++-- The WHERE clause references c8 (a user-defined type that cannot be
++-- pushed to the remote), preventing LIMIT pushdown.  The remote
++-- therefore streams all rows, and end_scan must discard the in-flight
++-- data when the local executor stops early.
++ALTER FOREIGN TABLE ft1 OPTIONS (SET streaming_fetch 'true');
++-- LIMIT 5 with default fetch_size=100: stops well within the first
++-- chunk; end_scan discards ~995 rows still in flight on the connection.
++SELECT c1 FROM ft1 WHERE c8 = 'foo' ORDER BY c1 LIMIT 5;
++ c1 
++----
++  1
++  2
++  3
++  4
++  5
++(5 rows)
++
++-- Verify the connection is still usable after the early stop.
++SELECT count(*) FROM ft1;
++ count 
++-------
++  1000
++(1 row)
++
++-- fetch_size=10, LIMIT=15: consumes one full chunk (rows 1-10) plus 5
++-- rows from a second chunk (rows 11-15); end_scan then discards the
++-- remainder of that chunk and all subsequent in-flight chunks.
++ALTER FOREIGN TABLE ft1 OPTIONS (fetch_size '10');
++SELECT c1 FROM ft1 WHERE c8 = 'foo' ORDER BY c1 LIMIT 15;
++ c1 
++----
++  1
++  2
++  3
++  4
++  5
++  6
++  7
++  8
++  9
++ 10
++ 11
++ 12
++ 13
++ 14
++ 15
++(15 rows)
++
++SELECT count(*) FROM ft1;
++ count 
++-------
++  1000
++(1 row)
++
++ALTER FOREIGN TABLE ft1 OPTIONS (DROP fetch_size);
++ALTER FOREIGN TABLE ft1 OPTIONS (SET streaming_fetch 'false');
+ -- Aggregate is not pushed down as aggregation contains random()
+ explain (verbose, costs off)
+ select sum(c1 * (random() <= 1)::int) as sum, avg(c1) from ft1;
+@@ -11640,6 +12727,48 @@ SELECT 1 FROM ft1 LIMIT 1;    -- should fail
+ ERROR:  08006
+ \set VERBOSITY default
+ COMMIT;
++-- ===================================================================
++-- streaming_fetch: error recovery when the remote backend terminates
++-- ===================================================================
++-- Enable streaming_fetch
++ALTER FOREIGN TABLE ft1 OPTIONS (SET streaming_fetch 'true');
++-- Establish a fresh remote connection.
++SELECT 1 FROM ft1 LIMIT 1;
++ ?column? 
++----------
++        1
++(1 row)
++
++-- Terminate the remote backend and wait for the termination to complete.
++DO $$ BEGIN
++PERFORM pg_terminate_backend(pid, 180000) FROM pg_stat_activity
++	WHERE application_name = 'fdw_retry_check';
++END $$;
++-- After the connection is broken, a streaming_fetch query should detect
++-- the broken connection, reestablish it, and succeed.
++BEGIN;
++SELECT c1 FROM ft1 ORDER BY c1 LIMIT 3;
++ c1 
++----
++  1
++  3
++  4
++(3 rows)
++
++-- Inside a subtransaction the broken connection must not be silently
++-- retried; the query should fail.
++DO $$ BEGIN
++PERFORM pg_terminate_backend(pid, 180000) FROM pg_stat_activity
++	WHERE application_name = 'fdw_retry_check';
++END $$;
++SAVEPOINT s2;
++-- The text of the error might vary across platforms, so only show SQLSTATE.
++\set VERBOSITY sqlstate
++SELECT 1 FROM ft1 LIMIT 1;    -- should fail
++ERROR:  08006
++\set VERBOSITY default
++COMMIT;
++ALTER FOREIGN TABLE ft1 OPTIONS (SET streaming_fetch 'false');
+ -- =============================================================================
+ -- test connection invalidation cases and postgres_fdw_get_connections function
+ -- =============================================================================
+@@ -12869,6 +13998,80 @@ SELECT * FROM local_tbl, async_pt WHERE local_tbl.a = async_pt.a AND local_tbl.c
+ 
+ ALTER FOREIGN TABLE async_p1 OPTIONS (DROP use_remote_estimate);
+ ALTER FOREIGN TABLE async_p2 OPTIONS (DROP use_remote_estimate);
++-- Test with streaming_fetch
++-- No streaming_fetch at server, this should give Async Foreign Scan for for async_p1 and async_p2
++EXPLAIN (VERBOSE, COSTS OFF)
++SELECT * FROM async_pt;
++                        QUERY PLAN                        
++----------------------------------------------------------
++ Append
++   ->  Async Foreign Scan on public.async_p1 async_pt_1
++         Output: async_pt_1.a, async_pt_1.b, async_pt_1.c
++         Remote SQL: SELECT a, b, c FROM public.base_tbl1
++   ->  Async Foreign Scan on public.async_p2 async_pt_2
++         Output: async_pt_2.a, async_pt_2.b, async_pt_2.c
++         Remote SQL: SELECT a, b, c FROM public.base_tbl2
++   ->  Seq Scan on public.async_p3 async_pt_3
++         Output: async_pt_3.a, async_pt_3.b, async_pt_3.c
++(9 rows)
++
++-- streaming_fetch = false at loopback server, this should still give Async Foreign Scan for async_p1 and async_p2
++ALTER SERVER loopback OPTIONS (streaming_fetch 'false');
++EXPLAIN (VERBOSE, COSTS OFF)
++SELECT * FROM async_pt;
++                        QUERY PLAN                        
++----------------------------------------------------------
++ Append
++   ->  Async Foreign Scan on public.async_p1 async_pt_1
++         Output: async_pt_1.a, async_pt_1.b, async_pt_1.c
++         Remote SQL: SELECT a, b, c FROM public.base_tbl1
++   ->  Async Foreign Scan on public.async_p2 async_pt_2
++         Output: async_pt_2.a, async_pt_2.b, async_pt_2.c
++         Remote SQL: SELECT a, b, c FROM public.base_tbl2
++   ->  Seq Scan on public.async_p3 async_pt_3
++         Output: async_pt_3.a, async_pt_3.b, async_pt_3.c
++(9 rows)
++
++-- streaming_fetch = false at loopback server but true for async_p1, this should give Foreign Scan for async_p1
++ALTER FOREIGN TABLE async_p1 OPTIONS (ADD streaming_fetch 'true');
++EXPLAIN (VERBOSE, COSTS OFF)
++SELECT * FROM async_pt;
++                        QUERY PLAN                        
++----------------------------------------------------------
++ Append
++   ->  Foreign Scan on public.async_p1 async_pt_1
++         Output: async_pt_1.a, async_pt_1.b, async_pt_1.c
++         Remote SQL: SELECT a, b, c FROM public.base_tbl1
++         Streaming Fetch: true
++   ->  Async Foreign Scan on public.async_p2 async_pt_2
++         Output: async_pt_2.a, async_pt_2.b, async_pt_2.c
++         Remote SQL: SELECT a, b, c FROM public.base_tbl2
++   ->  Seq Scan on public.async_p3 async_pt_3
++         Output: async_pt_3.a, async_pt_3.b, async_pt_3.c
++(10 rows)
++
++-- streaming_fetch = true at loopback2 server, this should give Foreign Scan for async_p2 also
++ALTER SERVER loopback2 OPTIONS (streaming_fetch 'true');
++EXPLAIN (VERBOSE, COSTS OFF)
++SELECT * FROM async_pt;
++                        QUERY PLAN                        
++----------------------------------------------------------
++ Append
++   ->  Foreign Scan on public.async_p1 async_pt_1
++         Output: async_pt_1.a, async_pt_1.b, async_pt_1.c
++         Remote SQL: SELECT a, b, c FROM public.base_tbl1
++         Streaming Fetch: true
++   ->  Foreign Scan on public.async_p2 async_pt_2
++         Output: async_pt_2.a, async_pt_2.b, async_pt_2.c
++         Remote SQL: SELECT a, b, c FROM public.base_tbl2
++         Streaming Fetch: true
++   ->  Seq Scan on public.async_p3 async_pt_3
++         Output: async_pt_3.a, async_pt_3.b, async_pt_3.c
++(11 rows)
++
++ALTER FOREIGN TABLE async_p1 OPTIONS (DROP streaming_fetch);
++ALTER SERVER loopback OPTIONS (DROP streaming_fetch);
++ALTER SERVER loopback2 OPTIONS (DROP streaming_fetch);
+ DROP TABLE local_tbl;
+ DROP INDEX base_tbl1_idx;
+ DROP INDEX base_tbl2_idx;
+diff --git a/contrib/postgres_fdw/expected/query_cancel.out b/contrib/postgres_fdw/expected/query_cancel.out
+index c3fc585d49f..3e539f27fe9 100644
+--- a/contrib/postgres_fdw/expected/query_cancel.out
++++ b/contrib/postgres_fdw/expected/query_cancel.out
+@@ -32,3 +32,26 @@ SET LOCAL statement_timeout = '10ms';
+ SELECT count(*) FROM ft1 a CROSS JOIN ft1 b CROSS JOIN ft1 c CROSS JOIN ft1 d;
+ ERROR:  canceling statement due to statement timeout
+ COMMIT;
++-- Same as above, but for a streaming_fetch (cursor-free) scan: verify that
++-- canceling mid-stream correctly clears conn_state->active_scan, so the
++-- connection is safely reusable afterward.
++ALTER FOREIGN TABLE ft1 OPTIONS (SET streaming_fetch 'true');
++BEGIN;
++SELECT count(*) FROM ft1 a;
++ count 
++-------
++   822
++(1 row)
++
++SET LOCAL statement_timeout = '10ms';
++SELECT count(*) FROM ft1 a CROSS JOIN ft1 b CROSS JOIN ft1 c CROSS JOIN ft1 d;
++ERROR:  canceling statement due to statement timeout
++COMMIT;
++-- Must succeed cleanly if active_scan was properly cleared on cancel.
++SELECT count(*) FROM ft1;
++ count 
++-------
++   822
++(1 row)
++
++ALTER FOREIGN TABLE ft1 OPTIONS (SET streaming_fetch 'false');
+diff --git a/contrib/postgres_fdw/option.c b/contrib/postgres_fdw/option.c
+index 5b539c4eeef..14e5c5cd32f 100644
+--- a/contrib/postgres_fdw/option.c
++++ b/contrib/postgres_fdw/option.c
+@@ -122,6 +122,7 @@ postgres_fdw_validator(PG_FUNCTION_ARGS)
+ 			strcmp(def->defname, "parallel_abort") == 0 ||
+ 			strcmp(def->defname, "keep_connections") == 0 ||
+ 			strcmp(def->defname, "import_stats") == 0 ||
++			strcmp(def->defname, "streaming_fetch") == 0 ||
+ 			strcmp(def->defname, "use_scram_passthrough") == 0)
+ 		{
+ 			/* these accept only boolean values */
+@@ -262,6 +263,9 @@ InitPgFdwOptions(void)
+ 		/* fetch_size is available on both server and table */
+ 		{"fetch_size", ForeignServerRelationId, false},
+ 		{"fetch_size", ForeignTableRelationId, false},
++		/* streaming_fetch is available on both server and table */
++		{"streaming_fetch", ForeignServerRelationId, false},
++		{"streaming_fetch", ForeignTableRelationId, false},
+ 		/* batch_size is available on both server and table */
+ 		{"batch_size", ForeignServerRelationId, false},
+ 		{"batch_size", ForeignTableRelationId, false},
+diff --git a/contrib/postgres_fdw/postgres_fdw.c b/contrib/postgres_fdw/postgres_fdw.c
+index 62dd4fe6346..dcfa015643c 100644
+--- a/contrib/postgres_fdw/postgres_fdw.c
++++ b/contrib/postgres_fdw/postgres_fdw.c
+@@ -55,6 +55,7 @@
+ #include "utils/sampling.h"
+ #include "utils/selfuncs.h"
+ #include "utils/timestamp.h"
++#include "utils/tuplestore.h"
+ 
+ PG_MODULE_MAGIC_EXT(
+ 					.name = "postgres_fdw",
+@@ -85,6 +86,8 @@ enum FdwScanPrivateIndex
+ 	FdwScanPrivateRetrievedAttrs,
+ 	/* Integer representing the desired fetch_size */
+ 	FdwScanPrivateFetchSize,
++	/* Boolean indicating whether streaming_fetch mode is enabled */
++	FdwScanPrivateStreamingFetch,
+ 
+ 	/*
+ 	 * String describing join i.e. names of relations being joined and types
+@@ -206,6 +209,17 @@ typedef struct PgFdwScanState
+ 	MemoryContext temp_cxt;		/* context for per-tuple temporary data */
+ 
+ 	int			fetch_size;		/* number of tuples per fetch */
++	/* Fields required for the streaming_fetch mode only */
++	bool		streaming_fetch;	/* set if the scan is using
++									 * streaming_fetch mode */
++	Tuplestorestate *tuplestore;	/* Tuplestore to save the tuples of the
++									 * query for later fetch. */
++	bool		tuplestore_lost_rows;	/* set while a result has been read
++										 * but not yet fully copied into
++										 * tuplestore; if still set when the
++										 * tuplestore is read, rows were lost
++										 * due to an error */
++	ForeignScanState *fsnode;	/* back-pointer, used by drain_active_scan */
+ } PgFdwScanState;
+ 
+ /*
+@@ -518,6 +532,7 @@ static void estimate_path_cost_size(PlannerInfo *root,
+ 									Cost *p_startup_cost, Cost *p_total_cost);
+ static void get_remote_estimate(const char *sql,
+ 								PGconn *conn,
++								PgFdwConnState *conn_state,
+ 								double *rows,
+ 								int *width,
+ 								Cost *startup_cost,
+@@ -533,7 +548,9 @@ static void adjust_foreign_grouping_path_cost(PlannerInfo *root,
+ static bool ec_member_matches_foreign(PlannerInfo *root, RelOptInfo *rel,
+ 									  EquivalenceClass *ec, EquivalenceMember *em,
+ 									  void *arg);
++static void prepare_query(ForeignScanState *node);
+ static void create_cursor(ForeignScanState *node);
++static void reset_batch_state(PgFdwScanState *fsstate);
+ static void fetch_more_data(ForeignScanState *node);
+ static void close_cursor(PGconn *conn, unsigned int cursor_number,
+ 						 PgFdwConnState *conn_state);
+@@ -598,8 +615,8 @@ static bool fetch_remote_statistics(Relation relation,
+ 									RemoteStatsResults *remstats,
+ 									RemoteAttributeMapping **p_remattrmap,
+ 									int *p_attrcnt);
+-static PGresult *fetch_relstats(PGconn *conn, Relation relation);
+-static PGresult *fetch_attstats(PGconn *conn, int server_version_num,
++static PGresult *fetch_relstats(PGconn *conn, PgFdwConnState *conn_state, Relation relation);
++static PGresult *fetch_attstats(PGconn *conn, PgFdwConnState *conn_state, int server_version_num,
+ 								const char *remote_schemaname, const char *remote_relname,
+ 								const char *column_list);
+ static RemoteAttributeMapping *build_remattrmap(Relation relation, List *va_cols,
+@@ -667,6 +684,12 @@ static void merge_fdw_options(PgFdwRelationInfo *fpinfo,
+ 							  const PgFdwRelationInfo *fpinfo_i);
+ static int	get_batch_size_option(Relation rel);
+ 
++/* Only required for non-cursor mode */
++static void init_scan(ForeignScanState *node);
++static PGresult *fetch_stream_result(PgFdwScanState *fsstate);
++static void discard_stream_result(PgFdwScanState *fsstate);
++static void fetch_from_tuplestore(ForeignScanState *node);
++static bool is_active_scan(PgFdwScanState *fsstate);
+ 
+ /*
+  * Foreign-data wrapper handler function: return a struct with pointers
+@@ -776,9 +799,12 @@ postgresGetForeignRelSize(PlannerInfo *root,
+ 	fpinfo->shippable_extensions = NIL;
+ 	fpinfo->fetch_size = 100;
+ 	fpinfo->async_capable = false;
++	fpinfo->streaming_fetch = false;
+ 
+ 	apply_server_options(fpinfo);
+ 	apply_table_options(fpinfo);
++	if (fpinfo->streaming_fetch)
++		fpinfo->async_capable = false;
+ 
+ 	/*
+ 	 * If the table or the server is configured to use remote estimates,
+@@ -1538,9 +1564,9 @@ postgresGetForeignPlan(PlannerInfo *root,
+ 	 * Build the fdw_private list that will be available to the executor.
+ 	 * Items in the list must match order in enum FdwScanPrivateIndex.
+ 	 */
+-	fdw_private = list_make3(makeString(sql.data),
++	fdw_private = list_make4(makeString(sql.data),
+ 							 retrieved_attrs,
+-							 makeInteger(fpinfo->fetch_size));
++							 makeInteger(fpinfo->fetch_size), makeBoolean(fpinfo->streaming_fetch));
+ 
+ 	/*
+ 	 * Position FdwScanPrivateRelations: either the EXPLAIN relation string
+@@ -1767,6 +1793,8 @@ postgresBeginForeignScan(ForeignScanState *node, int eflags)
+ 												 FdwScanPrivateRetrievedAttrs);
+ 	fsstate->fetch_size = intVal(list_nth(fsplan->fdw_private,
+ 										  FdwScanPrivateFetchSize));
++	fsstate->streaming_fetch = boolVal(list_nth(fsplan->fdw_private,
++												FdwScanPrivateStreamingFetch));
+ 
+ 	/* Create contexts for batches of tuples and per-tuple temp workspace. */
+ 	fsstate->batch_cxt = AllocSetContextCreate(estate->es_query_cxt,
+@@ -1819,6 +1847,9 @@ postgresBeginForeignScan(ForeignScanState *node, int eflags)
+ 
+ 	/* Set the async-capable flag */
+ 	fsstate->async_capable = node->ss.ps.async_capable;
++	fsstate->tuplestore = NULL;
++	fsstate->tuplestore_lost_rows = false;
++	fsstate->fsnode = node;
+ }
+ 
+ /*
+@@ -1839,7 +1870,12 @@ postgresIterateForeignScan(ForeignScanState *node)
+ 	 * first call after Begin or ReScan.
+ 	 */
+ 	if (!fsstate->scan_in_progress)
+-		create_cursor(node);
++	{
++		if (fsstate->streaming_fetch)
++			init_scan(node);
++		else
++			create_cursor(node);
++	}
+ 
+ 	/*
+ 	 * Get some more tuples, if we've run out.
+@@ -1867,6 +1903,21 @@ postgresIterateForeignScan(ForeignScanState *node)
+ 	return slot;
+ }
+ 
++/*
++ * Reset a scan's batch bookkeeping so the next fetch starts fresh.  Does not
++ * touch scan_in_progress; the caller clears that when the remote scan (cursor
++ * or stream) has actually been torn down and must be re-opened.
++ */
++static void
++reset_batch_state(PgFdwScanState *fsstate)
++{
++	fsstate->tuples = NULL;
++	fsstate->num_tuples = 0;
++	fsstate->next_tuple = 0;
++	fsstate->fetch_ct_2 = 0;
++	fsstate->eof_reached = false;
++}
++
+ /*
+  * postgresReScanForeignScan
+  *		Restart the scan.
+@@ -1877,6 +1928,7 @@ postgresReScanForeignScan(ForeignScanState *node)
+ 	PgFdwScanState *fsstate = (PgFdwScanState *) node->fdw_state;
+ 	char		sql[64];
+ 	PGresult   *res;
++	bool		reinitialize_scan = false;
+ 
+ 	/* If no scan is in progress, nothing to do. */
+ 	if (!fsstate->scan_in_progress)
+@@ -1900,40 +1952,69 @@ postgresReScanForeignScan(ForeignScanState *node)
+ 	 */
+ 	if (node->ss.ps.chgParam != NULL)
+ 	{
+-		fsstate->scan_in_progress = false;
+-		snprintf(sql, sizeof(sql), "CLOSE c%u",
+-				 fsstate->cursor_number);
++		reinitialize_scan = true;
+ 	}
+ 	else if (fsstate->fetch_ct_2 > 1)
+ 	{
+-		if (PQserverVersion(fsstate->conn) < 150000)
++		if (!fsstate->streaming_fetch && PQserverVersion(fsstate->conn) < 150000)
++		{
+ 			snprintf(sql, sizeof(sql), "MOVE BACKWARD ALL IN c%u",
+ 					 fsstate->cursor_number);
++			res = pgfdw_exec_query(fsstate->conn, sql, fsstate->conn_state);
++			if (PQresultStatus(res) != PGRES_COMMAND_OK)
++				pgfdw_report_error(res, fsstate->conn, sql);
++
++			PQclear(res);
++
++			/* Now force a fresh FETCH. */
++			reset_batch_state(fsstate);
++			return;
++		}
++		else
++			reinitialize_scan = true;
++	}
++	else
++	{
++		/*
++		 * Easy: just rescan what we already have in memory, if anything.
++		 *
++		 * Exception: in streaming_fetch mode a populated tuplestore holds
++		 * rows drained from a previous pass; those cannot be rewound to the
++		 * start, so we must reinitialise the scan from scratch.
++		 */
++		if (fsstate->streaming_fetch && fsstate->tuplestore)
++			reinitialize_scan = true;
+ 		else
+ 		{
+-			fsstate->scan_in_progress = false;
+-			snprintf(sql, sizeof(sql), "CLOSE c%u",
+-					 fsstate->cursor_number);
++			fsstate->next_tuple = 0;
++			return;
+ 		}
+ 	}
+-	else
++	if (reinitialize_scan)
+ 	{
+-		/* Easy: just rescan what we already have in memory, if anything */
+-		fsstate->next_tuple = 0;
+-		return;
++		if (fsstate->streaming_fetch)
++		{
++			discard_stream_result(fsstate);
++			if (fsstate->tuplestore)
++			{
++				tuplestore_end(fsstate->tuplestore);
++				fsstate->tuplestore = NULL;
++				fsstate->tuplestore_lost_rows = false;
++			}
++		}
++		else
++		{
++			snprintf(sql, sizeof(sql), "CLOSE c%u",
++					 fsstate->cursor_number);
++			res = pgfdw_exec_query(fsstate->conn, sql, fsstate->conn_state);
++			if (PQresultStatus(res) != PGRES_COMMAND_OK)
++				pgfdw_report_error(res, fsstate->conn, sql);
++			PQclear(res);
++		}
++		/* Now force a fresh FETCH, and re-open the scan on the next iterate. */
++		reset_batch_state(fsstate);
++		fsstate->scan_in_progress = false;
+ 	}
+-
+-	res = pgfdw_exec_query(fsstate->conn, sql, fsstate->conn_state);
+-	if (PQresultStatus(res) != PGRES_COMMAND_OK)
+-		pgfdw_report_error(res, fsstate->conn, sql);
+-	PQclear(res);
+-
+-	/* Now force a fresh FETCH. */
+-	fsstate->tuples = NULL;
+-	fsstate->num_tuples = 0;
+-	fsstate->next_tuple = 0;
+-	fsstate->fetch_ct_2 = 0;
+-	fsstate->eof_reached = false;
+ }
+ 
+ /*
+@@ -1951,9 +2032,22 @@ postgresEndForeignScan(ForeignScanState *node)
+ 
+ 	/* Close the cursor if open, to prevent accumulation of cursors */
+ 	if (fsstate->scan_in_progress)
+-		close_cursor(fsstate->conn, fsstate->cursor_number,
+-					 fsstate->conn_state);
++	{
++		if (fsstate->streaming_fetch)
++		{
++			discard_stream_result(fsstate);
++			if (fsstate->tuplestore)
++				tuplestore_end(fsstate->tuplestore);
+ 
++			MemoryContextReset(fsstate->batch_cxt);
++		}
++		else
++		{
++			drain_active_scan(fsstate->conn_state);
++			close_cursor(fsstate->conn, fsstate->cursor_number,
++						 fsstate->conn_state);
++		}
++	}
+ 	/* Release remote connection */
+ 	ReleaseConnection(fsstate->conn);
+ 	fsstate->conn = NULL;
+@@ -3233,9 +3327,13 @@ postgresExplainForeignScan(ForeignScanState *node, ExplainState *es)
+ 	if (es->verbose)
+ 	{
+ 		char	   *sql;
++		bool		stream_fetch;
+ 
+ 		sql = strVal(list_nth(fdw_private, FdwScanPrivateSelectSql));
++		stream_fetch = boolVal(list_nth(fdw_private, FdwScanPrivateStreamingFetch));
+ 		ExplainPropertyText("Remote SQL", sql, es);
++		if (stream_fetch)
++			ExplainPropertyBool("Streaming Fetch", stream_fetch, es);
+ 	}
+ }
+ 
+@@ -3429,6 +3527,7 @@ estimate_path_cost_size(PlannerInfo *root,
+ 		List	   *local_param_join_conds;
+ 		StringInfoData sql;
+ 		PGconn	   *conn;
++		PgFdwConnState *conn_state;
+ 		Selectivity local_sel;
+ 		QualCost	local_cost;
+ 		List	   *fdw_scan_tlist = NIL;
+@@ -3472,8 +3571,8 @@ estimate_path_cost_size(PlannerInfo *root,
+ 								false, &retrieved_attrs, NULL);
+ 
+ 		/* Get the remote estimate */
+-		conn = GetConnection(fpinfo->user, false, NULL);
+-		get_remote_estimate(sql.data, conn, &rows, &width,
++		conn = GetConnection(fpinfo->user, false, &conn_state);
++		get_remote_estimate(sql.data, conn, conn_state, &rows, &width,
+ 							&startup_cost, &total_cost);
+ 		ReleaseConnection(conn);
+ 
+@@ -3919,7 +4018,7 @@ estimate_path_cost_size(PlannerInfo *root,
+  * The given "sql" must be an EXPLAIN command.
+  */
+ static void
+-get_remote_estimate(const char *sql, PGconn *conn,
++get_remote_estimate(const char *sql, PGconn *conn, PgFdwConnState *conn_state,
+ 					double *rows, int *width,
+ 					Cost *startup_cost, Cost *total_cost)
+ {
+@@ -3931,7 +4030,7 @@ get_remote_estimate(const char *sql, PGconn *conn,
+ 	/*
+ 	 * Execute EXPLAIN remotely.
+ 	 */
+-	res = pgfdw_exec_query(conn, sql, NULL);
++	res = pgfdw_exec_query(conn, sql, conn_state);
+ 	if (PQresultStatus(res) != PGRES_TUPLES_OK)
+ 		pgfdw_report_error(res, conn, sql);
+ 
+@@ -4038,23 +4137,29 @@ ec_member_matches_foreign(PlannerInfo *root, RelOptInfo *rel,
+ }
+ 
+ /*
+- * Create cursor for node's query with current parameter values.
++ * Do the work common to create_cursor() and init_scan(): finish any
++ * pending async request on this connection, marshal this scan's
++ * parameter values, and drain any other in-flight scan sharing the
++ * connection so it's safe to send a new command.
+  */
+ static void
+-create_cursor(ForeignScanState *node)
++prepare_query(ForeignScanState *node)
+ {
+ 	PgFdwScanState *fsstate = (PgFdwScanState *) node->fdw_state;
+ 	ExprContext *econtext = node->ss.ps.ps_ExprContext;
+ 	int			numParams = fsstate->numParams;
+ 	const char **values = fsstate->param_values;
+-	PGconn	   *conn = fsstate->conn;
+-	StringInfoData buf;
+-	PGresult   *res;
+ 
+ 	/* First, process a pending asynchronous request, if any. */
+ 	if (fsstate->conn_state->pendingAreq)
+ 		process_pending_request(fsstate->conn_state->pendingAreq);
+ 
++	/*
++	 * If the scan is using streaming_fetch mode, then save the tuples to
++	 * tuplestore before starting a new scan.
++	 */
++	drain_active_scan(fsstate->conn_state);
++
+ 	/*
+ 	 * Construct array of query parameter values in text format.  We do the
+ 	 * conversions in the short-lived per-tuple context, so as not to cause a
+@@ -4073,6 +4178,22 @@ create_cursor(ForeignScanState *node)
+ 
+ 		MemoryContextSwitchTo(oldcontext);
+ 	}
++}
++
++/*
++ * Create cursor for node's query with current parameter values.
++ */
++static void
++create_cursor(ForeignScanState *node)
++{
++	PgFdwScanState *fsstate = (PgFdwScanState *) node->fdw_state;
++	PGconn	   *conn = fsstate->conn;
++	int			numParams = fsstate->numParams;
++	const char **values = fsstate->param_values;
++	StringInfoData buf;
++	PGresult   *res;
++
++	prepare_query(node);
+ 
+ 	/* Construct the DECLARE CURSOR command */
+ 	initStringInfo(&buf);
+@@ -4110,6 +4231,45 @@ create_cursor(ForeignScanState *node)
+ 	pfree(buf.data);
+ }
+ 
++/*
++ * Create a scan for the query, similar to create_cursor
++ * for streaming_fetch mode
++ */
++static void
++init_scan(ForeignScanState *node)
++{
++	PgFdwScanState *fsstate = (PgFdwScanState *) node->fdw_state;
++	PGconn	   *conn = fsstate->conn;
++
++	prepare_query(node);
++
++	if (!PQsendQueryParams(conn, fsstate->query, fsstate->numParams,
++						   NULL, fsstate->param_values, NULL, NULL, 0))
++		pgfdw_report_error(NULL, conn, fsstate->query);
++
++	/* Call for Chunked rows mode with same size of chunk as the fetch size */
++	if (!PQsetChunkedRowsMode(conn, fsstate->fetch_size))
++	{
++		pgfdw_cancel_query(fsstate->conn, fsstate->conn_state);
++		pgfdw_report_error(NULL, conn, fsstate->query);
++	}
++
++	/* Mark the scan as started, and show no tuples have been retrieved */
++	fsstate->scan_in_progress = true;
++	fsstate->tuples = NULL;
++	fsstate->num_tuples = 0;
++	fsstate->next_tuple = 0;
++	fsstate->fetch_ct_2 = 0;
++	fsstate->eof_reached = false;
++	fsstate->tuplestore_lost_rows = false;
++
++	/*
++	 * To remember the current scan as the last one, when control switches to
++	 * another scan
++	 */
++	fsstate->conn_state->active_scan = fsstate;
++}
++
+ /*
+  * Fetch some more rows from the node's cursor.
+  */
+@@ -4123,14 +4283,21 @@ fetch_more_data(ForeignScanState *node)
+ 	int			i;
+ 	MemoryContext oldcontext;
+ 
+-	/*
+-	 * We'll store the tuples in the batch_cxt.  First, flush the previous
+-	 * batch.
+-	 */
+ 	fsstate->tuples = NULL;
+ 	MemoryContextReset(fsstate->batch_cxt);
+ 	oldcontext = MemoryContextSwitchTo(fsstate->batch_cxt);
+ 
++	/*
++	 * Count this as a fill of tuples[], regardless of which branch below ends
++	 * up supplying the data (or finds there is none), so that
++	 * postgresReScanForeignScan can rely on it to know how to rewind.
++	 * Counting here (rather than after a successful fetch) also lets a fetch
++	 * that errors out count, which is harmless: the error aborts the
++	 * transaction, so the rescan that reads fetch_ct_2 never happens.
++	 */
++	if (fsstate->fetch_ct_2 < 2)
++		fsstate->fetch_ct_2++;
++
+ 	if (fsstate->async_capable)
+ 	{
+ 		Assert(fsstate->conn_state->pendingAreq);
+@@ -4147,7 +4314,7 @@ fetch_more_data(ForeignScanState *node)
+ 		/* Reset per-connection state */
+ 		fsstate->conn_state->pendingAreq = NULL;
+ 	}
+-	else
++	else if (!fsstate->streaming_fetch)
+ 	{
+ 		char		sql[64];
+ 
+@@ -4160,7 +4327,30 @@ fetch_more_data(ForeignScanState *node)
+ 		if (PQresultStatus(res) != PGRES_TUPLES_OK)
+ 			pgfdw_report_error(res, conn, fsstate->query);
+ 	}
+-
++	else if (fsstate->tuplestore)
++	{
++		/*
++		 * When streaming_fetch is used, there is a special possibility --
++		 * reading from the tuplestore.
++		 */
++		fetch_from_tuplestore(node);
++		MemoryContextSwitchTo(oldcontext);
++		return;
++	}
++	else
++	{
++		res = fetch_stream_result(fsstate);
++		if (res == NULL)
++		{
++			/*
++			 * This branch runs only when fsstate->tuplestore is NULL, so
++			 * nothing is buffered and the scan really is at EOF.
++			 */
++			fsstate->eof_reached = true;
++			MemoryContextSwitchTo(oldcontext);
++			return;
++		}
++	}
+ 	/* Convert the data into HeapTuples */
+ 	numrows = PQntuples(res);
+ 	fsstate->tuples = palloc0_array(HeapTuple, numrows);
+@@ -4180,18 +4370,245 @@ fetch_more_data(ForeignScanState *node)
+ 									   fsstate->temp_cxt);
+ 	}
+ 
+-	/* Update fetch_ct_2 */
+-	if (fsstate->fetch_ct_2 < 2)
+-		fsstate->fetch_ct_2++;
+-
+ 	/* Must be EOF if we didn't get as many tuples as we asked for. */
+ 	fsstate->eof_reached = (numrows < fsstate->fetch_size);
+ 
+ 	PQclear(res);
+ 
++	/*
++	 * In streaming_fetch mode, a partial chunk signals EOF, but TUPLES_OK and
++	 * the protocol NULL are still pending.  Drain them now so the connection
++	 * is immediately reusable and active_scan is cleared.  In the unexpected
++	 * event that more data actually follows, drain_active_scan() will stash
++	 * it rather than losing it.
++	 */
++	if (fsstate->streaming_fetch && fsstate->eof_reached)
++		drain_active_scan(fsstate->conn_state);
++
+ 	MemoryContextSwitchTo(oldcontext);
+ }
+ 
++/*
++ * Get the next chunked-rows-mode result for a streaming_fetch scan.
++ * Returns the result to convert into tuples, or NULL once the end-of-stream
++ * marker has been consumed and active_scan cleared.
++ */
++static PGresult *
++fetch_stream_result(PgFdwScanState *fsstate)
++{
++	PGconn	   *conn = fsstate->conn;
++	PGresult   *res;
++
++	res = pgfdw_get_next_result(conn);
++
++	if (!res || PQresultStatus(res) == PGRES_FATAL_ERROR)
++		pgfdw_report_error(res, conn, fsstate->query);
++
++	/*
++	 * PGRES_TUPLES_OK is the end-of-stream sentinel in streaming_fetch mode.
++	 * Consume the trailing protocol NULL now and clear active_scan so a
++	 * concurrent init_scan does not call drain_active_scan on an already-idle
++	 * connection. Do NOT touch eof_reached here: whether the scan is really
++	 * at EOF depends on what the caller did with the rows it was already
++	 * handed (a drain diverts them into a tuplestore), so the caller owns
++	 * that flag.
++	 */
++	if (PQresultStatus(res) == PGRES_TUPLES_OK)
++	{
++		Assert(PQntuples(res) == 0);
++		PQclear(res);
++		res = pgfdw_get_next_result(conn);
++		if (res != NULL)
++			pgfdw_report_error(res, conn, fsstate->query);
++		fsstate->conn_state->active_scan = NULL;
++		return NULL;
++	}
++
++	if (PQresultStatus(res) != PGRES_TUPLES_CHUNK)
++		pgfdw_report_error(res, conn, fsstate->query);
++
++	return res;
++}
++
++/*
++ * Consume and discard every remaining chunked-rows result for this scan.
++ *
++ * Used when a streaming_fetch scan must stop before the remote side has
++ * finished sending -- on rescan, or on an early end of scan. Do NOT send
++ * a cancel request: a cancelled remote query leaves its transaction aborted,
++ * which would break any later use of this connection in the same local
++ * transaction. Letting the query run to completion and dropping the
++ * rows keeps the connection reusable.
++ */
++static void
++discard_stream_result(PgFdwScanState *fsstate)
++{
++	PGresult   *res;
++
++	/*
++	 * If this scan is no longer the connection's active scan, its stream was
++	 * already drained (into a tuplestore, or to completion); nothing to do.
++	 */
++	if (!is_active_scan(fsstate))
++		return;
++
++	for (;;)
++	{
++		CHECK_FOR_INTERRUPTS();
++
++		res = fetch_stream_result(fsstate);
++		if (res == NULL)
++			break;
++		PQclear(res);
++	}
++	/* fetch_stream_result() has cleared conn_state->active_scan by now. */
++}
++
++/*
++ * This is used in streaming_fetch mode only to fetch the tuples from the
++ * tuplestore.  At most fetch_size tuples are retrieved per call, matching
++ * the batch size used elsewhere for this scan; the tuplestore is released
++ * once it has been fully drained.
++ */
++static void
++fetch_from_tuplestore(ForeignScanState *node)
++{
++	PgFdwScanState *fsstate = (PgFdwScanState *) node->fdw_state;
++	TupleTableSlot *slot;
++	int			numrows = 0;
++
++	/*
++	 * If an earlier drain of this scan was cut short by an error the
++	 * tuplestore cannot be trusted for correct rows.
++	 */
++	if (fsstate->tuplestore_lost_rows)
++		ereport(ERROR,
++				errcode(ERRCODE_INTERNAL_ERROR),
++				errmsg("could not obtain all rows from remote server"),
++				errdetail("An earlier error interrupted remote result."));
++
++	/* Retrieve up to fetch_size tuples from the tuplestore at a time. */
++	fsstate->tuples = palloc0_array(HeapTuple, fsstate->fetch_size);
++	slot = MakeSingleTupleTableSlot(fsstate->tupdesc, &TTSOpsMinimalTuple);
++
++	while (numrows < fsstate->fetch_size &&
++		   tuplestore_gettupleslot(fsstate->tuplestore, true, false, slot))
++	{
++		fsstate->tuples[numrows++] = ExecFetchSlotHeapTuple(slot, true, NULL);
++		ExecClearTuple(slot);
++	}
++	fsstate->num_tuples = numrows;
++	fsstate->next_tuple = 0;
++
++	/* Must be EOF if we didn't get as many tuples as we asked for. */
++	fsstate->eof_reached = (numrows < fsstate->fetch_size);
++
++	ExecDropSingleTupleTableSlot(slot);
++
++	/* Clean up once the tuplestore has been fully drained. */
++	if (fsstate->eof_reached)
++	{
++		tuplestore_end(fsstate->tuplestore);
++		fsstate->tuplestore = NULL;
++	}
++}
++
++/*
++ * If the scan on this connection is using streaming_fetch and still
++ * has an unconsumed result, drain it into a tuplestore so the connection
++ * becomes idle and can be reused for a new query.
++ */
++void
++drain_active_scan(PgFdwConnState *conn_state)
++{
++	PgFdwScanState *active_fsstate = conn_state->active_scan;
++	MemoryContext oldcontext;
++
++	if (!active_fsstate)
++		return;
++
++	oldcontext = MemoryContextSwitchTo(MemoryContextGetParent(active_fsstate->batch_cxt));
++
++	/*
++	 * fetch_stream_result() hands back each PGRES_TUPLES_CHUNK result in turn
++	 * and, once the wire protocol is fully drained, clears active_scan and
++	 * returns NULL.  Keep calling it until then, saving every chunk we get
++	 * along the way.
++	 */
++	for (;;)
++	{
++		PGresult   *res;
++		int			numrows;
++		int			i;
++
++		CHECK_FOR_INTERRUPTS();
++
++		/*
++		 * From here until every row of the result below is in the tuplestore,
++		 * an error loses rows we've already read.  Because this can run in a
++		 * subtransaction that owns the remote query, such an error may abort
++		 * only the subtransaction, leaving an outer level free to read a now
++		 * silently-short tuplestore.  Flag it here and clear it once the
++		 * chunk is stored; fetch_from_tuplestore() checks the flag and errors
++		 * out instead of returning wrong results.
++		 */
++		active_fsstate->tuplestore_lost_rows = true;
++
++		res = fetch_stream_result(active_fsstate);
++		if (res == NULL)
++		{
++			/* Clear the flag since there is nothing to read */
++			active_fsstate->tuplestore_lost_rows = false;
++			break;
++		}
++
++		if (active_fsstate->tuplestore == NULL)
++			active_fsstate->tuplestore = tuplestore_begin_heap(true, false, work_mem);
++
++		numrows = PQntuples(res);
++
++		/* Convert the data into HeapTuples */
++		for (i = 0; i < numrows; i++)
++		{
++			HeapTuple	temp_tuple;
++
++			temp_tuple = make_tuple_from_result_row(res, i,
++													active_fsstate->rel,
++													active_fsstate->attinmeta,
++													active_fsstate->retrieved_attrs,
++													active_fsstate->fsnode,
++													active_fsstate->temp_cxt);
++			tuplestore_puttuple(active_fsstate->tuplestore, temp_tuple);
++			heap_freetuple(temp_tuple);
++		}
++		PQclear(res);
++		/* This chunk is fully saved; nothing outstanding. */
++		active_fsstate->tuplestore_lost_rows = false;
++	}
++
++	/*
++	 * Set eof_reached once, to the value that is correct right now: if rows
++	 * diverted into a tuplestore the scan still has data to return; if we
++	 * saved nothing, there is nothing left anywhere and it is at EOF. If we
++	 * error out of the loop above, eof_reached is left untouched which is
++	 * also correct -- the scan's data was never fully consumed.
++	 */
++	active_fsstate->eof_reached = (active_fsstate->tuplestore == NULL);
++
++	MemoryContextSwitchTo(oldcontext);
++}
++
++/*
++ * Return true if fsstate is the connection's currently active
++ * streaming_fetch scan.
++ */
++static bool
++is_active_scan(PgFdwScanState *fsstate)
++{
++	return fsstate->streaming_fetch &&
++		fsstate->conn_state->active_scan == fsstate;
++}
++
+ /*
+  * Force assorted GUC parameters to settings that ensure that we'll output
+  * data values in a form that is unambiguous to the remote server.
+@@ -4416,6 +4833,12 @@ execute_foreign_modify(EState *estate,
+ 	if (fmstate->conn_state->pendingAreq)
+ 		process_pending_request(fmstate->conn_state->pendingAreq);
+ 
++	/*
++	 * If the connection's active scan is using streaming_fetch mode, drain it
++	 * into its tuplestore before sending this statement.
++	 */
++	drain_active_scan(fmstate->conn_state);
++
+ 	/*
+ 	 * If the existing query was deparsed and prepared for a different number
+ 	 * of rows, rebuild it for the proper number.
+@@ -4842,6 +5265,12 @@ execute_dml_stmt(ForeignScanState *node)
+ 	if (dmstate->conn_state->pendingAreq)
+ 		process_pending_request(dmstate->conn_state->pendingAreq);
+ 
++	/*
++	 * If the connection's active scan is using streaming_fetch mode, drain it
++	 * into its tuplestore before sending this statement.
++	 */
++	drain_active_scan(dmstate->conn_state);
++
+ 	/*
+ 	 * Construct array of query parameter values in text format.
+ 	 */
+@@ -5212,6 +5641,7 @@ postgresAnalyzeForeignTable(Relation relation,
+ 	ForeignTable *table;
+ 	UserMapping *user;
+ 	PGconn	   *conn;
++	PgFdwConnState *conn_state;
+ 	StringInfoData sql;
+ 	PGresult   *res;
+ 
+@@ -5231,7 +5661,7 @@ postgresAnalyzeForeignTable(Relation relation,
+ 	 */
+ 	table = GetForeignTable(RelationGetRelid(relation));
+ 	user = GetUserMapping(relation->rd_rel->relowner, table->serverid);
+-	conn = GetConnection(user, false, NULL);
++	conn = GetConnection(user, false, &conn_state);
+ 
+ 	/*
+ 	 * Construct command to get page count for relation.
+@@ -5239,7 +5669,7 @@ postgresAnalyzeForeignTable(Relation relation,
+ 	initStringInfo(&sql);
+ 	deparseAnalyzeSizeSql(&sql, relation);
+ 
+-	res = pgfdw_exec_query(conn, sql.data, NULL);
++	res = pgfdw_exec_query(conn, sql.data, conn_state);
+ 	if (PQresultStatus(res) != PGRES_TUPLES_OK)
+ 		pgfdw_report_error(res, conn, sql.data);
+ 
+@@ -5266,6 +5696,7 @@ postgresGetAnalyzeInfoForForeignTable(Relation relation, bool *can_tablesample)
+ 	ForeignTable *table;
+ 	UserMapping *user;
+ 	PGconn	   *conn;
++	PgFdwConnState *conn_state;
+ 	StringInfoData sql;
+ 	PGresult   *res;
+ 	double		reltuples;
+@@ -5280,7 +5711,7 @@ postgresGetAnalyzeInfoForForeignTable(Relation relation, bool *can_tablesample)
+ 	 */
+ 	table = GetForeignTable(RelationGetRelid(relation));
+ 	user = GetUserMapping(relation->rd_rel->relowner, table->serverid);
+-	conn = GetConnection(user, false, NULL);
++	conn = GetConnection(user, false, &conn_state);
+ 
+ 	/*
+ 	 * Construct command to get page count for relation.
+@@ -5288,7 +5719,7 @@ postgresGetAnalyzeInfoForForeignTable(Relation relation, bool *can_tablesample)
+ 	initStringInfo(&sql);
+ 	deparseAnalyzeInfoSql(&sql, relation);
+ 
+-	res = pgfdw_exec_query(conn, sql.data, NULL);
++	res = pgfdw_exec_query(conn, sql.data, conn_state);
+ 	if (PQresultStatus(res) != PGRES_TUPLES_OK)
+ 		pgfdw_report_error(res, conn, sql.data);
+ 
+@@ -5334,6 +5765,7 @@ postgresAcquireSampleRowsFunc(Relation relation, int elevel,
+ 	ForeignServer *server;
+ 	UserMapping *user;
+ 	PGconn	   *conn;
++	PgFdwConnState *conn_state;
+ 	int			server_version_num;
+ 	PgFdwSamplingMethod method = ANALYZE_SAMPLE_AUTO;	/* auto is default */
+ 	double		sample_frac = -1.0;
+@@ -5369,7 +5801,7 @@ postgresAcquireSampleRowsFunc(Relation relation, int elevel,
+ 	table = GetForeignTable(RelationGetRelid(relation));
+ 	server = GetForeignServer(table->serverid);
+ 	user = GetUserMapping(relation->rd_rel->relowner, table->serverid);
+-	conn = GetConnection(user, false, NULL);
++	conn = GetConnection(user, false, &conn_state);
+ 
+ 	/* We'll need server version, so fetch it now. */
+ 	server_version_num = PQserverVersion(conn);
+@@ -5519,7 +5951,7 @@ postgresAcquireSampleRowsFunc(Relation relation, int elevel,
+ 
+ 	deparseAnalyzeSql(&sql, relation, method, sample_frac, &astate.retrieved_attrs);
+ 
+-	res = pgfdw_exec_query(conn, sql.data, NULL);
++	res = pgfdw_exec_query(conn, sql.data, conn_state);
+ 	if (PQresultStatus(res) != PGRES_COMMAND_OK)
+ 		pgfdw_report_error(res, conn, sql.data);
+ 	PQclear(res);
+@@ -5570,7 +6002,7 @@ postgresAcquireSampleRowsFunc(Relation relation, int elevel,
+ 		 */
+ 
+ 		/* Fetch some rows */
+-		res = pgfdw_exec_query(conn, fetch_sql, NULL);
++		res = pgfdw_exec_query(conn, fetch_sql, conn_state);
+ 		/* On error, report the original query, not the FETCH. */
+ 		if (PQresultStatus(res) != PGRES_TUPLES_OK)
+ 			pgfdw_report_error(res, conn, sql.data);
+@@ -5588,7 +6020,7 @@ postgresAcquireSampleRowsFunc(Relation relation, int elevel,
+ 	}
+ 
+ 	/* Close the cursor, just to be tidy. */
+-	close_cursor(conn, cursor_number, NULL);
++	close_cursor(conn, cursor_number, conn_state);
+ 
+ 	ReleaseConnection(conn);
+ 
+@@ -5804,6 +6236,7 @@ fetch_remote_statistics(Relation relation,
+ 	const char *remote_relname = NULL;
+ 	UserMapping *user;
+ 	PGconn	   *conn;
++	PgFdwConnState *conn_state;
+ 	PGresult   *relstats = NULL;
+ 	PGresult   *attstats = NULL;
+ 	int			server_version_num;
+@@ -5836,11 +6269,11 @@ fetch_remote_statistics(Relation relation,
+ 	 * pg_stats, so we do the remote access as the current user.
+ 	 */
+ 	user = GetUserMapping(GetUserId(), table->serverid);
+-	conn = GetConnection(user, false, NULL);
++	conn = GetConnection(user, false, &conn_state);
+ 	remstats->version = server_version_num = PQserverVersion(conn);
+ 
+ 	/* Fetch relation stats. */
+-	remstats->rel = relstats = fetch_relstats(conn, relation);
++	remstats->rel = relstats = fetch_relstats(conn, conn_state, relation);
+ 
+ 	/*
+ 	 * Verify that the remote table is the sort that can have meaningful stats
+@@ -5895,7 +6328,7 @@ fetch_remote_statistics(Relation relation,
+ 		if (attrcnt > 0)
+ 		{
+ 			/* Fetch attribute stats. */
+-			remstats->att = attstats = fetch_attstats(conn,
++			remstats->att = attstats = fetch_attstats(conn, conn_state,
+ 													  server_version_num,
+ 													  remote_schemaname,
+ 													  remote_relname,
+@@ -5934,7 +6367,7 @@ fetch_cleanup:
+  * Attempt to fetch remote relation stats.
+  */
+ static PGresult *
+-fetch_relstats(PGconn *conn, Relation relation)
++fetch_relstats(PGconn *conn, PgFdwConnState *conn_state, Relation relation)
+ {
+ 	StringInfoData sql;
+ 	PGresult   *res;
+@@ -5942,7 +6375,7 @@ fetch_relstats(PGconn *conn, Relation relation)
+ 	initStringInfo(&sql);
+ 	deparseAnalyzeInfoSql(&sql, relation);
+ 
+-	res = pgfdw_exec_query(conn, sql.data, NULL);
++	res = pgfdw_exec_query(conn, sql.data, conn_state);
+ 	if (PQresultStatus(res) != PGRES_TUPLES_OK)
+ 		pgfdw_report_error(res, conn, sql.data);
+ 
+@@ -5956,7 +6389,7 @@ fetch_relstats(PGconn *conn, Relation relation)
+  * Attempt to fetch remote attribute stats.
+  */
+ static PGresult *
+-fetch_attstats(PGconn *conn, int server_version_num,
++fetch_attstats(PGconn *conn, PgFdwConnState *conn_state, int server_version_num,
+ 			   const char *remote_schemaname, const char *remote_relname,
+ 			   const char *column_list)
+ {
+@@ -6013,7 +6446,7 @@ fetch_attstats(PGconn *conn, int server_version_num,
+ 		appendStringInfoString(&sql,
+ 							   " ORDER BY attname COLLATE \"C\"");
+ 
+-	res = pgfdw_exec_query(conn, sql.data, NULL);
++	res = pgfdw_exec_query(conn, sql.data, conn_state);
+ 	if (PQresultStatus(res) != PGRES_TUPLES_OK)
+ 		pgfdw_report_error(res, conn, sql.data);
+ 
+@@ -6468,6 +6901,7 @@ postgresImportForeignSchema(ImportForeignSchemaStmt *stmt, Oid serverOid)
+ 	ForeignServer *server;
+ 	UserMapping *mapping;
+ 	PGconn	   *conn;
++	PgFdwConnState *conn_state;
+ 	StringInfoData buf;
+ 	PGresult   *res;
+ 	int			numrows,
+@@ -6499,7 +6933,7 @@ postgresImportForeignSchema(ImportForeignSchemaStmt *stmt, Oid serverOid)
+ 	 */
+ 	server = GetForeignServer(serverOid);
+ 	mapping = GetUserMapping(GetUserId(), server->serverid);
+-	conn = GetConnection(mapping, false, NULL);
++	conn = GetConnection(mapping, false, &conn_state);
+ 
+ 	/* Don't attempt to import collation if remote server hasn't got it */
+ 	if (PQserverVersion(conn) < 90100)
+@@ -6512,7 +6946,7 @@ postgresImportForeignSchema(ImportForeignSchemaStmt *stmt, Oid serverOid)
+ 	appendStringInfoString(&buf, "SELECT 1 FROM pg_catalog.pg_namespace WHERE nspname = ");
+ 	deparseStringLiteral(&buf, stmt->remote_schema);
+ 
+-	res = pgfdw_exec_query(conn, buf.data, NULL);
++	res = pgfdw_exec_query(conn, buf.data, conn_state);
+ 	if (PQresultStatus(res) != PGRES_TUPLES_OK)
+ 		pgfdw_report_error(res, conn, buf.data);
+ 
+@@ -6626,7 +7060,7 @@ postgresImportForeignSchema(ImportForeignSchemaStmt *stmt, Oid serverOid)
+ 	appendStringInfoString(&buf, " ORDER BY c.relname, a.attnum");
+ 
+ 	/* Fetch the data */
+-	res = pgfdw_exec_query(conn, buf.data, NULL);
++	res = pgfdw_exec_query(conn, buf.data, conn_state);
+ 	if (PQresultStatus(res) != PGRES_TUPLES_OK)
+ 		pgfdw_report_error(res, conn, buf.data);
+ 
+@@ -7557,6 +7991,8 @@ apply_server_options(PgFdwRelationInfo *fpinfo)
+ 			(void) parse_int(defGetString(def), &fpinfo->fetch_size, 0, NULL);
+ 		else if (strcmp(def->defname, "async_capable") == 0)
+ 			fpinfo->async_capable = defGetBoolean(def);
++		else if (strcmp(def->defname, "streaming_fetch") == 0)
++			fpinfo->streaming_fetch = defGetBoolean(def);
+ 	}
+ }
+ 
+@@ -7580,6 +8016,8 @@ apply_table_options(PgFdwRelationInfo *fpinfo)
+ 			(void) parse_int(defGetString(def), &fpinfo->fetch_size, 0, NULL);
+ 		else if (strcmp(def->defname, "async_capable") == 0)
+ 			fpinfo->async_capable = defGetBoolean(def);
++		else if (strcmp(def->defname, "streaming_fetch") == 0)
++			fpinfo->streaming_fetch = defGetBoolean(def);
+ 	}
+ }
+ 
+@@ -7615,6 +8053,7 @@ merge_fdw_options(PgFdwRelationInfo *fpinfo,
+ 	fpinfo->use_remote_estimate = fpinfo_o->use_remote_estimate;
+ 	fpinfo->fetch_size = fpinfo_o->fetch_size;
+ 	fpinfo->async_capable = fpinfo_o->async_capable;
++	fpinfo->streaming_fetch = fpinfo_o->streaming_fetch;
+ 
+ 	/* Merge the table level options from either side of the join. */
+ 	if (fpinfo_i)
+@@ -7646,6 +8085,11 @@ merge_fdw_options(PgFdwRelationInfo *fpinfo,
+ 		 */
+ 		fpinfo->async_capable = fpinfo_o->async_capable ||
+ 			fpinfo_i->async_capable;
++		fpinfo->streaming_fetch = fpinfo_o->streaming_fetch ||
++			fpinfo_i->streaming_fetch;
++		/* streaming_fetch and async execution are mutually exclusive */
++		if (fpinfo->streaming_fetch)
++			fpinfo->async_capable = false;
+ 	}
+ }
+ 
+@@ -8800,6 +9244,15 @@ fetch_more_data_begin(AsyncRequest *areq)
+ 	if (!fsstate->scan_in_progress)
+ 		create_cursor(node);
+ 
++	/*
++	 * Unlike the synchronous paths, fetch_more_data_begin() sends its FETCH
++	 * with a raw PQsendQuery(), which does not drain.  So if a
++	 * streaming_fetch scan on this connection still has an unconsumed result
++	 * we must drain it here.  (When we just created the cursor above,
++	 * prepare_query() already did this; a second call is a cheap no-op.)
++	 */
++	drain_active_scan(fsstate->conn_state);
++
+ 	/* We will send this query, but not wait for the response. */
+ 	snprintf(sql, sizeof(sql), "FETCH %d FROM c%u",
+ 			 fsstate->fetch_size, fsstate->cursor_number);
+diff --git a/contrib/postgres_fdw/postgres_fdw.h b/contrib/postgres_fdw/postgres_fdw.h
+index da7da1c2ea9..60c23611e74 100644
+--- a/contrib/postgres_fdw/postgres_fdw.h
++++ b/contrib/postgres_fdw/postgres_fdw.h
+@@ -88,6 +88,7 @@ typedef struct PgFdwRelationInfo
+ 	UserMapping *user;			/* only set in use_remote_estimate mode */
+ 
+ 	int			fetch_size;		/* fetch size for this remote table */
++	bool		streaming_fetch;	/* true if cursor-free fetch is enabled */
+ 
+ 	/*
+ 	 * Name of the relation, for use while EXPLAINing ForeignScan.  It is used
+@@ -141,12 +142,16 @@ typedef struct PgFdwRelationInfo
+ 	int			relation_index;
+ } PgFdwRelationInfo;
+ 
++typedef struct PgFdwScanState PgFdwScanState;
++
+ /*
+  * Extra control information relating to a connection.
+  */
+ typedef struct PgFdwConnState
+ {
+ 	AsyncRequest *pendingAreq;	/* pending async request */
++	PgFdwScanState *active_scan;	/* the streaming_fetch scan, if any, that
++									 * currently has an unconsumed result */
+ } PgFdwConnState;
+ 
+ /*
+@@ -165,6 +170,7 @@ typedef enum PgFdwSamplingMethod
+ extern int	set_transmission_modes(void);
+ extern void reset_transmission_modes(int nestlevel);
+ extern void process_pending_request(AsyncRequest *areq);
++extern void drain_active_scan(PgFdwConnState *conn_state);
+ 
+ /* in connection.c */
+ extern PGconn *GetConnection(UserMapping *user, bool will_prep_stmt,
+@@ -174,8 +180,10 @@ extern unsigned int GetCursorNumber(PGconn *conn);
+ extern unsigned int GetPrepStmtNumber(PGconn *conn);
+ extern void do_sql_command(PGconn *conn, const char *sql);
+ extern PGresult *pgfdw_get_result(PGconn *conn);
++extern PGresult *pgfdw_get_next_result(PGconn *conn);
+ extern PGresult *pgfdw_exec_query(PGconn *conn, const char *query,
+ 								  PgFdwConnState *state);
++extern bool pgfdw_cancel_query(PGconn *conn, PgFdwConnState *state);
+ pg_noreturn extern void pgfdw_report_error(PGresult *res, PGconn *conn,
+ 										   const char *sql);
+ extern void pgfdw_report(int elevel, PGresult *res, PGconn *conn,
+diff --git a/contrib/postgres_fdw/sql/postgres_fdw.sql b/contrib/postgres_fdw/sql/postgres_fdw.sql
+index ec766e2b28a..3faef946298 100644
+--- a/contrib/postgres_fdw/sql/postgres_fdw.sql
++++ b/contrib/postgres_fdw/sql/postgres_fdw.sql
+@@ -267,6 +267,153 @@ SELECT c3, c4 FROM ft1 ORDER BY c3, c1 LIMIT 1;  -- should work again
+ ANALYZE ft1;
+ ALTER FOREIGN TABLE ft2 OPTIONS (use_remote_estimate 'true');
+ 
++-- ===================================================================
++-- test streaming_fetch option
++-- ===================================================================
++CREATE SERVER fetch_stream_srv
++    FOREIGN DATA WRAPPER postgres_fdw
++    OPTIONS (dbname :'current_database', port :'current_port');
++CREATE USER MAPPING FOR CURRENT_USER SERVER fetch_stream_srv;
++
++CREATE TABLE local_tbl (id int, val text);
++INSERT INTO local_tbl VALUES (1, 'a'), (2, 'b'), (3, 'c');
++
++CREATE FOREIGN TABLE ft_server (id int, val text)
++    SERVER fetch_stream_srv
++    OPTIONS (schema_name 'public', table_name 'local_tbl');
++
++-- Combined view of the option at both levels, used by the checks below.
++CREATE VIEW streaming_fetch_opt AS
++SELECT (SELECT option_value FROM pg_foreign_server,
++               LATERAL pg_options_to_table(srvoptions)
++        WHERE srvname = 'fetch_stream_srv'
++          AND option_name = 'streaming_fetch') AS server_val,
++       (SELECT ftoptions FROM pg_foreign_table
++        WHERE ftrelid = 'ft_server'::regclass) AS table_opts;
++
++-- 1. streaming_fetch set at SERVER level only: value tracks the server,
++-- and (being unset) never shows up in the table's own ftoptions.
++ALTER SERVER fetch_stream_srv OPTIONS (ADD streaming_fetch 'true');
++SELECT * FROM streaming_fetch_opt;
++ALTER SERVER fetch_stream_srv OPTIONS (SET streaming_fetch 'false');
++SELECT * FROM streaming_fetch_opt;
++
++-- 2. streaming_fetch set at TABLE level only (no server-level option);
++-- query results must be correct for both true and false.
++ALTER SERVER fetch_stream_srv OPTIONS (DROP streaming_fetch);
++ALTER FOREIGN TABLE ft_server OPTIONS (ADD streaming_fetch 'true');
++SELECT * FROM streaming_fetch_opt;
++SELECT * FROM ft_server ORDER BY id;
++ALTER FOREIGN TABLE ft_server OPTIONS (SET streaming_fetch 'false');
++SELECT * FROM streaming_fetch_opt;
++SELECT * FROM ft_server ORDER BY id;
++
++-- 3. TABLE-level value overrides SERVER-level value; query must use the
++-- effective (table-level) value in both directions.
++ALTER SERVER fetch_stream_srv OPTIONS (ADD streaming_fetch 'true');
++ALTER FOREIGN TABLE ft_server OPTIONS (SET streaming_fetch 'false');
++SELECT * FROM streaming_fetch_opt;  -- server=true, table overrides to false
++SELECT * FROM ft_server ORDER BY id;
++
++ALTER SERVER fetch_stream_srv OPTIONS (SET streaming_fetch 'false');
++ALTER FOREIGN TABLE ft_server OPTIONS (SET streaming_fetch 'true');
++SELECT * FROM streaming_fetch_opt;  -- server=false, table overrides to true
++SELECT * FROM ft_server ORDER BY id;
++
++DROP VIEW streaming_fetch_opt;
++
++-- 4. Negative tests: invalid values must be rejected, at both table and
++-- server level.
++\set VERBOSITY terse
++
++CREATE FOREIGN TABLE ft_invalid (id int, val text)
++    SERVER fetch_stream_srv
++    OPTIONS (schema_name 'public', table_name 'local_tbl', streaming_fetch 'yes');  -- ERROR
++
++ALTER SERVER fetch_stream_srv OPTIONS (SET streaming_fetch '1');       -- ERROR
++ALTER SERVER fetch_stream_srv OPTIONS (SET streaming_fetch '');        -- ERROR
++ALTER SERVER fetch_stream_srv OPTIONS (SET streaming_fetch 'notabool'); -- ERROR
++
++\set VERBOSITY default
++
++-- 5. ALTER FOREIGN TABLE: add, change, and drop streaming_fetch
++ALTER SERVER fetch_stream_srv OPTIONS (SET streaming_fetch 'true');
++
++CREATE FOREIGN TABLE ft_alter_test (id int, val text)
++    SERVER fetch_stream_srv
++    OPTIONS (schema_name 'public', table_name 'local_tbl');
++
++-- No table-level option yet
++SELECT ftoptions FROM pg_foreign_table WHERE ftrelid = 'ft_alter_test'::regclass;
++
++ALTER FOREIGN TABLE ft_alter_test OPTIONS (ADD streaming_fetch 'false');
++SELECT ftoptions FROM pg_foreign_table WHERE ftrelid = 'ft_alter_test'::regclass;
++
++ALTER FOREIGN TABLE ft_alter_test OPTIONS (SET streaming_fetch 'true');
++SELECT ftoptions FROM pg_foreign_table WHERE ftrelid = 'ft_alter_test'::regclass;
++
++-- DROP table-level option (falls back to server-level), and confirm the
++-- fallback value is functionally correct.
++ALTER FOREIGN TABLE ft_alter_test OPTIONS (DROP streaming_fetch);
++SELECT ftoptions FROM pg_foreign_table WHERE ftrelid = 'ft_alter_test'::regclass;
++SELECT * FROM ft_alter_test ORDER BY id;
++
++DROP FOREIGN TABLE ft_alter_test;
++
++-- 6. streaming_fetch with non-default fetch_size values
++-- Use a 12-row table so chunk boundaries are distinct and predictable:
++-- fetch_size=1 gives 12 single-row chunks, fetch_size=5 gives chunks
++-- of 5+5+2, and fetch_size=1000 puts all rows in a single chunk.
++CREATE TABLE local_tbl_large (id int, val text);
++INSERT INTO local_tbl_large SELECT id, 'val' || id FROM generate_series(1, 12) id;
++
++-- fetch_size = 1: every row is its own libpq chunk; exercises the path
++-- where pgfdw_get_next_result is called once per row.
++CREATE FOREIGN TABLE ft_fetchsize (id int, val text)
++    SERVER fetch_stream_srv
++    OPTIONS (schema_name 'public', table_name 'local_tbl_large', fetch_size '1');
++SELECT count(*) FROM ft_fetchsize;
++
++-- fetch_size = 5: three chunks with a partial last chunk (5+5+2);
++-- the final chunk is smaller than fetch_size.
++ALTER FOREIGN TABLE ft_fetchsize OPTIONS (SET fetch_size '5');
++SELECT count(*) FROM ft_fetchsize;
++SELECT * FROM ft_fetchsize ORDER BY id;
++
++-- fetch_size exceeds the table row count: all rows arrive in one chunk
++-- followed immediately by the final empty PGRES_TUPLES_OK result.
++ALTER FOREIGN TABLE ft_fetchsize OPTIONS (SET fetch_size '1000');
++SELECT count(*) FROM ft_fetchsize;
++
++DROP FOREIGN TABLE ft_fetchsize;
++DROP TABLE local_tbl_large;
++
++-- 7. streaming_fetch combined with use_remote_estimate
++-- use_remote_estimate issues a remote EXPLAIN to size the scan at plan
++-- time; streaming_fetch must not interfere with that EXPLAIN call.
++-- ft_server's table-level option is still 'true' from step 3 above.
++ALTER SERVER fetch_stream_srv OPTIONS (ADD use_remote_estimate 'true');
++
++-- Verify both options are active.
++SELECT srvname, option_name, option_value
++FROM pg_foreign_server,
++     LATERAL pg_options_to_table(srvoptions)
++WHERE srvname = 'fetch_stream_srv'
++  AND option_name IN ('streaming_fetch', 'use_remote_estimate')
++ORDER BY option_name;
++
++-- Both options active: use_remote_estimate sizes the scan remotely via
++-- EXPLAIN, then streaming_fetch fetches rows without a cursor.
++EXPLAIN (VERBOSE, COSTS OFF) SELECT * FROM ft_server ORDER BY id;
++SELECT * FROM ft_server ORDER BY id;
++
++ALTER SERVER fetch_stream_srv OPTIONS (DROP use_remote_estimate);
++
++-- Cleanup
++DROP FOREIGN TABLE ft_server;
++DROP USER MAPPING FOR CURRENT_USER SERVER fetch_stream_srv;
++DROP SERVER fetch_stream_srv CASCADE;
++DROP TABLE local_tbl;
+ -- ===================================================================
+ -- test subscription
+ -- ===================================================================
+@@ -307,6 +454,33 @@ SELECT COUNT(*) FROM ft1 t1;
+ SELECT * FROM ft1 t1 WHERE t1.c3 IN (SELECT c3 FROM ft2 t2 WHERE c1 <= 10) ORDER BY c1;
+ -- subquery+MAX
+ SELECT * FROM ft1 t1 WHERE t1.c3 = (SELECT MAX(c3) FROM ft2 t2) ORDER BY c1;
++-- Test in streaming_fetch mode to cover path from subquery params
++-- with only one table using streaming_fetch
++ALTER FOREIGN TABLE ft1 OPTIONS (streaming_fetch 'true');
++SELECT * FROM ft1 t1 WHERE t1.c3 = (SELECT MAX(c3) FROM ft2 t2) ORDER BY c1;
++-- Test join with only one table using streaming_fetch at a time
++SELECT t1.c1, t2."C 1" FROM ft2 t1 JOIN "S 1"."T 1" t2 ON (t1.c1 = t2."C 1") OFFSET 100 LIMIT 10;
++ALTER FOREIGN TABLE ft1 OPTIONS (SET streaming_fetch 'false');
++ALTER FOREIGN TABLE ft2 OPTIONS (streaming_fetch 'true');
++SELECT t1.c1, t2."C 1" FROM ft2 t1 JOIN "S 1"."T 1" t2 ON (t1.c1 = t2."C 1") OFFSET 100 LIMIT 10;
++-- with both the tables using streaming_fetch
++ALTER FOREIGN TABLE ft1 OPTIONS (SET streaming_fetch 'true');
++SELECT * FROM ft1 t1 WHERE t1.c3 = (SELECT MAX(c3) FROM ft2 t2) ORDER BY c1;
++-- Test join with both the tables using streaming_fetch
++SELECT t1.c1, t2."C 1" FROM ft2 t1 JOIN "S 1"."T 1" t2 ON (t1.c1 = t2."C 1") OFFSET 100 LIMIT 10;
++ALTER FOREIGN TABLE ft1 OPTIONS (SET streaming_fetch 'false');
++ALTER FOREIGN TABLE ft2 OPTIONS (SET streaming_fetch 'false');
++-- streaming_fetch: verify correct results when parallel-friendly settings
++-- are active locally.  With no cursor on the remote side, the remote
++-- planner is free to choose a parallel plan; results must match exactly.
++ALTER FOREIGN TABLE ft1 OPTIONS (SET streaming_fetch 'true');
++SET max_parallel_workers_per_gather = 2;
++SET min_parallel_table_scan_size = 0;
++SELECT count(*) FROM ft1;
++RESET max_parallel_workers_per_gather;
++RESET min_parallel_table_scan_size;
++ALTER FOREIGN TABLE ft1 OPTIONS (SET streaming_fetch 'false');
++
+ -- used in CTE
+ WITH t1 AS (SELECT * FROM ft1 WHERE c1 <= 10) SELECT t2.c1, t2.c2, t2.c3, t2.c4 FROM t1, ft2 t2 WHERE t1.c1 = t2.c1 ORDER BY t1.c1;
+ -- fixed values
+@@ -386,6 +560,238 @@ EXPLAIN (VERBOSE, COSTS OFF)
+   WHERE a.c2 = 6 AND b.c1 = a.c1 AND a.c8 = 'foo' AND b.c7 = upper(a.c7);
+ SELECT * FROM ft2 a, ft2 b
+ WHERE a.c2 = 6 AND b.c1 = a.c1 AND a.c8 = 'foo' AND b.c7 = upper(a.c7);
++
++-- Test in streaming_fetch mode for rescan path
++ALTER FOREIGN TABLE ft2 OPTIONS (SET streaming_fetch 'true');
++SELECT * FROM ft2 a, ft2 b
++WHERE a.c2 = 6 AND b.c1 = a.c1 AND a.c8 = 'foo' AND b.c7 = upper(a.c7);
++-- Test for streaming_fetch covering rescans and three active cursors
++SELECT count(*) FROM ft2 a, ft2 b, ft2 c
++WHERE a.c2 = 6 AND b.c1 = a.c1 AND c.c1 = b.c1 AND a.c8 = 'foo'
++AND b.c7 = upper(a.c7);
++
++-- Test in streaming_fetch mode when a scan that is still the
++-- connection's active_scan (i.e. it has not reached EOF) correctly clears
++-- active_scan.
++ALTER FOREIGN TABLE ft2 OPTIONS (ADD fetch_size '1');
++SET enable_hashagg = off;
++SET enable_hashjoin = off;
++SET enable_mergejoin = off;
++SET enable_material = off;
++SET statement_timeout = '20s';
++
++EXPLAIN (VERBOSE, COSTS OFF)
++SELECT a.c1, a.c2 FROM ft1 a
++WHERE a.c1 < 20 AND a.c8 = 'foo' AND EXISTS (SELECT 1 FROM ft2 b WHERE b.c2 = a.c2)
++ORDER BY a.c1;
++
++SELECT a.c1, a.c2 FROM ft1 a
++WHERE a.c1 < 20 AND a.c8 = 'foo' AND EXISTS (SELECT 1 FROM ft2 b WHERE b.c2 = a.c2)
++ORDER BY a.c1;
++
++RESET statement_timeout;
++RESET enable_hashagg;
++RESET enable_hashjoin;
++RESET enable_mergejoin;
++RESET enable_material;
++ALTER FOREIGN TABLE ft2 OPTIONS (SET fetch_size '100');
++ALTER FOREIGN TABLE ft2 OPTIONS (SET streaming_fetch 'false');
++
++-- Verify that aborting a transaction while a streaming_fetch scan still has
++-- an unconsumed chunked result correctly resets active_scan, so the
++-- connection can be reused afterward.
++ALTER FOREIGN TABLE ft1 OPTIONS (SET streaming_fetch 'true');
++ALTER FOREIGN TABLE ft1 OPTIONS (ADD fetch_size '1');
++
++BEGIN;
++-- Fetch only the first row, leaving the stream unconsumed.
++SELECT c1 FROM ft1 ORDER BY c1 LIMIT 1;
++SELECT 1/0;  -- force an error, aborting with the scan still active
++ROLLBACK;
++
++SELECT count(*) FROM ft1;  -- must succeed
++
++ALTER FOREIGN TABLE ft1 OPTIONS (DROP fetch_size);
++ALTER FOREIGN TABLE ft1 OPTIONS (SET streaming_fetch 'false');
++
++-- Test that fetch_more_data()'s plain cursor-mode FETCH on ft1's own
++-- already-open cursor correctly accounts for another scan's active_scan.
++-- ft1's fetch_size is set below its matching row count, so its cursor
++-- needs a second FETCH; each outer row's EXISTS subplan on ft2 leaves the
++-- inner streaming_fetch scan as the connection's active_scan without
++-- reaching EOF (fetch_size '1' on ft2, and EXISTS only needs one match),
++-- so that second FETCH must drain it first (pgfdw_exec_query() does this
++-- automatically) or ft2's unconsumed chunked result would desync the
++-- connection's result stream.
++ALTER FOREIGN TABLE ft1 OPTIONS (ADD fetch_size '5');
++ALTER FOREIGN TABLE ft2 OPTIONS (SET streaming_fetch 'true');
++ALTER FOREIGN TABLE ft2 OPTIONS (ADD fetch_size '1');
++SET enable_hashagg = off;
++SET enable_hashjoin = off;
++SET enable_mergejoin = off;
++SET enable_material = off;
++
++EXPLAIN (VERBOSE, COSTS OFF)
++SELECT a.c1, a.c2 FROM ft1 a
++WHERE a.c1 < 20 AND a.c8 = 'foo' AND EXISTS (SELECT 1 FROM ft2 b WHERE b.c2 = a.c2)
++ORDER BY a.c1;
++
++SELECT a.c1, a.c2 FROM ft1 a
++WHERE a.c1 < 20 AND a.c8 = 'foo' AND EXISTS (SELECT 1 FROM ft2 b WHERE b.c2 = a.c2)
++ORDER BY a.c1;
++
++RESET enable_hashagg;
++RESET enable_hashjoin;
++RESET enable_mergejoin;
++RESET enable_material;
++ALTER FOREIGN TABLE ft1 OPTIONS (DROP fetch_size);
++ALTER FOREIGN TABLE ft2 OPTIONS (DROP fetch_size);
++ALTER FOREIGN TABLE ft2 OPTIONS (SET streaming_fetch 'false');
++
++-- Test that fetch_from_tuplestore() correctly drains a large backlog in
++-- fetch_size-sized batches rather than all at once: with a small
++-- fetch_size and a self-join matching many rows per outer row, the outer
++-- scan's tuplestore (populated when the inner scan interrupts it to reuse
++-- the connection) needs several batched reads to fully drain.  If a batch
++-- were dropped or duplicated, the count below would not match.
++ALTER FOREIGN TABLE ft2 OPTIONS (SET streaming_fetch 'true');
++ALTER FOREIGN TABLE ft2 OPTIONS (ADD fetch_size '5');
++SELECT count(*) FROM ft2 a, ft2 b
++WHERE a.c2 = 6 AND b.c1 = a.c1 AND a.c8 = 'foo' AND b.c7 = upper(a.c7);
++ALTER FOREIGN TABLE ft2 OPTIONS (DROP fetch_size);
++ALTER FOREIGN TABLE ft2 OPTIONS (SET streaming_fetch 'false');
++
++-- Test that execute_foreign_modify() correctly drains another scan's
++-- undrained streaming_fetch result before sending its own prepared
++-- statement.  The EXISTS subplan against ft2 (streaming_fetch, fetch_size
++-- 1) leaves ft2 as the connection's active_scan without reaching EOF after
++-- each outer row (short-circuiting on the first match), so each matching
++-- row's UPDATE on ft1 -- sent as a separate prepared statement per row,
++-- since the EXISTS subplan prevents direct modify -- must drain it first.
++-- The returned c1 values must match the known-correct row set for this
++-- same EXISTS predicate (see the plain SELECT variant of this query above).
++ALTER FOREIGN TABLE ft2 OPTIONS (SET streaming_fetch 'true');
++ALTER FOREIGN TABLE ft2 OPTIONS (ADD fetch_size '1');
++SET enable_hashagg = off;
++SET enable_hashjoin = off;
++SET enable_mergejoin = off;
++SET enable_material = off;
++
++EXPLAIN (VERBOSE, COSTS OFF)
++UPDATE ft1 SET c3 = c3
++WHERE c1 < 20 AND c8 = 'foo' AND EXISTS (SELECT 1 FROM ft2 b WHERE b.c2 = ft1.c2);
++
++BEGIN;
++UPDATE ft1 SET c3 = c3
++WHERE c1 < 20 AND c8 = 'foo' AND EXISTS (SELECT 1 FROM ft2 b WHERE b.c2 = ft1.c2)
++RETURNING c1;
++ROLLBACK;
++
++RESET enable_hashagg;
++RESET enable_hashjoin;
++RESET enable_mergejoin;
++RESET enable_material;
++ALTER FOREIGN TABLE ft2 OPTIONS (DROP fetch_size);
++ALTER FOREIGN TABLE ft2 OPTIONS (SET streaming_fetch 'false');
++
++-- Test that execute_dml_stmt() (a fully pushed-down direct-modify
++-- UPDATE/DELETE) also drains another scan's undrained streaming_fetch
++-- result before sending its own query down the shared connection.  ft4
++-- shares the loopback connection with ft2; direct_modify_ft4() performs a
++-- self-contained, direct-modify-eligible UPDATE on ft4, called once per
++-- matching ft1 row while ft2's streaming EXISTS subplan is mid-stream.
++CREATE FUNCTION direct_modify_ft4(id int) RETURNS void AS $$
++  UPDATE ft4 SET c3 = c3 WHERE c1 = id;
++$$ LANGUAGE sql;
++
++EXPLAIN (VERBOSE, COSTS OFF) UPDATE ft4 SET c3 = c3 WHERE c1 = 1;
++
++ALTER FOREIGN TABLE ft2 OPTIONS (SET streaming_fetch 'true');
++ALTER FOREIGN TABLE ft2 OPTIONS (ADD fetch_size '1');
++SET enable_hashagg = off;
++SET enable_hashjoin = off;
++SET enable_mergejoin = off;
++SET enable_material = off;
++
++BEGIN;
++SELECT direct_modify_ft4(a.c1) FROM ft1 a
++WHERE a.c1 < 20 AND a.c8 = 'foo' AND EXISTS (SELECT 1 FROM ft2 b WHERE b.c2 = a.c2)
++ORDER BY a.c1;
++ROLLBACK;
++
++RESET enable_hashagg;
++RESET enable_hashjoin;
++RESET enable_mergejoin;
++RESET enable_material;
++ALTER FOREIGN TABLE ft2 OPTIONS (DROP fetch_size);
++ALTER FOREIGN TABLE ft2 OPTIONS (SET streaming_fetch 'false');
++DROP FUNCTION direct_modify_ft4(int);
++
++-- Test that a drain which fails part-way through does not leave a
++-- silently-truncated tuplestore usable by an outer transaction level.
++-- A local type-conversion error is raised while draining a suspended
++-- streaming_fetch scan inside a subtransaction; the outer level then
++-- resumes the scan and must get an error, not short results.
++CREATE TABLE loct_lost (id int, x text);
++INSERT INTO loct_lost SELECT g, g::text FROM generate_series(1, 5) g;
++INSERT INTO loct_lost VALUES (6, 'not_an_int'), (7, '7'), (8, '8');
++
++CREATE FOREIGN TABLE ft_lost (id int, x int)
++  SERVER loopback OPTIONS (schema_name 'public', table_name 'loct_lost',
++                           streaming_fetch 'true', fetch_size '2');
++CREATE FOREIGN TABLE ft_lost_other (id int)
++  SERVER loopback OPTIONS (schema_name 'public', table_name 'loct_lost');
++
++\set VERBOSITY terse
++BEGIN;
++DECLARE c_lost CURSOR FOR SELECT id, x FROM ft_lost ORDER BY id;
++FETCH 2 FROM c_lost;
++SAVEPOINT sp;
++SELECT id FROM ft_lost_other ORDER BY id LIMIT 1;  -- hits row 6
++ROLLBACK TO SAVEPOINT sp;
++FETCH ALL FROM c_lost;                             -- ERROR
++COMMIT;
++SELECT count(*) FROM ft_lost_other;               -- connection still healthy
++\set VERBOSITY default
++
++DROP FOREIGN TABLE ft_lost, ft_lost_other;
++DROP TABLE loct_lost;
++
++-- Test in streaming_fetch mode for interleaved scans.
++-- The non-shippable condition a.c8 = 'foo' prevents full
++-- join pushdown, so the planner issues two separate FDW scans.
++-- When the inner scan is initiated it first drains the outer scan's unread rows.
++ ALTER FOREIGN TABLE ft2 OPTIONS (SET streaming_fetch 'true');
++
++-- Show the plan: ft2 must appear as two independent ForeignScan nodes, not
++-- a single pushed-down remote join.
++EXPLAIN (VERBOSE, COSTS OFF)
++SELECT * FROM ft2 a, ft2 b
++WHERE a.c2 = 6 AND b.c1 = a.c1 AND a.c8 = 'foo' AND b.c7 = upper(a.c7);
++
++-- Verify results with cursor path.
++ALTER FOREIGN TABLE ft2 OPTIONS (SET streaming_fetch 'false');
++SELECT * FROM ft2 a, ft2 b
++WHERE a.c2 = 6 AND b.c1 = a.c1 AND a.c8 = 'foo' AND b.c7 = upper(a.c7);
++ALTER FOREIGN TABLE ft2 OPTIONS (SET streaming_fetch 'true');
++
++-- Three-way self-join to test streaming_fetch
++EXPLAIN (VERBOSE, COSTS OFF)
++SELECT count(*) FROM ft2 a, ft2 b, ft2 c
++WHERE a.c2 = 6 AND b.c1 = a.c1 AND c.c1 = b.c1
++AND a.c8 = 'foo' AND b.c7 = upper(a.c7);
++
++SELECT count(*) FROM ft2 a, ft2 b, ft2 c
++WHERE a.c2 = 6 AND b.c1 = a.c1 AND c.c1 = b.c1
++AND a.c8 = 'foo' AND b.c7 = upper(a.c7);
++
++-- output matches in cursor mode
++ALTER FOREIGN TABLE ft2 OPTIONS (SET streaming_fetch 'false');
++SELECT count(*) FROM ft2 a, ft2 b, ft2 c
++WHERE a.c2 = 6 AND b.c1 = a.c1 AND c.c1 = b.c1
++AND a.c8 = 'foo' AND b.c7 = upper(a.c7);
++
++
+ -- bug before 9.3.5 due to sloppy handling of remote-estimate parameters
+ SELECT * FROM ft1 WHERE c1 = ANY (ARRAY(SELECT c1 FROM ft2 WHERE c1 < 5));
+ SELECT * FROM ft2 WHERE c1 = ANY (ARRAY(SELECT c1 FROM ft1 WHERE c1 < 5));
+@@ -711,6 +1117,16 @@ SELECT t1.c1 FROM ft1 t1 WHERE EXISTS (SELECT 1 FROM ft2 t2 WHERE t1.c1 = t2.c1)
+ EXPLAIN (VERBOSE, COSTS OFF)
+ SELECT t1.c1 FROM ft1 t1 WHERE NOT EXISTS (SELECT 1 FROM ft2 t2 WHERE t1.c1 = t2.c2) ORDER BY t1.c1 OFFSET 100 LIMIT 10;
+ SELECT t1.c1 FROM ft1 t1 WHERE NOT EXISTS (SELECT 1 FROM ft2 t2 WHERE t1.c1 = t2.c2) ORDER BY t1.c1 OFFSET 100 LIMIT 10;
++
++-- Test in streaming_fetch mode to cover the patch for two simultaneous active cursors
++-- with only one table using streaming_fetch
++ALTER FOREIGN TABLE ft1 OPTIONS (SET streaming_fetch 'true');
++SELECT t1.c1 FROM ft1 t1 WHERE NOT EXISTS (SELECT 1 FROM ft2 t2 WHERE t1.c1 = t2.c2) ORDER BY t1.c1 OFFSET 100 LIMIT 10;
++-- with both the tables using streaming_fetch
++ALTER FOREIGN TABLE ft2 OPTIONS (SET streaming_fetch 'true');
++SELECT t1.c1 FROM ft1 t1 WHERE NOT EXISTS (SELECT 1 FROM ft2 t2 WHERE t1.c1 = t2.c2) ORDER BY t1.c1 OFFSET 100 LIMIT 10;
++ALTER FOREIGN TABLE ft1 OPTIONS (SET streaming_fetch 'false');
++ALTER FOREIGN TABLE ft2 OPTIONS (SET streaming_fetch 'false');
+ -- CROSS JOIN can be pushed down
+ EXPLAIN (VERBOSE, COSTS OFF)
+ SELECT t1.c1, t2.c1 FROM ft1 t1 CROSS JOIN ft2 t2 ORDER BY t1.c1, t2.c1 OFFSET 100 LIMIT 10;
+@@ -719,6 +1135,12 @@ SELECT t1.c1, t2.c1 FROM ft1 t1 CROSS JOIN ft2 t2 ORDER BY t1.c1, t2.c1 OFFSET 1
+ EXPLAIN (VERBOSE, COSTS OFF)
+ SELECT t1.c1, t2.c1 FROM ft5 t1 JOIN ft6 t2 ON (t1.c1 = t2.c1) ORDER BY t1.c1, t2.c1 OFFSET 100 LIMIT 10;
+ SELECT t1.c1, t2.c1 FROM ft5 t1 JOIN ft6 t2 ON (t1.c1 = t2.c1) ORDER BY t1.c1, t2.c1 OFFSET 100 LIMIT 10;
++-- Test in streaming_fetch mode to cover the case with multiple cursors but only one active cursor at a time
++ALTER FOREIGN TABLE ft5 OPTIONS (streaming_fetch 'true');
++ALTER FOREIGN TABLE ft6 OPTIONS (streaming_fetch 'true');
++SELECT t1.c1, t2.c1 FROM ft5 t1 JOIN ft6 t2 ON (t1.c1 = t2.c1) ORDER BY t1.c1, t2.c1 OFFSET 100 LIMIT 10;
++ALTER FOREIGN TABLE ft5 OPTIONS (SET streaming_fetch 'false');
++ALTER FOREIGN TABLE ft6 OPTIONS (SET streaming_fetch 'false');
+ -- unsafe join conditions (c8 has a UDT), not pushed down. Practically a CROSS
+ -- JOIN since c8 in both tables has same value.
+ EXPLAIN (VERBOSE, COSTS OFF)
+@@ -1140,6 +1562,31 @@ explain (verbose, costs off)
+ select count(c6), sum(c1), avg(c1), min(c2), max(c1), stddev(c2), sum(c1) * (random() <= 1)::int as sum2 from ft1 where c2 < 5 group by c2 order by 1, 2 limit 1;
+ select count(c6), sum(c1), avg(c1), min(c2), max(c1), stddev(c2), sum(c1) * (random() <= 1)::int as sum2 from ft1 where c2 < 5 group by c2 order by 1, 2 limit 1;
+ 
++-- Test with limit and streaming_fetch
++ALTER FOREIGN TABLE ft1 OPTIONS (SET streaming_fetch 'true');
++select count(c6), sum(c1), avg(c1), min(c2), max(c1), stddev(c2), sum(c1) * (random() <= 1)::int as sum2 from ft1 where c2 < 5 group by c2 order by 1, 2 limit 1;
++ALTER FOREIGN TABLE ft1 OPTIONS (SET streaming_fetch 'false');
++
++-- Test LIMIT stopping before all tuples are consumed.
++-- The WHERE clause references c8 (a user-defined type that cannot be
++-- pushed to the remote), preventing LIMIT pushdown.  The remote
++-- therefore streams all rows, and end_scan must discard the in-flight
++-- data when the local executor stops early.
++ALTER FOREIGN TABLE ft1 OPTIONS (SET streaming_fetch 'true');
++-- LIMIT 5 with default fetch_size=100: stops well within the first
++-- chunk; end_scan discards ~995 rows still in flight on the connection.
++SELECT c1 FROM ft1 WHERE c8 = 'foo' ORDER BY c1 LIMIT 5;
++-- Verify the connection is still usable after the early stop.
++SELECT count(*) FROM ft1;
++-- fetch_size=10, LIMIT=15: consumes one full chunk (rows 1-10) plus 5
++-- rows from a second chunk (rows 11-15); end_scan then discards the
++-- remainder of that chunk and all subsequent in-flight chunks.
++ALTER FOREIGN TABLE ft1 OPTIONS (fetch_size '10');
++SELECT c1 FROM ft1 WHERE c8 = 'foo' ORDER BY c1 LIMIT 15;
++SELECT count(*) FROM ft1;
++ALTER FOREIGN TABLE ft1 OPTIONS (DROP fetch_size);
++ALTER FOREIGN TABLE ft1 OPTIONS (SET streaming_fetch 'false');
++
+ -- Aggregate is not pushed down as aggregation contains random()
+ explain (verbose, costs off)
+ select sum(c1 * (random() <= 1)::int) as sum, avg(c1) from ft1;
+@@ -3909,6 +4356,41 @@ SELECT 1 FROM ft1 LIMIT 1;    -- should fail
+ \set VERBOSITY default
+ COMMIT;
+ 
++-- ===================================================================
++-- streaming_fetch: error recovery when the remote backend terminates
++-- ===================================================================
++-- Enable streaming_fetch
++ALTER FOREIGN TABLE ft1 OPTIONS (SET streaming_fetch 'true');
++
++-- Establish a fresh remote connection.
++SELECT 1 FROM ft1 LIMIT 1;
++
++-- Terminate the remote backend and wait for the termination to complete.
++DO $$ BEGIN
++PERFORM pg_terminate_backend(pid, 180000) FROM pg_stat_activity
++	WHERE application_name = 'fdw_retry_check';
++END $$;
++
++-- After the connection is broken, a streaming_fetch query should detect
++-- the broken connection, reestablish it, and succeed.
++BEGIN;
++SELECT c1 FROM ft1 ORDER BY c1 LIMIT 3;
++
++-- Inside a subtransaction the broken connection must not be silently
++-- retried; the query should fail.
++DO $$ BEGIN
++PERFORM pg_terminate_backend(pid, 180000) FROM pg_stat_activity
++	WHERE application_name = 'fdw_retry_check';
++END $$;
++SAVEPOINT s2;
++-- The text of the error might vary across platforms, so only show SQLSTATE.
++\set VERBOSITY sqlstate
++SELECT 1 FROM ft1 LIMIT 1;    -- should fail
++\set VERBOSITY default
++COMMIT;
++
++ALTER FOREIGN TABLE ft1 OPTIONS (SET streaming_fetch 'false');
++
+ -- =============================================================================
+ -- test connection invalidation cases and postgres_fdw_get_connections function
+ -- =============================================================================
+@@ -4477,6 +4959,29 @@ SELECT * FROM local_tbl, async_pt WHERE local_tbl.a = async_pt.a AND local_tbl.c
+ ALTER FOREIGN TABLE async_p1 OPTIONS (DROP use_remote_estimate);
+ ALTER FOREIGN TABLE async_p2 OPTIONS (DROP use_remote_estimate);
+ 
++-- Test with streaming_fetch
++-- No streaming_fetch at server, this should give Async Foreign Scan for for async_p1 and async_p2
++EXPLAIN (VERBOSE, COSTS OFF)
++SELECT * FROM async_pt;
++
++-- streaming_fetch = false at loopback server, this should still give Async Foreign Scan for async_p1 and async_p2
++ALTER SERVER loopback OPTIONS (streaming_fetch 'false');
++EXPLAIN (VERBOSE, COSTS OFF)
++SELECT * FROM async_pt;
++
++-- streaming_fetch = false at loopback server but true for async_p1, this should give Foreign Scan for async_p1
++ALTER FOREIGN TABLE async_p1 OPTIONS (ADD streaming_fetch 'true');
++EXPLAIN (VERBOSE, COSTS OFF)
++SELECT * FROM async_pt;
++
++-- streaming_fetch = true at loopback2 server, this should give Foreign Scan for async_p2 also
++ALTER SERVER loopback2 OPTIONS (streaming_fetch 'true');
++EXPLAIN (VERBOSE, COSTS OFF)
++SELECT * FROM async_pt;
++
++ALTER FOREIGN TABLE async_p1 OPTIONS (DROP streaming_fetch);
++ALTER SERVER loopback OPTIONS (DROP streaming_fetch);
++ALTER SERVER loopback2 OPTIONS (DROP streaming_fetch);
+ DROP TABLE local_tbl;
+ DROP INDEX base_tbl1_idx;
+ DROP INDEX base_tbl2_idx;
+diff --git a/contrib/postgres_fdw/sql/query_cancel.sql b/contrib/postgres_fdw/sql/query_cancel.sql
+index a6830705843..d4d15ccaf8f 100644
+--- a/contrib/postgres_fdw/sql/query_cancel.sql
++++ b/contrib/postgres_fdw/sql/query_cancel.sql
+@@ -20,3 +20,19 @@ SET LOCAL statement_timeout = '10ms';
+ -- This would take very long if not canceled:
+ SELECT count(*) FROM ft1 a CROSS JOIN ft1 b CROSS JOIN ft1 c CROSS JOIN ft1 d;
+ COMMIT;
++
++-- Same as above, but for a streaming_fetch (cursor-free) scan: verify that
++-- canceling mid-stream correctly clears conn_state->active_scan, so the
++-- connection is safely reusable afterward.
++ALTER FOREIGN TABLE ft1 OPTIONS (SET streaming_fetch 'true');
++
++BEGIN;
++SELECT count(*) FROM ft1 a;
++SET LOCAL statement_timeout = '10ms';
++SELECT count(*) FROM ft1 a CROSS JOIN ft1 b CROSS JOIN ft1 c CROSS JOIN ft1 d;
++COMMIT;
++
++-- Must succeed cleanly if active_scan was properly cleared on cancel.
++SELECT count(*) FROM ft1;
++
++ALTER FOREIGN TABLE ft1 OPTIONS (SET streaming_fetch 'false');
+diff --git a/doc/src/sgml/postgres-fdw.sgml b/doc/src/sgml/postgres-fdw.sgml
+index 87b1433aacb..9096ce0f439 100644
+--- a/doc/src/sgml/postgres-fdw.sgml
++++ b/doc/src/sgml/postgres-fdw.sgml
+@@ -476,6 +476,47 @@ OPTIONS (ADD password_required 'false');
+      </listitem>
+     </varlistentry>
+ 
++    <varlistentry>
++     <term><literal>streaming_fetch</literal> (<type>boolean</type>)</term>
++     <listitem>
++      <para>
++       This option controls whether <filename>postgres_fdw</filename> reads the
++       results of a foreign scan without declaring a cursor on the remote
++       server. A cursor forces the remote executor to be started and stopped
++       for each fetch, which prevents the remote planner from choosing a
++       parallel plan; with <literal>streaming_fetch</literal> enabled the remote
++       query instead runs to completion in a single execution and may be
++       parallelized, which can significantly speed up large scans. It can be
++       specified for a foreign table or a foreign server. The option specified
++       on a table overrides an option specified for the server. The default is
++       <literal>false</literal>. Asynchronous execution is not supported in this
++       mode and is disabled automatically when it is enabled.
++      </para>
++
++      <para>
++       In this mode the rows of a scan are streamed from the remote server in
++       chunks of <literal>fetch_size</literal> rows, and a connection can carry
++       only one such stream at a time. If another scan or statement needs the
++       same connection while a streaming scan has not yet returned all of its
++       rows, <filename>postgres_fdw</filename> reads the remainder of that
++       scan's rows into a local tuplestore (kept in memory up to
++       <varname>work_mem</varname> and spilling to disk beyond that) and returns
++       them from there.
++      </para>
++
++      <para>
++       If a streaming scan is stopped before all of its rows have been read
++       (for example by a <literal>LIMIT</literal> that cannot be pushed to the
++       remote server, or by a rescan), the remaining rows must still be read
++       from the connection and discarded before it can be reused; likewise a
++       rescan with changed parameters re-executes the whole remote query rather
++       than rewinding a cursor. For queries that read only a small fraction of
++       their rows, <literal>streaming_fetch</literal> can therefore be slower
++       than the default cursor-based mode.
++      </para>
++     </listitem>
++    </varlistentry>
++
+    </variablelist>
+ 
+   </sect3>
+-- 
+2.39.5 (Apple Git-154)
+

@@ -45,8 +45,9 @@ OBJS = \
 	pg_shdepend.o \
 	pg_subscription.o \
 	pg_tablespace.o \
-	pg_type.o \
-	storage.o \
+ 	pg_type.o \
+ 	temp_template.o \
+ 	storage.o \
 	toasting.o
 
 include $(top_srcdir)/src/backend/common.mk
