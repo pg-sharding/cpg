@@ -129,4 +129,46 @@ typedef struct UploadManifestCmd
 	NodeTag		type;
 } UploadManifestCmd;
 
+
+/* ----------------------
+ *		START_BACKUP command
+ * ----------------------
+ */
+typedef struct StartBackupCmd
+{
+	NodeTag		type;
+	char	   *label;
+} StartBackupCmd;
+
+
+/* ----------------------
+ *		SEND_FILE_LIST command
+ * ----------------------
+ */
+typedef struct SendFileListCmd
+{
+	NodeTag		type;
+} SendFileListCmd;
+
+
+/* ----------------------
+ *		SEND_FILE command
+ * ----------------------
+ */
+typedef struct SendFileCmd
+{
+	NodeTag		type;
+	char	   *path;
+} SendFileCmd;
+
+
+/* ----------------------
+ *		STOP_BACKUP command
+ * ----------------------
+ */
+typedef struct StopBackupCmd
+{
+	NodeTag		type;
+} StopBackupCmd;
+
 #endif							/* REPLNODES_H */

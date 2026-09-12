@@ -80,12 +80,17 @@
 %token K_NOEXPORT_SNAPSHOT
 %token K_USE_SNAPSHOT
 %token K_UPLOAD_MANIFEST
+%token K_START_BACKUP
+%token K_SEND_FILE_LIST
+%token K_SEND_FILE
+%token K_STOP_BACKUP
 
 %type <node>	command
 %type <node>	base_backup start_replication start_logical_replication
 				create_replication_slot drop_replication_slot
 				alter_replication_slot identify_system read_replication_slot
 				timeline_history show upload_manifest
+				start_backup send_file_list send_file stop_backup
 %type <list>	generic_option_list
 %type <defelt>	generic_option
 %type <uintval>	opt_timeline
@@ -123,6 +128,10 @@ command:
 			| timeline_history
 			| show
 			| upload_manifest
+			| start_backup
+			| send_file_list
+			| send_file
+			| stop_backup
 			;
 
 /*
@@ -336,6 +345,66 @@ upload_manifest:
 
 					$$ = (Node *) cmd;
 				}
+			;
+
+/*
+ * START_BACKUP [LABEL 'label']
+ */
+start_backup:
+			K_START_BACKUP
+				{
+					StartBackupCmd *cmd = makeNode(StartBackupCmd);
+					cmd->label = "parallel backup";
+					$$ = (Node *) cmd;
+				}
+			| K_START_BACKUP '(' generic_option_list ')'
+				{
+					StartBackupCmd *cmd = makeNode(StartBackupCmd);
+					ListCell   *lc;
+					cmd->label = "parallel backup";
+					foreach(lc, $3)
+					{
+						DefElem    *def = lfirst(lc);
+						if (strcmp(def->defname, "label") == 0 && def->arg)
+							cmd->label = strVal(def->arg);
+					}
+					$$ = (Node *) cmd;
+				}
+			;
+
+/*
+ * SEND_FILE_LIST
+ */
+send_file_list:
+			K_SEND_FILE_LIST
+				{
+					SendFileListCmd *cmd = makeNode(SendFileListCmd);
+					$$ = (Node *) cmd;
+				}
+			;
+
+/*
+ * SEND_FILE 'path'
+ */
+send_file:
+			K_SEND_FILE SCONST
+				{
+					SendFileCmd *cmd = makeNode(SendFileCmd);
+					cmd->path = $2;
+					$$ = (Node *) cmd;
+				}
+			;
+
+/*
+ * STOP_BACKUP
+ */
+stop_backup:
+			K_STOP_BACKUP
+				{
+					StopBackupCmd *cmd = makeNode(StopBackupCmd);
+					$$ = (Node *) cmd;
+				}
+			;
 
 opt_physical:
 			K_PHYSICAL
@@ -425,6 +494,10 @@ ident_or_keyword:
 			IDENT							{ $$ = $1; }
 			| K_BASE_BACKUP					{ $$ = "base_backup"; }
 			| K_IDENTIFY_SYSTEM				{ $$ = "identify_system"; }
+			| K_START_BACKUP				{ $$ = "start_backup"; }
+			| K_SEND_FILE_LIST				{ $$ = "send_file_list"; }
+			| K_SEND_FILE					{ $$ = "send_file"; }
+			| K_STOP_BACKUP					{ $$ = "stop_backup"; }
 			| K_SHOW						{ $$ = "show"; }
 			| K_START_REPLICATION			{ $$ = "start_replication"; }
 			| K_CREATE_REPLICATION_SLOT	{ $$ = "create_replication_slot"; }
