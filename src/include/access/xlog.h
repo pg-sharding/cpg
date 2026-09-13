@@ -58,6 +58,8 @@ extern PGDLLIMPORT int CommitSiblings;
 extern PGDLLIMPORT bool track_wal_io_timing;
 extern PGDLLIMPORT int wal_decode_buffer_size;
 
+extern PGDLLIMPORT int ycmdb_wal_write_rate_lim;
+
 extern PGDLLIMPORT int CheckPointSegments;
 
 /* Archive modes */

@@ -2694,6 +2694,17 @@ struct config_int ConfigureNamesInt[] =
 	},
 
 	{
+		{"ycmdb.wal_write_rate_lim", PGC_SIGHUP, WAL_SETTINGS,
+			gettext_noop("Maximum WAL write rate in kilobytes per second (0 disables)."),
+			NULL,
+			GUC_UNIT_KB | GUC_NOT_IN_SAMPLE,
+		},
+		&ycmdb_wal_write_rate_lim,
+		0, 0, INT_MAX,
+		NULL, NULL, NULL
+	},
+
+	{
 		{"temp_file_limit", PGC_SUSET, RESOURCES_DISK,
 			gettext_noop("Limits the total size of all temporary files used by each process."),
 			gettext_noop("-1 means no limit."),
