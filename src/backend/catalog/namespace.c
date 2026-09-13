@@ -26,6 +26,8 @@
 #include "catalog/dependency.h"
 #include "catalog/namespace.h"
 #include "catalog/objectaccess.h"
+#include "catalog/pg_namespace_d.h"
+#include "catalog/temp_template.h"
 #include "catalog/pg_authid.h"
 #include "catalog/pg_collation.h"
 #include "catalog/pg_conversion.h"
@@ -538,6 +540,24 @@ RangeVarGetRelidExtended(const RangeVar *relation, LOCKMODE lockmode,
 		{
 			/* search the namespace path */
 			relId = RelnameGetRelid(relation->relname);
+		}
+
+		/*
+		 * If relation not found and missing_ok, check if it's a
+		 * temp table template. If so, auto-create a temp table from
+		 * the template and return its OID.
+		 */
+		if (!OidIsValid(relId) && missing_ok)
+		{
+			Oid			tmplid;
+
+			tmplid = GetTempTemplateByName(relation->relname,
+										   PG_PUBLIC_NAMESPACE);
+			if (OidIsValid(tmplid))
+			{
+				relId = AutoCreateTempTableFromTemplate(tmplid,
+														relation->relname);
+			}
 		}
 
 		/*

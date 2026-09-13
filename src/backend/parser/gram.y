@@ -291,6 +291,7 @@ static Node *makeRecursiveViewSelect(char *relname, List *aliases, Node *query);
 		CreateDomainStmt CreateExtensionStmt CreateGroupStmt CreateOpClassStmt
 		CreateOpFamilyStmt AlterOpFamilyStmt CreatePLangStmt
 		CreateSchemaStmt CreateSeqStmt CreateStmt CreateStatsStmt CreateTableSpaceStmt
+		CreateTempTemplateStmt
 		CreateFdwStmt CreateForeignServerStmt CreateForeignTableStmt
 		CreateAssertionStmt CreateTransformStmt CreateTrigStmt CreateEventTrigStmt
 		CreateUserStmt CreateUserMappingStmt CreateRoleStmt CreatePolicyStmt
@@ -1075,6 +1076,7 @@ stmt:
 			| CreateSchemaStmt
 			| CreateSeqStmt
 			| CreateStmt
+			| CreateTempTemplateStmt
 			| CreateSubscriptionStmt
 			| CreateStatsStmt
 			| CreateTableSpaceStmt
@@ -3831,8 +3833,44 @@ CreateStmt:	CREATE OptTemp TABLE qualified_name '(' OptTableElementList ')'
 				}
 		;
 
+/*----------
+ * CREATE TEMP TABLE TEMPLATE <name> (<columns>)
+ *
+ * Creates a persistent template for a temporary table. The template
+ * stores the table definition and is reused across sessions. This
+ * avoids catalog bloat from repeated CREATE/DROP TEMP TABLE.
+ *----------
+ */
+CreateTempTemplateStmt:
+		CREATE TEMPLATE TEMP TABLE qualified_name '(' OptTableElementList ')'
+			table_access_method_clause OnCommitOption
+				{
+					CreateTempTemplateStmt *n = makeNode(CreateTempTemplateStmt);
+
+					n->relation = $5;
+					n->relation->relpersistence = RELPERSISTENCE_TEMP;
+					n->tableElts = $7;
+					n->accessMethod = $9;
+					n->oncommit = $10;
+					n->if_not_exists = false;
+					$$ = (Node *) n;
+				}
+		| CREATE TEMPLATE TEMP TABLE IF_P NOT EXISTS qualified_name '('
+			OptTableElementList ')' table_access_method_clause OnCommitOption
+				{
+					CreateTempTemplateStmt *n = makeNode(CreateTempTemplateStmt);
+
+					n->relation = $8;
+					n->relation->relpersistence = RELPERSISTENCE_TEMP;
+					n->tableElts = $10;
+					n->accessMethod = $12;
+					n->oncommit = $13;
+					n->if_not_exists = true;
+					$$ = (Node *) n;
+				}
+		;
+
 /*
- * Redundancy here is needed to avoid shift/reduce conflicts,
  * since TEMP is not a reserved word.  See also OptTempTableName.
  *
  * NOTE: we accept both GLOBAL and LOCAL options.  They currently do nothing,

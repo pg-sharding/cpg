@@ -1,0 +1,876 @@
+From edcac69d1ffe3bc28986f94179b3bbbdae15c8bf Mon Sep 17 00:00:00 2001
+From: Atsushi Ogawa <atsushi.ogawa@gmail.com>
+Date: Thu, 16 Jul 2026 23:38:52 +0900
+Subject: [PATCH v2] Use Boyer-Moore-Horspool for simple LIKE patterns
+
+Add a Boyer-Moore-Horspool fast path for ordinary positive LIKE
+contains-search patterns such as LIKE '%literal%'.  Dispatch at execution
+time from textlike and namelike, and cache either prepared search state or a
+generic fallback marker in FmgrInfo.fn_extra.
+
+Stable patterns use a comparison-free cached state.  For eligible non-stable
+patterns, retain the verbatim pattern and revalidate it on each call.  If the
+value ever changes, permanently select the existing generic matcher instead
+of rebuilding the skip table.  This also handles ScalarArrayOpExpr calls
+safely.
+
+Restrict the byte-oriented search to deterministic collations and single-byte
+or UTF-8 database encodings.  Other patterns, encodings, and collations
+continue to use the existing matcher.
+
+Keep the BMH implementation in a separate translation unit so the existing
+SB_MatchText, UTF8_MatchText, and MB_MatchText instantiations remain
+unchanged.  Add regression coverage for runtime matching, escapes, fallback
+cases, scalar arrays, prepared statements, name input, UTF-8 literals, and
+nondeterministic ICU collations.
+---
+ src/backend/utils/adt/Makefile                |   1 +
+ src/backend/utils/adt/like.c                  |  24 +-
+ src/backend/utils/adt/like_bmh.c              | 275 ++++++++++++++++++
+ src/backend/utils/adt/meson.build             |   1 +
+ src/include/utils/like_bmh.h                  |  35 +++
+ .../regress/expected/collate.icu.utf8.out     |  19 ++
+ src/test/regress/expected/like_bmh.out        | 246 ++++++++++++++++
+ src/test/regress/parallel_schedule            |   1 +
+ src/test/regress/sql/collate.icu.utf8.sql     |   8 +
+ src/test/regress/sql/like_bmh.sql             | 113 +++++++
+ 10 files changed, 721 insertions(+), 2 deletions(-)
+ create mode 100644 src/backend/utils/adt/like_bmh.c
+ create mode 100644 src/include/utils/like_bmh.h
+ create mode 100644 src/test/regress/expected/like_bmh.out
+ create mode 100644 src/test/regress/sql/like_bmh.sql
+
+diff --git a/src/backend/utils/adt/Makefile b/src/backend/utils/adt/Makefile
+index 0c76219..f2cc5b1 100644
+--- a/src/backend/utils/adt/Makefile
++++ b/src/backend/utils/adt/Makefile
+@@ -61,6 +61,7 @@ OBJS = \
+ 	jsonpath_gram.o \
+ 	jsonpath_scan.o \
+ 	like.o \
++	like_bmh.o \
+ 	like_support.o \
+ 	lockfuncs.o \
+ 	mac.o \
+diff --git a/src/backend/utils/adt/like.c b/src/backend/utils/adt/like.c
+index 64147bc..66ee563 100644
+--- a/src/backend/utils/adt/like.c
++++ b/src/backend/utils/adt/like.c
+@@ -23,6 +23,7 @@
+ #include "mb/pg_wchar.h"
+ #include "miscadmin.h"
+ #include "utils/fmgrprotos.h"
++#include "utils/like_bmh.h"
+ #include "utils/pg_locale.h"
+ #include "varatt.h"
+ 
+@@ -161,6 +162,23 @@ GenericMatchText(const char *s, int slen, const char *p, int plen, Oid collation
+ 		return MB_MatchText(s, slen, p, plen, locale);
+ }
+ 
++static inline int
++LikeMatchText(const char *s, int slen, const char *p, int plen,
++			  FmgrInfo *flinfo, Oid collation)
++{
++	LikeBMHState *state = flinfo->fn_extra;
++	int			result;
++
++	if (state != NULL && state->mode == LIKE_BMH_GENERIC)
++		return GenericMatchText(s, slen, p, plen, collation);
++
++	result = like_bmh_match(s, slen, p, plen, flinfo, collation);
++	if (result == LIKE_BMH_FALLBACK)
++		return GenericMatchText(s, slen, p, plen, collation);
++
++	return result;
++}
++
+ static inline int
+ Generic_Text_IC_like(text *str, text *pat, Oid collation)
+ {
+@@ -246,7 +264,8 @@ namelike(PG_FUNCTION_ARGS)
+ 	p = VARDATA_ANY(pat);
+ 	plen = VARSIZE_ANY_EXHDR(pat);
+ 
+-	result = (GenericMatchText(s, slen, p, plen, PG_GET_COLLATION()) == LIKE_TRUE);
++	result = (LikeMatchText(s, slen, p, plen, fcinfo->flinfo,
++							PG_GET_COLLATION()) == LIKE_TRUE);
+ 
+ 	PG_RETURN_BOOL(result);
+ }
+@@ -288,7 +307,8 @@ textlike(PG_FUNCTION_ARGS)
+ 	p = VARDATA_ANY(pat);
+ 	plen = VARSIZE_ANY_EXHDR(pat);
+ 
+-	result = (GenericMatchText(s, slen, p, plen, PG_GET_COLLATION()) == LIKE_TRUE);
++	result = (LikeMatchText(s, slen, p, plen, fcinfo->flinfo,
++							PG_GET_COLLATION()) == LIKE_TRUE);
+ 
+ 	PG_RETURN_BOOL(result);
+ }
+diff --git a/src/backend/utils/adt/like_bmh.c b/src/backend/utils/adt/like_bmh.c
+new file mode 100644
+index 0000000..b4f68fa
+--- /dev/null
++++ b/src/backend/utils/adt/like_bmh.c
+@@ -0,0 +1,275 @@
++/*-------------------------------------------------------------------------
++ *
++ * like_bmh.c
++ *	  Boyer-Moore-Horspool search for LIKE patterns containing one literal.
++ *
++ * varlena.c already uses Boyer-Moore-Horspool for the position/replace
++ * built-ins, but that code searches a single (haystack, needle) pair with an
++ * adaptively sized skip table.  This file keeps its own small implementation
++ * because LIKE must interpret its internal backslash escapes while extracting
++ * the literal and caches the compiled search state in FmgrInfo across rows,
++ * so sharing the varlena.c machinery did not look worthwhile.
++ *
++ * Portions Copyright (c) 1996-2026, PostgreSQL Global Development Group
++ * Portions Copyright (c) 1994, Regents of the University of California
++ *
++ * IDENTIFICATION
++ *	  src/backend/utils/adt/like_bmh.c
++ *
++ *-------------------------------------------------------------------------
++ */
++#include "postgres.h"
++
++#include "catalog/pg_collation.h"
++#include "mb/pg_wchar.h"
++#include "nodes/primnodes.h"
++#include "utils/like_bmh.h"
++#include "utils/pg_locale.h"
++
++#define LIKE_BMH_SKIP_TABLE_SIZE	256
++#define LIKE_BMH_MIN_LITERAL_LEN	4
++#define LIKE_TRUE					1
++#define LIKE_FALSE					0
++
++typedef struct LikeBMHSearchState
++{
++	LikeBMHState base;
++	Oid			collation;
++	int			literal_len;
++	int			skip_table[LIKE_BMH_SKIP_TABLE_SIZE];
++	char		literal[FLEXIBLE_ARRAY_MEMBER];
++} LikeBMHSearchState;
++
++typedef struct LikeBMHRevalidateState
++{
++	LikeBMHState base;
++	Oid			collation;
++	int			pattern_len;
++	int			literal_len;
++	int			skip_table[LIKE_BMH_SKIP_TABLE_SIZE];
++	char		buf[FLEXIBLE_ARRAY_MEMBER];
++} LikeBMHRevalidateState;
++
++/*
++ * Check whether a pattern in LIKE's internal backslash-escape form is a
++ * single literal surrounded by '%' wildcards.  Explicit ESCAPE characters
++ * have already been converted to backslashes by like_escape().
++ *
++ * Report the literal length with escapes skipped.  The escapes are removed
++ * later, when the search state is built.
++ */
++static bool
++like_bmh_pattern_is_eligible(const char *p, int plen, int *literal_len)
++{
++	int			i;
++
++	*literal_len = 0;
++	if (plen < LIKE_BMH_MIN_LITERAL_LEN + 2 ||
++		p[0] != '%' || p[plen - 1] != '%')
++		return false;
++
++	for (i = 1; i < plen - 1; i++)
++	{
++		if (p[i] == '%' || p[i] == '_')
++			return false;
++		if (p[i] == '\\')
++		{
++			/*
++			 * A backslash must escape a real literal byte, not the trailing
++			 * '%'.  Reject patterns such as '%foo\%', where the escape would
++			 * consume the closing wildcard.
++			 */
++			if (i + 1 >= plen - 1)
++				return false;
++			i++;
++		}
++		(*literal_len)++;
++	}
++
++	return *literal_len >= LIKE_BMH_MIN_LITERAL_LEN;
++}
++
++/* Keep one-time setup out of the stable-pattern matching hot path. */
++static pg_noinline LikeBMHState *
++like_bmh_init(const char *p, int plen, FmgrInfo *flinfo, Oid collation)
++{
++	LikeBMHState *state;
++	LikeBMHSearchState *search_state;
++	LikeBMHRevalidateState *revalidate_state;
++	int		   *skip_table;
++	char	   *literal;
++	pg_locale_t locale;
++	bool		pattern_stable;
++	int			literal_len;
++	int			i;
++	int			j;
++
++	/*
++	 * ScalarArrayOpExpr invokes the operator once per array element.  The
++	 * array expression can be stable while the pattern passed to this function
++	 * changes between calls, so its cached search state must be revalidated.
++	 */
++	if (flinfo->fn_expr != NULL && IsA(flinfo->fn_expr, ScalarArrayOpExpr))
++		pattern_stable = false;
++	else
++		pattern_stable = get_fn_expr_arg_stable(flinfo, 1);
++
++	/*
++	 * A byte search is safe in single-byte encodings and UTF-8.  In UTF-8,
++	 * neither a leading byte nor an ASCII byte can occur as a continuation
++	 * byte, so a valid literal cannot match starting inside a character.
++	 *
++	 * Cache all rejected cases so subsequent rows go directly to the generic
++	 * matcher.  In particular, reject other multibyte encodings before scanning
++	 * the pattern.  An unresolved collation is left for GenericMatchText to
++	 * report, so that the fallback path raises the usual error.
++	 */
++	if ((pg_database_encoding_max_length() > 1 &&
++		 GetDatabaseEncoding() != PG_UTF8) ||
++		!OidIsValid(collation) ||
++		!like_bmh_pattern_is_eligible(p, plen, &literal_len))
++	{
++		state = MemoryContextAlloc(flinfo->fn_mcxt, sizeof(LikeBMHState));
++		state->mode = LIKE_BMH_GENERIC;
++		flinfo->fn_extra = state;
++		return state;
++	}
++
++	locale = pg_newlocale_from_collation(collation);
++	if (!locale->deterministic)
++	{
++		state = MemoryContextAlloc(flinfo->fn_mcxt, sizeof(LikeBMHState));
++		state->mode = LIKE_BMH_GENERIC;
++		flinfo->fn_extra = state;
++		return state;
++	}
++
++	if (pattern_stable)
++	{
++		search_state = MemoryContextAlloc(flinfo->fn_mcxt,
++										  sizeof(LikeBMHSearchState) + literal_len);
++		search_state->base.mode = LIKE_BMH_SEARCH;
++		search_state->collation = collation;
++		search_state->literal_len = literal_len;
++		state = (LikeBMHState *) search_state;
++		skip_table = search_state->skip_table;
++		literal = search_state->literal;
++	}
++	else
++	{
++		revalidate_state = MemoryContextAlloc(flinfo->fn_mcxt,
++											  sizeof(LikeBMHRevalidateState) +
++											  literal_len + plen);
++		revalidate_state->base.mode = LIKE_BMH_SEARCH_REVALIDATE;
++		revalidate_state->collation = collation;
++		revalidate_state->pattern_len = plen;
++		revalidate_state->literal_len = literal_len;
++		state = (LikeBMHState *) revalidate_state;
++		skip_table = revalidate_state->skip_table;
++		literal = revalidate_state->buf;
++	}
++
++	for (i = 0; i < LIKE_BMH_SKIP_TABLE_SIZE; i++)
++		skip_table[i] = literal_len;
++
++	for (i = 1, j = 0; i < plen - 1; i++, j++)
++	{
++		if (p[i] == '\\')
++			i++;
++		literal[j] = p[i];
++	}
++	Assert(j == literal_len);
++	if (!pattern_stable)
++		memcpy(literal + literal_len, p, plen);
++
++	for (i = 0; i < literal_len - 1; i++)
++		skip_table[(unsigned char) literal[i]] =
++			literal_len - i - 1;
++
++	flinfo->fn_extra = state;
++	return state;
++}
++
++static int
++like_bmh_search(const char *s, int slen, const char *literal, int literal_len,
++				const int *skip_table)
++{
++	int			pos = literal_len - 1;
++
++	while (pos < slen)
++	{
++		int			i = literal_len - 1;
++		int			text_pos = pos;
++		unsigned char last = (unsigned char) s[pos];
++
++		while (i >= 0 && literal[i] == s[text_pos])
++		{
++			i--;
++			text_pos--;
++		}
++		if (i < 0)
++			return LIKE_TRUE;
++
++		pos += skip_table[last];
++	}
++
++	return LIKE_FALSE;
++}
++
++/* Keep variable-pattern revalidation out of the stable-pattern hot path. */
++static pg_noinline int
++like_bmh_match_revalidate(const char *s, int slen, const char *p, int plen,
++						  LikeBMHState *state, Oid collation)
++{
++	LikeBMHRevalidateState *revalidate_state;
++
++	if (state->mode == LIKE_BMH_GENERIC)
++		return LIKE_BMH_FALLBACK;
++
++	Assert(state->mode == LIKE_BMH_SEARCH_REVALIDATE);
++	revalidate_state = (LikeBMHRevalidateState *) state;
++	if (unlikely(revalidate_state->collation != collation))
++		return LIKE_BMH_FALLBACK;
++
++	if (revalidate_state->pattern_len != plen ||
++		memcmp(revalidate_state->buf + revalidate_state->literal_len,
++			   p, plen) != 0)
++	{
++		/*
++		 * A changing pattern would make rebuilding the skip table every row
++		 * expensive.  Once variation is observed, use the generic matcher for
++		 * the rest of this expression's execution.
++		 */
++		state->mode = LIKE_BMH_GENERIC;
++		return LIKE_BMH_FALLBACK;
++	}
++
++	return like_bmh_search(s, slen, revalidate_state->buf,
++						 revalidate_state->literal_len,
++						 revalidate_state->skip_table);
++}
++
++/*
++ * Use or initialize the BMH state cached in the caller's FmgrInfo.
++ * LIKE_BMH_FALLBACK tells the caller to use the generic matcher.
++ */
++int
++like_bmh_match(const char *s, int slen, const char *p, int plen,
++			   FmgrInfo *flinfo, Oid collation)
++{
++	LikeBMHState *state = flinfo->fn_extra;
++	LikeBMHSearchState *search_state;
++
++	if (state == NULL)
++		state = like_bmh_init(p, plen, flinfo, collation);
++
++	if (unlikely(state->mode != LIKE_BMH_SEARCH))
++		return like_bmh_match_revalidate(s, slen, p, plen, state, collation);
++
++	search_state = (LikeBMHSearchState *) state;
++	if (unlikely(search_state->collation != collation))
++		return LIKE_BMH_FALLBACK;
++
++	return like_bmh_search(s, slen, search_state->literal,
++						 search_state->literal_len, search_state->skip_table);
++}
+diff --git a/src/backend/utils/adt/meson.build b/src/backend/utils/adt/meson.build
+index d793f81..56073fe 100644
+--- a/src/backend/utils/adt/meson.build
++++ b/src/backend/utils/adt/meson.build
+@@ -58,6 +58,7 @@ backend_sources += files(
+   'jsonpath.c',
+   'jsonpath_exec.c',
+   'like.c',
++  'like_bmh.c',
+   'like_support.c',
+   'lockfuncs.c',
+   'mac.c',
+diff --git a/src/include/utils/like_bmh.h b/src/include/utils/like_bmh.h
+new file mode 100644
+index 0000000..66fdca0
+--- /dev/null
++++ b/src/include/utils/like_bmh.h
+@@ -0,0 +1,35 @@
++/*-------------------------------------------------------------------------
++ *
++ * like_bmh.h
++ *	  Runtime state for BMH-optimized LIKE searches.
++ *
++ * Portions Copyright (c) 1996-2026, PostgreSQL Global Development Group
++ * Portions Copyright (c) 1994, Regents of the University of California
++ *
++ * src/include/utils/like_bmh.h
++ *
++ *-------------------------------------------------------------------------
++ */
++#ifndef LIKE_BMH_H
++#define LIKE_BMH_H
++
++#include "fmgr.h"
++
++#define LIKE_BMH_FALLBACK	(-2)
++
++typedef enum LikeBMHMode
++{
++	LIKE_BMH_GENERIC,
++	LIKE_BMH_SEARCH,
++	LIKE_BMH_SEARCH_REVALIDATE,
++} LikeBMHMode;
++
++typedef struct LikeBMHState
++{
++	LikeBMHMode mode;
++} LikeBMHState;
++
++extern int	like_bmh_match(const char *s, int slen, const char *p, int plen,
++						   FmgrInfo *flinfo, Oid collation);
++
++#endif							/* LIKE_BMH_H */
+diff --git a/src/test/regress/expected/collate.icu.utf8.out b/src/test/regress/expected/collate.icu.utf8.out
+index fcfcc65..dcaf6b0 100644
+--- a/src/test/regress/expected/collate.icu.utf8.out
++++ b/src/test/regress/expected/collate.icu.utf8.out
+@@ -1441,6 +1441,25 @@ SELECT * FROM test6 WHERE b LIKE 'zyäbc' COLLATE ctest_nondet;
+  2 | zyäbc
+ (2 rows)
+ 
++-- A four-byte multibyte literal can use BMH with a deterministic collation.
++-- The nondeterministic case must preserve canonical equivalence by falling
++-- back to the collation-aware matcher.
++SELECT a, b LIKE U&'%\00E4bc%' COLLATE ctest_det AS matched
++FROM test6 ORDER BY a;
++ a | matched 
++---+---------
++ 1 | t
++ 2 | f
++(2 rows)
++
++SELECT a, b LIKE U&'%\00E4bc%' COLLATE ctest_nondet AS matched
++FROM test6 ORDER BY a;
++ a | matched 
++---+---------
++ 1 | t
++ 2 | t
++(2 rows)
++
+ -- same with arrays
+ CREATE TABLE test6a (a int, b text[]);
+ INSERT INTO test6a VALUES (1, ARRAY[U&'\00E4bc']);
+diff --git a/src/test/regress/expected/like_bmh.out b/src/test/regress/expected/like_bmh.out
+new file mode 100644
+index 0000000..1297c0a
+--- /dev/null
++++ b/src/test/regress/expected/like_bmh.out
+@@ -0,0 +1,246 @@
++--
++-- LIKE BMH optimization
++--
++-- Exercise the fast path for simple contains patterns ('%literal%') and the
++-- fallback cases that must preserve existing LIKE semantics.
++--
++-- Use table values so the planner cannot fold the LIKE expressions to Consts.
++CREATE TEMP TABLE like_bmh_text_data(id int, val text);
++INSERT INTO like_bmh_text_data VALUES
++	(1, ''),
++	(2, 'abc'),
++	(3, 'abcd'),
++	(4, 'xabcd'),
++	(5, 'abcdx'),
++	(6, 'xabcdx'),
++	(7, 'abxd'),
++	(8, NULL);
++SELECT id, val LIKE '%abcd%' AS matched
++FROM like_bmh_text_data
++ORDER BY id;
++ id | matched 
++----+---------
++  1 | f
++  2 | f
++  3 | t
++  4 | t
++  5 | t
++  6 | t
++  7 | f
++  8 | 
++(8 rows)
++
++-- Exercise escape removal in both eligible and short fallback literals.
++CREATE TEMP TABLE like_bmh_escape_data(id int, val text);
++INSERT INTO like_bmh_escape_data VALUES
++	(1, 'xxa%cdexx'),
++	(2, 'xxa%zzzxx'),
++	(3, 'xxa_cdexx'),
++	(4, 'xxa\cdexx'),
++	(5, 'xxa%cxx');
++SELECT id, val LIKE '%a\%cde%' AS matched
++FROM like_bmh_escape_data WHERE id IN (1, 2) ORDER BY id;
++ id | matched 
++----+---------
++  1 | t
++  2 | f
++(2 rows)
++
++SELECT id, val LIKE '%a\_cde%' AS matched
++FROM like_bmh_escape_data WHERE id = 3;
++ id | matched 
++----+---------
++  3 | t
++(1 row)
++
++SELECT id, val LIKE '%a\\cde%' AS matched
++FROM like_bmh_escape_data WHERE id = 4;
++ id | matched 
++----+---------
++  4 | t
++(1 row)
++
++SELECT id, val LIKE '%a#%cde%' ESCAPE '#' AS matched
++FROM like_bmh_escape_data WHERE id = 1;
++ id | matched 
++----+---------
++  1 | t
++(1 row)
++
++SELECT id, val LIKE '%a\%c%' AS matched
++FROM like_bmh_escape_data WHERE id = 5;
++ id | matched 
++----+---------
++  5 | t
++(1 row)
++
++-- Check the threshold and the main pattern-shape fallback cases.
++SELECT val LIKE '%abc%' AS len3_fallback,
++       val LIKE '%abcd%' AS len4_bmh
++FROM like_bmh_text_data WHERE id = 6;
++ len3_fallback | len4_bmh 
++---------------+----------
++ t             | t
++(1 row)
++
++SELECT val LIKE 'abcd' AS exact_fallback
++FROM like_bmh_text_data WHERE id = 3;
++ exact_fallback 
++----------------
++ t
++(1 row)
++
++SELECT val LIKE 'abcd%' AS prefix_fallback
++FROM like_bmh_text_data WHERE id = 5;
++ prefix_fallback 
++-----------------
++ t
++(1 row)
++
++SELECT val LIKE '%abcd' AS suffix_fallback
++FROM like_bmh_text_data WHERE id = 4;
++ suffix_fallback 
++-----------------
++ t
++(1 row)
++
++SELECT val LIKE '%%' AS empty_literal_fallback
++FROM like_bmh_text_data WHERE id = 6;
++ empty_literal_fallback 
++------------------------
++ t
++(1 row)
++
++SELECT val LIKE '%%abcd%%' AS extra_percent_fallback
++FROM like_bmh_text_data WHERE id = 6;
++ extra_percent_fallback 
++------------------------
++ t
++(1 row)
++
++SELECT val LIKE '%abc\%' AS escaped_trailing_percent_fallback
++FROM (VALUES ('abc%')) AS v(val);
++ escaped_trailing_percent_fallback 
++-----------------------------------
++ t
++(1 row)
++
++-- name input goes through the namelike entry point.
++CREATE TEMP TABLE like_bmh_name_data(id int, val name);
++INSERT INTO like_bmh_name_data VALUES
++	(1, 'xxclassxx'),
++	(2, 'xxotherxx'),
++	(3, NULL);
++SELECT id, val LIKE '%class%' AS matched
++FROM like_bmh_name_data
++ORDER BY id;
++ id | matched 
++----+---------
++  1 | t
++  2 | f
++  3 | 
++(3 rows)
++
++-- Row-varying patterns must use the generic matcher.
++CREATE TEMP TABLE like_bmh_patterns(p text);
++INSERT INTO like_bmh_patterns VALUES
++	('%abcd%'), ('%wxyz%'), ('%b_d%'), ('%b%e%');
++SELECT p, 'xxabcdxx' LIKE p AS matched
++FROM like_bmh_patterns
++ORDER BY p COLLATE "C";
++   p    | matched 
++--------+---------
++ %abcd% | t
++ %b%e%  | f
++ %b_d%  | t
++ %wxyz% | f
++(4 rows)
++
++-- A ScalarArrayOpExpr must not reuse state across different array elements.
++SELECT val LIKE ANY (ARRAY['%abcd%', '%wxyz%']) AS text_any
++FROM (VALUES ('xxwxyzxx')) AS v(val);
++ text_any 
++----------
++ t
++(1 row)
++
++SELECT val LIKE ALL (ARRAY['%abcd%', '%wxyz%']) AS text_all
++FROM (VALUES ('xxabcdxx')) AS v(val);
++ text_all 
++----------
++ f
++(1 row)
++
++SELECT val LIKE ANY (ARRAY['%abcd%', NULL, '%wxyz%']) AS text_any_null
++FROM (VALUES ('xxwxyzxx')) AS v(val);
++ text_any_null 
++---------------
++ t
++(1 row)
++
++SELECT val::name LIKE ANY (ARRAY['%other%', '%class%']) AS name_any
++FROM (VALUES ('xxclassxx')) AS v(val);
++ name_any 
++----------
++ t
++(1 row)
++
++-- A custom plan sees a Const pattern; a generic plan sees a stable Param.
++SET plan_cache_mode = force_custom_plan;
++PREPARE like_bmh_text(text) AS
++	SELECT id, val LIKE $1 AS matched
++	FROM like_bmh_text_data WHERE id IN (6, 7) ORDER BY id;
++EXECUTE like_bmh_text('%abcd%');
++ id | matched 
++----+---------
++  6 | t
++  7 | f
++(2 rows)
++
++EXECUTE like_bmh_text('%wxyz%');
++ id | matched 
++----+---------
++  6 | f
++  7 | f
++(2 rows)
++
++DEALLOCATE like_bmh_text;
++RESET plan_cache_mode;
++SET plan_cache_mode = force_generic_plan;
++PREPARE like_bmh_text(text) AS
++	SELECT id, val LIKE $1 AS matched
++	FROM like_bmh_text_data WHERE id IN (6, 7) ORDER BY id;
++EXECUTE like_bmh_text('%abcd%');
++ id | matched 
++----+---------
++  6 | t
++  7 | f
++(2 rows)
++
++EXECUTE like_bmh_text('%wxyz%');
++ id | matched 
++----+---------
++  6 | f
++  7 | f
++(2 rows)
++
++DEALLOCATE like_bmh_text;
++PREPARE like_bmh_name(text) AS
++	SELECT id, val LIKE $1 AS matched
++	FROM like_bmh_name_data WHERE id IN (1, 2) ORDER BY id;
++EXECUTE like_bmh_name('%class%');
++ id | matched 
++----+---------
++  1 | t
++  2 | f
++(2 rows)
++
++EXECUTE like_bmh_name('%other%');
++ id | matched 
++----+---------
++  1 | f
++  2 | t
++(2 rows)
++
++DEALLOCATE like_bmh_name;
++RESET plan_cache_mode;
+diff --git a/src/test/regress/parallel_schedule b/src/test/regress/parallel_schedule
+index 8fa0a6c..e891e42 100644
+--- a/src/test/regress/parallel_schedule
++++ b/src/test/regress/parallel_schedule
+@@ -22,6 +22,7 @@ test: boolean char name varchar text int2 int4 int8 oid float4 float8 bit numeri
+ # multirangetypes shouldn't run concurrently with type_sanity
+ # ----------
+ test: strings md5 numerology point lseg line box path polygon circle date time timetz timestamp timestamptz interval inet macaddr macaddr8 multirangetypes
++test: like_bmh
+ 
+ # ----------
+ # Another group of parallel tests
+diff --git a/src/test/regress/sql/collate.icu.utf8.sql b/src/test/regress/sql/collate.icu.utf8.sql
+index ce4e2bb..420c40f 100644
+--- a/src/test/regress/sql/collate.icu.utf8.sql
++++ b/src/test/regress/sql/collate.icu.utf8.sql
+@@ -554,6 +554,14 @@ SELECT a, string_to_array(b COLLATE ctest_nondet, U&'\00E4b') FROM test6;
+ SELECT * FROM test6 WHERE b LIKE 'zyäbc' COLLATE ctest_det;
+ SELECT * FROM test6 WHERE b LIKE 'zyäbc' COLLATE ctest_nondet;
+ 
++-- A four-byte multibyte literal can use BMH with a deterministic collation.
++-- The nondeterministic case must preserve canonical equivalence by falling
++-- back to the collation-aware matcher.
++SELECT a, b LIKE U&'%\00E4bc%' COLLATE ctest_det AS matched
++FROM test6 ORDER BY a;
++SELECT a, b LIKE U&'%\00E4bc%' COLLATE ctest_nondet AS matched
++FROM test6 ORDER BY a;
++
+ -- same with arrays
+ CREATE TABLE test6a (a int, b text[]);
+ INSERT INTO test6a VALUES (1, ARRAY[U&'\00E4bc']);
+diff --git a/src/test/regress/sql/like_bmh.sql b/src/test/regress/sql/like_bmh.sql
+new file mode 100644
+index 0000000..8c45a1a
+--- /dev/null
++++ b/src/test/regress/sql/like_bmh.sql
+@@ -0,0 +1,113 @@
++--
++-- LIKE BMH optimization
++--
++-- Exercise the fast path for simple contains patterns ('%literal%') and the
++-- fallback cases that must preserve existing LIKE semantics.
++--
++
++-- Use table values so the planner cannot fold the LIKE expressions to Consts.
++CREATE TEMP TABLE like_bmh_text_data(id int, val text);
++INSERT INTO like_bmh_text_data VALUES
++	(1, ''),
++	(2, 'abc'),
++	(3, 'abcd'),
++	(4, 'xabcd'),
++	(5, 'abcdx'),
++	(6, 'xabcdx'),
++	(7, 'abxd'),
++	(8, NULL);
++
++SELECT id, val LIKE '%abcd%' AS matched
++FROM like_bmh_text_data
++ORDER BY id;
++
++-- Exercise escape removal in both eligible and short fallback literals.
++CREATE TEMP TABLE like_bmh_escape_data(id int, val text);
++INSERT INTO like_bmh_escape_data VALUES
++	(1, 'xxa%cdexx'),
++	(2, 'xxa%zzzxx'),
++	(3, 'xxa_cdexx'),
++	(4, 'xxa\cdexx'),
++	(5, 'xxa%cxx');
++
++SELECT id, val LIKE '%a\%cde%' AS matched
++FROM like_bmh_escape_data WHERE id IN (1, 2) ORDER BY id;
++SELECT id, val LIKE '%a\_cde%' AS matched
++FROM like_bmh_escape_data WHERE id = 3;
++SELECT id, val LIKE '%a\\cde%' AS matched
++FROM like_bmh_escape_data WHERE id = 4;
++SELECT id, val LIKE '%a#%cde%' ESCAPE '#' AS matched
++FROM like_bmh_escape_data WHERE id = 1;
++SELECT id, val LIKE '%a\%c%' AS matched
++FROM like_bmh_escape_data WHERE id = 5;
++
++-- Check the threshold and the main pattern-shape fallback cases.
++SELECT val LIKE '%abc%' AS len3_fallback,
++       val LIKE '%abcd%' AS len4_bmh
++FROM like_bmh_text_data WHERE id = 6;
++SELECT val LIKE 'abcd' AS exact_fallback
++FROM like_bmh_text_data WHERE id = 3;
++SELECT val LIKE 'abcd%' AS prefix_fallback
++FROM like_bmh_text_data WHERE id = 5;
++SELECT val LIKE '%abcd' AS suffix_fallback
++FROM like_bmh_text_data WHERE id = 4;
++SELECT val LIKE '%%' AS empty_literal_fallback
++FROM like_bmh_text_data WHERE id = 6;
++SELECT val LIKE '%%abcd%%' AS extra_percent_fallback
++FROM like_bmh_text_data WHERE id = 6;
++SELECT val LIKE '%abc\%' AS escaped_trailing_percent_fallback
++FROM (VALUES ('abc%')) AS v(val);
++
++-- name input goes through the namelike entry point.
++CREATE TEMP TABLE like_bmh_name_data(id int, val name);
++INSERT INTO like_bmh_name_data VALUES
++	(1, 'xxclassxx'),
++	(2, 'xxotherxx'),
++	(3, NULL);
++SELECT id, val LIKE '%class%' AS matched
++FROM like_bmh_name_data
++ORDER BY id;
++
++-- Row-varying patterns must use the generic matcher.
++CREATE TEMP TABLE like_bmh_patterns(p text);
++INSERT INTO like_bmh_patterns VALUES
++	('%abcd%'), ('%wxyz%'), ('%b_d%'), ('%b%e%');
++SELECT p, 'xxabcdxx' LIKE p AS matched
++FROM like_bmh_patterns
++ORDER BY p COLLATE "C";
++
++-- A ScalarArrayOpExpr must not reuse state across different array elements.
++SELECT val LIKE ANY (ARRAY['%abcd%', '%wxyz%']) AS text_any
++FROM (VALUES ('xxwxyzxx')) AS v(val);
++SELECT val LIKE ALL (ARRAY['%abcd%', '%wxyz%']) AS text_all
++FROM (VALUES ('xxabcdxx')) AS v(val);
++SELECT val LIKE ANY (ARRAY['%abcd%', NULL, '%wxyz%']) AS text_any_null
++FROM (VALUES ('xxwxyzxx')) AS v(val);
++SELECT val::name LIKE ANY (ARRAY['%other%', '%class%']) AS name_any
++FROM (VALUES ('xxclassxx')) AS v(val);
++
++-- A custom plan sees a Const pattern; a generic plan sees a stable Param.
++SET plan_cache_mode = force_custom_plan;
++PREPARE like_bmh_text(text) AS
++	SELECT id, val LIKE $1 AS matched
++	FROM like_bmh_text_data WHERE id IN (6, 7) ORDER BY id;
++EXECUTE like_bmh_text('%abcd%');
++EXECUTE like_bmh_text('%wxyz%');
++DEALLOCATE like_bmh_text;
++RESET plan_cache_mode;
++
++SET plan_cache_mode = force_generic_plan;
++PREPARE like_bmh_text(text) AS
++	SELECT id, val LIKE $1 AS matched
++	FROM like_bmh_text_data WHERE id IN (6, 7) ORDER BY id;
++EXECUTE like_bmh_text('%abcd%');
++EXECUTE like_bmh_text('%wxyz%');
++DEALLOCATE like_bmh_text;
++
++PREPARE like_bmh_name(text) AS
++	SELECT id, val LIKE $1 AS matched
++	FROM like_bmh_name_data WHERE id IN (1, 2) ORDER BY id;
++EXECUTE like_bmh_name('%class%');
++EXECUTE like_bmh_name('%other%');
++DEALLOCATE like_bmh_name;
++RESET plan_cache_mode;
