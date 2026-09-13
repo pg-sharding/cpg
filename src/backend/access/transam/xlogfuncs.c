@@ -19,6 +19,7 @@
 #include <unistd.h>
 
 #include "access/htup_details.h"
+#include "access/timeline.h"
 #include "access/xlog_internal.h"
 #include "access/xlogbackup.h"
 #include "access/xlogrecovery.h"
@@ -714,6 +715,161 @@ pg_promote(PG_FUNCTION_ARGS)
 
 	/* wait for the amount of time wanted until promotion */
 #define WAITS_PER_SECOND 10
+	for (i = 0; i < WAITS_PER_SECOND * wait_seconds; i++)
+	{
+		int			rc;
+
+		ResetLatch(MyLatch);
+
+		if (!RecoveryInProgress())
+			PG_RETURN_BOOL(true);
+
+		CHECK_FOR_INTERRUPTS();
+
+		rc = WaitLatch(MyLatch,
+					   WL_LATCH_SET | WL_TIMEOUT | WL_POSTMASTER_DEATH,
+					   1000L / WAITS_PER_SECOND,
+					   WAIT_EVENT_PROMOTE);
+
+		/*
+		 * Emergency bailout if postmaster has died.  This is to avoid the
+		 * necessity for manual cleanup of all postmaster children.
+		 */
+		if (rc & WL_POSTMASTER_DEATH)
+			ereport(FATAL,
+					(errcode(ERRCODE_ADMIN_SHUTDOWN),
+					 errmsg("terminating connection due to unexpected postmaster exit"),
+					 errcontext("while waiting on promotion")));
+	}
+
+	ereport(WARNING,
+			(errmsg_plural("server did not promote within %d second",
+						   "server did not promote within %d seconds",
+						   wait_seconds,
+						   wait_seconds)));
+	PG_RETURN_BOOL(false);
+}
+
+/*
+ * Promotes a standby server, switching to a specific target timeline.
+ *
+ * This is like pg_promote(), but the caller specifies the timeline ID to
+ * switch to, rather than letting the server choose the next available one.
+ * A result of "true" means that promotion has been completed if "wait" is
+ * "true", or initiated if "wait" is false.
+ */
+Datum
+pg_target_promote(PG_FUNCTION_ARGS)
+{
+	TimeLineID	target_tli = PG_GETARG_INT32(0);
+	bool		wait = PG_GETARG_BOOL(1);
+	int			wait_seconds = PG_GETARG_INT32(2);
+	FILE	   *promote_file;
+	FILE	   *target_file;
+	char		tli_buf[32];
+	int			tli_len;
+	int			i;
+
+	if (!RecoveryInProgress())
+		ereport(ERROR,
+				(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
+				 errmsg("recovery is not in progress"),
+				 errhint("Recovery control functions can only be executed during recovery.")));
+
+	if (wait_seconds <= 0)
+		ereport(ERROR,
+				(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
+				 errmsg("\"wait_seconds\" must not be negative or zero")));
+
+	if (target_tli == 0)
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("\"target_timeline\" must be greater than 0")));
+
+	{
+		TimeLineID	current_tli;
+
+		GetXLogReplayRecPtr(&current_tli);
+
+		if (target_tli < current_tli)
+			ereport(ERROR,
+					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+					 errmsg("target timeline %u must be greater than or equal to current timeline %u",
+							target_tli, current_tli)));
+	}
+
+	/*
+	 * The requested timeline must not already exist; otherwise we would risk
+	 * conflicting with existing WAL on that timeline.
+	 */
+	if (existsTimeLineHistory(target_tli))
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("timeline %u already exists", target_tli)));
+
+	/* create the promote signal file */
+	promote_file = AllocateFile(PROMOTE_SIGNAL_FILE, "w");
+	if (!promote_file)
+		ereport(ERROR,
+				(errcode_for_file_access(),
+				 errmsg("could not create file \"%s\": %m",
+						PROMOTE_SIGNAL_FILE)));
+
+	if (FreeFile(promote_file))
+		ereport(ERROR,
+				(errcode_for_file_access(),
+				 errmsg("could not write file \"%s\": %m",
+						PROMOTE_SIGNAL_FILE)));
+
+	/* create the target timeline signal file */
+	target_file = AllocateFile(PROMOTE_TARGET_SIGNAL_FILE, "w");
+	if (!target_file)
+	{
+		(void) unlink(PROMOTE_SIGNAL_FILE);
+		ereport(ERROR,
+				(errcode_for_file_access(),
+				 errmsg("could not create file \"%s\": %m",
+						PROMOTE_TARGET_SIGNAL_FILE)));
+	}
+
+	tli_len = snprintf(tli_buf, sizeof(tli_buf), "%u\n", target_tli);
+
+	if (fwrite(tli_buf, 1, tli_len, target_file) != (size_t) tli_len)
+	{
+		(void) FreeFile(target_file);
+		(void) unlink(PROMOTE_SIGNAL_FILE);
+		(void) unlink(PROMOTE_TARGET_SIGNAL_FILE);
+		ereport(ERROR,
+				(errcode_for_file_access(),
+				 errmsg("could not write file \"%s\": %m",
+						PROMOTE_TARGET_SIGNAL_FILE)));
+	}
+
+	if (FreeFile(target_file))
+	{
+		(void) unlink(PROMOTE_SIGNAL_FILE);
+		(void) unlink(PROMOTE_TARGET_SIGNAL_FILE);
+		ereport(ERROR,
+				(errcode_for_file_access(),
+				 errmsg("could not write file \"%s\": %m",
+						PROMOTE_TARGET_SIGNAL_FILE)));
+	}
+
+	/* signal the postmaster */
+	if (kill(PostmasterPid, SIGUSR1) != 0)
+	{
+		(void) unlink(PROMOTE_SIGNAL_FILE);
+		(void) unlink(PROMOTE_TARGET_SIGNAL_FILE);
+		ereport(ERROR,
+				(errcode(ERRCODE_SYSTEM_ERROR),
+				 errmsg("failed to send signal to postmaster: %m")));
+	}
+
+	/* return immediately if waiting was not requested */
+	if (!wait)
+		PG_RETURN_BOOL(true);
+
+	/* wait for the amount of time wanted until promotion */
 	for (i = 0; i < WAITS_PER_SECOND * wait_seconds; i++)
 	{
 		int			rc;

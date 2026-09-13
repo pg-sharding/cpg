@@ -93,11 +93,13 @@ static char *register_password = NULL;
 static char *argv0 = NULL;
 static bool allow_core_files = false;
 static time_t start_time;
+static int	promote_target_tli = 0;
 
 static char postopts_file[MAXPGPATH];
 static char version_file[MAXPGPATH];
 static char pid_file[MAXPGPATH];
 static char promote_file[MAXPGPATH];
+static char promote_target_file[MAXPGPATH];
 static char logrotate_file[MAXPGPATH];
 
 static volatile pid_t postmasterPID = -1;
@@ -1186,6 +1188,7 @@ static void
 do_promote(void)
 {
 	FILE	   *prmfile;
+	FILE	   *targetfile = NULL;
 	pid_t		pid;
 
 	pid = get_pgpid(false);
@@ -1228,6 +1231,35 @@ do_promote(void)
 		exit(1);
 	}
 
+	if (promote_target_tli > 0)
+	{
+		snprintf(promote_target_file, MAXPGPATH, "%s/promote_target_tli", pg_data);
+
+		if ((targetfile = fopen(promote_target_file, "w")) == NULL)
+		{
+			write_stderr(_("%s: could not create target timeline file \"%s\": %m\n"),
+						 progname, promote_target_file);
+			if (unlink(promote_file) != 0)
+				write_stderr(_("%s: could not remove promote signal file \"%s\": %m\n"),
+							 progname, promote_file);
+			exit(1);
+		}
+
+		if (fprintf(targetfile, "%u\n", promote_target_tli) < 0 ||
+			fclose(targetfile) != 0)
+		{
+			write_stderr(_("%s: could not write target timeline file \"%s\": %m\n"),
+						 progname, promote_target_file);
+			if (unlink(promote_file) != 0)
+				write_stderr(_("%s: could not remove promote signal file \"%s\": %m\n"),
+							 progname, promote_file);
+			if (unlink(promote_target_file) != 0)
+				write_stderr(_("%s: could not remove target timeline file \"%s\": %m\n"),
+							 progname, promote_target_file);
+			exit(1);
+		}
+	}
+
 	sig = SIGUSR1;
 	if (kill(pid, sig) != 0)
 	{
@@ -1236,6 +1268,9 @@ do_promote(void)
 		if (unlink(promote_file) != 0)
 			write_stderr(_("%s: could not remove promote signal file \"%s\": %m\n"),
 						 progname, promote_file);
+		if (promote_target_tli > 0 && unlink(promote_target_file) != 0)
+			write_stderr(_("%s: could not remove target timeline file \"%s\": %m\n"),
+						 progname, promote_target_file);
 		exit(1);
 	}
 
@@ -1982,7 +2017,7 @@ do_help(void)
 			 "                    [-o OPTIONS] [-c]\n"), progname);
 	printf(_("  %s reload     [-D DATADIR] [-s]\n"), progname);
 	printf(_("  %s status     [-D DATADIR]\n"), progname);
-	printf(_("  %s promote    [-D DATADIR] [-W] [-t SECS] [-s]\n"), progname);
+	printf(_("  %s promote    [-D DATADIR] [-W] [-t SECS] [-s] [-T TARGET-TLI]\n"), progname);
 	printf(_("  %s logrotate  [-D DATADIR] [-s]\n"), progname);
 	printf(_("  %s kill       SIGNALNAME PID\n"), progname);
 #ifdef WIN32
@@ -2021,6 +2056,9 @@ do_help(void)
 	printf(_("  smart       quit after all clients have disconnected\n"));
 	printf(_("  fast        quit directly, with proper shutdown (default)\n"));
 	printf(_("  immediate   quit without complete shutdown; will lead to recovery on restart\n"));
+
+	printf(_("\nOptions for promote:\n"));
+	printf(_("  -T, --target=TLI       target timeline ID to switch to upon promotion\n"));
 
 	printf(_("\nAllowed signal names for kill:\n"));
 	printf("  ABRT HUP INT KILL QUIT TERM USR1 USR2\n");
@@ -2213,6 +2251,7 @@ main(int argc, char **argv)
 		{"core-files", no_argument, NULL, 'c'},
 		{"wait", no_argument, NULL, 'w'},
 		{"no-wait", no_argument, NULL, 'W'},
+		{"target", required_argument, NULL, 'T'},
 		{NULL, 0, NULL, 0}
 	};
 
@@ -2270,7 +2309,7 @@ main(int argc, char **argv)
 		wait_seconds = atoi(env_wait);
 
 	/* process command-line options */
-	while ((c = getopt_long(argc, argv, "cD:e:l:m:N:o:p:P:sS:t:U:wW",
+	while ((c = getopt_long(argc, argv, "cD:e:l:m:N:o:p:P:sS:t:T:U:wW",
 							long_options, &option_index)) != -1)
 	{
 		switch (c)
@@ -2353,6 +2392,16 @@ main(int argc, char **argv)
 			case 'c':
 				allow_core_files = true;
 				break;
+			case 'T':
+				promote_target_tli = atoi(optarg);
+				if (promote_target_tli <= 0)
+				{
+					write_stderr(_("%s: invalid target timeline \"%s\"\n"),
+								 progname, optarg);
+					do_advice();
+					exit(1);
+				}
+				break;
 			default:
 				/* getopt_long already issued a suitable error message */
 				do_advice();
@@ -2419,6 +2468,14 @@ main(int argc, char **argv)
 	if (ctl_command == NO_COMMAND)
 	{
 		write_stderr(_("%s: no operation specified\n"), progname);
+		do_advice();
+		exit(1);
+	}
+
+	if (promote_target_tli > 0 && ctl_command != PROMOTE_COMMAND)
+	{
+		write_stderr(_("%s: --target option can only be used with promote command\n"),
+					 progname);
 		do_advice();
 		exit(1);
 	}

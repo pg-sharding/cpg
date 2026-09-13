@@ -5989,7 +5989,27 @@ StartupXLOG(void)
 	newTLI = endOfRecoveryInfo->lastRecTLI;
 	if (ArchiveRecoveryRequested)
 	{
-		newTLI = findNewestTimeLine(recoveryTargetTLI) + 1;
+		/*
+		 * If pg_target_promote() requested a specific timeline, use it.
+		 * Otherwise, pick the next available timeline ID automatically.
+		 */
+		if (promoteTargetTLI != 0)
+		{
+			newTLI = promoteTargetTLI;
+
+			/*
+			 * The requested timeline must not already exist; otherwise we
+			 * would risk conflicting with existing WAL on that timeline.
+			 */
+			if (existsTimeLineHistory(newTLI))
+				ereport(ERROR,
+						(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+						 errmsg("target timeline %u already exists",
+								newTLI)));
+		}
+		else
+			newTLI = findNewestTimeLine(recoveryTargetTLI) + 1;
+
 		ereport(LOG,
 				(errmsg("selected new timeline ID: %u", newTLI)));
 

@@ -69,6 +69,7 @@ extern PGDLLIMPORT bool wal_receiver_create_temp_slot;
 extern PGDLLIMPORT RecoveryTargetTimeLineGoal recoveryTargetTimeLineGoal;
 extern PGDLLIMPORT TimeLineID recoveryTargetTLIRequested;
 extern PGDLLIMPORT TimeLineID recoveryTargetTLI;
+extern PGDLLIMPORT TimeLineID promoteTargetTLI;
 
 /* Have we already reached a consistent database state? */
 extern PGDLLIMPORT bool reachedConsistency;
