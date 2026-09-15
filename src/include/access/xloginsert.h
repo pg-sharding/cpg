@@ -39,6 +39,7 @@
 #define REGBUF_KEEP_DATA	0x10	/* include data even if a full-page image
 									 * is taken */
 #define REGBUF_NO_CHANGE	0x20	/* intentionally register clean buffer */
+#define REGBUF_NO_COMPRESS	0x40	/* don't compress the full-page image */
 
 /* prototypes for public functions in xloginsert.c: */
 extern void XLogBeginInsert(void);

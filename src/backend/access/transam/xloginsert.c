@@ -69,6 +69,7 @@ typedef struct
 {
 	bool		in_use;			/* is this slot in use? */
 	uint8		flags;			/* REGBUF_* flags */
+	bool		no_compress;	/* don't compress full-page image */
 	RelFileLocator rlocator;	/* identifies the relation and block */
 	ForkNumber	forkno;
 	BlockNumber block;
@@ -273,6 +274,7 @@ XLogRegisterBuffer(uint8 block_id, Buffer buffer, uint8 flags)
 	BufferGetTag(buffer, &regbuf->rlocator, &regbuf->forkno, &regbuf->block);
 	regbuf->page = BufferGetPage(buffer);
 	regbuf->flags = flags;
+	regbuf->no_compress = (flags & REGBUF_NO_COMPRESS) != 0;
 	regbuf->rdata_tail = (XLogRecData *) &regbuf->rdata_head;
 	regbuf->rdata_len = 0;
 
@@ -326,6 +328,7 @@ XLogRegisterBlock(uint8 block_id, RelFileLocator *rlocator, ForkNumber forknum,
 	regbuf->block = blknum;
 	regbuf->page = page;
 	regbuf->flags = flags;
+	regbuf->no_compress = (flags & REGBUF_NO_COMPRESS) != 0;
 	regbuf->rdata_tail = (XLogRecData *) &regbuf->rdata_head;
 	regbuf->rdata_len = 0;
 
@@ -683,9 +686,13 @@ XLogRecordAssemble(RmgrId rmid, uint8 info,
 			}
 
 			/*
-			 * Try to compress a block image if wal_compression is enabled
+			 * Try to compress a block image if wal_compression is enabled.
+			 * Skip compression for buffers registered with
+			 * REGBUF_NO_COMPRESS (currently pg_authid, to avoid leaking
+			 * password material via the compressed image length).
 			 */
-			if (wal_compression != WAL_COMPRESSION_NONE)
+			if (wal_compression != WAL_COMPRESSION_NONE &&
+				!regbuf->no_compress)
 			{
 				is_compressed =
 					XLogCompressBackupBlock(page, bimg.hole_offset,
@@ -1119,6 +1126,20 @@ XLogSaveBufferForHint(Buffer buffer, bool buffer_std)
 			flags |= REGBUF_STANDARD;
 
 		BufferGetTag(buffer, &rlocator, &forkno, &blkno);
+
+		/*
+		 * We have no Relation here, so we cannot use the relation-OID based
+		 * check for pg_authid.  Instead, never compress hint-bit FPIs of
+		 * shared relations: pg_authid is a shared catalog that stores role
+		 * passwords inline, and a compressed image length would leak
+		 * information about the password material.  Shared catalogs are
+		 * tiny and hint-bit FPIs on them are rare, so this costs almost
+		 * nothing.  (Unlike a relfilenode comparison, dbOid == 0 remains
+		 * valid after operations like VACUUM FULL.)
+		 */
+		if (rlocator.dbOid == 0)
+			flags |= REGBUF_NO_COMPRESS;
+
 		XLogRegisterBlock(0, &rlocator, forkno, blkno, copied_buffer.data, flags);
 
 		recptr = XLogInsert(RM_XLOG_ID, XLOG_FPI_FOR_HINT);
