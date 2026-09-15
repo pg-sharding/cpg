@@ -1126,6 +1126,20 @@ XLogSaveBufferForHint(Buffer buffer, bool buffer_std)
 			flags |= REGBUF_STANDARD;
 
 		BufferGetTag(buffer, &rlocator, &forkno, &blkno);
+
+		/*
+		 * We have no Relation here, so we cannot use the relation-OID based
+		 * check for pg_authid.  Instead, never compress hint-bit FPIs of
+		 * shared relations: pg_authid is a shared catalog that stores role
+		 * passwords inline, and a compressed image length would leak
+		 * information about the password material.  Shared catalogs are
+		 * tiny and hint-bit FPIs on them are rare, so this costs almost
+		 * nothing.  (Unlike a relfilenode comparison, dbOid == 0 remains
+		 * valid after operations like VACUUM FULL.)
+		 */
+		if (rlocator.dbOid == 0)
+			flags |= REGBUF_NO_COMPRESS;
+
 		XLogRegisterBlock(0, &rlocator, forkno, blkno, copied_buffer.data, flags);
 
 		recptr = XLogInsert(RM_XLOG_ID, XLOG_FPI_FOR_HINT);

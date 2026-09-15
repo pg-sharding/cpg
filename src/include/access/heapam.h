@@ -285,6 +285,13 @@ typedef enum
  */
 #define HeapScanIsValid(scan) PointerIsValid(scan)
 
+/*
+ * OR REGBUF_NO_COMPRESS into the flags if the relation's full-page images
+ * must not be compressed in WAL (pg_authid, which stores role passwords
+ * inline; see heapam.c).
+ */
+extern uint8 heap_compress_flags_for_rel(Relation rel, uint8 flags);
+
 extern TableScanDesc heap_beginscan(Relation relation, Snapshot snapshot,
 									int nkeys, ScanKey key,
 									ParallelTableScanDesc parallel_scan,

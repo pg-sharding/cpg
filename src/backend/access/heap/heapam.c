@@ -61,7 +61,7 @@
  * its full-page images would leak password material via the compressed
  * image length.
  */
-static inline uint8
+uint8
 heap_compress_flags_for_rel(Relation rel, uint8 flags)
 {
 	if (unlikely(RelationGetRelid(rel) == AuthIdRelationId))
