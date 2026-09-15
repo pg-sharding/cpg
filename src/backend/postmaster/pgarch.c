@@ -77,18 +77,6 @@
  */
 #define NUM_FILES_PER_DIRECTORY_SCAN 64
 
-/* Shared memory area for archiver process */
-typedef struct PgArchData
-{
-	int			pgprocno;		/* pgprocno of archiver process */
-
-	/*
-	 * Forces a directory scan in pgarch_readyXlog().  Protected by arch_lck.
-	 */
-	bool		force_dir_scan;
-
-	slock_t		arch_lck;
-} PgArchData;
 
 char	   *XLogArchiveLibrary = "";
 
@@ -98,7 +86,7 @@ char	   *XLogArchiveLibrary = "";
  * ----------
  */
 static time_t last_sigterm_time = 0;
-static PgArchData *PgArch = NULL;
+PgArchData *PgArch = NULL;
 static const ArchiveModuleCallbacks *ArchiveCallbacks;
 static ArchiveModuleState *archive_module_state;
 
@@ -175,6 +163,9 @@ PgArchShmemInit(void)
 		MemSet(PgArch, 0, PgArchShmemSize());
 		PgArch->pgprocno = INVALID_PGPROCNO;
 		SpinLockInit(&PgArch->arch_lck);
+		SpinLockInit(&PgArch->lock);
+
+		PgArch->primary_last_archived[0] = '\0';
 	}
 }
 
@@ -372,6 +363,15 @@ pgarch_ArchiverCopyLoop(void)
 {
 	char		xlog[MAX_XFN_CHARS + 1];
 
+	/*
+	 * In shared archive mode during recovery, the archiver doesn't archive
+	 * files. The primary is responsible for archiving, and the walreceiver
+	 * marks files as .done when the primary confirms archival. After
+	 * promotion, the archiver starts working normally.
+	 */
+	if (EffectiveArchiveModeIsShared() && RecoveryInProgress())
+		return;
+
 	/* force directory scan in the first call to pgarch_readyXlog() */
 	arch_files->arch_files_size = 0;
 
@@ -457,10 +457,10 @@ pgarch_ArchiverCopyLoop(void)
 				continue;
 			}
 
-			if (pgarch_archiveXlog(xlog))
-			{
-				/* successful */
-				pgarch_archiveDone(xlog);
+		if (pgarch_archiveXlog(xlog))
+		{
+			/* successful */
+			pgarch_archiveDone(xlog);
 
 				/*
 				 * Tell the cumulative stats system about the WAL file that we

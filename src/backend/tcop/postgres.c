@@ -70,6 +70,7 @@
 #include "tcop/pquery.h"
 #include "tcop/tcopprot.h"
 #include "tcop/utility.h"
+#include "utils/elog.h"
 #include "utils/guc_hooks.h"
 #include "utils/lsyscache.h"
 #include "utils/memutils.h"
@@ -1024,11 +1025,14 @@ exec_simple_query(const char *query_string)
 	bool		was_logged = false;
 	bool		use_implicit_block;
 	char		msec_str[32];
+	char* 		query_log;
 
 	/*
 	 * Report query to various monitoring facilities.
 	 */
 	debug_query_string = query_string;
+	bool copied = false;
+	query_log = build_query_log(query_string, &copied);
 
 	pgstat_report_activity(STATE_RUNNING, query_string);
 
@@ -1073,7 +1077,7 @@ exec_simple_query(const char *query_string)
 	if (check_log_statement(parsetree_list))
 	{
 		ereport(LOG,
-				(errmsg("statement: %s", query_string),
+				(errmsg("statement: %s", query_log),
 				 errhidestmt(true),
 				 errdetail_execute(parsetree_list)));
 		was_logged = true;
@@ -1372,7 +1376,7 @@ exec_simple_query(const char *query_string)
 		case 2:
 			ereport(LOG,
 					(errmsg("duration: %s ms  statement: %s",
-							msec_str, query_string),
+							msec_str, query_log),
 					 errhidestmt(true),
 					 errdetail_execute(parsetree_list)));
 			break;
@@ -1383,6 +1387,8 @@ exec_simple_query(const char *query_string)
 
 	TRACE_POSTGRESQL_QUERY_DONE(query_string);
 
+	if (query_log && copied)
+		pfree(query_log);
 	debug_query_string = NULL;
 }
 
@@ -3442,6 +3448,17 @@ ProcessInterrupts(void)
 			IdleInTransactionSessionTimeoutPending = false;
 	}
 
+	if (TransactionTimeoutPending)
+	{
+		/* As above, ignore the signal if the GUC has been reset to zero. */
+		if (TransactionTimeout > 0)
+			ereport(FATAL,
+					(errcode(ERRCODE_TRANSACTION_TIMEOUT),
+					 errmsg("terminating connection due to transaction timeout")));
+		else
+			TransactionTimeoutPending = false;
+	}
+
 	if (IdleSessionTimeoutPending)
 	{
 		/* As above, ignore the signal if the GUC has been reset to zero. */
@@ -3731,6 +3748,23 @@ assign_restrict_nonsystem_relation_kind(const char *newval, void *extra)
 	int		   *flags = (int *) extra;
 
 	restrict_nonsystem_relation_kind = *flags;
+}
+
+/* GUC assign hook for transaction_timeout */
+void
+assign_transaction_timeout(int newval, void *extra)
+{
+	if (IsTransactionState())
+	{
+		/*
+		 * If transaction_timeout GUC has changes within the transaction block
+		 * enable or disable the timer correspondingly.
+		 */
+		if (newval > 0 && !get_timeout_active(TRANSACTION_TIMEOUT))
+			enable_timeout_after(TRANSACTION_TIMEOUT, newval);
+		else if (newval <= 0 && get_timeout_active(TRANSACTION_TIMEOUT))
+			disable_timeout(TRANSACTION_TIMEOUT, false);
+	}
 }
 
 /*
@@ -4579,7 +4613,8 @@ PostgresMain(const char *dbname, const char *username)
 				pgstat_report_activity(STATE_IDLEINTRANSACTION_ABORTED, NULL);
 
 				/* Start the idle-in-transaction timer */
-				if (IdleInTransactionSessionTimeout > 0)
+				if (IdleInTransactionSessionTimeout > 0
+					&& (IdleInTransactionSessionTimeout < TransactionTimeout || TransactionTimeout == 0))
 				{
 					idle_in_transaction_timeout_enabled = true;
 					enable_timeout_after(IDLE_IN_TRANSACTION_SESSION_TIMEOUT,
@@ -4592,7 +4627,8 @@ PostgresMain(const char *dbname, const char *username)
 				pgstat_report_activity(STATE_IDLEINTRANSACTION, NULL);
 
 				/* Start the idle-in-transaction timer */
-				if (IdleInTransactionSessionTimeout > 0)
+				if (IdleInTransactionSessionTimeout > 0
+					&& (IdleInTransactionSessionTimeout < TransactionTimeout || TransactionTimeout == 0))
 				{
 					idle_in_transaction_timeout_enabled = true;
 					enable_timeout_after(IDLE_IN_TRANSACTION_SESSION_TIMEOUT,
@@ -5208,7 +5244,8 @@ enable_statement_timeout(void)
 	/* must be within an xact */
 	Assert(xact_started);
 
-	if (StatementTimeout > 0)
+	if (StatementTimeout > 0
+		&& (StatementTimeout < TransactionTimeout || TransactionTimeout == 0))
 	{
 		if (!get_timeout_active(STATEMENT_TIMEOUT))
 			enable_timeout_after(STATEMENT_TIMEOUT, StatementTimeout);

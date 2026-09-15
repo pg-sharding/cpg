@@ -81,6 +81,8 @@ typedef enum
 
 /* Synchronous commit level */
 extern PGDLLIMPORT int synchronous_commit;
+/* Allow cancelation of queries waiting for sync replication but commited locally */
+extern bool synchronous_commit_cancelation;
 
 /* used during logical streaming of a transaction */
 extern PGDLLIMPORT TransactionId CheckXidAlive;

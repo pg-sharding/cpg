@@ -30,6 +30,7 @@
 #include "access/gin.h"
 #include "access/toast_compression.h"
 #include "access/twophase.h"
+#include "access/xlog.h"
 #include "access/xlog_internal.h"
 #include "access/xlogprefetcher.h"
 #include "access/xlogrecovery.h"
@@ -62,6 +63,7 @@
 #include "postmaster/startup.h"
 #include "postmaster/syslogger.h"
 #include "postmaster/walwriter.h"
+#include "replication/logical.h"
 #include "replication/logicallauncher.h"
 #include "replication/slot.h"
 #include "replication/syncrep.h"
@@ -84,6 +86,10 @@
 #include "utils/ps_status.h"
 #include "utils/inval.h"
 #include "utils/xml.h"
+
+/* MDB patch */
+#include "access/yc_checker.h"
+/**/
 
 /* This value is normally passed in from the Makefile */
 #ifndef PG_KRB_SRVTAB
@@ -479,6 +485,14 @@ static const struct config_enum_entry file_extend_method_options[] = {
 	{NULL, 0, false}
 };
 
+static const struct config_enum_entry yc_grant_checker_options[] = {
+	{"off", YC_GRANT_CHECKER_OFF, false},
+	{"warn", YC_GRANT_CHECKER_WARN, false},
+	{"crit", YC_GRANT_CHECKER_CRIT, false},
+	{NULL, 0, false}
+};
+
+
 /*
  * Options for enum values stored in other modules
  */
@@ -537,6 +551,7 @@ char	   *ConfigFileName;
 char	   *HbaFileName;
 char	   *IdentFileName;
 char	   *external_pid_file;
+char	   *extension_destdir;
 
 char	   *application_name;
 
@@ -1028,6 +1043,16 @@ struct config_bool ConfigureNamesBool[] =
 		NULL, NULL, NULL
 	},
 	{
+		{"enable_join_predicate_pushdown", PGC_USERSET, QUERY_TUNING_METHOD,
+			gettext_noop("Enables the planner's ability to push join quals down into LATERAL subqueries."),
+			NULL,
+			GUC_EXPLAIN
+		},
+		&enable_join_predicate_pushdown,
+		true,
+		NULL, NULL, NULL
+	},
+	{
 		{"geqo", PGC_USERSET, QUERY_TUNING_GEQO,
 			gettext_noop("Enables genetic query optimization."),
 			gettext_noop("This algorithm attempts to do planning without "
@@ -1179,6 +1204,38 @@ struct config_bool ConfigureNamesBool[] =
 	},
 
 	{
+		{"ycmdb.shared_archive", PGC_SIGHUP, WAL_ARCHIVING,
+			gettext_noop("Makes archive_mode=on behave as shared (for managed service compatibility)."),
+			gettext_noop("When true, archive_mode=on is treated as archive_mode=shared. Does not affect archive_mode=off or archive_mode=always. Used when control plane cannot configure archive_mode=shared directly."),
+			GUC_NOT_IN_SAMPLE
+		},
+		&ycmdb_shared_archive,
+		false,
+		NULL, NULL, NULL
+	},
+
+	{
+		{"ycmdb.shared_archive_space_saver", PGC_SIGHUP, WAL_ARCHIVING,
+			gettext_noop("Disables shared archive WAL retention on a standby to save disk space."),
+			gettext_noop("When true, a standby stops holding not-yet-archived WAL segments as .ready and allows them to be recycled, even in shared archive mode. This prevents the standby from filling its disk (and failing over) while the shared archive storage is unavailable, at the cost of a gap in the archived WAL history. Has no effect on a primary."),
+			GUC_NOT_IN_SAMPLE
+		},
+		&ycmdb_shared_archive_space_saver,
+		false,
+		NULL, NULL, NULL
+	},
+	{
+		{"ycmdb.skip_output_plugin_check", PGC_SUSET, REPLICATION_SENDING,
+			gettext_noop("Skips the output_plugin_libraries permission check for logical decoding."),
+			gettext_noop("When true, any output plugin may be loaded for logical decoding, bypassing the trusted-plugin check. Set to false to enforce the check."),
+			GUC_NOT_IN_SAMPLE
+		},
+		&ycmdb_skip_output_plugin_check,
+		true,
+		NULL, NULL, NULL
+	},
+
+	{
 		{"wal_init_zero", PGC_SUSET, WAL_SETTINGS,
 			gettext_noop("Writes zeroes to new WAL files before first use."),
 			NULL
@@ -1196,6 +1253,15 @@ struct config_bool ConfigureNamesBool[] =
 		&wal_recycle,
 		true,
 		NULL, NULL, NULL
+	},
+
+	{
+		{"synchronous_commit_cancelation", PGC_USERSET, WAL_SETTINGS,
+			gettext_noop("Allow to cancel waiting for replication of transaction commited localy."),
+			NULL
+		},
+		&synchronous_commit_cancelation,
+		false, NULL, NULL, NULL
 	},
 
 	{
@@ -2391,6 +2457,17 @@ struct config_int ConfigureNamesInt[] =
 	},
 
 	{
+		/* MDB prefix here is needed in case when vanilla is starting with config with this value */
+		{"ycmdb.num_buffer_partitions_log2", PGC_POSTMASTER, RESOURCES_MEM,
+			gettext_noop("Sets number of partitions for shared buffers mapping hashtable."),
+			NULL,
+		},
+		&num_buffer_partitions_log2,
+		7, 5, 16,
+		NULL, assign_num_buffer_partitions_log2, NULL
+	},
+
+	{
 		{"temp_file_limit", PGC_SUSET, RESOURCES_DISK,
 			gettext_noop("Limits the total size of all temporary files used by each process."),
 			gettext_noop("-1 means no limit."),
@@ -2528,6 +2605,17 @@ struct config_int ConfigureNamesInt[] =
 		&IdleInTransactionSessionTimeout,
 		0, 0, INT_MAX,
 		NULL, NULL, NULL
+	},
+
+	{
+		{"transaction_timeout", PGC_USERSET, CLIENT_CONN_STATEMENT,
+			gettext_noop("Sets the maximum allowed time in a transaction with a session (not a prepared transaction)."),
+			gettext_noop("A value of 0 turns off the timeout."),
+			GUC_UNIT_MS
+		},
+		&TransactionTimeout,
+		0, 0, INT_MAX,
+		NULL, assign_transaction_timeout, NULL
 	},
 
 	{
@@ -3515,6 +3603,17 @@ struct config_int ConfigureNamesInt[] =
 		NULL, NULL, NULL
 	},
 
+	{
+		{"max_log_size", PGC_SIGHUP, LOGGING_WHAT,
+			gettext_noop("Sets max size of logged statement."),
+			NULL
+		},
+		&max_log_size,
+		5 * (1024 * 1024),
+		0, INT_MAX,
+		NULL, NULL, NULL
+	},
+
 	/* End-of-list marker */
 	{
 		{NULL, 0, 0, NULL, NULL}, NULL, 0, 0, 0, NULL, NULL, NULL
@@ -4356,6 +4455,17 @@ struct config_string ConfigureNamesString[] =
 	},
 
 	{
+		{"extension_destdir", PGC_SUSET, FILE_LOCATIONS,
+			gettext_noop("Path to prepend for extension loading."),
+			gettext_noop("This directory is prepended to paths when loading extensions (control and SQL files), and to the '$libdir' directive when loading modules that back functions. The location is made configurable to allow build-time testing of extensions that do not have been installed to their proper location yet."),
+			GUC_SUPERUSER_ONLY
+		},
+		&extension_destdir,
+		"",
+		NULL, NULL, NULL
+	},
+
+	{
 		{"ssl_library", PGC_INTERNAL, PRESET_OPTIONS,
 			gettext_noop("Shows the name of the SSL library."),
 			NULL,
@@ -4570,6 +4680,17 @@ struct config_string ConfigureNamesString[] =
 		check_restrict_nonsystem_relation_kind, assign_restrict_nonsystem_relation_kind, NULL
 	},
 
+	{
+		{"output_plugin_libraries", PGC_SUSET, REPLICATION_SENDING,
+			gettext_noop("Lists libraries that may be named as logical decoding output plugins."),
+			gettext_noop("Users with REPLICATION privileges may only use plugins in this list when creating logical replication slots."),
+			GUC_LIST_INPUT | GUC_LIST_QUOTE | GUC_SUPERUSER_ONLY
+		},
+		&output_plugin_libraries_string,
+		"pgoutput, test_decoding",
+		NULL, NULL, NULL
+	},
+
 	/* End-of-list marker */
 	{
 		{NULL, 0, 0, NULL, NULL}, NULL, NULL, NULL, NULL, NULL
@@ -4643,6 +4764,16 @@ struct config_enum ConfigureNamesEnum[] =
 		NULL, NULL, NULL
 	},
 
+	{
+		{"ycmdb.yc_grant_checker", PGC_SUSET, CLIENT_CONN_STATEMENT,
+			gettext_noop("Enables YC MDB runtime checker, which check if user is ok to grant roles to other users."),
+			NULL
+		},
+		((int *) &yc_grant_checker_type),
+		YC_GRANT_CHECKER_OFF,
+		yc_grant_checker_options,
+		NULL, NULL, NULL
+	},
 	{
 		{"default_transaction_isolation", PGC_USERSET, CLIENT_CONN_STATEMENT,
 			gettext_noop("Sets the transaction isolation level of each new transaction."),

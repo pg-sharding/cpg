@@ -9,6 +9,8 @@
 #ifndef SLOT_H
 #define SLOT_H
 
+#include "utils/acl.h"
+#include "miscadmin.h"
 #include "access/xlog.h"
 #include "access/xlogreader.h"
 #include "storage/condition_variable.h"
@@ -36,6 +38,10 @@ typedef enum ReplicationSlotPersistency
 	RS_EPHEMERAL,
 	RS_TEMPORARY
 } ReplicationSlotPersistency;
+
+
+/* Last archived WAL segment file reported by the primary */
+extern char *primary_last_archived;
 
 /*
  * Slots can be invalidated, e.g. due to max_slot_wal_keep_size. If so, the
@@ -247,5 +253,36 @@ extern void CheckPointReplicationSlots(void);
 
 extern void CheckSlotRequirements(void);
 extern void CheckSlotPermissions(void);
+
+/*
+* Base function for CheckMDBReplSlotPermissions, but does not 
+* perform cat cache search (for no-transaction state case),
+* using pre-defined bool variables.
+*/
+extern void CheckRoleMDBReplSlotPermissions(bool role_has_rolreplication, bool is_member_of_mdb_replication);
+
+/*
+* Same as CheckMDBReservedName, but does not 
+* perform cat cache search (for no-transaction state case),
+* using pre-defined bool variables, defined
+* in InitPostrges.
+*/
+extern void CheckRoleUseMDBReservedName(const char* name, bool role_has_rolreplication);
+
+static inline void CheckMDBReservedName(const char* name) {
+	if (am_walsender)
+		return CheckRoleUseMDBReservedName(name, role_has_rolreplication);
+
+	CheckRoleUseMDBReservedName(name, has_rolreplication(GetUserId()));
+}
+
+static inline void CheckMDBReplSlotPermissions(void) {
+	Oid         role;
+	if (am_walsender)
+		return CheckRoleMDBReplSlotPermissions(role_has_rolreplication, member_of_mdb_replication);
+
+	role = get_role_oid("mdb_replication", /* missing ok*/ true);
+	return CheckRoleMDBReplSlotPermissions(has_rolreplication(GetUserId()), is_member_of_role(GetUserId(), role));
+}
 
 #endif							/* SLOT_H */

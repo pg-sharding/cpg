@@ -78,7 +78,7 @@ enum RoleRecurseType
 };
 static Oid	cached_role[] = {InvalidOid, InvalidOid, InvalidOid};
 static List *cached_roles[] = {NIL, NIL, NIL};
-static uint32 cached_db_hash;
+uint32		cached_db_hash;
 
 
 static const char *getid(const char *s, char *n, Node *escontext);
@@ -4851,7 +4851,7 @@ RoleMembershipCacheCallback(Datum arg, int cacheid, uint32 hashvalue)
  */
 static List *
 roles_is_member_of(Oid roleid, enum RoleRecurseType type,
-				   Oid admin_of, Oid *admin_role)
+				   Oid admin_of, Oid *admin_role, bool no_cache)
 {
 	Oid			dba;
 	List	   *roles_list;
@@ -4867,7 +4867,6 @@ roles_is_member_of(Oid roleid, enum RoleRecurseType type,
 	if (cached_role[type] == roleid && !OidIsValid(admin_of) &&
 		OidIsValid(cached_role[type]))
 		return cached_roles[type];
-
 	/*
 	 * Role expansion happens in a non-database backend when guc.c checks
 	 * ROLE_PG_READ_ALL_SETTINGS for a physical walsender SHOW command.  In
@@ -4959,7 +4958,10 @@ roles_is_member_of(Oid roleid, enum RoleRecurseType type,
 	cached_role[type] = InvalidOid; /* just paranoia */
 	list_free(cached_roles[type]);
 	cached_roles[type] = new_cached_roles;
-	cached_role[type] = roleid;
+
+	if (!no_cache) {
+		cached_role[type] = roleid;
+	}
 
 	/* And now we can return the answer */
 	return cached_roles[type];
@@ -4974,8 +4976,13 @@ roles_is_member_of(Oid roleid, enum RoleRecurseType type,
  *
  * See also member_can_set_role, below.
  */
-bool
-has_privs_of_role(Oid member, Oid role)
+
+/*
+* This is basically original postgresql privs-check function
+*/
+
+static bool
+has_privs_of_role_strict(Oid member, Oid role)
 {
 	/* Fast path for simple case */
 	if (member == role)
@@ -4984,16 +4991,177 @@ has_privs_of_role(Oid member, Oid role)
 	/* Superusers have every privilege, so are part of every role */
 	if (superuser_arg(member))
 		return true;
+	
+	/*
+	 * Find all the roles that member has the privileges of, including
+	 * multi-level recursion, then see if target role is any one of them.
+	 */
+	return list_member_oid(roles_is_member_of(member, ROLERECURSE_PRIVS,
+											  InvalidOid, NULL, false),
+						   role);
+}
+
+
+static bool
+has_privs_of_role_strict_no_cache(Oid member, Oid role)
+{
+	/* Fast path for simple case */
+	if (member == role)
+		return true;
+
+	/* Superusers have every privilege, so are part of every role */
+	if (superuser_arg(member))
+		return true;
+	
+	/*
+	 * Find all the roles that member has the privileges of, including
+	 * multi-level recursion, then see if target role is any one of them.
+	 */
+	return list_member_oid(roles_is_member_of(member, ROLERECURSE_PRIVS,
+											  InvalidOid, NULL, true),
+						   role);
+}
+
+
+/*
+* Check that role is either one of "dangerous" system role
+* or has "strict" (not through mdb_admin or mdb_superuser) 
+* privs of this role
+*/
+
+bool
+has_privs_of_unwanted_system_role(Oid role, bool check_mdb_service_auth) {
+	Oid mdb_service_authoid;
+
+	if (has_privs_of_role_strict(role, ROLE_PG_READ_SERVER_FILES)) {
+		return true;
+	}
+	if (has_privs_of_role_strict(role, ROLE_PG_WRITE_SERVER_FILES)) {
+		return true;
+	}
+	if (has_privs_of_role_strict(role, ROLE_PG_EXECUTE_SERVER_PROGRAM)) {
+		return true;
+	}
+	if (has_privs_of_role_strict(role, ROLE_PG_READ_ALL_DATA)) {
+		return true;
+	}
+	if (has_privs_of_role_strict(role, ROLE_PG_WRITE_ALL_DATA)) {
+		return true;
+	}
+
+	if (check_mdb_service_auth) {
+		mdb_service_authoid = get_role_oid("mdb_service_auth", true);
+
+		if (has_privs_of_role_strict(role, mdb_service_authoid)) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
+bool has_privs_of_unwanted_system_role_prestartup(Oid role) {
+	if (has_privs_of_role_strict_no_cache(role, ROLE_PG_READ_SERVER_FILES)) {
+		return true;
+	}
+	if (has_privs_of_role_strict_no_cache(role, ROLE_PG_WRITE_SERVER_FILES)) {
+		return true;
+	}
+	if (has_privs_of_role_strict_no_cache(role, ROLE_PG_EXECUTE_SERVER_PROGRAM)) {
+		return true;
+	}
+	if (has_privs_of_role_strict_no_cache(role, ROLE_PG_READ_ALL_DATA)) {
+		return true;
+	}
+	if (has_privs_of_role_strict_no_cache(role, ROLE_PG_WRITE_ALL_DATA)) {
+		return true;
+	}
+
+	return false;
+}
+
+bool
+has_privs_of_role(Oid member, Oid role)
+{
+	Oid mdb_superuser_roleoid;
+
+	/* Fast path for simple case */
+	if (member == role)
+		return true;
+
+	/* Superusers have every privilege, so are part of every role */
+	if (superuser_arg(member))
+		return true;
+
+	mdb_superuser_roleoid = get_role_oid("mdb_superuser", true /*if nodoby created mdb_superuser role in this database*/);
+
+	if (is_member_of_role(member, mdb_superuser_roleoid)) {
+		/* if target role is superuser, disallow */
+		if (!superuser_arg(role)) {
+			/* we want mdb_roles_admin to bypass
+			* has_priv_of_roles test
+			* if target role is neither superuser nor
+			* some dangerous system role
+			*/
+			if (!has_privs_of_unwanted_system_role(role, true)) {
+				return true;
+			}
+		}
+	}
+	
 
 	/*
 	 * Find all the roles that member has the privileges of, including
 	 * multi-level recursion, then see if target role is any one of them.
 	 */
 	return list_member_oid(roles_is_member_of(member, ROLERECURSE_PRIVS,
-											  InvalidOid, NULL),
+											  InvalidOid, NULL, false),
 						   role);
 }
 
+// -- mdb_superuser patch
+
+// -- non-upstream patch begin
+/*
+ * Is userId allowed to bypass ownership check
+ * and tranfer onwership to ownerId role?
+ */
+bool
+mdb_admin_allow_bypass_owner_checks(Oid userId,  Oid ownerId)
+{
+	Oid mdb_admin_roleoid;
+	/* 
+	* Never allow nobody to grant objects to 
+	* superusers.
+	* This can result in various CVE.
+	* For paranoic reasons, check this even before
+	* membership of mdb_admin role.
+	*/
+	if (superuser_arg(ownerId)) {
+		return false;
+	}
+
+	mdb_admin_roleoid = get_role_oid("mdb_admin", true /*if nodoby created mdb_admin role in this database*/);
+	/* Is userId actually member of mdb admin? */
+	if (!is_member_of_role(userId, mdb_admin_roleoid)) {
+		/* if no, disallow. */
+		return false;
+	}
+	
+	/* 
+	* Now, we need to check if ownerId 
+	* is some dangerous role to trasfer membership to.
+	*
+	* For now, we check that ownerId does not have
+	* priviledge to execute server program or/and
+	* read/write server files, or/and pg read/write all data
+	*/
+
+	/* All checks passed, hope will not be hacked here (again) */
+	return !has_privs_of_unwanted_system_role(ownerId, true);
+}
+
+// -- non-upstream patch end
 /*
  * Can member use SET ROLE to this role?
  *
@@ -5024,7 +5192,7 @@ member_can_set_role(Oid member, Oid role)
 	 * multi-level recursion, then see if target role is any one of them.
 	 */
 	return list_member_oid(roles_is_member_of(member, ROLERECURSE_SETROLE,
-											  InvalidOid, NULL),
+											  InvalidOid, NULL, false),
 						   role);
 }
 
@@ -5040,6 +5208,73 @@ check_can_set_role(Oid member, Oid role)
 				 errmsg("must be able to SET ROLE \"%s\"",
 						GetUserNameFromId(role, false))));
 }
+
+// -- mdb admin patch 
+/*
+ * check_mdb_admin_is_member_of_role
+ *		is_member_of_role with a standard permission-violation error if not in usual case
+ * Is case `member` in mdb_admin we check that role is neither of superuser, pg_read/write 
+ * server files nor pg_execute_server_program or pg_read/write all data
+ */
+void
+check_mdb_admin_is_member_of_role(Oid member, Oid role)
+{
+	Oid mdb_admin_roleoid;
+	/* fast path - if we are superuser, its ok */
+	if (superuser_arg(member)) {
+		return;
+	}
+
+	mdb_admin_roleoid = get_role_oid("mdb_admin", true /*if nodoby created mdb_admin role in this database*/);
+	/* Is userId actually member of mdb admin? */
+	if (is_member_of_role(member, mdb_admin_roleoid)) {
+
+		/* role is mdb admin */
+		if (superuser_arg(role)) {
+			ereport(ERROR,
+					(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
+					errmsg("cannot transfer ownership to superuser \"%s\"",
+							GetUserNameFromId(role, false))));
+		}
+
+		if (has_privs_of_unwanted_system_role(role, true)) {			
+			ereport(ERROR,
+					(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
+					errmsg("forbidden to transfer ownership to this system role in Cloud")));
+		}
+	} else {
+		/* if no, check membership transfer in usual way. */
+		
+		if (!is_member_of_role(member, role)) {
+			ereport(ERROR,
+					(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
+					errmsg("must be member of role \"%s\"",
+							GetUserNameFromId(role, false))));
+		}
+	}
+}
+
+bool mdb_admin_is_member_of_role(Oid member, Oid role) {
+	Oid mdb_admin_roleoid;
+	/* fast path - if we are superuser, its ok */
+	if (superuser_arg(member)) {
+		return true;
+	}
+
+	mdb_admin_roleoid = get_role_oid("mdb_admin", true /*if nodoby created mdb_admin role in this database*/);
+	/* Is userId actually member of mdb admin? */
+	if (!is_member_of_role(member, mdb_admin_roleoid)) {
+		return false;
+	}
+	/* role is mdb admin */
+	if (superuser_arg(role)) {
+		return false;
+	}
+
+	return !has_privs_of_unwanted_system_role(role, true);
+}
+
+// -- mdb admin patch 
 
 /*
  * Is member a member of role (directly or indirectly)?
@@ -5070,7 +5305,7 @@ is_member_of_role(Oid member, Oid role)
 	 * recursion, then see if target role is any one of them.
 	 */
 	return list_member_oid(roles_is_member_of(member, ROLERECURSE_MEMBERS,
-											  InvalidOid, NULL),
+											  InvalidOid, NULL, false),
 						   role);
 }
 
@@ -5094,7 +5329,7 @@ is_member_of_role_nosuper(Oid member, Oid role)
 	 * recursion, then see if target role is any one of them.
 	 */
 	return list_member_oid(roles_is_member_of(member, ROLERECURSE_MEMBERS,
-											  InvalidOid, NULL),
+											  InvalidOid, NULL, false),
 						   role);
 }
 
@@ -5116,7 +5351,7 @@ is_admin_of_role(Oid member, Oid role)
 	if (member == role)
 		return false;
 
-	(void) roles_is_member_of(member, ROLERECURSE_MEMBERS, role, &admin_role);
+	(void) roles_is_member_of(member, ROLERECURSE_MEMBERS, role, &admin_role, false);
 	return OidIsValid(admin_role);
 }
 
@@ -5138,7 +5373,7 @@ select_best_admin(Oid member, Oid role)
 	if (member == role)
 		return InvalidOid;
 
-	(void) roles_is_member_of(member, ROLERECURSE_PRIVS, role, &admin_role);
+	(void) roles_is_member_of(member, ROLERECURSE_PRIVS, role, &admin_role, false);
 	return admin_role;
 }
 
@@ -5193,6 +5428,7 @@ select_best_grantor(Oid roleId, AclMode privileges,
 	List	   *roles_list;
 	int			nrights;
 	ListCell   *l;
+	Oid			mdb_superuser_roleoid;
 
 	/*
 	 * The object owner is always treated as having all grant options, so if
@@ -5207,6 +5443,16 @@ select_best_grantor(Oid roleId, AclMode privileges,
 		return;
 	}
 
+	mdb_superuser_roleoid = get_role_oid("mdb_superuser", true /*if nodoby created mdb_superuser role in this database*/);
+
+	if (is_member_of_role(roleId, mdb_superuser_roleoid)
+	&& has_privs_of_role(roleId, ownerId)) {
+		*grantorId = ownerId;
+		AclMode mdb_superuser_allowed_privs = needed_goptions;
+		*grantOptions = mdb_superuser_allowed_privs;
+		return;
+	}
+
 	/*
 	 * Otherwise we have to do a careful search to see if roleId has the
 	 * privileges of any suitable role.  Note: we can hang onto the result of
@@ -5214,8 +5460,7 @@ select_best_grantor(Oid roleId, AclMode privileges,
 	 * doesn't query any role memberships.
 	 */
 	roles_list = roles_is_member_of(roleId, ROLERECURSE_PRIVS,
-									InvalidOid, NULL);
-
+									InvalidOid, NULL, false);
 	/* initialize candidate result as default */
 	*grantorId = roleId;
 	*grantOptions = ACL_NO_RIGHTS;

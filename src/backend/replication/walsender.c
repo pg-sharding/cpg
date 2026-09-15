@@ -64,6 +64,7 @@
 #include "commands/defrem.h"
 #include "funcapi.h"
 #include "libpq/libpq.h"
+#include "libpq/protocol.h"
 #include "libpq/pqformat.h"
 #include "miscadmin.h"
 #include "nodes/replnodes.h"
@@ -82,6 +83,7 @@
 #include "storage/ipc.h"
 #include "storage/pmsignal.h"
 #include "storage/proc.h"
+#include "storage/spin.h"
 #include "storage/procarray.h"
 #include "tcop/dest.h"
 #include "tcop/tcopprot.h"
@@ -117,6 +119,13 @@ WalSnd	   *MyWalSnd = NULL;
 
 /* Global state */
 bool		am_walsender = false;	/* Am I a walsender process? */
+
+/* These variables defined in InitPostgres and used in walsender logic for priv
+* check without CatCache search.
+*/
+bool		role_has_rolreplication = false;	/* has replication privelege  */
+bool		member_of_mdb_replication = false;	/* member of mdb replication role  */
+
 bool		am_cascading_walsender = false; /* Am I cascading WAL to another
 											 * standby? */
 bool		am_db_walsender = false;	/* Connected to a database? */
@@ -175,6 +184,17 @@ static TimestampTz last_reply_timestamp = 0;
 static bool waiting_for_ping_response = false;
 
 /*
+ * Last archived WAL file. This is fetched from pgstat periodically and sent
+ * to the standby. last_archival_report_timestamp tracks when we last sent
+ * the report to avoid excessive pgstat access.
+ */
+static char last_archived_wal[MAX_XFN_CHARS + 1];
+static TimestampTz last_archival_report_timestamp = 0;
+
+/* Interval for sending archival reports (10 seconds) */
+#define ARCHIVAL_REPORT_INTERVAL 10000
+
+/*
  * While streaming WAL in Copy mode, streamingDoneSending is set to true
  * after we have sent CopyDone. We should not send any more CopyData messages
  * after that. streamingDoneReceiving is set to true when we receive CopyDone
@@ -209,6 +229,24 @@ typedef struct
 
 /* The size of our buffer of time samples. */
 #define LAG_TRACKER_BUFFER_SIZE 8192
+
+
+static bool
+check_slot_permissions(void)
+{
+	/* superuser can do it, else should have REPLICATION role option */
+	return superuser() || role_has_rolreplication;
+}
+
+
+static void
+check_permissions(void)
+{
+	if (!(check_slot_permissions()))
+		ereport(ERROR,
+				(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
+				 (errmsg("must be superuser or replication role to use replication slots"))));
+}
 
 /* A mechanism for tracking replication lag. */
 typedef struct
@@ -258,6 +296,7 @@ static void StartLogicalReplication(StartReplicationCmd *cmd);
 static void ProcessStandbyMessage(void);
 static void ProcessStandbyReplyMessage(void);
 static void ProcessStandbyHSFeedbackMessage(void);
+static void WalSndArchivalReport(void);
 static void ProcessRepliesIfAny(void);
 static void ProcessPendingWrites(void);
 static void WalSndKeepalive(bool requestReply, XLogRecPtr writePtr);
@@ -1097,6 +1136,7 @@ CreateReplicationSlot(CreateReplicationSlotCmd *cmd)
 
 	if (cmd->kind == REPLICATION_KIND_PHYSICAL)
 	{
+		check_permissions();
 		ReplicationSlotCreate(cmd->slotname, false,
 							  cmd->temporary ? RS_TEMPORARY : RS_PERSISTENT,
 							  false);
@@ -1104,6 +1144,8 @@ CreateReplicationSlot(CreateReplicationSlotCmd *cmd)
 	else
 	{
 		CheckLogicalDecodingRequirements();
+		CheckRoleMDBReplSlotPermissions(role_has_rolreplication, member_of_mdb_replication);
+		CheckRoleUseMDBReservedName(cmd->slotname, role_has_rolreplication);
 
 		/*
 		 * Initially create persistent slot as ephemeral - that allows us to
@@ -1283,6 +1325,7 @@ CreateReplicationSlot(CreateReplicationSlotCmd *cmd)
 static void
 DropReplicationSlot(DropReplicationSlotCmd *cmd)
 {
+	CheckRoleUseMDBReservedName(cmd->slotname, role_has_rolreplication);
 	ReplicationSlotDrop(cmd->slotname, !cmd->wait);
 }
 
@@ -1295,6 +1338,8 @@ StartLogicalReplication(StartReplicationCmd *cmd)
 {
 	StringInfoData buf;
 	QueryCompletion qc;
+
+	CheckRoleUseMDBReservedName(cmd->slotname, role_has_rolreplication);
 
 	/* make sure that our requirements are still fulfilled */
 	CheckLogicalDecodingRequirements();
@@ -1784,7 +1829,7 @@ exec_replication_command(const char *cmd_string)
 		if (MyDatabaseId == InvalidOid)
 			ereport(ERROR,
 					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-					 errmsg("cannot execute SQL commands in WAL sender for physical replication")));
+					 errmsg("cannot execute SQL commands in WAL sender for physical replication: %s", cmd_string)));
 
 		/* Tell the caller that this wasn't a WalSender command. */
 		return false;
@@ -1855,6 +1900,7 @@ exec_replication_command(const char *cmd_string)
 			break;
 
 		case T_BaseBackupCmd:
+			check_permissions();
 			cmdtag = "BASE_BACKUP";
 			set_ps_display(cmdtag);
 			PreventInTransactionBlock(true, cmdtag);
@@ -2426,6 +2472,96 @@ ProcessStandbyHSFeedbackMessage(void)
 		else
 			MyProc->xmin = feedbackXmin;
 	}
+}
+
+/*
+ * Send archival status report to standby.
+ *
+ * This is called periodically during physical replication to inform the
+ * standby about the last WAL segment archived by the primary. The standby
+ * can then mark segments up to that point as .done, allowing them to be
+ * recycled. This prevents WAL loss during standby promotion.
+ */
+static void
+WalSndArchivalReport(void)
+{
+	PgStat_ArchiverStats *archiver_stats;
+	TimestampTz now;
+	char		last_archived[MAX_XFN_CHARS + 1];
+
+	/* Only send reports when shared archive is active */
+	if (!EffectiveArchiveModeIsShared())
+		return;
+
+	/* Only send reports during physical streaming replication, not during backup */
+	if (MyWalSnd->kind != REPLICATION_KIND_PHYSICAL)
+		return;
+	if (MyWalSnd->state != WALSNDSTATE_CATCHUP &&
+		MyWalSnd->state != WALSNDSTATE_STREAMING)
+		return;
+
+	/*
+	 * Don't send to temporary replication slots (used by pg_basebackup).
+	 * Connections without slots (regular standbys) are OK.
+	 */
+	if (MyReplicationSlot != NULL &&
+		MyReplicationSlot->data.persistency == RS_TEMPORARY)
+		return;
+
+	now = GetCurrentTimestamp();
+
+	/*
+	 * Send report at most once per ARCHIVAL_REPORT_INTERVAL (10 seconds).
+	 * This avoids excessive pgstat access.
+	 */
+	if (now < TimestampTzPlusMilliseconds(last_archival_report_timestamp,
+										  ARCHIVAL_REPORT_INTERVAL))
+		return;
+	last_archival_report_timestamp = now;
+	/*
+	 * Get archiver statistics.  The pgstat snapshot is cached per-session and
+	 * is only invalidated at transaction boundaries.  The walsender runs
+	 * without transaction boundaries, so we must clear the snapshot explicitly
+	 * to avoid reading stale data (e.g. last_archived_wal stuck at its initial
+	 * empty value even after the archiver has archived new segments).
+	 */
+	pgstat_clear_snapshot();
+	archiver_stats = pgstat_fetch_stat_archiver();
+	if (archiver_stats == NULL)
+		return;
+
+
+	if (RecoveryInProgress())
+	{
+		SpinLockAcquire(&PgArch->lock);
+		memcpy(last_archived, PgArch->primary_last_archived, sizeof(last_archived));
+		SpinLockRelease(&PgArch->lock);
+	}
+	else
+		memcpy(last_archived, archiver_stats->last_archived_wal, sizeof(last_archived));
+	
+	/*
+	 * Only send a report if the last archived WAL has changed. This is both
+	 * an optimization and ensures we don't send empty reports on startup.
+	 */
+	if (strcmp(last_archived, last_archived_wal) == 0)
+		return;
+
+	/* Only send reports for WAL segments, not backup history files or other archived files */
+	if (!IsXLogFileName(last_archived))
+		return;
+
+	elog(DEBUG2, "sending archival report: %s", last_archived);
+
+	/* Remember what we sent */
+	strlcpy(last_archived_wal, last_archived, sizeof(last_archived_wal));
+
+	/* Construct the message... */
+	resetStringInfo(&output_message);
+	pq_sendbyte(&output_message, PqReplMsg_ArchiveStatusReport);
+	pq_sendbytes(&output_message, last_archived, strlen(last_archived));
+	/* ... and send it wrapped in CopyData */
+	pq_putmessage_noblock(PqMsg_CopyData, output_message.data, output_message.len);
 }
 
 /*
@@ -3831,6 +3967,9 @@ WalSndKeepaliveIfNecessary(void)
 		if (pq_flush_if_writable() != 0)
 			WalSndShutdown();
 	}
+
+	/* Send archival status report if needed */
+	WalSndArchivalReport();
 }
 
 /*

@@ -3335,6 +3335,7 @@ set_config_option_ext(const char *name, const char *value,
 	void	   *newextra = NULL;
 	bool		prohibitValueChange = false;
 	bool		makeDefault;
+	Oid			role;
 
 	if (elevel == 0)
 	{

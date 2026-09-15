@@ -962,6 +962,7 @@ my %tests = (
 			test_schema_plus_large_objects => 1,
 		},
 		unlike => {
+			binary_upgrade => 1,
 			no_large_objects => 1,
 			no_owner => 1,
 			schema_only => 1,
@@ -1341,6 +1342,7 @@ my %tests = (
 			test_schema_plus_large_objects => 1,
 		},
 		unlike => {
+			binary_upgrade => 1,
 			schema_only => 1,
 			no_large_objects => 1,
 		},
@@ -4365,9 +4367,9 @@ my %tests = (
 			inserts => 1,
 			section_pre_data => 1,
 			test_schema_plus_large_objects => 1,
-			binary_upgrade => 1,
 		},
 		unlike => {
+			binary_upgrade => 1,
 			no_large_objects => 1,
 			no_privs => 1,
 			schema_only => 1,

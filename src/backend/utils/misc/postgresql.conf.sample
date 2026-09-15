@@ -144,6 +144,7 @@
 #autovacuum_work_mem = -1		# min 1MB, or -1 to use maintenance_work_mem
 #logical_decoding_work_mem = 64MB	# min 64kB
 #max_stack_depth = 2MB			# min 100kB
+#mdb.num_buffer_partitions_log2 = 7	# number of partitions in shared buffer mapping hashtable
 #shared_memory_type = mmap		# the default is the first option
 					# supported by the operating system:
 					#   mmap
@@ -601,6 +602,8 @@
 					# bind-parameter values to N bytes;
 					# -1 means print in full, 0 disables
 #log_statement = 'none'			# none, ddl, mod, all
+#max_log_size = 0 				# max size of logged statement_timeout
+				    # 0 disables the feature
 #log_replication_commands = off
 #log_temp_files = -1			# log temporary files equal or larger
 					# than the specified size in kilobytes;
@@ -699,8 +702,9 @@
 #default_transaction_read_only = off
 #default_transaction_deferrable = off
 #session_replication_role = 'origin'
-#statement_timeout = 0			# in milliseconds, 0 is disabled
-#lock_timeout = 0			# in milliseconds, 0 is disabled
+#statement_timeout = 0				# in milliseconds, 0 is disabled
+#transaction_timeout = 0			# in milliseconds, 0 is disabled
+#lock_timeout = 0				# in milliseconds, 0 is disabled
 #idle_in_transaction_session_timeout = 0	# in milliseconds, 0 is disabled
 #idle_session_timeout = 0		# in milliseconds, 0 is disabled
 #vacuum_freeze_table_age = 150000000
@@ -755,7 +759,10 @@
 # - Other Defaults -
 
 #dynamic_library_path = '$libdir'
+#extension_destdir = ''			# prepend path when loading extensions
+					# and shared objects (added by Debian)
 #gin_fuzzy_search_limit = 0
+#output_plugin_libraries = 'pgoutput, test_decoding'  # approved plugins for logical decoding
 
 
 #------------------------------------------------------------------------------
@@ -817,6 +824,13 @@
 #include_if_exists = '...'		# include file only if it exists
 #include = '...'			# include file
 
+#------------------------------------------------------------------------------
+# MDB
+#------------------------------------------------------------------------------
+
+#synchronous_commit_cancelation = off
+
+#ycmdb.yc_grant_checker = off
 
 #------------------------------------------------------------------------------
 # CUSTOMIZED OPTIONS

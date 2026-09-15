@@ -2015,9 +2015,12 @@ create_gather_path(PlannerInfo *root, RelOptInfo *rel, Path *subpath,
  * efficiently (or at least amortize it over multiple calls).
  */
 SubqueryScanPath *
-create_subqueryscan_path(PlannerInfo *root, RelOptInfo *rel, Path *subpath,
+create_subqueryscan_path(PlannerInfo *root, RelOptInfo *rel,
+						 PlannerInfo *subroot,
+						 List *subplan_params,
+						 Path *subpath,
 						 bool trivial_pathtarget,
-						 List *pathkeys, Relids required_outer)
+						 List *pathkeys, Relids required_outer, List *pushed_down_clauses)
 {
 	SubqueryScanPath *pathnode = makeNode(SubqueryScanPath);
 
@@ -2032,6 +2035,9 @@ create_subqueryscan_path(PlannerInfo *root, RelOptInfo *rel, Path *subpath,
 	pathnode->path.parallel_workers = subpath->parallel_workers;
 	pathnode->path.pathkeys = pathkeys;
 	pathnode->subpath = subpath;
+	pathnode->subplan_params = subplan_params;
+	pathnode->subroot = subroot;
+	pathnode->pushed_down_clauses = pushed_down_clauses;
 
 	cost_subqueryscan(pathnode, root, rel, pathnode->path.param_info,
 					  trivial_pathtarget);
@@ -3954,10 +3960,13 @@ reparameterize_path(PlannerInfo *root, Path *path,
 
 				return (Path *) create_subqueryscan_path(root,
 														 rel,
-														 subpath,
+														 spath->subroot,
+														 spath->subplan_params,
+														 spath->subpath,
 														 trivial_pathtarget,
 														 spath->path.pathkeys,
-														 required_outer);
+														 required_outer,
+														 spath->pushed_down_clauses);
 			}
 		case T_Result:
 			/* Supported only for RTE_RESULT scan paths */

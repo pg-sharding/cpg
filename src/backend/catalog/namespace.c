@@ -1352,7 +1352,7 @@ MatchNamedCall(HeapTuple proctup, int nargs, List *argnames,
 	Oid		   *p_argtypes;
 	char	  **p_argnames;
 	char	   *p_argmodes;
-	bool		arggiven[FUNC_MAX_ARGS];
+	bool	   *arggiven;
 	bool		isnull;
 	int			ap;				/* call args position */
 	int			pp;				/* proargs position */
@@ -1376,8 +1376,8 @@ MatchNamedCall(HeapTuple proctup, int nargs, List *argnames,
 	Assert(include_out_arguments ? (pronargs == pronallargs) : (pronargs <= pronallargs));
 
 	/* initialize state for matching */
-	*argnumbers = (int *) palloc(pronargs * sizeof(int));
-	memset(arggiven, false, pronargs * sizeof(bool));
+	*argnumbers = palloc_array(int, pronargs);
+	arggiven = palloc0_array(bool, pronallargs);
 
 	/* there are numposargs positional args before the named args */
 	for (ap = 0; ap < numposargs; ap++)
@@ -2941,6 +2941,8 @@ LookupExplicitNamespace(const char *nspname, bool missing_ok)
 	Oid			namespaceId;
 	AclResult	aclresult;
 
+	HeapTuple tuple;
+	Oid ownerId;
 	/* check for pg_temp alias */
 	if (strcmp(nspname, "pg_temp") == 0)
 	{
@@ -2958,7 +2960,22 @@ LookupExplicitNamespace(const char *nspname, bool missing_ok)
 	if (missing_ok && !OidIsValid(namespaceId))
 		return InvalidOid;
 
-	aclresult = object_aclcheck(NamespaceRelationId, namespaceId, GetUserId(), ACL_USAGE);
+	tuple = SearchSysCache1(NAMESPACEOID, ObjectIdGetDatum(namespaceId));
+	if (!HeapTupleIsValid(tuple))
+		ereport(ERROR,
+				(errcode(ERRCODE_UNDEFINED_SCHEMA),
+				 errmsg("schema with OID %u does not exist", namespaceId)));
+
+	ownerId = ((Form_pg_namespace) GETSTRUCT(tuple))->nspowner;
+
+	ReleaseSysCache(tuple);
+
+	if (!mdb_admin_allow_bypass_owner_checks(GetUserId(), ownerId)) {
+		aclresult = object_aclcheck(NamespaceRelationId, namespaceId, GetUserId(), ACL_USAGE);
+	} else {
+		aclresult = ACLCHECK_OK;
+	}
+	
 	if (aclresult != ACLCHECK_OK)
 		aclcheck_error(aclresult, OBJECT_SCHEMA,
 					   nspname);

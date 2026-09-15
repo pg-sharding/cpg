@@ -212,11 +212,25 @@ extern bool has_privs_of_role(Oid member, Oid role);
 extern bool member_can_set_role(Oid member, Oid role);
 extern void check_can_set_role(Oid member, Oid role);
 extern bool is_member_of_role(Oid member, Oid role);
+
+// -- mdb patch 
+extern bool has_privs_of_unwanted_system_role_prestartup(Oid role);
+// -- mdb patch end
 extern bool is_member_of_role_nosuper(Oid member, Oid role);
 extern bool is_admin_of_role(Oid member, Oid role);
+
+// -- non-upstream patch begin
+extern bool mdb_admin_allow_bypass_owner_checks(Oid userId,  Oid ownerId);
+
+extern void check_mdb_admin_is_member_of_role(Oid member, Oid role);
+
+extern bool mdb_admin_is_member_of_role(Oid member, Oid role);
+// -- non-upstream patch end
+
 extern Oid	select_best_admin(Oid member, Oid role);
 extern Oid	get_role_oid(const char *rolname, bool missing_ok);
 extern Oid	get_role_oid_or_public(const char *rolname);
+extern bool has_privs_of_unwanted_system_role(Oid role, bool check_mdb_service_auth);
 extern Oid	get_rolespec_oid(const RoleSpec *role, bool missing_ok);
 extern void check_rolespec_name(const RoleSpec *role, const char *detail_msg);
 extern HeapTuple get_rolespec_tuple(const RoleSpec *role);
@@ -225,6 +239,9 @@ extern char *get_rolespec_name(const RoleSpec *role);
 extern void select_best_grantor(Oid roleId, AclMode privileges,
 								const Acl *acl, Oid ownerId,
 								Oid *grantorId, AclMode *grantOptions);
+
+/* DATABASEOID syscache hash value for our own database, set by initialize_acl */
+extern uint32 cached_db_hash;
 
 extern void initialize_acl(void);
 

@@ -52,6 +52,7 @@
 #include "storage/proc.h"
 #include "storage/procarray.h"
 #include "utils/builtins.h"
+#include "utils/acl.h"
 
 /*
  * Replication slot on-disk data structure.
@@ -110,6 +111,16 @@ static void ReplicationSlotDropPtr(ReplicationSlot *slot);
 static void RestoreSlotFromDisk(const char *name);
 static void CreateSlotOnDisk(ReplicationSlot *slot);
 static void SaveSlotToPath(ReplicationSlot *slot, const char *dir, int elevel);
+
+static bool
+check_slot_permissions(void)
+{
+	if (am_walsender)
+		return superuser() || role_has_rolreplication;
+
+	/* superuser can do it, else should have REPLICATION role option */
+	return superuser() || has_rolreplication(GetUserId());
+}
 
 /*
  * Report shared-memory space needed by ReplicationSlotsShmemInit.
@@ -484,6 +495,9 @@ ReplicationSlotAcquire(const char *name, bool nowait)
 
 	Assert(name != NULL);
 
+	CheckMDBReplSlotPermissions();
+	CheckMDBReservedName(name);
+
 retry:
 	Assert(MyReplicationSlot == NULL);
 
@@ -502,6 +516,15 @@ retry:
 				(errcode(ERRCODE_UNDEFINED_OBJECT),
 				 errmsg("replication slot \"%s\" does not exist",
 						name)));
+	}
+
+	if (s->data.database == InvalidOid && !check_slot_permissions())
+	{
+		/* Don't elog while holding LWLock */
+		LWLockRelease(ReplicationSlotControlLock);
+		ereport(ERROR,
+				(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
+				 (errmsg("must be superuser or replication role to use replication slots"))));
 	}
 
 	/*
@@ -1222,6 +1245,43 @@ CheckSlotPermissions(void)
 				 errmsg("permission denied to use replication slots"),
 				 errdetail("Only roles with the %s attribute may use replication slots.",
 						   "REPLICATION")));
+}
+
+
+
+/*
+ * Check whether the user has privilege to use replication slots.
+ */
+void
+CheckRoleMDBReplSlotPermissions(bool role_has_rolreplication, bool is_member_of_mdb_replication)
+{
+	/* mdb_replication can do it */
+	if (is_member_of_mdb_replication) {
+		return;
+	}
+
+	if (!role_has_rolreplication)
+		ereport(ERROR,
+				(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
+				 errmsg("permission denied to use replication slots"),
+				 errdetail("must be superuser, replication role or mdb_replication to use replication slots")));
+}
+
+
+void
+CheckRoleUseMDBReservedName(const char *name, bool role_has_rolreplication)
+{
+	/* ugly coding for speed (taken from IsReservedName) */
+	if (name[0] == 'm' &&
+			name[1] == 'd' &&
+			name[2] == 'b' &&
+		!role_has_rolreplication)
+	{
+		ereport(ERROR,
+				(errcode(ERRCODE_RESERVED_NAME),
+				errmsg("slot name \"%s\" is reserved", name),
+				errdetail("Slot names starting with \"mdb\" are reserved.")));
+	}
 }
 
 /*

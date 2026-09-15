@@ -574,16 +574,26 @@ XLogArchiveCheckDone(const char *xlog)
 
 	/*
 	 * During archive recovery, the file is deletable if archive_mode is not
-	 * "always".
+	 * "always" or "shared".
+	 *
+	 * In "shared" mode the standby does not archive independently; instead it
+	 * waits for the primary to report successful archival, at which point the
+	 * walreceiver converts the .ready file to .done.  We must therefore fall
+	 * through to the .done/.ready check below so that checkpoint cannot
+	 * delete a segment whose .ready file has not yet become .done.
+	 *
+	 * The space_saver override (ycmdb.shared_archive_space_saver) turns this
+	 * retention off again, allowing checkpoint to recycle .ready segments to
+	 * free disk space (at the cost of a gap in the archived WAL history).
 	 */
-	if (!XLogArchivingAlways() &&
+	if (!XLogArchivingAlways() && !SharedArchiveRetentionActive() &&
 		GetRecoveryState() == RECOVERY_STATE_ARCHIVE)
 		return true;
 
 	/*
 	 * At this point of the logic, note that we are either a primary with
-	 * archive_mode set to "on" or "always", or a standby with archive_mode
-	 * set to "always".
+	 * archive_mode set to "on" or "always", a standby with archive_mode set
+	 * to "always", or a standby with archive_mode set to "shared".
 	 */
 
 	/* First check for .done --- this means archiver is done with it */

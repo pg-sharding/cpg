@@ -1136,6 +1136,19 @@ include_dir 'conf.d'
         time of encryption. In order to make use of a changed value, a new
         password must be set.
        </para>
+       <note>
+        <para>
+         If a role password was created with a different iteration count than
+         the value of <literal>scram_iterations</literal> specified in the
+         <filename>postgresql.conf</filename> file or on the server command
+         line, an unauthenticated user can discern the existence of the role by
+         observing discrepancies in the server's responses to connection
+         attempts.  If you find this concerning, ensure that all role passwords
+         are created with <literal>scram_iterations</literal> set to the value
+         specified in the <filename>postgresql.conf</filename> file or on the
+         server command line.
+        </para>
+       </note>
       </listitem>
      </varlistentry>
 
@@ -3688,14 +3701,36 @@ include_dir 'conf.d'
         are sent to archive storage by setting
         <xref linkend="guc-archive-command"/> or
         <xref linkend="guc-archive-library"/>. In addition to <literal>off</literal>,
-        to disable, there are two modes: <literal>on</literal>, and
-        <literal>always</literal>. During normal operation, there is no
-        difference between the two modes, but when set to <literal>always</literal>
-        the WAL archiver is enabled also during archive recovery or standby
-        mode. In <literal>always</literal> mode, all files restored from the archive
-        or streamed with streaming replication will be archived (again). See
-        <xref linkend="continuous-archiving-in-standby"/> for details.
+        to disable, there are three modes: <literal>on</literal>, <literal>shared</literal>,
+        and <literal>always</literal>. During normal operation as a primary, there is no
+        difference between the three modes, but they differ during archive recovery or
+        standby mode:
        </para>
+       <itemizedlist>
+        <listitem>
+         <para>
+          <literal>on</literal>: Archives WAL only when running as a primary.
+         </para>
+        </listitem>
+        <listitem>
+         <para>
+          <literal>shared</literal>: Coordinates archiving between primary and standby.
+          The standby defers WAL archival and deletion until the primary confirms
+          archival via streaming replication. This prevents WAL history loss during
+          standby promotion in high availability setups. Upon promotion, the standby
+          automatically starts archiving any remaining unarchived WAL. This mode works
+          with cascading replication, where each standby coordinates with its immediate
+          upstream server. See <xref linkend="continuous-archiving-in-standby"/> for details.
+         </para>
+        </listitem>
+        <listitem>
+         <para>
+          <literal>always</literal>: Archives all WAL independently, even during recovery.
+          All files restored from the archive or streamed with streaming physical
+          replication will be archived (again), regardless of their source.
+         </para>
+        </listitem>
+       </itemizedlist>
        <para>
         <varname>archive_mode</varname> is a separate setting from
         <varname>archive_command</varname> and
@@ -4393,6 +4428,63 @@ restore_command = 'copy "C:\\server\\archivedir\\%f" "%p"'  # Windows
          Note that this parameter also applies on the subscriber side, but with
          a different meaning.
         </para>
+       </listitem>
+      </varlistentry>
+
+      <varlistentry id="guc-output-plugin-libraries" xreflabel="output_plugin_libraries">
+       <term><varname>output_plugin_libraries</varname> (<type>string</type>)
+       <indexterm>
+        <primary><varname>output_plugin_libraries</varname> configuration parameter</primary>
+       </indexterm>
+       </term>
+       <listitem>
+        <para>
+         Lists the libraries installed in <xref linkend="guc-dynamic-library-path"/>
+         that are also trusted for use as logical output plugins by replication
+         clients. Any <link linkend="logicaldecoding-example">logical decoding</link>
+         or <link linkend="protocol-replication">replication</link> requests for
+         other libraries will be refused. All users are subject to this
+         restriction. The default is <literal>'pgoutput, test_decoding'</literal>,
+         which are the two logical output plugins included in the standard
+         <productname>PostgreSQL</productname> distribution.
+        </para>
+        <para>
+         The format is a comma-separated list of library names, where each name
+         is interpreted as for the <link linkend="sql-load"><command>LOAD</command></link>
+         command (but logical decoding clients must specify a plugin name that
+         <emphasis>exactly</emphasis> matches an entry in the list, without
+         variations in case or path structure). Whitespace between entries is
+         ignored; surround a library name with double quotes if you need to
+         include whitespace or commas in the name.
+        </para>
+        <para>
+         It is the responsibility of the server administrator to ensure that
+         libraries added to this list do not unintentionally give additional
+         privileges to non-superusers when they are loaded into the server.
+        </para>
+        <note>
+         <para>
+          When updating the server from a version that does not have the
+          <literal>output_plugin_libraries</literal> parameter, the following
+          query can help construct the list of plugins that are required by all
+          persistent logical replication slots:
+<programlisting>
+SELECT DISTINCT plugin FROM pg_replication_slots WHERE plugin IS NOT NULL;
+</programlisting>
+          Review the list carefully for safety before adjusting
+          <literal>output_plugin_libraries</literal>.
+         </para>
+         <para>
+          The above query can only display plugins which were successfully
+          added to replication slots at some point in the past. Newly refused
+          requests will appear in the logs with a message similar to
+<programlisting>
+ERROR:  library "..." may not be used as an output plugin
+DETAIL:  The configuration parameter "output_plugin_libraries" (currently 'pgoutput, test_decoding') does not name this library as a trusted output plugin.
+HINT:  If it is safe for all REPLICATION users to use this library as an output plugin, add it to "output_plugin_libraries" and reload the server configuration.
+</programlisting>
+         </para>
+        </note>
        </listitem>
       </varlistentry>
 
@@ -9219,6 +9311,42 @@ COPY postgres_log FROM '/full/path/to/logfile.csv' WITH csv;
         <filename>postgresql.conf</filename> is not recommended because it would
         affect all sessions.
        </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry id="guc-transaction-timeout" xreflabel="transaction_timeout">
+      <term><varname>transaction_timeout</varname> (<type>integer</type>)
+      <indexterm>
+       <primary><varname>transaction_timeout</varname> configuration parameter</primary>
+      </indexterm>
+      </term>
+      <listitem>
+       <para>
+        Terminate any session that spans longer than the specified amount of
+        time in the transaction. The limit applies both to explicit transactions
+        (started with <command>BEGIN</command>) and to an implicitly started
+        transaction corresponding to a single statement.
+        If this value is specified without units, it is taken as milliseconds.
+        A value of zero (the default) disables the timeout.
+       </para>
+
+       <para>
+        If <varname>transaction_timeout</varname> is shorter or equal to
+        <varname>idle_in_transaction_session_timeout</varname> or <varname>statement_timeout</varname>
+        <varname>transaction_timeout</varname> will invalidate the longer timeout.
+       </para>
+
+       <para>
+        Setting <varname>transaction_timeout</varname> in
+        <filename>postgresql.conf</filename> is not recommended because it would
+        affect all sessions.
+       </para>
+
+       <note>
+        <para>
+         Prepared transactions are not subject to this timeout.
+        </para>
+       </note>
       </listitem>
      </varlistentry>
 

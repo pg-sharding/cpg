@@ -33,6 +33,7 @@ volatile sig_atomic_t ProcDiePending = false;
 volatile sig_atomic_t CheckClientConnectionPending = false;
 volatile sig_atomic_t ClientConnectionLost = false;
 volatile sig_atomic_t IdleInTransactionSessionTimeoutPending = false;
+volatile sig_atomic_t TransactionTimeoutPending = false;
 volatile sig_atomic_t IdleSessionTimeoutPending = false;
 volatile sig_atomic_t ProcSignalBarrierPending = false;
 volatile sig_atomic_t LogMemoryContextPending = false;
@@ -154,3 +155,7 @@ int64		VacuumPageDirty = 0;
 
 int			VacuumCostBalance = 0;	/* working state for vacuum */
 bool		VacuumCostActive = false;
+
+/* shared buffers partitions number and mask */
+int			num_buffer_partitions_log2 = 7;
+int			num_buffer_partitions_mask = 127;

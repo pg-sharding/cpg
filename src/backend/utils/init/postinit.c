@@ -75,6 +75,7 @@ static void ShutdownPostgres(int code, Datum arg);
 static void StatementTimeoutHandler(void);
 static void LockTimeoutHandler(void);
 static void IdleInTransactionSessionTimeoutHandler(void);
+static void TransactionTimeoutHandler(void);
 static void IdleSessionTimeoutHandler(void);
 static void IdleStatsUpdateTimeoutHandler(void);
 static void ClientCheckTimeoutHandler(void);
@@ -728,7 +729,7 @@ InitPostgres(const char *in_dbname, Oid dboid,
 	bool		am_superuser;
 	char	   *fullpath;
 	char		dbname[NAMEDATALEN];
-	int			nfree = 0;
+	int			nfree;
 
 	elog(DEBUG3, "InitPostgres");
 
@@ -766,6 +767,7 @@ InitPostgres(const char *in_dbname, Oid dboid,
 		RegisterTimeout(LOCK_TIMEOUT, LockTimeoutHandler);
 		RegisterTimeout(IDLE_IN_TRANSACTION_SESSION_TIMEOUT,
 						IdleInTransactionSessionTimeoutHandler);
+		RegisterTimeout(TRANSACTION_TIMEOUT, TransactionTimeoutHandler);
 		RegisterTimeout(IDLE_SESSION_TIMEOUT, IdleSessionTimeoutHandler);
 		RegisterTimeout(CLIENT_CONNECTION_CHECK_TIMEOUT, ClientCheckTimeoutHandler);
 		RegisterTimeout(IDLE_STATS_UPDATE_TIMEOUT,
@@ -962,8 +964,16 @@ InitPostgres(const char *in_dbname, Oid dboid,
 	if (am_walsender)
 	{
 		Assert(!bootstrap);
+		/* define this variable for later use in permission checks function. */
+		/* we cannot use has_rolreplication directly because catcache search is prohibited
+		* in no active tx state.
+		*/
+		role_has_rolreplication = has_rolreplication(GetUserId());
+		member_of_mdb_replication = is_member_of_role(GetUserId(), get_role_oid("mdb_replication", true));
 
-		if (!has_rolreplication(GetUserId()))
+		/* has_rolreplication returns true in case of superuser_arg(role) */
+		/* should have REPLICATION role or be a member of mdb_replication to start walsender */
+		if (!role_has_rolreplication && !member_of_mdb_replication)
 			ereport(FATAL,
 					(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
 					 errmsg("permission denied to start WAL sender"),
@@ -1391,6 +1401,14 @@ LockTimeoutHandler(void)
 	kill(-MyProcPid, SIGINT);
 #endif
 	kill(MyProcPid, SIGINT);
+}
+
+static void
+TransactionTimeoutHandler(void)
+{
+	TransactionTimeoutPending = true;
+	InterruptPending = true;
+	SetLatch(MyLatch);
 }
 
 static void

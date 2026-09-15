@@ -238,10 +238,10 @@ recurse_set_operations(Node *setOp, PlannerInfo *root,
 		Assert(root->plan_params == NIL);
 
 		/* Generate a subroot and Paths for the subquery */
-		subroot = rel->subroot = subquery_planner(root->glob, subquery,
-												  root,
-												  false,
-												  root->tuple_fraction);
+		subroot = subquery_planner(root->glob, subquery,
+								   root,
+								   false,
+								   root->tuple_fraction);
 
 		/*
 		 * It should not be possible for the primitive query to contain any
@@ -268,7 +268,7 @@ recurse_set_operations(Node *setOp, PlannerInfo *root,
 		 * to do this before generating outer-query paths, else
 		 * cost_subqueryscan is not happy.
 		 */
-		set_subquery_size_estimates(root, rel);
+		set_subquery_size_estimates(root, rel, subroot);
 
 		/*
 		 * Since we may want to add a partial path to this relation, we must
@@ -293,9 +293,12 @@ recurse_set_operations(Node *setOp, PlannerInfo *root,
 		 * the SubqueryScanPath with nil pathkeys.  (XXX that should change
 		 * soon too, likely.)
 		 */
-		path = (Path *) create_subqueryscan_path(root, rel, subpath,
+		path = (Path *) create_subqueryscan_path(root, rel,
+												 subroot,
+												 NIL,
+												 subpath,
 												 trivial_tlist,
-												 NIL, NULL);
+												 NIL, NULL, NIL);
 
 		add_path(rel, path);
 
@@ -312,9 +315,9 @@ recurse_set_operations(Node *setOp, PlannerInfo *root,
 
 			partial_subpath = linitial(final_rel->partial_pathlist);
 			partial_path = (Path *)
-				create_subqueryscan_path(root, rel, partial_subpath,
+				create_subqueryscan_path(root, rel, subroot, NIL, partial_subpath,
 										 trivial_tlist,
-										 NIL, NULL);
+										 NIL, NULL, NIL);
 			add_partial_path(rel, partial_path);
 		}
 

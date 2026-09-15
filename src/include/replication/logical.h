@@ -151,4 +151,8 @@ extern bool filter_by_origin_cb_wrapper(LogicalDecodingContext *ctx, RepOriginId
 extern void ResetLogicalStreamingState(void);
 extern void UpdateDecodingStats(LogicalDecodingContext *ctx);
 
+/* GUCs */
+extern PGDLLIMPORT char *output_plugin_libraries_string;
+extern PGDLLIMPORT bool ycmdb_skip_output_plugin_check;
+
 #endif

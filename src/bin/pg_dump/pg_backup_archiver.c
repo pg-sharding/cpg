@@ -30,6 +30,9 @@
 #include <io.h>
 #endif
 
+#include "catalog/pg_class_d.h"
+#include "catalog/pg_largeobject_metadata_d.h"
+#include "catalog/pg_shdepend_d.h"
 #include "common/string.h"
 #include "compress_io.h"
 #include "dumputils.h"
@@ -163,6 +166,8 @@ InitDumpOptions(DumpOptions *opts)
 	opts->include_everything = true;
 	opts->cparams.promptPassword = TRI_DEFAULT;
 	opts->dumpSections = DUMP_UNSECTIONED;
+	opts->dumpSchema = true;
+	opts->dumpData = true;
 }
 
 /*
@@ -181,8 +186,8 @@ dumpOptionsFromRestoreOptions(RestoreOptions *ropt)
 	dopt->cparams.username = ropt->cparams.username ? pg_strdup(ropt->cparams.username) : NULL;
 	dopt->cparams.promptPassword = ropt->cparams.promptPassword;
 	dopt->outputClean = ropt->dropSchema;
-	dopt->dataOnly = ropt->dataOnly;
-	dopt->schemaOnly = ropt->schemaOnly;
+	dopt->dumpData = ropt->dumpData;
+	dopt->dumpSchema = ropt->dumpSchema;
 	dopt->if_exists = ropt->if_exists;
 	dopt->column_inserts = ropt->column_inserts;
 	dopt->dumpSections = ropt->dumpSections;
@@ -434,12 +439,12 @@ RestoreArchive(Archive *AHX)
 	 * Work out if we have an implied data-only restore. This can happen if
 	 * the dump was data only or if the user has used a toc list to exclude
 	 * all of the schema data. All we do is look for schema entries - if none
-	 * are found then we set the dataOnly flag.
+	 * are found then we unset the dumpSchema flag.
 	 *
 	 * We could scan for wanted TABLE entries, but that is not the same as
-	 * dataOnly. At this stage, it seems unnecessary (6-Mar-2001).
+	 * data-only. At this stage, it seems unnecessary (6-Mar-2001).
 	 */
-	if (!ropt->dataOnly)
+	if (ropt->dumpSchema)
 	{
 		int			impliedDataOnly = 1;
 
@@ -453,7 +458,7 @@ RestoreArchive(Archive *AHX)
 		}
 		if (impliedDataOnly)
 		{
-			ropt->dataOnly = impliedDataOnly;
+			ropt->dumpSchema = false;
 			pg_log_info("implied data-only restore");
 		}
 	}
@@ -793,7 +798,7 @@ restore_toc_entry(ArchiveHandle *AH, TocEntry *te, bool is_parallel)
 	/* Dump any relevant dump warnings to stderr */
 	if (!ropt->suppressDumpWarnings && strcmp(te->desc, "WARNING") == 0)
 	{
-		if (!ropt->dataOnly && te->defn != NULL && strlen(te->defn) != 0)
+		if (ropt->dumpSchema && te->defn != NULL && strlen(te->defn) != 0)
 			pg_log_warning("warning from original dump file: %s", te->defn);
 		else if (te->copyStmt != NULL && strlen(te->copyStmt) != 0)
 			pg_log_warning("warning from original dump file: %s", te->copyStmt);
@@ -1011,6 +1016,8 @@ NewRestoreOptions(void)
 	opts->dumpSections = DUMP_UNSECTIONED;
 	opts->compression_spec.algorithm = PG_COMPRESSION_NONE;
 	opts->compression_spec.level = 0;
+	opts->dumpSchema = true;
+	opts->dumpData = true;
 
 	return opts;
 }
@@ -1021,7 +1028,7 @@ _disableTriggersIfNecessary(ArchiveHandle *AH, TocEntry *te)
 	RestoreOptions *ropt = AH->public.ropt;
 
 	/* This hack is only needed in a data-only restore */
-	if (!ropt->dataOnly || !ropt->disable_triggers)
+	if (ropt->dumpSchema || !ropt->disable_triggers)
 		return;
 
 	pg_log_info("disabling triggers for %s", te->tag);
@@ -1047,7 +1054,7 @@ _enableTriggersIfNecessary(ArchiveHandle *AH, TocEntry *te)
 	RestoreOptions *ropt = AH->public.ropt;
 
 	/* This hack is only needed in a data-only restore */
-	if (!ropt->dataOnly || !ropt->disable_triggers)
+	if (ropt->dumpSchema || !ropt->disable_triggers)
 		return;
 
 	pg_log_info("enabling triggers for %s", te->tag);
@@ -2823,6 +2830,19 @@ _tocEntryRequired(TocEntry *te, teSection curSection, ArchiveHandle *AH)
 	int			res = REQ_SCHEMA | REQ_DATA;
 	RestoreOptions *ropt = AH->public.ropt;
 
+	/*
+	 * For binary upgrade mode, dump pg_largeobject_metadata and the
+	 * associated pg_shdepend rows. This is faster to restore than the
+	 * equivalent set of large object commands.  We can only do this for
+	 * upgrades from v12 and newer; in older versions, pg_largeobject_metadata
+	 * was created WITH OIDS, so the OID column is hidden and won't be dumped.
+	 */
+	if (ropt->binary_upgrade && AH->public.remoteVersion >= 120000 &&
+		strcmp(te->desc, "TABLE DATA") == 0 &&
+		(te->catalogId.oid == LargeObjectMetadataRelationId ||
+		 te->catalogId.oid == SharedDependRelationId))
+		return REQ_DATA;
+
 	/* These items are treated specially */
 	if (strcmp(te->desc, "ENCODING") == 0 ||
 		strcmp(te->desc, "STDSTRINGS") == 0 ||
@@ -3090,13 +3110,13 @@ _tocEntryRequired(TocEntry *te, teSection curSection, ArchiveHandle *AH)
 	if ((strcmp(te->desc, "<Init>") == 0) && (strcmp(te->tag, "Max OID") == 0))
 		return 0;
 
-	/* Mask it if we only want schema */
-	if (ropt->schemaOnly)
+	/* Mask it if we don't want data */
+	if (!ropt->dumpData)
 	{
 		/*
-		 * The sequence_data option overrides schemaOnly for SEQUENCE SET.
+		 * The sequence_data option overrides dumpData for SEQUENCE SET.
 		 *
-		 * In binary-upgrade mode, even with schemaOnly set, we do not mask
+		 * In binary-upgrade mode, even with dumpData unset, we do not mask
 		 * out large objects.  (Only large object definitions, comments and
 		 * other metadata should be generated in binary-upgrade mode, not the
 		 * actual data, but that need not concern us here.)
@@ -3113,8 +3133,8 @@ _tocEntryRequired(TocEntry *te, teSection curSection, ArchiveHandle *AH)
 			res = res & REQ_SCHEMA;
 	}
 
-	/* Mask it if we only want data */
-	if (ropt->dataOnly)
+	/* Mask it if we don't want schema */
+	if (!ropt->dumpSchema)
 		res = res & REQ_DATA;
 
 	return res;
@@ -3186,6 +3206,7 @@ _doSetFixedOutputState(ArchiveHandle *AH)
 	ahprintf(AH, "SET statement_timeout = 0;\n");
 	ahprintf(AH, "SET lock_timeout = 0;\n");
 	ahprintf(AH, "SET idle_in_transaction_session_timeout = 0;\n");
+	ahprintf(AH, "SET transaction_timeout = 0;\n");
 
 	/* Select the correct character set encoding */
 	ahprintf(AH, "SET client_encoding = '%s';\n",

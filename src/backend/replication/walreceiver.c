@@ -54,6 +54,7 @@
 #include "access/htup_details.h"
 #include "access/timeline.h"
 #include "access/transam.h"
+#include "access/xlog.h"
 #include "access/xlog_internal.h"
 #include "access/xlogarchive.h"
 #include "access/xlogrecovery.h"
@@ -62,6 +63,7 @@
 #include "common/ip.h"
 #include "funcapi.h"
 #include "libpq/pqformat.h"
+#include "libpq/protocol.h"
 #include "libpq/pqsignal.h"
 #include "miscadmin.h"
 #include "pgstat.h"
@@ -94,6 +96,12 @@ bool		hot_standby_feedback;
 /* libpqwalreceiver connection */
 static WalReceiverConn *wrconn = NULL;
 WalReceiverFunctionsType *WalReceiverFunctions = NULL;
+
+/*
+ * Server's WAL flush position from the last IDENTIFY_SYSTEM call.
+ * Written by libpqwalreceiver, read by walreceiver main loop.
+ */
+XLogRecPtr	WalRcvIdentifySystemLsn = InvalidXLogRecPtr;
 
 /*
  * These variables are used similarly to openLogFile/SegNo,
@@ -134,6 +142,17 @@ static TimestampTz wakeup[NUM_WALRCV_WAKEUPS];
 static StringInfoData reply_message;
 static StringInfoData incoming_message;
 
+static TimeLineID primary_last_archived_tli = 0;
+static XLogSegNo primary_last_archived_segno = 0;
+
+/*
+ * Last segment we successfully marked as .done. Used to optimize
+ * ProcessArchivalReport() by generating expected filenames instead
+ * of scanning the archive_status directory.
+ */
+static TimeLineID last_processed_tli = 0;
+static XLogSegNo last_processed_segno = 0;
+
 /* Prototypes for private functions */
 static void WalRcvFetchTimeLineHistoryFiles(TimeLineID first, TimeLineID last);
 static void WalRcvWaitForStartPosition(XLogRecPtr *startpoint, TimeLineID *startpointTLI);
@@ -147,6 +166,7 @@ static void XLogWalRcvClose(XLogRecPtr recptr, TimeLineID tli);
 static void XLogWalRcvSendReply(bool force, bool requestReply);
 static void XLogWalRcvSendHSFeedback(bool immed);
 static void ProcessWalSndrMessage(XLogRecPtr walEnd, TimestampTz sendTime);
+static void ProcessArchivalReport(const char * primary_last_archived);
 static void WalRcvComputeNextWakeup(WalRcvWakeupReason reason, TimestampTz now);
 
 /*
@@ -194,6 +214,8 @@ WalReceiverMain(void)
 	TimeLineID	startpointTLI;
 	TimeLineID	primaryTLI;
 	bool		first_stream;
+	bool		upstream_catchup_logged = false;
+	TimestampTz upstream_catchup_deadline = 0;
 	WalRcvData *walrcv = WalRcv;
 	TimestampTz now;
 	char	   *err;
@@ -339,8 +361,10 @@ WalReceiverMain(void)
 
 		/*
 		 * Check that we're connected to a valid server using the
-		 * IDENTIFY_SYSTEM replication command.
+		 * IDENTIFY_SYSTEM replication command.  Reset the global LSN
+		 * first so we don't act on a stale value if the call fails.
 		 */
+		WalRcvIdentifySystemLsn = InvalidXLogRecPtr;
 		primary_sysid = walrcv_identify_system(wrconn, &primaryTLI);
 
 		snprintf(standby_sysid, sizeof(standby_sysid), UINT64_FORMAT,
@@ -363,6 +387,72 @@ WalReceiverMain(void)
 					(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
 					 errmsg("highest timeline %u of the primary is behind recovery timeline %u",
 							primaryTLI, startpointTLI)));
+
+		/*
+		 * If our requested startpoint is ahead of the upstream server's
+		 * current WAL flush position, we cannot start streaming yet.  (We say
+		 * "upstream" here and not "primary" because this condition can only
+		 * happen on a cascading standby.)  This can happen when such a
+		 * cascading standby has advanced past the upstream via archive
+		 * recovery but the intermediate standby has not caught up with that
+		 * yet.  In this case, wait for the upstream to catch up before
+		 * attempting START_REPLICATION, because that would fail with
+		 * "requested starting point is ahead of the WAL flush position".
+		 *
+		 * We only perform this check when we're on the same timeline as the
+		 * primary; when timelines differ, let START_REPLICATION handle the
+		 * timeline negotiation.
+		 *
+		 * We also only wait if the gap is within one WAL segment.  This is
+		 * the expected case because archive recovery processes whole segment
+		 * files: the cascade's next read position lands at the start of the
+		 * following segment while the upstream's flush position is still
+		 * inside the just-replayed one, producing at most a sub-segment gap.
+		 * A larger gap means the upstream is genuinely behind, so we let
+		 * START_REPLICATION fail normally and allow the startup process to
+		 * fall back to other WAL sources.
+		 *
+		 * Honor wal_receiver_timeout so the walreceiver doesn't wait
+		 * indefinitely: if the upstream hasn't caught up within the timeout,
+		 * exit and let the startup process retry normally.
+		 */
+		if (startpointTLI == primaryTLI &&
+			XLogRecPtrIsValid(WalRcvIdentifySystemLsn) &&
+			startpoint > WalRcvIdentifySystemLsn &&
+			startpoint - WalRcvIdentifySystemLsn <= wal_segment_size)
+		{
+			/* Set deadline on first iteration */
+			if (!upstream_catchup_logged && wal_receiver_timeout > 0)
+				upstream_catchup_deadline =
+					TimestampTzPlusMilliseconds(GetCurrentTimestamp(),
+												wal_receiver_timeout);
+
+			ereport(upstream_catchup_logged ? DEBUG1 : LOG,
+					errmsg("walreceiver requested start point %X/%08X on timeline %u is ahead of the upstream server's flush position %X/%08X, waiting",
+						   LSN_FORMAT_ARGS(startpoint), startpointTLI,
+						   LSN_FORMAT_ARGS(WalRcvIdentifySystemLsn)));
+			upstream_catchup_logged = true;
+
+			(void) WaitLatch(MyLatch,
+							 WL_EXIT_ON_PM_DEATH | WL_TIMEOUT | WL_LATCH_SET,
+							 wal_retrieve_retry_interval,
+							 WAIT_EVENT_WAL_RECEIVER_UPSTREAM_CATCHUP);
+			ResetLatch(MyLatch);
+
+			if (upstream_catchup_deadline > 0 &&
+				GetCurrentTimestamp() >= upstream_catchup_deadline)
+				ereport(ERROR,
+						(errcode(ERRCODE_CONNECTION_FAILURE),
+						 errmsg("terminating walreceiver due to timeout while waiting for upstream to catch up")));
+
+			CHECK_FOR_INTERRUPTS();
+			continue;
+		}
+		else
+		{
+			upstream_catchup_logged = false;
+			upstream_catchup_deadline = 0;
+		}
 
 		/*
 		 * Get any missing history files. We do this always, even when we're
@@ -842,6 +932,7 @@ XLogWalRcvProcessMsg(unsigned char type, char *buf, Size len, TimeLineID tli)
 	XLogRecPtr	walEnd;
 	TimestampTz sendTime;
 	bool		replyRequested;
+	char		primary_last_archived[MAX_XFN_CHARS + 1];
 
 	resetStringInfo(&incoming_message);
 
@@ -888,6 +979,34 @@ XLogWalRcvProcessMsg(unsigned char type, char *buf, Size len, TimeLineID tli)
 				/* If the primary requested a reply, send one immediately */
 				if (replyRequested)
 					XLogWalRcvSendReply(true, false);
+				break;
+			}
+		case PqReplMsg_ArchiveStatusReport:
+			{
+				/* Check that the filename looks valid */
+				if (len >= sizeof(primary_last_archived))
+					ereport(ERROR,
+							(errcode(ERRCODE_PROTOCOL_VIOLATION),
+							 errmsg_internal("invalid archival report message with length %d, expected at most %ld",
+											 (int) len, sizeof(primary_last_archived))));
+
+				memcpy(primary_last_archived, buf, len);
+				primary_last_archived[len] = '\0';
+
+				/* Verify it contains only valid characters */
+				if (strspn(buf, VALID_XFN_CHARS) != len)
+				{
+					ereport(ERROR,
+							(errcode(ERRCODE_PROTOCOL_VIOLATION),
+							 errmsg_internal("unexpected character in primary's last archived filename")));
+				}
+
+
+				SpinLockAcquire(&PgArch->lock);
+				memcpy(PgArch->primary_last_archived, primary_last_archived, sizeof(PgArch->primary_last_archived));
+				SpinLockRelease(&PgArch->lock);
+
+				ProcessArchivalReport(primary_last_archived);
 				break;
 			}
 		default:
@@ -1068,12 +1187,48 @@ XLogWalRcvClose(XLogRecPtr recptr, TimeLineID tli)
 
 	/*
 	 * Create .done file forcibly to prevent the streamed segment from being
-	 * archived later.
+	 * archived later, unless archive_mode is 'always' or 'shared'.
+	 *
+	 * In 'always' mode, the standby archives independently.
+	 *
+	 * In 'shared' mode, we optimize by checking if this segment is already
+	 * covered by the last archival report from the primary. If so, create
+	 * .done directly. Otherwise, create .ready and wait for the next report.
+	 *
+	 * The space_saver override (ycmdb.shared_archive_space_saver) disables the
+	 * shared retention path: we force .done so the segment can be recycled
+	 * immediately instead of waiting for an archival report.
 	 */
-	if (XLogArchiveMode != ARCHIVE_MODE_ALWAYS)
-		XLogArchiveForceDone(xlogfname);
-	else
+	if (XLogArchiveMode == ARCHIVE_MODE_ALWAYS)
+	{
 		XLogArchiveNotify(xlogfname);
+	}
+	else if (SharedArchiveRetentionActive())
+	{
+		/*
+		 * In shared mode, check if this segment is already archived on primary.
+		 * If we're on the same timeline and this segment is <= last archived,
+		 * mark it .done immediately. Otherwise create .ready.
+		 *
+		 * We don't check ancestor timeline cases here to avoid reading timeline
+		 * history files on every segment close. ProcessArchivalReport() will
+		 * handle marking ancestor timeline segments as .done when it scans
+		 * the archive_status directory.
+		 */
+		if (primary_last_archived_tli == recvFileTLI &&
+			recvSegNo <= primary_last_archived_segno)
+		{
+			XLogArchiveForceDone(xlogfname);
+		}
+		else
+		{
+			XLogArchiveNotify(xlogfname);
+		}
+	}
+	else
+	{
+		XLogArchiveForceDone(xlogfname);
+	}
 
 	recvFile = -1;
 }
@@ -1248,6 +1403,187 @@ XLogWalRcvSendHSFeedback(bool immed)
 		primary_has_standby_xmin = true;
 	else
 		primary_has_standby_xmin = false;
+}
+
+/*
+ * Process archival report from primary.
+ *
+ * The primary sends us the last WAL segment it has archived. We scan the
+ * archive_status directory for .ready files and mark segments on the same
+ * timeline as .done if they're <= the reported segment.
+ */
+static void
+ProcessArchivalReport(const char *primary_last_archived)
+{
+	TimeLineID	reported_tli;
+	XLogSegNo	reported_segno;
+	char		status_path[MAXPGPATH];
+	bool		use_direct_check = false;
+	XLogSegNo	start_segno;
+
+	elog(DEBUG2, "received archival report from primary: %s",
+		 primary_last_archived);
+
+	/* Parse the reported WAL filename */
+	if (!IsXLogFileName(primary_last_archived))
+	{
+		elog(DEBUG2, "invalid WAL filename in archival report: %s",
+			 primary_last_archived);
+		return;
+	}
+
+	XLogFromFileName(primary_last_archived, &reported_tli, &reported_segno,
+					 wal_segment_size);
+
+	/* Remember the last archived segment for XLogWalRcvClose() */
+	primary_last_archived_tli = reported_tli;
+	primary_last_archived_segno = reported_segno;
+
+	/*
+	 * Optimization: If the new report is on the same timeline as the last
+	 * processed segment and moves forward, we can directly check for .ready
+	 * files for segments between last_processed_segno and reported_segno
+	 * instead of scanning the entire archive_status directory.
+	 *
+	 * Fall back to directory scan if:
+	 * - Timeline changed (need to handle ancestor timelines)
+	 * - This is the first report (last_processed_tli == 0)
+	 * - Reported segment is not ahead (nothing new to process)
+	 */
+	if (last_processed_tli == reported_tli &&
+		last_processed_tli != 0 &&
+		reported_segno > last_processed_segno)
+	{
+		use_direct_check = true;
+		start_segno = last_processed_segno + 1;
+	}
+
+	if (use_direct_check)
+	{
+		/*
+		 * Direct check: generate filenames for expected segments.
+		 * XLogArchiveForceDone() will handle the case where .ready doesn't
+		 * exist or .done already exists, so no need to stat() first.
+		 */
+		XLogSegNo	segno;
+
+		for (segno = start_segno; segno <= reported_segno; segno++)
+		{
+			char		walfile[MAXFNAMELEN];
+
+			/* Generate WAL filename and mark as archived */
+			XLogFileName(walfile, reported_tli, segno, wal_segment_size);
+			XLogArchiveForceDone(walfile);
+			elog(DEBUG3, "marked WAL segment %s as archived (primary archived up to %s)",
+				 walfile, primary_last_archived);
+
+			/* Track the last segment we processed */
+			last_processed_tli = reported_tli;
+			last_processed_segno = segno;
+		}
+	}
+	else
+	{
+		/*
+		 * Directory scan: needed when timeline changed or first report.
+		 * This handles both same-timeline and ancestor-timeline cases.
+		 */
+		DIR		   *status_dir;
+		struct dirent *status_de;
+		List	   *tli_history = NIL;
+
+		snprintf(status_path, MAXPGPATH, XLOGDIR "/archive_status");
+		status_dir = AllocateDir(status_path);
+		if (status_dir == NULL)
+		{
+			elog(DEBUG2, "could not open archive_status directory: %m");
+			return;
+		}
+
+		while ((status_de = ReadDir(status_dir, status_path)) != NULL)
+		{
+			char	   *ready_suffix;
+			char		walfile[MAXPGPATH];
+			TimeLineID	file_tli;
+			XLogSegNo	file_segno;
+
+			/* Look for .ready files only */
+			ready_suffix = strstr(status_de->d_name, ".ready");
+			if (ready_suffix == NULL || ready_suffix[6] != '\0')
+				continue;
+
+			/* Extract WAL filename (remove .ready suffix) */
+			strlcpy(walfile, status_de->d_name, ready_suffix - status_de->d_name + 1);
+
+			/* Parse the WAL filename */
+			if (!IsXLogFileName(walfile))
+				continue;
+
+			XLogFromFileName(walfile, &file_tli, &file_segno, wal_segment_size);
+
+			/*
+			 * Mark as .done if:
+			 * 1. Same timeline and segment <= reported segment, OR
+			 * 2. Ancestor timeline and segment is before the timeline switch point
+			 *
+			 * For ancestor timelines: if primary archived segment X on timeline T,
+			 * then all segments on ancestor timelines before the switch to T must
+			 * have been archived (they're required to reach timeline T).
+			 */
+			if (file_tli == reported_tli && file_segno <= reported_segno)
+			{
+				/* Same timeline, segment already archived */
+				XLogArchiveForceDone(walfile);
+				elog(DEBUG3, "marked WAL segment %s as archived (primary archived up to %s)",
+					 walfile, primary_last_archived);
+			}
+			else if (file_tli != reported_tli)
+			{
+				/*
+				 * Different timeline - check if it's an ancestor and if this
+				 * segment is before the timeline switch point. Only read timeline
+				 * history if we haven't already (lazy loading).
+				 *
+				 * Note: Timelines form a tree structure, not a linear sequence,
+				 * so we can't use < or > to compare them.
+				 */
+				if (tli_history == NIL)
+					tli_history = readTimeLineHistory(reported_tli);
+
+				if (tliInHistory(file_tli, tli_history))
+				{
+					XLogRecPtr	switchpoint;
+					XLogSegNo	switchpoint_segno;
+
+					/* Get the point where we switched away from this timeline */
+					switchpoint = tliSwitchPoint(file_tli, tli_history, NULL);
+
+					/*
+					 * If the segment is at or before the switch point, it must have
+					 * been archived (it's required to reach the reported timeline).
+					 * The segment containing the switch point belongs to the old
+					 * timeline up to the switch point and should be archived.
+					 */
+					XLByteToSeg(switchpoint, switchpoint_segno, wal_segment_size);
+					if (file_segno <= switchpoint_segno)
+					{
+						XLogArchiveForceDone(walfile);
+						elog(DEBUG3, "marked ancestor timeline segment %s as archived (before switch to timeline %u)",
+							 walfile, reported_tli);
+					}
+				}
+			}
+		}
+
+		FreeDir(status_dir);
+
+		/*
+		 * After a full directory scan following a timeline change, update
+		 * our tracking to the newly reported position for future optimizations.
+		 */
+		last_processed_tli = reported_tli;
+		last_processed_segno = reported_segno;
+	}
 }
 
 /*

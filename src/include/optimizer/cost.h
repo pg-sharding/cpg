@@ -70,6 +70,7 @@ extern PGDLLIMPORT bool enable_parallel_hash;
 extern PGDLLIMPORT bool enable_partition_pruning;
 extern PGDLLIMPORT bool enable_presorted_aggregate;
 extern PGDLLIMPORT bool enable_async_append;
+extern PGDLLIMPORT bool enable_join_predicate_pushdown;
 extern PGDLLIMPORT int constraint_exclusion;
 
 extern double index_pages_fetched(double tuples_fetched, BlockNumber pages,
@@ -199,7 +200,7 @@ extern void set_joinrel_size_estimates(PlannerInfo *root, RelOptInfo *rel,
 									   RelOptInfo *inner_rel,
 									   SpecialJoinInfo *sjinfo,
 									   List *restrictlist);
-extern void set_subquery_size_estimates(PlannerInfo *root, RelOptInfo *rel);
+extern void set_subquery_size_estimates(PlannerInfo *root, RelOptInfo *rel, PlannerInfo *subroot);
 extern void set_function_size_estimates(PlannerInfo *root, RelOptInfo *rel);
 extern void set_values_size_estimates(PlannerInfo *root, RelOptInfo *rel);
 extern void set_cte_size_estimates(PlannerInfo *root, RelOptInfo *rel,

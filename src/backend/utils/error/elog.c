@@ -114,6 +114,7 @@ int			Log_destination = LOG_DESTINATION_STDERR;
 char	   *Log_destination_string = NULL;
 bool		syslog_sequence_numbers = true;
 bool		syslog_split_messages = true;
+int			max_log_size = 0;
 
 /* Processed form of backtrace_symbols GUC */
 static char *backtrace_symbol_list;
@@ -1696,6 +1697,10 @@ EmitErrorReport(void)
 	CHECK_STACK_DEPTH();
 	oldcontext = MemoryContextSwitchTo(edata->assoc_context);
 
+	const char* old_query_string = debug_query_string;
+	bool copied = false;
+	debug_query_string = build_query_log(debug_query_string, &copied);
+
 	/*
 	 * Call hook before sending message to log.  The hook function is allowed
 	 * to turn off edata->output_to_server, so we must recheck that afterward.
@@ -1728,6 +1733,12 @@ EmitErrorReport(void)
 
 	MemoryContextSwitchTo(oldcontext);
 	recursion_depth--;
+
+	if (debug_query_string && copied)
+	{
+		pfree(debug_query_string);
+		debug_query_string = old_query_string;
+	}
 }
 
 /*
@@ -3828,4 +3839,25 @@ trace_recovery(int trace_level)
 		return LOG;
 
 	return trace_level;
+}
+
+char*
+build_query_log(const char* query, bool *copied)
+{
+	*copied = false;
+	if (!query)
+		return NULL;
+
+	size_t query_len = strlen(query);
+	if (max_log_size == 0 || query_len < max_log_size)
+	{
+		return query;
+	}
+
+	*copied = true;
+	size_t query_log_len = pg_mbcliplen(query, query_len, max_log_size);
+	char* query_log = (char*)palloc(query_log_len+1);
+	memcpy(query_log, query, query_log_len);
+	query_log[query_log_len] = '\0';
+	return query_log;
 }
