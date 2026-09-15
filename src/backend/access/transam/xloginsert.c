@@ -69,6 +69,7 @@ typedef struct
 {
 	bool		in_use;			/* is this slot in use? */
 	uint8		flags;			/* REGBUF_* flags */
+	bool		no_compress;	/* don't compress full-page image */
 	RelFileLocator rlocator;	/* identifies the relation and block */
 	ForkNumber	forkno;
 	BlockNumber block;
@@ -273,6 +274,7 @@ XLogRegisterBuffer(uint8 block_id, Buffer buffer, uint8 flags)
 	BufferGetTag(buffer, &regbuf->rlocator, &regbuf->forkno, &regbuf->block);
 	regbuf->page = BufferGetPage(buffer);
 	regbuf->flags = flags;
+	regbuf->no_compress = (flags & REGBUF_NO_COMPRESS) != 0;
 	regbuf->rdata_tail = (XLogRecData *) &regbuf->rdata_head;
 	regbuf->rdata_len = 0;
 
@@ -326,6 +328,7 @@ XLogRegisterBlock(uint8 block_id, RelFileLocator *rlocator, ForkNumber forknum,
 	regbuf->block = blknum;
 	regbuf->page = page;
 	regbuf->flags = flags;
+	regbuf->no_compress = (flags & REGBUF_NO_COMPRESS) != 0;
 	regbuf->rdata_tail = (XLogRecData *) &regbuf->rdata_head;
 	regbuf->rdata_len = 0;
 
@@ -683,9 +686,13 @@ XLogRecordAssemble(RmgrId rmid, uint8 info,
 			}
 
 			/*
-			 * Try to compress a block image if wal_compression is enabled
+			 * Try to compress a block image if wal_compression is enabled.
+			 * Skip compression for buffers registered with
+			 * REGBUF_NO_COMPRESS (currently pg_authid, to avoid leaking
+			 * password material via the compressed image length).
 			 */
-			if (wal_compression != WAL_COMPRESSION_NONE)
+			if (wal_compression != WAL_COMPRESSION_NONE &&
+				!regbuf->no_compress)
 			{
 				is_compressed =
 					XLogCompressBackupBlock(page, bimg.hole_offset,
