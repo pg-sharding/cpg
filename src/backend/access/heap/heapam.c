@@ -56,17 +56,15 @@
 #include "utils/syscache.h"
 
 /*
- * OR REGBUF_NO_COMPRESS into the flags when the relation is pg_authid.
- * pg_authid stores role passwords inline (no TOAST table), so compressing
- * its full-page images would leak password material via the compressed
- * image length.
+ * Returns true if the relation's full-page images must never be compressed
+ * in WAL.  pg_authid stores role passwords inline (no TOAST table), so
+ * compressing its full-page images would leak password material via the
+ * compressed image length.
  */
-uint8
-heap_compress_flags_for_rel(Relation rel, uint8 flags)
+bool
+heap_no_compress_fpi(Relation rel)
 {
-	if (unlikely(RelationGetRelid(rel) == AuthIdRelationId))
-		flags |= REGBUF_NO_COMPRESS;
-	return flags;
+	return unlikely(RelationGetRelid(rel) == AuthIdRelationId);
 }
 
 

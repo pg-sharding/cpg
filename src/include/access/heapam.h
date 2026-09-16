@@ -286,11 +286,11 @@ typedef enum
 #define HeapScanIsValid(scan) PointerIsValid(scan)
 
 /*
- * OR REGBUF_NO_COMPRESS into the flags if the relation's full-page images
- * must not be compressed in WAL (pg_authid, which stores role passwords
- * inline; see heapam.c).
+ * Returns true if the relation's full-page images must never be compressed
+ * in WAL (pg_authid, which stores role passwords inline; see heapam.c).
+ * Pass as the no_compress argument of XLogRegisterBufferExt() and friends.
  */
-extern uint8 heap_compress_flags_for_rel(Relation rel, uint8 flags);
+extern bool heap_no_compress_fpi(Relation rel);
 
 extern TableScanDesc heap_beginscan(Relation relation, Snapshot snapshot,
 									int nkeys, ScanKey key,

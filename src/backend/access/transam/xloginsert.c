@@ -242,6 +242,17 @@ XLogResetInsertion(void)
 void
 XLogRegisterBuffer(uint8 block_id, Buffer buffer, uint8 flags)
 {
+	XLogRegisterBufferExt(block_id, buffer, flags, false);
+}
+
+/*
+ * Extended version of XLogRegisterBuffer(): see the declaration in
+ * xloginsert.h.
+ */
+void
+XLogRegisterBufferExt(uint8 block_id, Buffer buffer, uint8 flags,
+					  bool no_compress)
+{
 	registered_buffer *regbuf;
 
 	/* NO_IMAGE doesn't make sense with FORCE_IMAGE */
@@ -274,7 +285,7 @@ XLogRegisterBuffer(uint8 block_id, Buffer buffer, uint8 flags)
 	BufferGetTag(buffer, &regbuf->rlocator, &regbuf->forkno, &regbuf->block);
 	regbuf->page = BufferGetPage(buffer);
 	regbuf->flags = flags;
-	regbuf->no_compress = (flags & REGBUF_NO_COMPRESS) != 0;
+	regbuf->no_compress = no_compress;
 	regbuf->rdata_tail = (XLogRecData *) &regbuf->rdata_head;
 	regbuf->rdata_len = 0;
 
@@ -311,6 +322,19 @@ void
 XLogRegisterBlock(uint8 block_id, RelFileLocator *rlocator, ForkNumber forknum,
 				  BlockNumber blknum, const PageData *page, uint8 flags)
 {
+	XLogRegisterBlockExt(block_id, rlocator, forknum, blknum, page, flags,
+						 false);
+}
+
+/*
+ * Extended version of XLogRegisterBlock(): see the declaration in
+ * xloginsert.h.
+ */
+void
+XLogRegisterBlockExt(uint8 block_id, RelFileLocator *rlocator, ForkNumber forknum,
+					 BlockNumber blknum, const PageData *page, uint8 flags,
+					 bool no_compress)
+{
 	registered_buffer *regbuf;
 
 	Assert(begininsert_called);
@@ -328,7 +352,7 @@ XLogRegisterBlock(uint8 block_id, RelFileLocator *rlocator, ForkNumber forknum,
 	regbuf->block = blknum;
 	regbuf->page = page;
 	regbuf->flags = flags;
-	regbuf->no_compress = (flags & REGBUF_NO_COMPRESS) != 0;
+	regbuf->no_compress = no_compress;
 	regbuf->rdata_tail = (XLogRecData *) &regbuf->rdata_head;
 	regbuf->rdata_len = 0;
 
@@ -687,9 +711,9 @@ XLogRecordAssemble(RmgrId rmid, uint8 info,
 
 			/*
 			 * Try to compress a block image if wal_compression is enabled.
-			 * Skip compression for buffers registered with
-			 * REGBUF_NO_COMPRESS (currently pg_authid, to avoid leaking
-			 * password material via the compressed image length).
+			 * Skip compression for buffers registered with no_compress
+			 * (currently pg_authid, to avoid leaking password material
+			 * via the compressed image length).
 			 */
 			if (wal_compression != WAL_COMPRESSION_NONE &&
 				!regbuf->no_compress)
@@ -1137,10 +1161,8 @@ XLogSaveBufferForHint(Buffer buffer, bool buffer_std)
 		 * nothing.  (Unlike a relfilenode comparison, dbOid == 0 remains
 		 * valid after operations like VACUUM FULL.)
 		 */
-		if (rlocator.dbOid == 0)
-			flags |= REGBUF_NO_COMPRESS;
-
-		XLogRegisterBlock(0, &rlocator, forkno, blkno, copied_buffer.data, flags);
+		XLogRegisterBlockExt(0, &rlocator, forkno, blkno, copied_buffer.data,
+							 flags, rlocator.dbOid == 0);
 
 		recptr = XLogInsert(RM_XLOG_ID, XLOG_FPI_FOR_HINT);
 	}
@@ -1194,7 +1216,7 @@ log_newpage(RelFileLocator *rlocator, ForkNumber forknum, BlockNumber blkno,
  */
 void
 log_newpages(RelFileLocator *rlocator, ForkNumber forknum, int num_pages,
-			 BlockNumber *blknos, Page *pages, bool page_std)
+			 BlockNumber *blknos, Page *pages, bool page_std, bool no_compress)
 {
 	int			flags;
 	XLogRecPtr	recptr;
@@ -1223,7 +1245,8 @@ log_newpages(RelFileLocator *rlocator, ForkNumber forknum, int num_pages,
 		nbatch = 0;
 		while (nbatch < XLR_MAX_BLOCK_ID && i < num_pages)
 		{
-			XLogRegisterBlock(nbatch, rlocator, forknum, blknos[i], pages[i], flags);
+			XLogRegisterBlockExt(nbatch, rlocator, forknum, blknos[i],
+								 pages[i], flags, no_compress);
 			i++;
 			nbatch++;
 		}
