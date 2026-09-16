@@ -111,6 +111,7 @@
 #include "access/transam.h"
 #include "access/xact.h"
 #include "access/xloginsert.h"
+#include "catalog/storage.h"
 #include "common/file_utils.h"
 #include "lib/ilist.h"
 #include "miscadmin.h"
@@ -260,7 +261,26 @@ begin_heap_rewrite(Relation old_heap, Relation new_heap, TransactionId oldest_xm
 	state->rs_freeze_xid = freeze_xid;
 	state->rs_cutoff_multi = cutoff_multi;
 	state->rs_cxt = rw_cxt;
-	state->rs_bulkstate = smgr_bulk_start_rel(new_heap, MAIN_FORKNUM);
+	/*
+	 * WAL-log the rewritten pages.  The new heap has a different rel OID
+	 * than the original relation, so check the *old* relation: e.g. a
+	 * VACUUM FULL of pg_authid rewrites pages that contain role
+	 * passwords, and their full-page images must not be compressed (see
+	 * heap_no_compress_fpi()).
+	 */
+	state->rs_bulkstate =
+		smgr_bulk_start_smgr(RelationGetSmgr(new_heap), MAIN_FORKNUM,
+							 RelationNeedsWAL(new_heap),
+							 heap_no_compress_fpi(old_heap));
+
+	/*
+	 * If WAL-logging is skipped for the new heap (wal_level=minimal),
+	 * smgrDoPendingSyncs() may WAL-log the whole relation at commit; make
+	 * sure those full-page images are not compressed either.
+	 */
+	if (heap_no_compress_fpi(old_heap))
+		RelationMarkNoCompressFPI(
+			&RelationGetSmgr(new_heap)->smgr_rlocator.locator);
 
 	/* Initialize hash tables used to track update chains */
 	hash_ctl.keysize = sizeof(TidHashKey);

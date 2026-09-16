@@ -36,6 +36,7 @@
  */
 #include "postgres.h"
 
+#include "access/heapam.h"
 #include "access/xloginsert.h"
 #include "access/xlogrecord.h"
 #include "storage/bufpage.h"
@@ -64,6 +65,7 @@ struct BulkWriteState
 	SMgrRelation smgr;
 	ForkNumber	forknum;
 	bool		use_wal;
+	bool		no_compress_fpi;	/* never compress full-page images */
 
 	/* We keep several writes queued, and WAL-log them in batches */
 	int			npending;
@@ -88,7 +90,8 @@ smgr_bulk_start_rel(Relation rel, ForkNumber forknum)
 {
 	return smgr_bulk_start_smgr(RelationGetSmgr(rel),
 								forknum,
-								RelationNeedsWAL(rel) || forknum == INIT_FORKNUM);
+								RelationNeedsWAL(rel) || forknum == INIT_FORKNUM,
+								heap_no_compress_fpi(rel));
 }
 
 /*
@@ -97,7 +100,8 @@ smgr_bulk_start_rel(Relation rel, ForkNumber forknum)
  * This is like smgr_bulk_start_rel, but can be used without a relcache entry.
  */
 BulkWriteState *
-smgr_bulk_start_smgr(SMgrRelation smgr, ForkNumber forknum, bool use_wal)
+smgr_bulk_start_smgr(SMgrRelation smgr, ForkNumber forknum, bool use_wal,
+					  bool no_compress_fpi)
 {
 	BulkWriteState *state;
 
@@ -105,6 +109,7 @@ smgr_bulk_start_smgr(SMgrRelation smgr, ForkNumber forknum, bool use_wal)
 	state->smgr = smgr;
 	state->forknum = forknum;
 	state->use_wal = use_wal;
+	state->no_compress_fpi = no_compress_fpi;
 
 	state->npending = 0;
 	state->relsize = smgrnblocks(smgr, forknum);
@@ -271,7 +276,8 @@ smgr_bulk_flush(BulkWriteState *bulkstate)
 				page_std = false;
 		}
 		log_newpages(&bulkstate->smgr->smgr_rlocator.locator, bulkstate->forknum,
-					 npending, blknos, pages, page_std);
+					 npending, blknos, pages, page_std,
+					 bulkstate->no_compress_fpi);
 	}
 
 	for (int i = 0; i < npending; i++)

@@ -40,6 +40,7 @@
 #include "access/valid.h"
 #include "access/visibilitymap.h"
 #include "access/xloginsert.h"
+#include "catalog/pg_authid.h"
 #include "catalog/pg_database.h"
 #include "catalog/pg_database_d.h"
 #include "commands/vacuum.h"
@@ -53,6 +54,18 @@
 #include "utils/inval.h"
 #include "utils/spccache.h"
 #include "utils/syscache.h"
+
+/*
+ * Returns true if the relation's full-page images must never be compressed
+ * in WAL.  pg_authid stores role passwords inline (no TOAST table), so
+ * compressing its full-page images would leak password material via the
+ * compressed image length.
+ */
+bool
+heap_no_compress_fpi(Relation rel)
+{
+	return unlikely(RelationGetRelid(rel) == AuthIdRelationId);
+}
 
 
 static HeapTuple heap_prepare_insert(Relation relation, HeapTuple tup,
@@ -2230,8 +2243,9 @@ heap_insert(Relation relation, HeapTuple tup, CommandId cid,
 		 * write the whole page to the xlog, we don't need to store
 		 * xl_heap_header in the xlog.
 		 */
-		XLogRegisterBuffer(HEAP_INSERT_BLKREF_HEAP, buffer,
-						   REGBUF_STANDARD | bufflags);
+		XLogRegisterBufferExt(HEAP_INSERT_BLKREF_HEAP, buffer,
+						   REGBUF_STANDARD | bufflags,
+						   heap_no_compress_fpi(relation));
 		XLogRegisterBufData(HEAP_INSERT_BLKREF_HEAP, &xlhdr,
 							SizeOfHeapHeader);
 		/* PG73FORMAT: write bitmap [+ padding] [+ oid] + data */
@@ -2661,8 +2675,9 @@ heap_multi_insert(Relation relation, TupleTableSlot **slots, int ntuples,
 
 			XLogBeginInsert();
 			XLogRegisterData(xlrec, tupledata - scratch.data);
-			XLogRegisterBuffer(HEAP_MULTI_INSERT_BLKREF_HEAP, buffer,
-							   REGBUF_STANDARD | bufflags);
+			XLogRegisterBufferExt(HEAP_MULTI_INSERT_BLKREF_HEAP, buffer,
+								   REGBUF_STANDARD | bufflags,
+								   heap_no_compress_fpi(relation));
 			if (vmbuffer_modified)
 				XLogRegisterBuffer(HEAP_MULTI_INSERT_BLKREF_VM, vmbuffer, 0);
 
@@ -3177,7 +3192,9 @@ l1:
 		XLogBeginInsert();
 		XLogRegisterData(&xlrec, SizeOfHeapDelete);
 
-		XLogRegisterBuffer(HEAP_DELETE_BLKREF_HEAP, buffer, REGBUF_STANDARD);
+		XLogRegisterBufferExt(HEAP_DELETE_BLKREF_HEAP, buffer,
+						   REGBUF_STANDARD,
+						   heap_no_compress_fpi(relation));
 
 		/*
 		 * Log replica identity of the deleted tuple if there is one
@@ -3976,7 +3993,9 @@ l2:
 			XLogRecPtr	recptr;
 
 			XLogBeginInsert();
-			XLogRegisterBuffer(HEAP_LOCK_BLKREF_HEAP, buffer, REGBUF_STANDARD);
+			XLogRegisterBufferExt(HEAP_LOCK_BLKREF_HEAP, buffer,
+								   REGBUF_STANDARD,
+								   heap_no_compress_fpi(relation));
 
 			xlrec.offnum = ItemPointerGetOffsetNumber(&oldtup.t_self);
 			xlrec.xmax = xmax_lock_old_tuple;
@@ -5431,7 +5450,9 @@ failed:
 		XLogRecPtr	recptr;
 
 		XLogBeginInsert();
-		XLogRegisterBuffer(HEAP_LOCK_BLKREF_HEAP, *buffer, REGBUF_STANDARD);
+		XLogRegisterBufferExt(HEAP_LOCK_BLKREF_HEAP, *buffer,
+						   REGBUF_STANDARD,
+						   heap_no_compress_fpi(relation));
 
 		xlrec.offnum = ItemPointerGetOffsetNumber(&tuple->t_self);
 		xlrec.xmax = xid;
@@ -6210,7 +6231,9 @@ l4:
 			XLogRecPtr	recptr;
 
 			XLogBeginInsert();
-			XLogRegisterBuffer(HEAP_LOCK_BLKREF_HEAP, buf, REGBUF_STANDARD);
+			XLogRegisterBufferExt(HEAP_LOCK_BLKREF_HEAP, buf,
+								   REGBUF_STANDARD,
+								   heap_no_compress_fpi(rel));
 
 			xlrec.offnum = ItemPointerGetOffsetNumber(&mytup.t_self);
 			xlrec.xmax = new_xmax;
@@ -6397,7 +6420,8 @@ heap_finish_speculative(Relation relation, ItemPointer tid)
 		XLogSetRecordFlags(XLOG_INCLUDE_ORIGIN);
 
 		XLogRegisterData(&xlrec, SizeOfHeapConfirm);
-		XLogRegisterBuffer(0, buffer, REGBUF_STANDARD);
+		XLogRegisterBufferExt(0, buffer, REGBUF_STANDARD,
+						   heap_no_compress_fpi(relation));
 
 		recptr = XLogInsert(RM_HEAP_ID, XLOG_HEAP_CONFIRM);
 
@@ -6542,7 +6566,8 @@ heap_abort_speculative(Relation relation, ItemPointer tid)
 
 		XLogBeginInsert();
 		XLogRegisterData(&xlrec, SizeOfHeapDelete);
-		XLogRegisterBuffer(0, buffer, REGBUF_STANDARD);
+		XLogRegisterBufferExt(0, buffer, REGBUF_STANDARD,
+						   heap_no_compress_fpi(relation));
 
 		/* No replica identity & replication origin logged */
 
@@ -6859,8 +6884,9 @@ heap_inplace_update_and_unlock(Relation relation,
 		memcpy(copied_buffer.data + dst_offset_in_block, src, newlen);
 		BufferGetTag(buffer, &rlocator, &forkno, &blkno);
 		Assert(forkno == MAIN_FORKNUM);
-		XLogRegisterBlock(0, &rlocator, forkno, blkno, copied_buffer.data,
-						  REGBUF_STANDARD);
+		XLogRegisterBlockExt(0, &rlocator, forkno, blkno, copied_buffer.data,
+						   REGBUF_STANDARD,
+						   heap_no_compress_fpi(relation));
 		XLogRegisterBufData(0, src, newlen);
 
 		/* inplace updates aren't decoded atm, don't log the origin */
@@ -9085,7 +9111,8 @@ log_heap_visible(Relation rel, Buffer heap_buffer, Buffer vm_buffer,
 	flags = REGBUF_STANDARD;
 	if (!XLogHintBitIsNeeded())
 		flags |= REGBUF_NO_IMAGE;
-	XLogRegisterBuffer(1, heap_buffer, flags);
+	XLogRegisterBufferExt(1, heap_buffer, flags,
+					   heap_no_compress_fpi(rel));
 
 	recptr = XLogInsert(RM_HEAP2_ID, XLOG_HEAP2_VISIBLE);
 
@@ -9226,9 +9253,12 @@ log_heap_update(Relation reln, Buffer oldbuf, Buffer vmbuffer_old,
 	if (need_tuple_data)
 		bufflags |= REGBUF_KEEP_DATA;
 
-	XLogRegisterBuffer(HEAP_UPDATE_BLKREF_HEAP_NEW, newbuf, bufflags);
+	XLogRegisterBufferExt(HEAP_UPDATE_BLKREF_HEAP_NEW, newbuf, bufflags,
+					   heap_no_compress_fpi(reln));
 	if (oldbuf != newbuf)
-		XLogRegisterBuffer(HEAP_UPDATE_BLKREF_HEAP_OLD, oldbuf, REGBUF_STANDARD);
+		XLogRegisterBufferExt(HEAP_UPDATE_BLKREF_HEAP_OLD, oldbuf,
+						   REGBUF_STANDARD,
+						   heap_no_compress_fpi(reln));
 
 	XLogRegisterData(&xlrec, SizeOfHeapUpdate);
 

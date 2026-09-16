@@ -781,7 +781,7 @@ ginbuild(Relation heap, Relation index, IndexInfo *indexInfo)
 	{
 		log_newpage_range(index, MAIN_FORKNUM,
 						  0, RelationGetNumberOfBlocks(index),
-						  true);
+						  true, false);
 	}
 
 	/*

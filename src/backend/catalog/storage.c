@@ -72,6 +72,7 @@ typedef struct PendingRelSync
 {
 	RelFileLocator rlocator;
 	bool		is_truncated;	/* Has the file experienced truncation? */
+	bool		no_compress_fpi;	/* never compress full-page images in WAL */
 } PendingRelSync;
 
 static PendingRelDelete *pendingDeletes = NULL; /* head of linked list */
@@ -83,7 +84,7 @@ static HTAB *pendingSyncHash = NULL;
  *		Queue an at-commit fsync.
  */
 static void
-AddPendingSync(const RelFileLocator *rlocator)
+AddPendingSync(const RelFileLocator *rlocator, bool no_compress_fpi)
 {
 	PendingRelSync *pending;
 	bool		found;
@@ -103,6 +104,32 @@ AddPendingSync(const RelFileLocator *rlocator)
 	pending = hash_search(pendingSyncHash, rlocator, HASH_ENTER, &found);
 	Assert(!found);
 	pending->is_truncated = false;
+	pending->no_compress_fpi = no_compress_fpi;
+}
+
+/*
+ * RelationMarkNoCompressFPI
+ *		Mark the relation as one whose full-page images must never be
+ *		compressed in WAL.  If WAL-logging is skipped for the relation
+ *		(e.g. wal_level=minimal), smgrDoPendingSyncs() may WAL-log the whole
+ *		relation via log_newpage_range() at commit; the images must not be
+ *		compressed then either.  This is needed for e.g. a VACUUM FULL of
+ *		pg_authid, which rewrites pages that store role passwords inline.
+ *
+ *		The relation must already have a pending-sync entry; if it doesn't
+ *		(no sync pending), there is nothing to do.
+ */
+void
+RelationMarkNoCompressFPI(const RelFileLocator *rlocator)
+{
+	PendingRelSync *pending;
+
+	if (!pendingSyncHash)
+		return;
+
+	pending = hash_search(pendingSyncHash, rlocator, HASH_FIND, NULL);
+	if (pending)
+		pending->no_compress_fpi = true;
 }
 
 /*
@@ -174,7 +201,7 @@ RelationCreateStorage(RelFileLocator rlocator, char relpersistence,
 	if (relpersistence == RELPERSISTENCE_PERMANENT && !XLogIsNeeded())
 	{
 		Assert(procNumber == INVALID_PROC_NUMBER);
-		AddPendingSync(&rlocator);
+		AddPendingSync(&rlocator, false);
 	}
 
 	return srel;
@@ -501,7 +528,7 @@ RelationCopyStorage(SMgrRelation src, SMgrRelation dst,
 	use_wal = XLogIsNeeded() &&
 		(relpersistence == RELPERSISTENCE_PERMANENT || copying_initfork);
 
-	bulkstate = smgr_bulk_start_smgr(dst, forkNum, use_wal);
+	bulkstate = smgr_bulk_start_smgr(dst, forkNum, use_wal, false);
 
 	nblocks = smgrnblocks(src, forkNum);
 
@@ -655,7 +682,7 @@ RestorePendingSyncs(char *startAddress)
 	Assert(pendingSyncHash == NULL);
 	for (rlocator = (RelFileLocator *) startAddress; rlocator->relNumber != 0;
 		 rlocator++)
-		AddPendingSync(rlocator);
+		AddPendingSync(rlocator, false);
 }
 
 /*
@@ -857,7 +884,8 @@ smgrDoPendingSyncs(bool isCommit, bool isParallelWorker)
 				 * counts some pgstat events; unfortunately, we discard them.
 				 */
 				rel = CreateFakeRelcacheEntry(srel->smgr_rlocator.locator);
-				log_newpage_range(rel, fork, 0, n, false);
+				log_newpage_range(rel, fork, 0, n, false,
+								  pendingsync->no_compress_fpi);
 				FreeFakeRelcacheEntry(rel);
 			}
 		}

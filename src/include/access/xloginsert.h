@@ -54,13 +54,29 @@ extern void XLogRegisterBufData(uint8 block_id, const void *data, uint32 len);
 extern void XLogResetInsertion(void);
 extern bool XLogCheckBufferNeedsBackup(Buffer buffer);
 
+/*
+ * Extended versions of XLogRegisterBuffer()/XLogRegisterBlock(): the
+ * no_compress argument asks to never compress the full-page image, even
+ * when wal_compression is enabled.  Callers use it for relations whose page
+ * images must not leak information via the compressed image length
+ * (pg_authid, which stores role passwords inline).
+ */
+extern void XLogRegisterBufferExt(uint8 block_id, Buffer buffer, uint8 flags,
+								  bool no_compress);
+extern void XLogRegisterBlockExt(uint8 block_id, RelFileLocator *rlocator,
+								 ForkNumber forknum, BlockNumber blknum,
+								 const PageData *page, uint8 flags,
+								 bool no_compress);
+
 extern XLogRecPtr log_newpage(RelFileLocator *rlocator, ForkNumber forknum,
 							  BlockNumber blkno, Page page, bool page_std);
 extern void log_newpages(RelFileLocator *rlocator, ForkNumber forknum, int num_pages,
-						 BlockNumber *blknos, Page *pages, bool page_std);
+						 BlockNumber *blknos, Page *pages, bool page_std,
+						 bool no_compress);
 extern XLogRecPtr log_newpage_buffer(Buffer buffer, bool page_std);
 extern void log_newpage_range(Relation rel, ForkNumber forknum,
-							  BlockNumber startblk, BlockNumber endblk, bool page_std);
+							  BlockNumber startblk, BlockNumber endblk, bool page_std,
+							  bool no_compress);
 extern XLogRecPtr XLogSaveBufferForHint(Buffer buffer, bool buffer_std);
 
 extern void InitXLogInsert(void);
