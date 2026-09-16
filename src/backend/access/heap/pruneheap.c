@@ -2079,8 +2079,8 @@ log_heap_prune_and_freeze(Relation relation, Buffer buffer,
 	 * page image, the arrays can be omitted.
 	 */
 	XLogBeginInsert();
-	XLogRegisterBuffer(0, buffer,
-					   heap_compress_flags_for_rel(relation, REGBUF_STANDARD));
+	XLogRegisterBufferExt(0, buffer, REGBUF_STANDARD,
+						  heap_no_compress_fpi(relation));
 	if (nfrozen > 0)
 	{
 		int			nplans;

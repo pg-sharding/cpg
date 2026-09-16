@@ -117,5 +117,37 @@ for my $line (@control_lines)
 		"control table FPI is compressed: $line");
 }
 
+# Also check the VACUUM FULL path: the rewritten pages of pg_authid are
+# WAL-logged by the bulk smgr writer via log_newpages().  Their full-page
+# images must not be compressed either.  (VACUUM FULL changes the
+# relfilenode, so the new location is looked up after the rewrite.)
+my $lsn_before_vf = $node->safe_psql('postgres', 'SELECT pg_current_wal_lsn()');
+$node->safe_psql('postgres', 'VACUUM FULL pg_authid');
+my $lsn_after_vf = $node->safe_psql('postgres', 'SELECT pg_current_wal_lsn()');
+
+my ($authid_filenode) =
+  $node->safe_psql('postgres', 'SELECT pg_relation_filepath(\'pg_authid\')')
+  =~ m{^global/(\d+)$};
+ok(defined $authid_filenode, "got pg_authid location after VACUUM FULL");
+
+my $stdout_vf = '';
+my $stderr_vf = '';
+my $result_vf = IPC::Run::run [
+	'pg_waldump', '--bkp-details',
+	'--path', $node->data_dir . '/pg_wal',
+	'-s', $lsn_before_vf, '-e', $lsn_after_vf ],
+	'>', \$stdout_vf, '2>', \$stderr_vf;
+ok($result_vf, 'pg_waldump succeeded (VACUUM FULL)');
+
+my @authid_vf_lines =
+  grep { /rel 1664\/0\/$authid_filenode/ && /FPW/ } split(/\n/, $stdout_vf);
+ok(scalar(@authid_vf_lines) >= 1,
+	'pg_authid rewrite full-page images were logged');
+for my $line (@authid_vf_lines)
+{
+	unlike($line, qr/compression saved/,
+		"pg_authid rewrite FPI is not compressed: $line");
+}
+
 $node->stop;
 done_testing();
