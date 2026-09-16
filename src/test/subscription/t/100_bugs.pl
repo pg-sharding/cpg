@@ -230,6 +230,8 @@ $node_sub->stop('fast');
 # required to search corresponding rows won't get logged.
 $node_publisher = PostgreSQL::Test::Cluster->new('publisher3');
 $node_publisher->init(allows_streaming => 'logical');
+$node_publisher->append_conf('postgresql.conf',
+	'ycmdb.skip_output_plugin_check = false');
 $node_publisher->start;
 
 $node_subscriber = PostgreSQL::Test::Cluster->new('subscriber3');
@@ -432,7 +434,7 @@ my ($ret, $stdout, $stderr) = $node_publisher->psql(
 	'postgres',
 	qq[
 		SET ROLE repluser;
-		CREATE_REPLICATION_SLOT fail_slot LOGICAL regress;',
+		CREATE_REPLICATION_SLOT fail_slot LOGICAL regress;
 	],
 	timeout => $PostgreSQL::Test::Utils::timeout_default,
 	extra_params => [ '-d', $connstr_db ]);
