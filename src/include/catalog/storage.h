@@ -29,6 +29,7 @@ extern void RelationDropStorage(Relation rel);
 extern void RelationPreserveStorage(RelFileLocator rlocator, bool atCommit);
 extern void RelationPreTruncate(Relation rel);
 extern void RelationTruncate(Relation rel, BlockNumber nblocks);
+extern void RelationMarkNoCompressFPI(const RelFileLocator *rlocator);
 extern void RelationCopyStorage(SMgrRelation src, SMgrRelation dst,
 								ForkNumber forkNum, char relpersistence);
 extern bool RelFileLocatorSkippingWAL(RelFileLocator rlocator);

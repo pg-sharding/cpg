@@ -88,17 +88,10 @@ static void smgr_bulk_flush(BulkWriteState *bulkstate);
 BulkWriteState *
 smgr_bulk_start_rel(Relation rel, ForkNumber forknum)
 {
-	BulkWriteState *state = smgr_bulk_start_smgr(RelationGetSmgr(rel),
-												 forknum,
-												 RelationNeedsWAL(rel) || forknum == INIT_FORKNUM);
-
-	/*
-	 * pg_authid stores role passwords inline, so its full-page images must
-	 * not be compressed in WAL (see heap_no_compress_fpi()).
-	 */
-	state->no_compress_fpi = heap_no_compress_fpi(rel);
-
-	return state;
+	return smgr_bulk_start_smgr(RelationGetSmgr(rel),
+								forknum,
+								RelationNeedsWAL(rel) || forknum == INIT_FORKNUM,
+								heap_no_compress_fpi(rel));
 }
 
 /*
@@ -107,7 +100,8 @@ smgr_bulk_start_rel(Relation rel, ForkNumber forknum)
  * This is like smgr_bulk_start_rel, but can be used without a relcache entry.
  */
 BulkWriteState *
-smgr_bulk_start_smgr(SMgrRelation smgr, ForkNumber forknum, bool use_wal)
+smgr_bulk_start_smgr(SMgrRelation smgr, ForkNumber forknum, bool use_wal,
+					  bool no_compress_fpi)
 {
 	BulkWriteState *state;
 
@@ -115,7 +109,7 @@ smgr_bulk_start_smgr(SMgrRelation smgr, ForkNumber forknum, bool use_wal)
 	state->smgr = smgr;
 	state->forknum = forknum;
 	state->use_wal = use_wal;
-	state->no_compress_fpi = false;
+	state->no_compress_fpi = no_compress_fpi;
 
 	state->npending = 0;
 	state->relsize = smgrnblocks(smgr, forknum);

@@ -1313,7 +1313,7 @@ log_newpage_buffer(Buffer buffer, bool page_std)
 void
 log_newpage_range(Relation rel, ForkNumber forknum,
 				  BlockNumber startblk, BlockNumber endblk,
-				  bool page_std)
+				  bool page_std, bool no_compress)
 {
 	int			flags;
 	BlockNumber blkno;
@@ -1371,7 +1371,7 @@ log_newpage_range(Relation rel, ForkNumber forknum,
 		for (i = 0; i < nbufs; i++)
 		{
 			MarkBufferDirty(bufpack[i]);
-			XLogRegisterBuffer(i, bufpack[i], flags);
+			XLogRegisterBufferExt(i, bufpack[i], flags, no_compress);
 		}
 
 		recptr = XLogInsert(RM_XLOG_ID, XLOG_FPI);
