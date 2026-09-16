@@ -3713,7 +3713,6 @@ create_subqueryscan_plan(PlannerInfo *root, SubqueryScanPath *best_path,
 	/* it should be a subquery base rel... */
 	Assert(scan_relid > 0);
 	Assert(rel->rtekind == RTE_SUBQUERY);
-	Assert(rel->chosen_plan == NULL);
 
 	/*
 	 * Recursively create Plan from Path for subquery.  Since we are entering
@@ -3801,6 +3800,16 @@ create_subqueryscan_plan(PlannerInfo *root, SubqueryScanPath *best_path,
 
 	copy_generic_path_info(&scan_plan->scan.plan, &best_path->path);
 
+	/*
+	 * Remember the subroot in the plan node, for setrefs.c to use when
+	 * processing the subplan.  Also stash it in rel->chosen_plan, so that
+	 * add_rtes_to_flat_rtable() can tell that this subquery was planned.
+	 * The same rel might be planned more than once (e.g. with and without
+	 * pushed-down join quals), producing different subroots; each plan
+	 * node carries its own subroot, while rel->chosen_plan just records
+	 * that planning happened at all.
+	 */
+	scan_plan->subroot = best_path->subroot;
 	rel->chosen_plan = best_path->subroot;
 
 	return scan_plan;
