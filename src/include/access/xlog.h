@@ -276,6 +276,9 @@ extern XLogRecPtr GetFlushRecPtr(TimeLineID *insertTLI);
 extern TimeLineID GetWALInsertionTimeLine(void);
 extern TimeLineID GetWALInsertionTimeLineIfSet(void);
 extern XLogRecPtr GetLastImportantRecPtr(void);
+extern void XLogInitNewTimeline(TimeLineID endTLI, XLogRecPtr endOfLog,
+								TimeLineID newTLI);
+extern void BumpTimeLine(void);
 
 extern void SetWalWriterSleeping(bool sleeping);
 
