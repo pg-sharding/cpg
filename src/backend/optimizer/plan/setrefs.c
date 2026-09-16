@@ -1453,14 +1453,10 @@ set_subqueryscan_references(PlannerInfo *root,
 							SubqueryScan *plan,
 							int rtoffset)
 {
-	RelOptInfo *rel;
 	Plan	   *result;
 
-	/* Need to look up the subquery's RelOptInfo, since we need its subroot */
-	rel = find_base_rel(root, plan->scan.scanrelid);
-
 	/* Recursively process the subplan */
-	plan->subplan = set_plan_references(rel->chosen_plan, plan->subplan);
+	plan->subplan = set_plan_references(plan->subroot, plan->subplan);
 
 	if (trivial_subqueryscan(plan))
 	{
