@@ -713,9 +713,9 @@ static XLogRecPtr XLogBytePosToRecPtr(uint64 bytepos);
 static XLogRecPtr XLogBytePosToEndRecPtr(uint64 bytepos);
 static uint64 XLogRecPtrToBytePos(XLogRecPtr ptr);
 
-static void WALInsertLockAcquire(void);
-static void WALInsertLockAcquireExclusive(void);
-static void WALInsertLockRelease(void);
+void WALInsertLockAcquire(void);
+void WALInsertLockAcquireExclusive(void);
+void WALInsertLockRelease(void);
 static void WALInsertLockUpdateInsertingAt(XLogRecPtr insertingAt);
 
 /*
@@ -1373,7 +1373,7 @@ CopyXLogRecordToWAL(int write_len, bool isLogSwitch, XLogRecData *rdata,
 /*
  * Acquire a WAL insertion lock, for inserting to WAL.
  */
-static void
+void
 WALInsertLockAcquire(void)
 {
 	bool		immed;
@@ -1418,7 +1418,7 @@ WALInsertLockAcquire(void)
  * Acquire all WAL insertion locks, to prevent other backends from inserting
  * to WAL.
  */
-static void
+void
 WALInsertLockAcquireExclusive(void)
 {
 	int			i;
@@ -1447,7 +1447,7 @@ WALInsertLockAcquireExclusive(void)
  * NB: Reset all variables to 0, so they cause LWLockWaitForVar to block the
  * next time the lock is acquired.
  */
-static void
+void
 WALInsertLockRelease(void)
 {
 	if (holdingAllLocks)
@@ -5251,7 +5251,7 @@ str_time(pg_time_t tnow)
 /*
  * Initialize the first WAL segment on new timeline.
  */
-static void
+void
 XLogInitNewTimeline(TimeLineID endTLI, XLogRecPtr endOfLog, TimeLineID newTLI)
 {
 	char		xlogfname[MAXFNAMELEN];
@@ -5324,8 +5324,76 @@ XLogInitNewTimeline(TimeLineID endTLI, XLogRecPtr endOfLog, TimeLineID newTLI)
 }
 
 /*
- * Perform cleanup actions at the conclusion of archive recovery.
+ * Bump the server onto a new timeline while running as a primary (not in
+ * recovery).  This mirrors the timeline switch that happens at the end of
+ * archive recovery: pick the next free timeline ID, copy the current WAL
+ * segment to the new timeline, write the timeline history file, clean up
+ * old-timeline segments and update the shared-memory insertion timeline.
+ *
+ * A checkpoint is forced afterwards so that the new timeline becomes
+ * durable immediately.
  */
+void
+BumpTimeLine(void)
+{
+	TimeLineID	oldTLI;
+	TimeLineID	newTLI;
+	XLogRecPtr	endOfLog;
+
+	/* We must not be in recovery. */
+	Assert(!RecoveryInProgress());
+
+	/*
+	 * Take an exclusive lock on WAL insertion to serialize against any
+	 * concurrent switch / checkpoint.  This mirrors what the end-of-recovery
+	 * path does.
+	 */
+	WALInsertLockAcquireExclusive();
+
+	oldTLI = XLogCtl->InsertTimeLineID;
+	endOfLog = GetXLogInsertRecPtr();
+
+	/* Pick the next free timeline ID. */
+	newTLI = findNewestTimeLine(oldTLI) + 1;
+	ereport(LOG,
+			(errmsg("bumping timeline: %u -> %u at %X/%X",
+					oldTLI, newTLI, LSN_FORMAT_ARGS(endOfLog))));
+
+	/*
+	 * Create the first WAL segment on the new timeline, copying the tail of
+	 * the old timeline so that downstream standbys can follow the switch.
+	 */
+	XLogInitNewTimeline(oldTLI, endOfLog, newTLI);
+
+	/* Write the timeline history file and archive it. */
+	writeTimeLineHistory(newTLI, oldTLI, endOfLog,
+						"primary timeline bump");
+
+	/*
+	 * Remove any higher-numbered segments left on the old timeline - they do
+	 * not belong to the new timeline's history.
+	 */
+	RemoveNonParentXlogFiles(endOfLog, newTLI);
+
+	/* Switch the shared-memory insertion timeline. */
+	SpinLockAcquire(&XLogCtl->info_lck);
+	XLogCtl->InsertTimeLineID = newTLI;
+	XLogCtl->PrevTimeLineID = oldTLI;
+	SpinLockRelease(&XLogCtl->info_lck);
+
+	WALInsertLockRelease();
+
+	/*
+	 * Force a checkpoint so that the timeline switch becomes durable.  Use the
+	 * immediate variant so we don't stall for long.
+	 */
+	CreateCheckPoint(CHECKPOINT_IMMEDIATE);
+
+	ereport(LOG,
+			(errmsg("timeline bumped to %u", newTLI)));
+}
+
+
 static void
 CleanupAfterArchiveRecovery(TimeLineID EndOfLogTLI, XLogRecPtr EndOfLog,
 							TimeLineID newTLI)

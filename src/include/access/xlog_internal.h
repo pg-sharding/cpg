@@ -387,6 +387,9 @@ GetRmgr(RmgrId rmid)
 extern pg_time_t GetLastSegSwitchData(XLogRecPtr *lastSwitchLSN);
 extern XLogRecPtr RequestXLogSwitch(bool mark_unimportant);
 
+extern void WALInsertLockAcquireExclusive(void);
+extern void WALInsertLockRelease(void);
+
 extern void GetOldestRestartPoint(XLogRecPtr *oldrecptr, TimeLineID *oldtli);
 
 extern void XLogRecGetBlockRefInfo(XLogReaderState *record, bool pretty,
