@@ -3653,19 +3653,19 @@ getBlobs(Archive *fout)
 				 */
 				Assert(lo_metadata_dumpId);
 
-				binfo->dobj.dump &= ~(DUMP_COMPONENT_DATA | DUMP_COMPONENT_ACL | DUMP_COMPONENT_DEFINITION);
+				binfo[i].dobj.dump &= ~(DUMP_COMPONENT_DATA | DUMP_COMPONENT_ACL | DUMP_COMPONENT_DEFINITION);
 
 				/*
 				 * Mark the large object as dependent on
 				 * pg_largeobject_metadata so that any large object
 				 * comments/seclables are dumped after it.
 				 */
-				binfo->dobj.dependencies = (DumpId *) pg_malloc(sizeof(DumpId));
-				binfo->dobj.dependencies[0] = lo_metadata_dumpId;
-				binfo->dobj.nDeps = binfo->dobj.allocDeps = 1;
+				binfo[i].dobj.dependencies = (DumpId *) pg_malloc(sizeof(DumpId));
+				binfo[i].dobj.dependencies[0] = lo_metadata_dumpId;
+				binfo[i].dobj.nDeps = binfo->dobj.allocDeps = 1;
 			}
 			else
-				binfo->dobj.dump &= ~DUMP_COMPONENT_DATA;
+				binfo[i].dobj.dump &= ~DUMP_COMPONENT_DATA;
 		}
 	}
 
