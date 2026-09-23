@@ -2704,6 +2704,7 @@ pullup_replace_vars_callback(Var *var,
 										   rcon->targetlist,
 										   rcon->result_relation,
 										   REPLACEVARS_REPORT_ERROR,
+										   0,
 										   0);
 
 		/* Insert PlaceHolderVar if needed */
