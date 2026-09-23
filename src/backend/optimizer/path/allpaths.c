@@ -2955,7 +2955,8 @@ set_subquery_pathlist(PlannerInfo *root, RelOptInfo *rel,
 			{
 				/* Push it down */
 				required_outer = bms_union(required_outer,
-										   pull_varnos(root, clause));
+										   bms_intersect(pull_varnos(root, clause),
+														 root->all_baserels));
 				required_outer = bms_del_member(required_outer, rti);
 
 				subquery_push_qual(subquery, rte, rti, clause, 0);
@@ -2986,7 +2987,8 @@ set_subquery_pathlist(PlannerInfo *root, RelOptInfo *rel,
 			{
 				/* Push it down */
 				required_outer = bms_union(required_outer,
-										   pull_varnos(root, clause));
+										   bms_intersect(pull_varnos(root, clause),
+														 root->all_baserels));
 				required_outer = bms_del_member(required_outer, rti);
 
 				subquery_push_qual(subquery, rte, rti, clause, 0);

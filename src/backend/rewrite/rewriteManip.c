@@ -1766,20 +1766,14 @@ ReplaceVarsFromTargetList_callback(const Var *var,
 								   replace_rte_variables_context *context)
 {
 	ReplaceVarsFromTargetList_context *rcon = (ReplaceVarsFromTargetList_context *) context->callback_arg;
-	Node	   *newnode;
 
-	newnode = ReplaceVarFromTargetList(var,
-									   rcon->target_rte,
-									   rcon->targetlist,
-									   rcon->result_relation,
-									   rcon->nomatch_option,
-									   rcon->nomatch_varno);
-
-	/* Must adjust varlevelsup if replaced Var is within a subquery */
-	if (var->varlevelsup > 0)
-		IncrementVarSublevelsUp(newnode, var->varlevelsup, 0);
-
-	return newnode;
+	return ReplaceVarFromTargetList(var,
+								   rcon->target_rte,
+								   rcon->targetlist,
+								   rcon->result_relation,
+								   rcon->nomatch_option,
+								   rcon->nomatch_varno,
+								   rcon->min_sublevels_up);
 }
 
 Node *
@@ -1788,7 +1782,8 @@ ReplaceVarFromTargetList(const Var *var,
 						 List *targetlist,
 						 int result_relation,
 						 ReplaceVarsNoMatchOption nomatch_option,
-						 int nomatch_varno)
+						 int nomatch_varno,
+						 int min_sublevels_up)
 {
 	TargetEntry *tle;
 
@@ -1837,7 +1832,8 @@ ReplaceVarFromTargetList(const Var *var,
 												 targetlist,
 												 result_relation,
 												 nomatch_option,
-												 nomatch_varno);
+												 nomatch_varno,
+												 min_sublevels_up);
 			rowexpr->args = lappend(rowexpr->args, field);
 		}
 
@@ -1905,8 +1901,8 @@ ReplaceVarFromTargetList(const Var *var,
 		Expr	   *newnode = copyObject(tle->expr);
 
 		/* Must adjust varlevelsup if tlist item is from higher query */
-		if (var->varlevelsup + rcon->min_sublevels_up > 0)
-			IncrementVarSublevelsUp((Node *) newnode, var->varlevelsup - rcon->min_sublevels_up, 0);
+		if (var->varlevelsup - min_sublevels_up > 0)
+			IncrementVarSublevelsUp((Node *) newnode, var->varlevelsup - min_sublevels_up, 0);
 
 		/*
 		 * Check to see if the tlist item contains a PARAM_MULTIEXPR Param,
