@@ -249,8 +249,8 @@ recurse_set_operations(Node *setOp, PlannerInfo *root,
 		 * suitably-sorted Paths.
 		 */
 		plan_name = choose_plan_name(root->glob, "setop", true);
-		subroot = rel->subroot = subquery_planner(root->glob, subquery,
-												  plan_name, root, NULL,
+		subroot = subquery_planner(root->glob, subquery,
+								   plan_name, root, NULL,
 												  false, root->tuple_fraction,
 												  parentOp);
 

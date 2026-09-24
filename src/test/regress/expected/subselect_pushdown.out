@@ -20,10 +20,9 @@ where smalltab.i = subq.i and smalltab.i = 123;
    ->  Seq Scan on smalltab
          Filter: (i = 123)
    ->  GroupAggregate
-         Group Key: bigtab.i
          ->  Index Scan using bigtab_i on bigtab
                Index Cond: (i = 123)
-(7 rows)
+(6 rows)
 
 -- Push down join quals.
 explain (costs off)
@@ -39,10 +38,9 @@ where smalltab.i = subq.i;
  Nested Loop
    ->  Seq Scan on smalltab
    ->  GroupAggregate
-         Group Key: bigtab.i
          ->  Index Scan using bigtab_i on bigtab
-               Index Cond: (smalltab.i = i)
-(6 rows)
+               Index Cond: (i = smalltab.i)
+(5 rows)
 
 -- Subquery is LATERAL, and already references the other relation. The join
 -- qual is always pushed down in that case, as the plan is "parameterized"
@@ -59,13 +57,14 @@ where smalltab.i < subq.i;
                    QUERY PLAN                    
 -------------------------------------------------
  Nested Loop
+   Join Filter: (smalltab.i < bigtab.i)
    ->  Seq Scan on smalltab
    ->  GroupAggregate
          Group Key: bigtab.i
          ->  Index Scan using bigtab_i on bigtab
-               Index Cond: (smalltab.i < i)
+               Index Cond: (i > smalltab.i)
                Filter: (j = smalltab.j)
-(7 rows)
+(8 rows)
 
 -- Multiple join clauses constructed from equivalence classes
 explain (costs off)
@@ -82,9 +81,8 @@ where smalltab.i = subq.i and smalltab.j = subq.j;
  Nested Loop
    ->  Seq Scan on smalltab
    ->  GroupAggregate
-         Group Key: bigtab.i, bigtab.j
          ->  Index Scan using bigtab_i on bigtab
-               Index Cond: (smalltab.i = i)
+               Index Cond: (i = smalltab.i)
                Filter: ((smalltab.j = j) AND ((j / 2) = (smalltab.j / 2)))
-(7 rows)
+(6 rows)
 
