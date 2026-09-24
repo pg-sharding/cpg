@@ -2700,10 +2700,8 @@ set_subquery_pathlist(PlannerInfo *root, RelOptInfo *rel,
 	Relids		required_outer;
 	pushdown_safety_info safetyInfo;
 	double		tuple_fraction;
-	RelOptInfo *sub_final_rel;
 	Bitmapset  *run_cond_attrs = NULL;
 	ListCell   *lc;
-	char	   *plan_name;
 	List	   *pushed_down_ec_joins = NIL;
 	bool		sq_is_pushdown_safe;
 
@@ -3017,14 +3015,15 @@ add_subqueryscan_variant(PlannerInfo *root, RelOptInfo *rel,
 	PlannerInfo *subroot;
 	List	   *subplan_params;
 	bool		trivial_pathtarget;
+	char	   *plan_name;
 
 	/* plan_params should not be in use in current query level */
 	Assert(root->plan_params == NIL);
 
 	/* Generate a subroot and Paths for the subquery */
 	plan_name = choose_plan_name(root->glob, rte->eref->aliasname, false);
-	rel->subroot = subquery_planner(root->glob, subquery, plan_name,
-									root, NULL, false, tuple_fraction, NULL);
+	subroot = subquery_planner(root->glob, subquery, plan_name,
+								root, NULL, false, tuple_fraction, NULL);
 
 	/* Isolate the params needed by this specific subplan */
 	subplan_params = root->plan_params;
