@@ -6112,6 +6112,7 @@ examine_simple_variable(PlannerInfo *root, Var *var,
 		Query	   *subquery;
 		List	   *subtlist;
 		TargetEntry *ste;
+		RelOptInfo *rel;
 
 		/*
 		 * Punt if it's a whole-row var rather than a plain column reference.
@@ -6124,7 +6125,6 @@ examine_simple_variable(PlannerInfo *root, Var *var,
 		 */
 		if (rte->rtekind == RTE_SUBQUERY)
 		{
-			RelOptInfo *rel;
 
 			/*
 			 * Fetch RelOptInfo for subquery.  Note that we don't change the
@@ -6135,7 +6135,18 @@ examine_simple_variable(PlannerInfo *root, Var *var,
 			 */
 			rel = find_base_rel(root, var->varno);
 
-			subroot = rel->subroot;
+			subroot = rel->chosen_plan;
+
+			if (subroot == NULL && rel->pathlist && IsA(linitial(rel->pathlist), SubqueryScanPath))
+			{
+				/*
+				* Use the estimates from the first path. XXX: what if it's a parameterized
+				* path?
+				*/
+				SubqueryScanPath *sqpath = (SubqueryScanPath *) linitial(rel->pathlist);
+
+				subroot = sqpath->subroot;
+			}
 		}
 		else
 		{
@@ -6186,6 +6197,7 @@ examine_simple_variable(PlannerInfo *root, Var *var,
 		/* If the subquery hasn't been planned yet, we have to punt */
 		if (subroot == NULL)
 			return;
+
 		Assert(IsA(subroot, PlannerInfo));
 
 		/*

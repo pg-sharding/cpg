@@ -109,7 +109,8 @@ extern Node *ReplaceVarFromTargetList(const Var *var,
 									  List *targetlist,
 									  int result_relation,
 									  ReplaceVarsNoMatchOption nomatch_option,
-									  int nomatch_varno);
+									  int nomatch_varno,
+									  int min_sublevels_up);
 extern Node *ReplaceVarsFromTargetList(Node *node,
 									   int target_varno, int sublevels_up,
 									   RangeTblEntry *target_rte,
