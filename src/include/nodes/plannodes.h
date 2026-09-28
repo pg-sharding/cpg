@@ -770,11 +770,17 @@ typedef enum SubqueryScanStatus
 	SUBQUERY_SCAN_NONTRIVIAL,
 } SubqueryScanStatus;
 
+struct PlannerInfo;			/* forward reference to struct in pathnodes.h */
+typedef struct PlannerInfo PlannerInfo;
+
 typedef struct SubqueryScan
 {
 	Scan		scan;
 	Plan	   *subplan;
 	SubqueryScanStatus scanstatus;
+
+	/* PlannerInfo for the subquery; only valid during planning, not serialized */
+	PlannerInfo *subroot pg_node_attr(copy_as_scalar, equal_as_scalar, read_write_ignore, read_as(NULL));
 } SubqueryScan;
 
 /* ----------------

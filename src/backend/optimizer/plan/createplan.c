@@ -3552,6 +3552,9 @@ create_subqueryscan_plan(PlannerInfo *root, SubqueryScanPath *best_path,
 	RelOptInfo *rel = best_path->path.parent;
 	Index		scan_relid = rel->relid;
 	Plan	   *subplan;
+	ListCell   *l;
+	List	   *qpqual;
+	List	   *sq_quals = best_path->pushed_down_clauses;
 
 	/* it should be a subquery base rel... */
 	Assert(scan_relid > 0);
@@ -3562,7 +3565,28 @@ create_subqueryscan_plan(PlannerInfo *root, SubqueryScanPath *best_path,
 	 * a different planner context (subroot), recurse to create_plan not
 	 * create_plan_recurse.
 	 */
-	subplan = create_plan(rel->subroot, best_path->subpath);
+	subplan = create_plan(best_path->subroot, best_path->subpath);
+
+	/*
+	 * If this path used join quals that were pushed down to the subquery,
+	 * we don't need to re-check those quals on the SubqueryScan node itself.
+	 */
+	if (best_path->pushed_down_clauses)
+	{
+		List	   *new_clauses = NIL;
+		ListCell   *l;
+
+		foreach(l, scan_clauses)
+		{
+			RestrictInfo *rinfo = lfirst_node(RestrictInfo, l);
+
+			if (list_member_ptr(best_path->pushed_down_clauses, rinfo))
+				continue;
+
+			new_clauses = lappend(new_clauses, rinfo);
+		}
+		scan_clauses = new_clauses;
+	}
 
 	/* Sort clauses into best execution order */
 	scan_clauses = order_qual_clauses(root, scan_clauses);
@@ -3583,7 +3607,7 @@ create_subqueryscan_plan(PlannerInfo *root, SubqueryScanPath *best_path,
 	if (best_path->path.param_info)
 	{
 		process_subquery_nestloop_params(root,
-										 rel->subplan_params);
+										 best_path->subplan_params);
 		scan_clauses = (List *)
 			replace_nestloop_params(root, (Node *) scan_clauses);
 	}
@@ -3594,6 +3618,18 @@ create_subqueryscan_plan(PlannerInfo *root, SubqueryScanPath *best_path,
 								  subplan);
 
 	copy_generic_path_info(&scan_plan->scan.plan, &best_path->path);
+
+	/*
+	 * Remember the subroot in the plan node, for setrefs.c to use when
+	 * processing the subplan.  Also stash it in rel->chosen_plan, so that
+	 * add_rtes_to_flat_rtable() can tell that this subquery was planned.
+	 * The same rel might be planned more than once (e.g. with and without
+	 * pushed-down join quals), producing different subroots; each plan
+	 * node carries its own subroot, while rel->chosen_plan just records
+	 * that planning happened at all.
+	 */
+	scan_plan->subroot = best_path->subroot;
+	rel->chosen_plan = best_path->subroot;
 
 	return scan_plan;
 }
