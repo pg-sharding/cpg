@@ -1750,6 +1750,7 @@ typedef struct
 	int			result_relation;
 	ReplaceVarsNoMatchOption nomatch_option;
 	int			nomatch_varno;
+	int			min_sublevels_up;
 } ReplaceVarsFromTargetList_context;
 
 static Node *

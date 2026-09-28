@@ -6113,7 +6113,6 @@ examine_simple_variable(PlannerInfo *root, Var *var,
 		List	   *subtlist;
 		TargetEntry *ste;
 		bool		have_grouping = false;
-		PlannerInfo *subroot;
 		RelOptInfo *rel;
 
 		/*
