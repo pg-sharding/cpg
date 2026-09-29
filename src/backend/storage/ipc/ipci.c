@@ -49,6 +49,7 @@
 #include "storage/procarray.h"
 #include "storage/procsignal.h"
 #include "storage/sinvaladt.h"
+#include "utils/backend_msg.h"
 #include "utils/guc.h"
 #include "utils/injection_point.h"
 
@@ -133,6 +134,7 @@ CalculateShmemSize(int *num_semaphores)
 	size = add_size(size, SharedInvalShmemSize());
 	size = add_size(size, PMSignalShmemSize());
 	size = add_size(size, ProcSignalShmemSize());
+	size = add_size(size, BackendMsgShmemSize());
 	size = add_size(size, CheckpointerShmemSize());
 	size = add_size(size, AutoVacuumShmemSize());
 	size = add_size(size, ReplicationSlotsShmemSize());
@@ -324,6 +326,7 @@ CreateOrAttachShmemStructs(void)
 	 */
 	PMSignalShmemInit();
 	ProcSignalShmemInit();
+	BackendMsgShmemInit();
 	CheckpointerShmemInit();
 	AutoVacuumShmemInit();
 	ReplicationSlotsShmemInit();
