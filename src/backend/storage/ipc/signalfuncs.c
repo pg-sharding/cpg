@@ -25,6 +25,8 @@
 #include "storage/proc.h"
 #include "storage/procarray.h"
 #include "utils/acl.h"
+#include "utils/backend_msg.h"
+#include "utils/builtins.h"
 #include "utils/fmgrprotos.h"
 #include "utils/wait_event.h"
 
@@ -35,6 +37,10 @@
  * The signal is delivered if the user is either a superuser or the same
  * role as the backend being signaled. For "dangerous" signals, an explicit
  * check for superuser needs to be done prior to calling this function.
+ *
+ * If "msg" is not NULL and not empty, it is stashed in the target
+ * backend's message slot (see backend_msg.c), so that the target can
+ * include it in the error it reports to its client.
  *
  * Returns 0 on success, 1 on general failure, 2 on normal permission error,
  * 3 if the caller needs to be a superuser, and 4 if the caller needs to have
@@ -50,7 +56,7 @@
 #define SIGNAL_BACKEND_NOSUPERUSER 3
 #define SIGNAL_BACKEND_NOAUTOVAC 4
 static int
-pg_signal_backend(int pid, int sig)
+pg_signal_backend(int pid, int sig, const char *msg)
 {
 	PGPROC	   *proc = BackendPidGetProc(pid);
 	LocalPgBackendStatus *local_beentry;
@@ -149,6 +155,21 @@ pg_signal_backend(int pid, int sig)
 	 * too unlikely to worry about.
 	 */
 
+	/*
+	 * If a message was supplied, stash it in the target backend's message
+	 * slot before signaling, so that the target can include it in the
+	 * error it reports to its client.
+	 */
+	if (msg != NULL && msg[0] != '\0')
+	{
+		int			r = BackendMsgSet(GetNumberFromPGProc(proc), msg);
+
+		if (r != -1 && r != strlen(msg))
+			ereport(NOTICE,
+					(errmsg("message is too long and was truncated to %d bytes",
+							r)));
+	}
+
 	/* If we have setsid(), signal the backend's whole process group */
 #ifdef HAVE_SETSID
 	if (kill(-pid, sig))
@@ -173,7 +194,18 @@ pg_signal_backend(int pid, int sig)
 Datum
 pg_cancel_backend(PG_FUNCTION_ARGS)
 {
-	int			r = pg_signal_backend(PG_GETARG_INT32(0), SIGINT);
+	int			pid;
+	const char *msg;
+	int			r;
+
+	pid = PG_GETARG_INT32(0);
+
+	/* the message argument is optional and only passed by newer callers */
+	msg = NULL;
+	if (PG_NARGS() > 1 && !PG_ARGISNULL(1))
+		msg = text_to_cstring(PG_GETARG_TEXT_PP(1));
+
+	r = pg_signal_backend(pid, SIGINT, msg);
 
 	if (r == SIGNAL_BACKEND_NOSUPERUSER)
 		ereport(ERROR,
@@ -277,16 +309,22 @@ pg_terminate_backend(PG_FUNCTION_ARGS)
 	int			pid;
 	int			r;
 	int			timeout;		/* milliseconds */
+	const char *msg;
 
 	pid = PG_GETARG_INT32(0);
 	timeout = PG_GETARG_INT64(1);
+
+	/* the message argument is optional and only passed by newer callers */
+	msg = NULL;
+	if (PG_NARGS() > 2 && !PG_ARGISNULL(2))
+		msg = text_to_cstring(PG_GETARG_TEXT_PP(2));
 
 	if (timeout < 0)
 		ereport(ERROR,
 				(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
 				 errmsg("\"timeout\" must not be negative")));
 
-	r = pg_signal_backend(pid, SIGTERM);
+	r = pg_signal_backend(pid, SIGTERM, msg);
 
 	if (r == SIGNAL_BACKEND_NOSUPERUSER)
 		ereport(ERROR,
