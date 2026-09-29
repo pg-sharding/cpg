@@ -245,6 +245,7 @@ static const char *const subdirs[] = {
 	"pg_multixact/offsets",
 	"base",
 	"base/1",
+	"temps",
 	"pg_replslot",
 	"pg_tblspc",
 	"pg_stat",

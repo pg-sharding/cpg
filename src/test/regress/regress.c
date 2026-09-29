@@ -1298,8 +1298,12 @@ test_relpath(PG_FUNCTION_ARGS)
 	if ((int) ceil(log10(MAX_BACKENDS)) != PROCNUMBER_CHARS)
 		elog(WARNING, "mismatch between MAX_BACKENDS and PROCNUMBER_CHARS");
 
-	/* verify that the max-length relpath is generated ok */
-	rpath = GetRelationPath(OID_MAX, OID_MAX, OID_MAX, MAX_BACKENDS - 1,
+	/*
+	 * Verify that the max-length relpath is generated ok.  Temporary
+	 * relations live under temps/<dbOid>/ now, so the longest possible
+	 * path is the tblspc one for a permanent relation.
+	 */
+	rpath = GetRelationPath(OID_MAX, OID_MAX, OID_MAX, INVALID_PROC_NUMBER,
 							INIT_FORKNUM);
 
 	if (strlen(rpath.str) != REL_PATH_STR_MAXLEN)

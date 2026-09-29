@@ -86,10 +86,13 @@ extern int	forkname_chars(const char *str, ForkNumber *fork);
 
 /*
  * The longest possible relation path lengths is from the following format:
- * sprintf(rp.path, "%s/%u/%s/%u/t%d_%u",
+ * sprintf(rp.path, "%s/%u/%s/%u/%u_%s",
  *         PG_TBLSPC_DIR, spcOid,
  *         TABLESPACE_VERSION_DIRECTORY,
- *         dbOid, procNumber, relNumber);
+ *         dbOid, relNumber, forkNames[forkNumber]);
+ *
+ * (Temporary relations live under "temps/<dbOid>/t%d_%u%s", which is never
+ * longer than this, even with a full-width procNumber.)
  *
  * Note this does *not* include the trailing null-byte, to make it easier to
  * combine it with other lengths.
@@ -104,9 +107,6 @@ extern int	forkname_chars(const char *str, ForkNumber *fork);
 		+ sizeof((char)'/') \
 		+ OIDCHARS /* dbOid */ \
 		+ sizeof((char)'/') \
-		+ sizeof((char)'t') /* temporary table indicator */ \
-		+ PROCNUMBER_CHARS /* procNumber */ \
-		+ sizeof((char)'_') \
 		+ OIDCHARS /* relNumber */ \
 		+ sizeof((char)'_') \
 		+ FORKNAMECHARS /* forkNames[forkNumber] */ \

@@ -243,6 +243,32 @@ mdcreate(SMgrRelation reln, ForkNumber forknum, bool isRedo)
 							reln->smgr_rlocator.locator.dbOid,
 							isRedo);
 
+	/*
+	 * Temporary relations all live in {datadir}/temps/<dbOid>, regardless
+	 * of the tablespace in their locator.  The directory might not exist
+	 * yet: it is created lazily here rather than at database creation, so
+	 * that clusters upgraded from pre-existing layouts work without
+	 * special handling.
+	 */
+	if (reln->smgr_rlocator.backend != INVALID_PROC_NUMBER)
+	{
+		char		tempspath[MAXPGPATH];
+
+		if (MakePGDirectory("temps") < 0 && errno != EEXIST)
+			ereport(ERROR,
+					(errcode_for_file_access(),
+					 errmsg("could not create directory \"temps\": %m")));
+
+		snprintf(tempspath, sizeof(tempspath), "temps/%u",
+				 reln->smgr_rlocator.locator.dbOid);
+
+		if (MakePGDirectory(tempspath) < 0 && errno != EEXIST)
+			ereport(ERROR,
+					(errcode_for_file_access(),
+					 errmsg("could not create directory \"%s\": %m",
+							tempspath)));
+	}
+
 	path = relpath(reln->smgr_rlocator, forknum);
 
 	fd = PathNameOpenFile(path.str, _mdfd_open_flags() | O_CREAT | O_EXCL);
