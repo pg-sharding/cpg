@@ -77,6 +77,7 @@
 #include "tcop/pquery.h"
 #include "tcop/tcopprot.h"
 #include "tcop/utility.h"
+#include "utils/backend_msg.h"
 #include "utils/guc_hooks.h"
 #include "utils/injection_point.h"
 #include "utils/lsyscache.h"
@@ -3524,6 +3525,16 @@ ProcessInterrupts(void)
 					(errcode(ERRCODE_ADMIN_SHUTDOWN),
 					 errmsg("terminating connection due to conflict with force vacuum")));
 		}
+		else if (BackendMsgIsSet())
+		{
+			char		msg[BACKEND_MSG_MAX_LEN];
+
+			(void) BackendMsgGet(msg, sizeof(msg));
+			ereport(FATAL,
+					(errcode(ERRCODE_ADMIN_SHUTDOWN),
+					 errmsg("terminating connection due to administrator command: %s",
+							msg)));
+		}
 		else
 			ereport(FATAL,
 					(errcode(ERRCODE_ADMIN_SHUTDOWN),
@@ -3636,9 +3647,20 @@ ProcessInterrupts(void)
 		if (!DoingCommandRead)
 		{
 			LockErrorCleanup();
-			ereport(ERROR,
-					(errcode(ERRCODE_QUERY_CANCELED),
-					 errmsg("canceling statement due to user request")));
+			if (BackendMsgIsSet())
+			{
+				char		msg[BACKEND_MSG_MAX_LEN];
+
+				(void) BackendMsgGet(msg, sizeof(msg));
+				ereport(ERROR,
+						(errcode(ERRCODE_QUERY_CANCELED),
+						 errmsg("canceling statement due to user request: %s",
+								msg)));
+			}
+			else
+				ereport(ERROR,
+						(errcode(ERRCODE_QUERY_CANCELED),
+						 errmsg("canceling statement due to user request")));
 		}
 	}
 

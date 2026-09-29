@@ -52,6 +52,7 @@
 #include "storage/spin.h"
 #include "storage/standby.h"
 #include "storage/subsystems.h"
+#include "utils/backend_msg.h"
 #include "utils/injection_point.h"
 #include "utils/timeout.h"
 #include "utils/timestamp.h"
@@ -569,6 +570,14 @@ InitProcess(void)
 	if (IsUnderPostmaster)
 		AttachSharedMemoryStructs();
 #endif
+
+	/*
+	 * Initialize our slot for messages passed via pg_cancel_backend() /
+	 * pg_terminate_backend(), and arrange for its cleanup at exit.  This
+	 * must come after the on_shmem_exit() registration above, so that the
+	 * slot is cleaned up before the proc number is released.
+	 */
+	BackendMsgInit(MyProcNumber);
 }
 
 /*

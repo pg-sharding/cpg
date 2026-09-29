@@ -73,6 +73,9 @@ PG_SHMEM_SUBSYSTEM(PgArchShmemCallbacks)
 PG_SHMEM_SUBSYSTEM(ApplyLauncherShmemCallbacks)
 PG_SHMEM_SUBSYSTEM(SlotSyncShmemCallbacks)
 
+/* MDB additions */
+PG_SHMEM_SUBSYSTEM(BackendMsgShmemCallbacks)
+
 /* other modules that need some shared memory space */
 PG_SHMEM_SUBSYSTEM(BTreeShmemCallbacks)
 PG_SHMEM_SUBSYSTEM(SyncScanShmemCallbacks)

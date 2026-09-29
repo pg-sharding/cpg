@@ -1,0 +1,53 @@
+CREATE EXTENSION pg_backend_msg;
+-- old signatures keep working
+SELECT pg_cancel_backend(999999999);
+WARNING:  PID 999999999 is not a PostgreSQL backend process
+ pg_cancel_backend 
+-------------------
+ f
+(1 row)
+
+SELECT pg_terminate_backend(999999999, 0);
+WARNING:  PID 999999999 is not a PostgreSQL backend process
+ pg_terminate_backend 
+----------------------
+ f
+(1 row)
+
+-- same names, with a message
+SELECT pg_cancel_backend(999999999, 'no such backend');
+WARNING:  PID 999999999 is not a PostgreSQL backend process
+ pg_cancel_backend 
+-------------------
+ f
+(1 row)
+
+SELECT pg_terminate_backend(999999999, 0, 'no such backend');
+WARNING:  PID 999999999 is not a PostgreSQL backend process
+ pg_terminate_backend 
+----------------------
+ f
+(1 row)
+
+-- named arguments
+SELECT pg_cancel_backend(pid => 999999999, message => 'no such backend');
+WARNING:  PID 999999999 is not a PostgreSQL backend process
+ pg_cancel_backend 
+-------------------
+ f
+(1 row)
+
+SELECT pg_terminate_backend(pid => 999999999, timeout => 0, message => 'no such backend');
+WARNING:  PID 999999999 is not a PostgreSQL backend process
+ pg_terminate_backend 
+----------------------
+ f
+(1 row)
+
+-- NULL message is not passed to the function (STRICT)
+SELECT pg_cancel_backend(999999999, NULL);
+ pg_cancel_backend 
+-------------------
+ 
+(1 row)
+
