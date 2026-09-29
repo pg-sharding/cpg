@@ -1,6 +1,7 @@
 # Copyright (c) 2022-2025, PostgreSQL Global Development Group
 
 backend_sources += files(
+  'backend_msg.c',
   'conffiles.c',
   'guc.c',
   'guc_funcs.c',
