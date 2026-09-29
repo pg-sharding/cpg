@@ -67,6 +67,8 @@ tests += {
       't/056_standby_snapshot_export.pl',
       't/057_snapshot_commit_race.pl',
       't/059_remote_apply_status_interval.pl',
+      't/057_timeline_switch_archive_divergence.pl',
+      't/058_timeline_switch_intermediate_tl.pl',
       't/130_every_sync_rep.pl',
       't/102_mdb_replication_reserved_slots.pl',
       't/110_archive_shared.pl',
