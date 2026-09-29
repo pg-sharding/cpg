@@ -1299,16 +1299,25 @@ test_relpath(PG_FUNCTION_ARGS)
 		elog(WARNING, "mismatch between MAX_BACKENDS and PROCNUMBER_CHARS");
 
 	/*
-	 * Verify that the max-length relpath is generated ok.  Temporary
-	 * relations live under temps/<dbOid>/ now, so the longest possible
-	 * path is the tblspc one for a permanent relation.
+	 * Verify that the max-length relpath is generated ok.  The longest
+	 * path is the historical temp-relation layout in a tablespace
+	 * directory, reachable when temp_relations_in_temps_dir is off, so
+	 * exercise the layout switch at the same time.  The variable is the
+	 * GUC's storage: save, flip and restore it.
 	 */
-	rpath = GetRelationPath(OID_MAX, OID_MAX, OID_MAX, INVALID_PROC_NUMBER,
-							INIT_FORKNUM);
+	{
+		bool		saved_use_temps = TempRelationsUseTempsDir;
 
-	if (strlen(rpath.str) != REL_PATH_STR_MAXLEN)
-		elog(WARNING, "maximum length relpath is if length %zu instead of %zu",
-			 strlen(rpath.str), REL_PATH_STR_MAXLEN);
+		TempRelationsUseTempsDir = false;
+		rpath = GetRelationPath(OID_MAX, OID_MAX, OID_MAX, MAX_BACKENDS - 1,
+								INIT_FORKNUM);
+
+		if (strlen(rpath.str) != REL_PATH_STR_MAXLEN)
+			elog(WARNING, "maximum length relpath is if length %zu instead of %zu",
+				 strlen(rpath.str), REL_PATH_STR_MAXLEN);
+
+		TempRelationsUseTempsDir = saved_use_temps;
+	}
 
 	PG_RETURN_VOID();
 }

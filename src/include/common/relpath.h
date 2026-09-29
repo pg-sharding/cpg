@@ -74,6 +74,14 @@ typedef enum ForkNumber
 
 extern PGDLLIMPORT const char *const forkNames[];
 
+/*
+ * If true, temporary relations live in {datadir}/temps/<dbOid>; if false,
+ * the historical layout is used.  This is the storage of the postmaster
+ * level GUC temp_relations_in_temps_dir, so it cannot change during the
+ * lifetime of a postmaster.
+ */
+extern PGDLLIMPORT bool TempRelationsUseTempsDir;
+
 extern ForkNumber forkname_to_number(const char *forkName);
 extern int	forkname_chars(const char *str, ForkNumber *fork);
 
@@ -86,13 +94,13 @@ extern int	forkname_chars(const char *str, ForkNumber *fork);
 
 /*
  * The longest possible relation path lengths is from the following format:
- * sprintf(rp.path, "%s/%u/%s/%u/%u_%s",
+ * sprintf(rp.path, "%s/%u/%s/%u/t%d_%u",
  *         PG_TBLSPC_DIR, spcOid,
  *         TABLESPACE_VERSION_DIRECTORY,
- *         dbOid, relNumber, forkNames[forkNumber]);
+ *         dbOid, procNumber, relNumber);
  *
- * (Temporary relations live under "temps/<dbOid>/t%d_%u%s", which is never
- * longer than this, even with a full-width procNumber.)
+ * This is the historical temp-relation layout in a tablespace directory,
+ * which is reachable again when temp_relations_in_temps_dir is off.
  *
  * Note this does *not* include the trailing null-byte, to make it easier to
  * combine it with other lengths.
@@ -107,6 +115,9 @@ extern int	forkname_chars(const char *str, ForkNumber *fork);
 		+ sizeof((char)'/') \
 		+ OIDCHARS /* dbOid */ \
 		+ sizeof((char)'/') \
+		+ sizeof((char)'t') /* temporary table indicator */ \
+		+ PROCNUMBER_CHARS /* procNumber */ \
+		+ sizeof((char)'_') \
 		+ OIDCHARS /* relNumber */ \
 		+ sizeof((char)'_') \
 		+ FORKNAMECHARS /* forkNames[forkNumber] */ \

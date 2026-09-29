@@ -244,13 +244,14 @@ mdcreate(SMgrRelation reln, ForkNumber forknum, bool isRedo)
 							isRedo);
 
 	/*
-	 * Temporary relations all live in {datadir}/temps/<dbOid>, regardless
-	 * of the tablespace in their locator.  The directory might not exist
-	 * yet: it is created lazily here rather than at database creation, so
-	 * that clusters upgraded from pre-existing layouts work without
-	 * special handling.
+	 * Temporary relations all live in {datadir}/temps/<dbOid> when
+	 * temp_relations_in_temps_dir is on, regardless of the tablespace in
+	 * their locator.  The directory might not exist yet: it is created
+	 * lazily here rather than at database creation, so that clusters
+	 * upgraded from pre-existing layouts work without special handling.
 	 */
-	if (reln->smgr_rlocator.backend != INVALID_PROC_NUMBER)
+	if (reln->smgr_rlocator.backend != INVALID_PROC_NUMBER &&
+		TempRelationsUseTempsDir)
 	{
 		char		tempspath[MAXPGPATH];
 

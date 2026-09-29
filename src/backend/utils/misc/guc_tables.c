@@ -49,6 +49,7 @@
 #include "commands/user.h"
 #include "commands/vacuum.h"
 #include "common/file_utils.h"
+#include "common/relpath.h"
 #include "common/scram-common.h"
 #include "jit/jit.h"
 #include "libpq/auth.h"
