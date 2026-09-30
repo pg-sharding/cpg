@@ -4808,6 +4808,132 @@ assign_search_path(const char *newval, void *extra)
 }
 
 /*
+ * Storage for the GUC ycmdb.temp_namespace, which lets a session adopt
+ * another session's temporary namespace.
+ */
+char	   *ycmdb_temp_namespace = "";
+
+/*
+ * True when myTempNamespace was adopted rather than created natively.
+ * Relations in an adopted namespace belong to some other backend, so the
+ * relcache must attribute their files to that backend, not to us.
+ */
+static bool myTempNamespaceIsAdopted = false;
+
+/*
+ * TempNamespaceIsAdopted - true if this session's temp namespace was
+ * adopted via the ycmdb.temp_namespace GUC.
+ */
+bool
+TempNamespaceIsAdopted(void)
+{
+	return myTempNamespaceIsAdopted;
+}
+
+/* check_hook: validate ycmdb.temp_namespace value */
+bool
+check_ycmdb_temp_namespace(char **newval, void **extra, GucSource source)
+{
+	const char *str = *newval;
+	const char *suffix;
+
+	/* the empty value means "don't adopt any temp namespace" */
+	if (str == NULL || str[0] == '\0')
+		return true;
+
+	/* the only supported form is pg_temp_<digits> */
+	if (strncmp(str, "pg_temp_", strlen("pg_temp_")) != 0)
+		goto badformat;
+	suffix = str + strlen("pg_temp_");
+	if (*suffix == '\0' ||
+		strspn(suffix, "0123456789") != strlen(suffix))
+		goto badformat;
+
+	return true;
+
+badformat:
+	GUC_check_errdetail("Value must be a temporary namespace name of the form \"pg_temp_N\".");
+	return false;
+}
+
+/* assign_hook: adopt the given temporary namespace */
+void
+assign_ycmdb_temp_namespace(const char *newval, void *extra)
+{
+	const char *suffix;
+	char	   *toastName;
+	Oid			tempNamespaceId;
+	Oid			tempToastNamespaceId;
+
+	/*
+	 * If we adopted a temp namespace before, drop it: RESET (and a new SET)
+	 * is allowed to undo or replace the previous adoption.
+	 */
+	if (newval == NULL || newval[0] == '\0')
+	{
+		if (myTempNamespaceIsAdopted)
+		{
+			myTempNamespace = InvalidOid;
+			myTempToastNamespace = InvalidOid;
+			myTempNamespaceIsAdopted = false;
+			baseSearchPathValid = false;
+			searchPathCacheValid = false;
+		}
+		return;
+	}
+
+	/*
+	 * Skip when we cannot reach the catalogs: a value coming from a
+	 * configuration file is processed outside a transaction, and parallel
+	 * workers get the leader's temp namespace state through the parallel
+	 * machinery, not from their restored GUCs.
+	 */
+	if (!IsTransactionState() || InitializingParallelWorker)
+		return;
+
+	/*
+	 * Drop a previously adopted namespace: RESET undoes the adoption, and a
+	 * new SET is allowed to replace one adopted namespace with another.
+	 */
+	if (myTempNamespaceIsAdopted)
+	{
+		myTempNamespace = InvalidOid;
+		myTempToastNamespace = InvalidOid;
+		myTempNamespaceIsAdopted = false;
+		baseSearchPathValid = false;
+		searchPathCacheValid = false;
+	}
+
+	/*
+	 * A session can only adopt a temp namespace before it has acquired one
+	 * of its own, matching the expectations of SetTempNamespaceState().
+	 */
+	if (OidIsValid(myTempNamespace))
+		ereport(ERROR,
+				(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
+				 errmsg("session already has a temporary namespace")));
+
+	/* Resolve the temp namespace and the matching toast namespace. */
+	tempNamespaceId = get_namespace_oid(newval, false);
+
+	suffix = newval + strlen("pg_temp_");
+	toastName = psprintf("pg_toast_temp_%s", suffix);
+	tempToastNamespaceId = get_namespace_oid(toastName, false);
+
+	SetTempNamespaceState(tempNamespaceId, tempToastNamespaceId);
+	myTempNamespaceIsAdopted = true;
+
+	/*
+	 * The usual permission checks still apply when this session touches the
+	 * adopted namespace: by default only superusers may read another
+	 * backend's temp objects.  Also note that an adopted namespace may well
+	 * belong to a live session, in which case its files are being written
+	 * through that session's private buffers: adopt it for inspection
+	 * mainly after the owner is gone.
+	 */
+}
+
+/*
  * InitializeSearchPath: initialize module during InitPostgres.
  *
  * This is called after we are up enough to be able to do catalog lookups.

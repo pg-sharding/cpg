@@ -184,6 +184,10 @@ extern void GetTempNamespaceState(Oid *tempNamespaceId,
 extern void SetTempNamespaceState(Oid tempNamespaceId,
 								  Oid tempToastNamespaceId);
 extern void ResetTempTableNamespace(void);
+extern bool TempNamespaceIsAdopted(void);
+
+/* storage for GUC ycmdb.temp_namespace */
+extern PGDLLIMPORT char *ycmdb_temp_namespace;
 
 extern SearchPathMatcher *GetSearchPathMatcher(MemoryContext context);
 extern SearchPathMatcher *CopySearchPathMatcher(SearchPathMatcher *path);

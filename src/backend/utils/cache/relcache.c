@@ -1162,12 +1162,34 @@ retry:
 		case RELPERSISTENCE_PERMANENT:
 			relation->rd_backend = INVALID_PROC_NUMBER;
 			relation->rd_islocaltemp = false;
+			relation->rd_isadoptedtemp = false;
 			break;
 		case RELPERSISTENCE_TEMP:
 			if (isTempOrTempToastNamespace(relation->rd_rel->relnamespace))
 			{
-				relation->rd_backend = ProcNumberForTempRelations();
-				relation->rd_islocaltemp = true;
+				if (TempNamespaceIsAdopted())
+				{
+					/*
+					 * This is a temp relation in a namespace adopted through
+					 * the ycmdb.temp_namespace GUC.  It resolves like ours,
+					 * but its files belong to the backend that created it,
+					 * so attribute them to that backend.  rd_islocaltemp
+					 * must stay false: this relation is not ours alone, and
+					 * RELATION_IS_OTHER_TEMP() exempts it via
+					 * rd_isadoptedtemp, allowing read access.
+					 */
+					relation->rd_backend =
+						GetTempNamespaceProcNumber(relation->rd_rel->relnamespace);
+					Assert(relation->rd_backend != INVALID_PROC_NUMBER);
+					relation->rd_islocaltemp = false;
+					relation->rd_isadoptedtemp = true;
+				}
+				else
+				{
+					relation->rd_backend = ProcNumberForTempRelations();
+					relation->rd_islocaltemp = true;
+					relation->rd_isadoptedtemp = false;
+				}
 			}
 			else
 			{
@@ -1188,6 +1210,7 @@ retry:
 					GetTempNamespaceProcNumber(relation->rd_rel->relnamespace);
 				Assert(relation->rd_backend != INVALID_PROC_NUMBER);
 				relation->rd_islocaltemp = false;
+				relation->rd_isadoptedtemp = false;
 			}
 			break;
 		default:
@@ -1916,6 +1939,7 @@ formrdesc(const char *relationName, Oid relationReltype,
 	relation->rd_droppedSubid = InvalidSubTransactionId;
 	relation->rd_backend = INVALID_PROC_NUMBER;
 	relation->rd_islocaltemp = false;
+	relation->rd_isadoptedtemp = false;
 
 	/*
 	 * initialize relation tuple form
@@ -3656,11 +3680,13 @@ RelationBuildLocalRelation(const char *relname,
 		case RELPERSISTENCE_PERMANENT:
 			rel->rd_backend = INVALID_PROC_NUMBER;
 			rel->rd_islocaltemp = false;
+			rel->rd_isadoptedtemp = false;
 			break;
 		case RELPERSISTENCE_TEMP:
 			Assert(isTempOrTempToastNamespace(relnamespace));
 			rel->rd_backend = ProcNumberForTempRelations();
 			rel->rd_islocaltemp = true;
+			rel->rd_isadoptedtemp = false;
 			break;
 		default:
 			elog(ERROR, "invalid relpersistence: %c", relpersistence);

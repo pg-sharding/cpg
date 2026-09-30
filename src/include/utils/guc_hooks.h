@@ -152,6 +152,9 @@ extern bool check_temp_buffers(int *newval, void **extra, GucSource source);
 extern bool check_temp_tablespaces(char **newval, void **extra,
 								   GucSource source);
 extern void assign_temp_tablespaces(const char *newval, void *extra);
+extern bool check_ycmdb_temp_namespace(char **newval, void **extra,
+									   GucSource source);
+extern void assign_ycmdb_temp_namespace(const char *newval, void *extra);
 extern bool check_timezone(char **newval, void **extra, GucSource source);
 extern void assign_timezone(const char *newval, void *extra);
 extern const char *show_timezone(void);

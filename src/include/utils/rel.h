@@ -59,6 +59,12 @@ typedef struct RelationData
 	int			rd_refcnt;		/* reference count */
 	ProcNumber	rd_backend;		/* owning backend's proc number, if temp rel */
 	bool		rd_islocaltemp; /* rel is a temp rel of this session */
+	bool		rd_isadoptedtemp;	/* rel is a temp rel in a temp
+									 * namespace adopted via the
+									 * ycmdb.temp_namespace GUC: it
+									 * resolves like ours, but its
+									 * files belong to another
+									 * backend */
 	bool		rd_isnailed;	/* rel is nailed in cache */
 	bool		rd_isvalid;		/* relcache entry is valid */
 	bool		rd_indexvalid;	/* is rd_indexlist valid? (also rd_pkindex and
@@ -695,7 +701,8 @@ RelationCloseSmgr(Relation relation)
  */
 #define RELATION_IS_OTHER_TEMP(relation) \
 	((relation)->rd_rel->relpersistence == RELPERSISTENCE_TEMP && \
-	 !(relation)->rd_islocaltemp)
+	 !(relation)->rd_islocaltemp && \
+	 !(relation)->rd_isadoptedtemp)
 
 
 /*
