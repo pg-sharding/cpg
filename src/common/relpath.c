@@ -41,6 +41,16 @@ StaticAssertDecl(lengthof(forkNames) == (MAX_FORKNUM + 1),
 				 "array length mismatch");
 
 /*
+ * If true, temporary relations live in {datadir}/temps/<dbOid>; if false,
+ * the historical layout (base/<dbOid> or a tablespace directory) is used.
+ * This is the storage of the postmaster-level GUC
+ * temp_relations_in_temps_dir, so it cannot change during the lifetime of a
+ * postmaster.  Frontend tools never change it and see the compile-time
+ * default.
+ */
+bool		TempRelationsUseTempsDir = true;
+
+/*
  * forkname_to_number - look up fork number by name
  *
  * In backend, we throw an error for no match; in frontend, we just
@@ -145,7 +155,24 @@ GetRelationPath(Oid dbOid, Oid spcOid, RelFileNumber relNumber,
 {
 	RelPathStr	rp;
 
-	if (spcOid == GLOBALTABLESPACE_OID)
+	if (procNumber != INVALID_PROC_NUMBER && TempRelationsUseTempsDir)
+	{
+		/*
+		 * Temporary relations always live in {datadir}/temps/<dbOid>, no
+		 * matter which tablespace temp_tablespaces selected for them.
+		 * That way all temporary relation data is in one known place,
+		 * easy to observe and clean up, and the spcOid recorded in the
+		 * RelFileLocator does not affect the on-disk location.
+		 */
+		if (forkNumber != MAIN_FORKNUM)
+			sprintf(rp.str, "temps/%u/t%d_%u_%s",
+					dbOid, procNumber, relNumber,
+					forkNames[forkNumber]);
+		else
+			sprintf(rp.str, "temps/%u/t%d_%u",
+					dbOid, procNumber, relNumber);
+	}
+	else if (spcOid == GLOBALTABLESPACE_OID)
 	{
 		/* Shared system relations live in {datadir}/global */
 		Assert(dbOid == 0);
@@ -163,17 +190,16 @@ GetRelationPath(Oid dbOid, Oid spcOid, RelFileNumber relNumber,
 		if (procNumber == INVALID_PROC_NUMBER)
 		{
 			if (forkNumber != MAIN_FORKNUM)
-			{
 				sprintf(rp.str, "base/%u/%u_%s",
 						dbOid, relNumber,
 						forkNames[forkNumber]);
-			}
 			else
 				sprintf(rp.str, "base/%u/%u",
 						dbOid, relNumber);
 		}
 		else
 		{
+			/* historical layout for temporary relations */
 			if (forkNumber != MAIN_FORKNUM)
 				sprintf(rp.str, "base/%u/t%d_%u_%s",
 						dbOid, procNumber, relNumber,
@@ -202,6 +228,7 @@ GetRelationPath(Oid dbOid, Oid spcOid, RelFileNumber relNumber,
 		}
 		else
 		{
+			/* historical layout for temporary relations */
 			if (forkNumber != MAIN_FORKNUM)
 				sprintf(rp.str, "%s/%u/%s/%u/t%d_%u_%s",
 						PG_TBLSPC_DIR, spcOid,

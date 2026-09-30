@@ -189,6 +189,12 @@ static const char *const excludeDirContents[] =
 	/* Contents zeroed on startup, see StartupSUBTRANS(). */
 	"pg_subtrans",
 
+	/*
+	 * Contents of the per-database temp relation directory are removed on
+	 * startup, see RemovePgTempFiles().
+	 */
+	"temps",
+
 	/* end of list */
 	NULL
 };

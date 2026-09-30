@@ -3332,7 +3332,17 @@ RemovePgTempFiles(void)
 	RemovePgTempRelationFiles("base");
 
 	/*
+	 * Remove leftover temporary relation files in the common "temps"
+	 * directory, where temporary relations live regardless of tablespace.
+	 * Databases appear there as numeric subdirectories, so the existing
+	 * numeric-subdir scan applies.
+	 */
+	RemovePgTempRelationFiles("temps");
+
+	/*
 	 * Cycle through temp directories for all non-default tablespaces.
+	 * Temporary relations no longer live there, but keep the scan for
+	 * leftovers from clusters upgraded from older versions.
 	 */
 	spc_dir = AllocateDir(PG_TBLSPC_DIR);
 

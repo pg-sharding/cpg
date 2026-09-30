@@ -1927,6 +1927,27 @@ dropdb(const char *dbname, bool missing_ok, bool force)
 	remove_dbtablespaces(db_id);
 
 	/*
+	 * Remove the database's temp-relation directory under "temps", if any.
+	 * It contains no live data: DROP DATABASE requires that no one is
+	 * connected to the database, so no temporary relations in it can
+	 * still be in use.  Missing directory is not an error (e.g. the
+	 * database never had temporary relations).
+	 */
+	{
+		char	   *tempspath = psprintf("temps/%u", db_id);
+		struct stat st;
+
+		if (lstat(tempspath, &st) == 0 && S_ISDIR(st.st_mode))
+		{
+			if (!rmtree(tempspath, true))
+				ereport(WARNING,
+						(errmsg("some useless files may be left behind in old database directory \"%s\"",
+								tempspath)));
+		}
+		pfree(tempspath);
+	}
+
+	/*
 	 * Close pg_database, but keep lock till commit.
 	 */
 	table_close(pgdbrel, NoLock);

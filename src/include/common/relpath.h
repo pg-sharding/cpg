@@ -74,6 +74,14 @@ typedef enum ForkNumber
 
 extern PGDLLIMPORT const char *const forkNames[];
 
+/*
+ * If true, temporary relations live in {datadir}/temps/<dbOid>; if false,
+ * the historical layout is used.  This is the storage of the postmaster
+ * level GUC temp_relations_in_temps_dir, so it cannot change during the
+ * lifetime of a postmaster.
+ */
+extern PGDLLIMPORT bool TempRelationsUseTempsDir;
+
 extern ForkNumber forkname_to_number(const char *forkName);
 extern int	forkname_chars(const char *str, ForkNumber *fork);
 
@@ -90,6 +98,9 @@ extern int	forkname_chars(const char *str, ForkNumber *fork);
  *         PG_TBLSPC_DIR, spcOid,
  *         TABLESPACE_VERSION_DIRECTORY,
  *         dbOid, procNumber, relNumber);
+ *
+ * This is the historical temp-relation layout in a tablespace directory,
+ * which is reachable again when temp_relations_in_temps_dir is off.
  *
  * Note this does *not* include the trailing null-byte, to make it easier to
  * combine it with other lengths.
