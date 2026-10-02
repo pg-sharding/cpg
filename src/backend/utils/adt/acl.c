@@ -5710,7 +5710,7 @@ has_admin_privs_of_role(Oid member, Oid role)
 	if (member == role)
 		return false;
 
-	(void) roles_is_member_of(member, ROLERECURSE_PRIVS, role, &admin_role);
+	(void) roles_is_member_of(member, ROLERECURSE_PRIVS, role, &admin_role, false);
 	return OidIsValid(admin_role);
 }
 
