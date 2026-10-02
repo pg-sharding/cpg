@@ -11,7 +11,7 @@ GRANT CREATE ON DATABASE REGRESSION TO regress_mdb_repl_no_priv;
 SET SESSION AUTHORIZATION regress_mdb_repl;
 CREATE SUBSCRIPTION regress_mdbsub CONNECTION 'dbname=doesnotexist password=regress_fakepassword' PUBLICATION foo WITH (slot_name = NONE, connect = false);
 WARNING:  subscription was created, but is not connected
-HINT:  To initiate replication, you must manually create the replication slot, enable the subscription, and refresh the subscription.
+HINT:  To initiate replication, you must manually create the replication slot, enable the subscription, and alter the subscription to refresh publications.
 -- ok - we are allowed to change ownership under mdb_admin
 ALTER SUBSCRIPTION regress_mdbsub OWNER TO regress_mdb_repl_no_priv2;
 -- should fail - we are not allowed to change ownership to priviledged role
