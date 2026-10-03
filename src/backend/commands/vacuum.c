@@ -800,57 +800,84 @@ vacuum_open_relation(Oid relid, RangeVar *relation, uint32 options,
 	 *
 	 * If we've been asked not to wait for the relation lock, acquire it first
 	 * in non-blocking mode, before calling try_relation_open().
+	 *
+	 * With VACOPT_FORCE, try to acquire the lock without blocking; if that
+	 * fails, signal all the backends holding conflicting locks and wait
+	 * for them to release the lock.
 	 */
-	if (!(options & VACOPT_SKIP_LOCKED))
-		rel = try_relation_open(relid, lmode);
-	else if (ConditionalLockRelationOid(relid, lmode))
-		rel = try_relation_open(relid, NoLock);
-	else if (options & VACOPT_FORCE)
+	if (options & VACOPT_FORCE)
 	{
-		LOCKTAG tag;
-		Oid		dbid;
-
-		if (IsSharedRelation(relid))
-			dbid = InvalidOid;
+		if (ConditionalLockRelationOid(relid, lmode))
+			rel = try_relation_open(relid, NoLock);
 		else
-			dbid = MyDatabaseId;
-
-		SET_LOCKTAG_RELATION(tag, dbid, relid);
-
-		while (rel == NULL)
 		{
-			VirtualTransactionId* backends = GetLockConflicts(&tag, lmode, NULL);
-			
-			/*
-			* Send signals to all the backends holding the conflicting locks
-			*/
-			while (VirtualTransactionIdIsValid(*backends))
+			LOCKTAG tag;
+			Oid		dbid;
+			int		conflicts;
+
+			if (IsSharedRelation(relid))
+				dbid = InvalidOid;
+			else
+				dbid = MyDatabaseId;
+
+			SET_LOCKTAG_RELATION(tag, dbid, relid);
+
+			while (rel == NULL)
 			{
-				PGPROC	   *proc;
-				pid_t		pid;
+				VirtualTransactionId *backends;
 
 				/*
 				 * Send signals to all the backends holding the
 				 * conflicting locks.  If a backend is no longer running,
 				 * that's fine, just skip it.
 				 */
-				proc = GetPGProcByNumber(backends->procNumber);
-				pid = proc->pid;
-				if (pid != 0)
-					(void) SendProcSignal(pid, PROCSIG_CONFLICT_RVR_FORCE,
-										  backends->procNumber);
-				backends++;
-			}
-			rel = try_relation_open(relid, lmode);
-			if (rel == NULL)
-			{
-				ereport(NOTICE,
-						(errcode(ERRCODE_LOCK_NOT_AVAILABLE),
-						errmsg("retrying attemts of acquiring lock for \"%s\" --- lock not available",
-								relation->relname)));
+				backends = GetLockConflicts(&tag, lmode, &conflicts);
+				if (conflicts == 0)
+				{
+					/*
+					 * Nobody holds a conflicting lock anymore, yet we
+					 * couldn't acquire it.  The relation must have gone
+					 * away; fall through like the non-FORCE path.
+					 */
+					pfree(backends);
+					rel_lock = true;
+					break;
+				}
+
+				for (int i = 0; i < conflicts; i++)
+				{
+					PGPROC	   *proc;
+					pid_t		pid;
+
+					proc = GetPGProcByNumber(backends[i].procNumber);
+					pid = proc->pid;
+					if (pid != 0)
+						(void) SendProcSignal(pid, PROCSIG_CONFLICT_RVR_FORCE,
+											  backends[i].procNumber);
+				}
+				pfree(backends);
+
+				rel = try_relation_open(relid, lmode);
+				if (rel == NULL)
+				{
+					ereport(DEBUG1,
+							(errcode(ERRCODE_LOCK_NOT_AVAILABLE),
+							 errmsg("retrying attempts of acquiring lock for \"%s\" --- lock not available",
+									relation->relname)));
+
+					/*
+					 * Give the signaled backends a chance to process the
+					 * interrupt, to avoid a tight spin.
+					 */
+					pg_usleep(10000L);
+				}
 			}
 		}
 	}
+	else if (!(options & VACOPT_SKIP_LOCKED))
+		rel = try_relation_open(relid, lmode);
+	else if (ConditionalLockRelationOid(relid, lmode))
+		rel = try_relation_open(relid, NoLock);
 	else
 	{
 		rel = NULL;
@@ -977,12 +1004,26 @@ expand_vacuum_rel(VacuumRelation *vrel, MemoryContext vac_context,
 		 * We transiently take AccessShareLock to protect the syscache lookup
 		 * below, as well as find_all_inheritors's expectation that the caller
 		 * holds some lock on the starting relation.
+		 *
+		 * With VACOPT_FORCE, resolve the name without taking any lock, so
+		 * that a conflicting lock doesn't stall VACUUM FORCE right here,
+		 * before vacuum_open_relation() had a chance to signal the holders.
+		 * This reintroduces the possibility of the relation disappearing
+		 * mid-expand; that is acceptable for a maintenance command that
+		 * is explicitly allowed to terminate conflicting backends.
 		 */
-		rvr_opts = ((options & VACOPT_SKIP_LOCKED) ? RVR_SKIP_LOCKED : 0);
-		relid = RangeVarGetRelidExtended(vrel->relation,
-										 AccessShareLock,
-										 rvr_opts,
-										 NULL, NULL);
+		if (options & VACOPT_FORCE)
+			relid = RangeVarGetRelidExtended(vrel->relation, NoLock,
+											 RVR_MISSING_OK, NULL, NULL);
+		else
+		{
+			int			rvr_opts = ((options & VACOPT_SKIP_LOCKED) ? RVR_SKIP_LOCKED : 0);
+
+			relid = RangeVarGetRelidExtended(vrel->relation,
+											 AccessShareLock,
+											 rvr_opts,
+											 NULL, NULL);
+		}
 
 		/*
 		 * If the lock is unavailable, emit the same log statement that
@@ -1084,8 +1125,11 @@ expand_vacuum_rel(VacuumRelation *vrel, MemoryContext vac_context,
 		 * transaction and begin a new one between now and then.  Moreover,
 		 * holding locks on multiple relations would create significant risk
 		 * of deadlock.
+		 *
+		 * With VACOPT_FORCE we don't hold any lock here (see above).
 		 */
-		UnlockRelationOid(relid, AccessShareLock);
+		if (!(options & VACOPT_FORCE))
+			UnlockRelationOid(relid, AccessShareLock);
 	}
 
 	return vacrels;
