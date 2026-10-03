@@ -1892,7 +1892,8 @@ EmitErrorReport(void)
 
 	if (max_log_size != 0 && debug_query_string != NULL)
 	{
-		char* str = debug_query_string;
+		char	   *str = pstrdup(debug_query_string);
+
 		str[pg_mbcliplen(str, strlen(str), max_log_size)] = '\0';
 		debug_query_string = str;
 	}
