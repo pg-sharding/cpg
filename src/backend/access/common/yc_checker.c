@@ -18,4 +18,4 @@
 
 /* GUC variables */
 
-YCGrantCheckerType yc_grant_checker_type = YC_GRANT_CHECKER_OFF;
+int		yc_grant_checker_type = YC_GRANT_CHECKER_OFF;
