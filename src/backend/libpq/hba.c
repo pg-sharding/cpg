@@ -33,6 +33,7 @@
 #include "libpq/ifaddr.h"
 #include "libpq/libpq-be.h"
 #include "libpq/oauth.h"
+#include "miscadmin.h"
 #include "postmaster/postmaster.h"
 #include "regex/regex.h"
 #include "replication/walsender.h"
@@ -2533,9 +2534,31 @@ check_hba(hbaPort *port)
 	Oid			roleid;
 	ListCell   *line;
 	HbaLine    *hba;
+	bool		skip_db_check = false;
 
 	/* Get the target role's OID.  Note we do not error out for bad role. */
 	roleid = get_role_oid(port->user_name, true);
+
+	/*
+	 * MDB: members of mdb_replication without the REPLICATION attribute may
+	 * start a redacted physical backup walsender (see InitPostgres).  Such
+	 * connections are not gated by the database column of pg_hba.conf, so
+	 * that managed service hba rules applying to the user's normal
+	 * connections don't need a separate "replication" record.  The
+	 * am_mdb_redacted_walsender flag is only computed later in backend
+	 * startup, so re-derive the condition here.  check_hba is already
+	 * running inside a transaction and performs catalog lookups (e.g. for
+	 * the "samerole" keyword), so this is safe.
+	 */
+	if (am_walsender && !am_db_walsender && ycmdb_redacted_physical_backup &&
+		OidIsValid(roleid))
+	{
+		Oid			mdb_replication_oid = get_role_oid("mdb_replication", true);
+
+		skip_db_check = OidIsValid(mdb_replication_oid) &&
+			!has_rolreplication(roleid) &&
+			is_member_of_role(roleid, mdb_replication_oid);
+	}
 
 	foreach(line, parsed_hba_lines)
 	{
@@ -2612,7 +2635,7 @@ check_hba(hbaPort *port)
 		}						/* != ctLocal */
 
 		/* Check database and role */
-		if (!am_mdb_redacted_walsender && !check_db(port->database_name, port->user_name, roleid,
+		if (!skip_db_check && !check_db(port->database_name, port->user_name, roleid,
 					  hba->databases))
 			continue;
 
