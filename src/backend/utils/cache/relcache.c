@@ -39,6 +39,7 @@
 #include "access/tableam.h"
 #include "access/tupdesc_details.h"
 #include "access/xact.h"
+#include "backup/basebackup.h"
 #include "catalog/binary_upgrade.h"
 #include "catalog/catalog.h"
 #include "catalog/indexing.h"
@@ -3782,6 +3783,13 @@ RelationSetNewRelfilenumber(Relation relation, char persistence)
 	MultiXactId minmulti = InvalidMultiXactId;
 	TransactionId freezeXid = InvalidTransactionId;
 	RelFileLocator newrlocator;
+
+	/*
+	 * Redacted backups recognize only the bootstrap relfilenumbers of their
+	 * omitted catalogs.  Interlock with active senders before replacing any
+	 * such storage, then record the attempt permanently.
+	 */
+	DisableMDBRedactedBackupForRelation(RelationGetRelid(relation));
 
 	if (!IsBinaryUpgrade)
 	{

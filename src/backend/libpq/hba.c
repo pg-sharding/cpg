@@ -2612,7 +2612,7 @@ check_hba(hbaPort *port)
 		}						/* != ctLocal */
 
 		/* Check database and role */
-		if (!check_db(port->database_name, port->user_name, roleid,
+		if (!am_mdb_redacted_walsender && !check_db(port->database_name, port->user_name, roleid,
 					  hba->databases))
 			continue;
 
