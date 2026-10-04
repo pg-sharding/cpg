@@ -78,6 +78,7 @@
 #include "replication/slot.h"
 #include "replication/slotsync.h"
 #include "replication/syncrep.h"
+#include "replication/walsender.h"
 #include "storage/aio.h"
 #include "storage/bufmgr.h"
 #include "storage/bufpage.h"
@@ -1247,6 +1248,31 @@ struct config_bool ConfigureNamesBool[] =
 		},
 		&ycmdb_skip_output_plugin_check,
 		true,
+		NULL, NULL, NULL
+	},
+
+	{
+		{"ycmdb.redacted_physical_backup", PGC_SIGHUP, REPLICATION_SENDING,
+			gettext_noop("Enables redacted physical backups for mdb_replication "
+						 "members."),
+			gettext_noop("New replication connections from mdb_replication members "
+						 "without full replication privileges receive redacted base "
+						 "backups and WAL."),
+			GUC_NOT_IN_SAMPLE
+		},
+		&ycmdb_redacted_physical_backup,
+		false,
+		NULL, NULL, NULL
+	},
+
+	{
+		{"ycmdb.restore_missing_wal_phys_slots", PGC_SIGHUP, REPLICATION_SENDING,
+			gettext_noop("Allows the walsender to restore missing WAL segments from the archive."),
+			gettext_noop("When true, a walsender that cannot find the requested WAL segment in pg_wal will attempt to restore it from the archive using restore_command, so that streaming can continue even if the segment has been removed from pg_wal."),
+			GUC_NOT_IN_SAMPLE
+		},
+		&ycmdb_restore_missing_wal_phys_slots,
+		false,
 		NULL, NULL, NULL
 	},
 

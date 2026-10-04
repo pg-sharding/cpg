@@ -13,12 +13,18 @@
 #define _BASEBACKUP_H
 
 #include "nodes/replnodes.h"
+#include "common/relpath.h"
 
 /*
  * Minimum and maximum values of MAX_RATE option in BASE_BACKUP command.
  */
 #define MAX_RATE_LOWER	32
 #define MAX_RATE_UPPER	1048576
+
+/* A sensitive catalog rewrite permanently disables the redacted format. */
+#define MDB_REDACTED_BACKUP_DISABLED_FILE "MDB_REDACTED_BACKUP_DISABLED"
+#define MDB_REDACTED_BACKUP_DISABLE_WAL_MAGIC \
+	"MDB redacted backup disabled, format 1"
 
 /*
  * Information about a tablespace
@@ -36,7 +42,12 @@ typedef struct
 
 struct IncrementalBackupInfo;
 
+extern void CreateMDBRedactedBackupDisabledFile(void);
+extern void DisableMDBRedactedBackupForRelation(Oid relid);
+extern bool IsMDBRedactedCatalogFile(bool is_global,
+									 RelFileNumber relfilenumber);
 extern void SendBaseBackup(BaseBackupCmd *cmd,
-						   struct IncrementalBackupInfo *ib);
+						   struct IncrementalBackupInfo *ib,
+						   bool redact_sensitive_catalogs);
 
 #endif							/* _BASEBACKUP_H */
