@@ -274,8 +274,8 @@ typedef struct
 static bool
 check_slot_permissions(void)
 {
-	/* superuser can do it, else should have REPLICATION role option */
-	return superuser() || role_has_rolreplication;
+	/* should have REPLICATION role option */
+	return role_has_rolreplication;
 }
 
 
