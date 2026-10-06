@@ -184,7 +184,7 @@ static bool
 check_slot_permissions(void)
 {
 	if (am_walsender)
-		return superuser() || role_has_rolreplication;
+		return role_has_rolreplication;
 
 	/* superuser can do it, else should have REPLICATION role option */
 	return superuser() || has_rolreplication(GetUserId());
