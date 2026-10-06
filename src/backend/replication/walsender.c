@@ -244,6 +244,7 @@ typedef struct
 static bool
 check_slot_permissions(void)
 {
+	/* should have REPLICATION role option (superusers have it too) */
 	return role_has_rolreplication;
 }
 
@@ -876,6 +877,13 @@ StartReplication(StartReplicationCmd *cmd)
 	StringInfoData buf;
 	XLogRecPtr	FlushPtr;
 	TimeLineID	FlushTLI;
+
+	/* physical WAL streaming requires the REPLICATION attribute;
+	 * mdb_replication members may only use logical slots */
+	if (!check_slot_permissions())
+		ereport(ERROR,
+				(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
+				 (errmsg("must be superuser or replication role to use replication slots"))));
 
 	/* create xlogreader for physical replication */
 	xlogreader =
