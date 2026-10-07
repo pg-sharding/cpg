@@ -63,6 +63,7 @@ tests += {
       't/057_timeline_switch_archive_divergence.pl',
       't/058_timeline_switch_intermediate_tl.pl',
       't/102_mdb_replication_reserved_slots.pl',
+      't/103_mdb_repl_walsender_slot_perms.pl',
       't/110_archive_shared.pl',
       't/111_archive_shared_checkpoint.pl',
       't/112_archive_shared_hazards.pl',
