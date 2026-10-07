@@ -3754,7 +3754,8 @@ _printTocEntry(ArchiveHandle *AH, TocEntry *te, bool isData)
 		te->owner && strlen(te->owner) > 0 &&
 		te->dropStmt && strlen(te->dropStmt) > 0)
 	{
-		if (strcmp(te->desc, "AGGREGATE") == 0 ||
+		if ((!ropt->binary_upgrade && strcmp(te->desc, "BLOB") == 0) ||
+			strcmp(te->desc, "AGGREGATE") == 0 ||
 			strcmp(te->desc, "COLLATION") == 0 ||
 			strcmp(te->desc, "CONVERSION") == 0 ||
 			strcmp(te->desc, "DATABASE") == 0 ||
@@ -3789,8 +3790,7 @@ _printTocEntry(ArchiveHandle *AH, TocEntry *te, bool isData)
 			ahprintf(AH, "%s\n\n", temp->data);
 			destroyPQExpBuffer(temp);
 		}
-		else if (strcmp(te->desc, "BLOB") == 0 || 
-				 strcmp(te->desc, "CAST") == 0 ||
+		else if (strcmp(te->desc, "CAST") == 0 ||
 				 strcmp(te->desc, "CHECK CONSTRAINT") == 0 ||
 				 strcmp(te->desc, "CONSTRAINT") == 0 ||
 				 strcmp(te->desc, "DATABASE PROPERTIES") == 0 ||
