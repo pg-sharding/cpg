@@ -52,6 +52,7 @@ tests += {
       't/056_standby_snapshot_export.pl',
       't/060_multixact_crashed_updater.pl',
       't/102_mdb_replication_reserved_slots.pl',
+      't/103_mdb_walsender_slot_perms.pl',
     ],
   },
 }

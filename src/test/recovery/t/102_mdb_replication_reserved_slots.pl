@@ -204,7 +204,7 @@ like(
 isnt($ret, 0, 'protocol: mdb_replication may not create a physical slot');
 like(
 	$stderr,
-	qr/Slot names starting with "mdb" are reserved/,
+	qr/must be superuser or replication role to use replication slots/,
 	'protocol: ... with the rolreplication error');
 
 ($ret, $stdout, $stderr) = $node->psql(
