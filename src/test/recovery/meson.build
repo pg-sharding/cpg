@@ -50,6 +50,7 @@ tests += {
       't/054_unlogged_sequence_promotion.pl',
       't/055_cascade_reconnect.pl',
       't/102_mdb_replication_reserved_slots.pl',
+      't/103_mdb_walsender_slot_perms.pl',
     ],
   },
 }
