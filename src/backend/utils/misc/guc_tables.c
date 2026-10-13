@@ -1237,6 +1237,17 @@ struct config_bool ConfigureNamesBool[] =
 	},
 
 	{
+		{"ycmdb.replication_proxy_skip_hba", PGC_SIGHUP, CONN_AUTH_AUTH,
+			gettext_noop("Skips pg_hba.conf checks for physical replication connections."),
+			gettext_noop("When true, pg_hba.conf is not checked at all for physical replication (walsender) connections; they are always let in with implicit trust. Meant for managed environments where an authentication proxy sits in front of the cluster."),
+			GUC_NOT_IN_SAMPLE
+		},
+		&ycmdb_replication_proxy_skip_hba,
+		false,
+		NULL, NULL, NULL
+	},
+
+	{
 		{"wal_init_zero", PGC_SUSET, WAL_SETTINGS,
 			gettext_noop("Writes zeroes to new WAL files before first use."),
 			NULL
