@@ -169,8 +169,10 @@ typedef struct TokenizedAuthLine
 	char	   *err_msg;		/* Error message if any */
 } TokenizedAuthLine;
 
-/* kluge to avoid including libpq/libpq-be.h here */
+/* kludge to avoid including libpq/libpq-be.h here */
 typedef struct Port hbaPort;
+
+extern PGDLLIMPORT bool ycmdb_replication_proxy_skip_hba;
 
 extern bool load_hba(void);
 extern bool load_ident(void);
