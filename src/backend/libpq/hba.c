@@ -67,6 +67,16 @@ typedef struct check_network_data
 
 #define token_is_keyword(t, k)	(!t->quoted && strcmp(t->string, k) == 0)
 #define token_matches(t, k)  (strcmp(t->string, k) == 0)
+#define token_matches_insensitive(t,k) (pg_strcasecmp(t->string, k) == 0)
+
+bool		ycmdb_replication_proxy_skip_hba = false;
+
+/*
+ * Memory context holding the list of TokenizedAuthLines when parsing
+ * HBA or ident configuration files.  This is created when opening the first
+ * file (depth of CONF_FILE_START_DEPTH).
+ */
+static MemoryContext tokenize_context = NULL;
 
 /*
  * pre-parsed content of HBA config file: list of HbaLine structs.
@@ -2095,6 +2105,18 @@ check_hba(hbaPort *port)
 	Oid			roleid;
 	ListCell   *line;
 	HbaLine    *hba;
+
+	/*
+	 * If so configured, skip pg_hba.conf checks entirely for physical
+	 * replication connections, letting them in with implicit trust.
+	 */
+	if (ycmdb_replication_proxy_skip_hba && am_walsender && !am_db_walsender)
+	{
+		hba = palloc0(sizeof(HbaLine));
+		hba->auth_method = uaTrust;
+		port->hba = hba;
+		return;
+	}
 
 	/* Get the target role's OID.  Note we do not error out for bad role. */
 	roleid = get_role_oid(port->user_name, true);
