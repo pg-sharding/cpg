@@ -3167,7 +3167,8 @@ retry:
 
 	/* See logical_read_xlog_page(). */
 	XLByteToSeg(startptr, segno, xlogreader->segcxt.ws_segsize);
-	CheckXLogRemoved(segno, xlogreader->seg.ws_tli);
+	if (!ycmdb_restore_missing_wal_phys_slots)
+		CheckXLogRemoved(segno, xlogreader->seg.ws_tli);
 
 	/*
 	 * During recovery, the currently-open WAL file might be replaced with the
