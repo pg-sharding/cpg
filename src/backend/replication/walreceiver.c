@@ -68,6 +68,7 @@
 #include "postmaster/interrupt.h"
 #include "replication/walreceiver.h"
 #include "replication/walsender.h"
+#include "replication/walsender_private.h"
 #include "storage/ipc.h"
 #include "storage/fd.h"
 #include "storage/proc.h"
@@ -90,6 +91,7 @@
 int			wal_receiver_status_interval;
 int			wal_receiver_timeout;
 bool		hot_standby_feedback;
+bool		ycmdb_cascade_feedback_quorum = false;
 
 /* libpqwalreceiver connection */
 static WalReceiverConn *wrconn = NULL;
@@ -1293,6 +1295,37 @@ XLogWalRcvSendReply(bool force, bool requestReply)
 	writePtr = LogstreamResult.Write;
 	flushPtr = LogstreamResult.Flush;
 	applyPtr = GetXLogReplayRecPtr(NULL);
+
+	/*
+	 * If requested, report the minimum of our own position and those of
+	 * any cascaded standbys connected to our walsenders, so that the
+	 * upstream primary does not advance retention beyond what the whole
+	 * replication tree has received.
+	 */
+	if (ycmdb_cascade_feedback_quorum && WalSndCtl != NULL)
+	{
+		int			i;
+
+		for (i = 0; i < max_wal_senders; i++)
+		{
+			WalSnd	   *walsnd = &WalSndCtl->walsnds[i];
+
+			SpinLockAcquire(&walsnd->mutex);
+			if (walsnd->pid != 0)
+			{
+				if (walsnd->write != InvalidXLogRecPtr &&
+					walsnd->write < writePtr)
+					writePtr = walsnd->write;
+				if (walsnd->flush != InvalidXLogRecPtr &&
+					walsnd->flush < flushPtr)
+					flushPtr = walsnd->flush;
+				if (walsnd->apply != InvalidXLogRecPtr &&
+					walsnd->apply < applyPtr)
+					applyPtr = walsnd->apply;
+			}
+			SpinLockRelease(&walsnd->mutex);
+		}
+	}
 
 	resetStringInfo(&reply_message);
 	pq_sendbyte(&reply_message, 'r');
