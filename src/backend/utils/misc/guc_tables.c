@@ -1262,6 +1262,17 @@ struct config_bool ConfigureNamesBool[] =
 	},
 
 	{
+		{"ycmdb.cascade_feedback_quorum", PGC_SIGHUP, REPLICATION_STANDBY,
+			gettext_noop("Report the minimum LSN of this standby and its cascaded standbys in replication feedback."),
+			gettext_noop("When true, the write/flush/apply LSNs sent in WAL receiver feedback to the upstream primary are the minimum of this standby's own positions and those of all standbys connected to its walsenders (cascaded standbys), providing subtree-wide quorum feedback."),
+			GUC_NOT_IN_SAMPLE
+		},
+		&ycmdb_cascade_feedback_quorum,
+		false,
+		NULL, NULL, NULL
+	},
+
+	{
 		{"ycmdb.replication_proxy_skip_hba", PGC_SIGHUP, CONN_AUTH_AUTH,
 			gettext_noop("Skips pg_hba.conf checks for physical replication connections."),
 			gettext_noop("When true, pg_hba.conf is not checked at all for physical replication (walsender) connections; they are always let in with implicit trust. Meant for managed environments where an authentication proxy sits in front of the cluster."),
