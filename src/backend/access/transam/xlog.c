@@ -8512,7 +8512,16 @@ xlog_redo(XLogReaderState *record)
 	}
 	else if (info == XLOG_NOOP)
 	{
-		/* nothing to do here */
+		/*
+		 * Older binaries safely ignore this versioned XLOG_NOOP payload.  This
+		 * lets a CPG cluster be upgraded before the redacted format is enabled.
+		 */
+		if (XLogRecGetDataLen(record) ==
+			sizeof(MDB_REDACTED_BACKUP_DISABLE_WAL_MAGIC) &&
+			memcmp(XLogRecGetData(record),
+				   MDB_REDACTED_BACKUP_DISABLE_WAL_MAGIC,
+				   sizeof(MDB_REDACTED_BACKUP_DISABLE_WAL_MAGIC)) == 0)
+			CreateMDBRedactedBackupDisabledFile();
 	}
 	else if (info == XLOG_SWITCH)
 	{

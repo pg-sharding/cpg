@@ -12,17 +12,23 @@
  */
 #include "postgres.h"
 
+#include <fcntl.h>
 #include <sys/stat.h>
-#include <unistd.h>
 #include <time.h>
+#include <unistd.h>
 
 #include "access/xlog_internal.h"
 #include "access/xlogbackup.h"
+#include "access/xloginsert.h"
 #include "backup/backup_manifest.h"
 #include "backup/basebackup.h"
 #include "backup/basebackup_incremental.h"
 #include "backup/basebackup_sink.h"
 #include "backup/basebackup_target.h"
+#include "catalog/pg_authid.h"
+#include "catalog/pg_control.h"
+#include "catalog/pg_statistic.h"
+#include "catalog/pg_statistic_ext_data.h"
 #include "catalog/pg_tablespace_d.h"
 #include "commands/defrem.h"
 #include "common/compression.h"
@@ -41,7 +47,9 @@
 #include "storage/bufpage.h"
 #include "storage/checksum.h"
 #include "storage/dsm_impl.h"
+#include "storage/fd.h"
 #include "storage/ipc.h"
+#include "storage/lmgr.h"
 #include "storage/reinit.h"
 #include "utils/builtins.h"
 #include "utils/guc.h"
@@ -59,6 +67,110 @@
  */
 #define SINK_BUFFER_LENGTH			Max(32768, BLCKSZ)
 
+/* OIDs from DECLARE_TOAST(pg_statistic, 2840, 2841). */
+#define PG_STATISTIC_TOAST_RELATION_ID 2840
+#define PG_STATISTIC_TOAST_INDEX_ID 2841
+
+/* OIDs from DECLARE_TOAST(pg_statistic_ext_data, 3430, 3431). */
+#define PG_STATISTIC_EXT_DATA_TOAST_RELATION_ID 3430
+#define PG_STATISTIC_EXT_DATA_TOAST_INDEX_ID 3431
+
+#define MDB_REDACTED_BACKUP_MARKER "MDB_REDACTED_BACKUP"
+#define MDB_REDACTED_BACKUP_CONTENT \
+	"MDB redacted physical backup format 1\n" \
+	"pg_authid, pg_statistic, and pg_statistic_ext_data storage is absent.\n" \
+	"The service must restore those catalogs before PostgreSQL is started.\n"
+
+bool
+IsMDBRedactedCatalogFile(bool is_global, RelFileNumber relfilenumber)
+{
+	if (is_global)
+		return relfilenumber == AuthIdRelationId ||
+			relfilenumber == AuthIdRolnameIndexId ||
+			relfilenumber == AuthIdOidIndexId;
+
+	return relfilenumber == StatisticRelationId ||
+		relfilenumber == StatisticRelidAttnumInhIndexId ||
+		relfilenumber == PG_STATISTIC_TOAST_RELATION_ID ||
+		relfilenumber == PG_STATISTIC_TOAST_INDEX_ID ||
+		relfilenumber == StatisticExtDataRelationId ||
+		relfilenumber == StatisticExtDataStxoidInhIndexId ||
+		relfilenumber == PG_STATISTIC_EXT_DATA_TOAST_RELATION_ID ||
+		relfilenumber == PG_STATISTIC_EXT_DATA_TOAST_INDEX_ID;
+}
+
+static bool
+is_mdb_redacted_catalog(Oid relid)
+{
+	/* Bootstrap relfilenumbers are equal to their catalog OIDs. */
+	return IsMDBRedactedCatalogFile(true, relid) ||
+		IsMDBRedactedCatalogFile(false, relid);
+}
+
+void
+CreateMDBRedactedBackupDisabledFile(void)
+{
+	static const char contents[] =
+		"sensitive catalog storage has been rewritten\n";
+	int			fd;
+
+	/*
+	 * Make the marker durable before writing any WAL for the rewrite.  Keep
+	 * it even if the transaction aborts: WAL for an aborted index build can
+	 * still contain pg_authid keys under its transient relfilenumber.
+	 */
+	fd = OpenTransientFile(MDB_REDACTED_BACKUP_DISABLED_FILE,
+						   O_WRONLY | O_CREAT | PG_BINARY);
+	if (fd < 0)
+		ereport(ERROR,
+				(errcode_for_file_access(),
+				 errmsg("could not create file \"%s\": %m",
+						MDB_REDACTED_BACKUP_DISABLED_FILE)));
+
+	errno = 0;
+	if (write(fd, contents, sizeof(contents) - 1) !=
+		(ssize_t) (sizeof(contents) - 1))
+	{
+		if (errno == 0)
+			errno = ENOSPC;
+		ereport(ERROR,
+				(errcode_for_file_access(),
+				 errmsg("could not write to file \"%s\": %m",
+						MDB_REDACTED_BACKUP_DISABLED_FILE)));
+	}
+
+	if (pg_fsync(fd) != 0)
+		ereport(data_sync_elevel(ERROR),
+				(errcode_for_file_access(),
+				 errmsg("could not fsync file \"%s\": %m",
+						MDB_REDACTED_BACKUP_DISABLED_FILE)));
+
+	if (CloseTransientFile(fd) != 0)
+		ereport(ERROR,
+				(errcode_for_file_access(),
+				 errmsg("could not close file \"%s\": %m",
+						MDB_REDACTED_BACKUP_DISABLED_FILE)));
+
+	fsync_fname(".", true);
+}
+
+void
+DisableMDBRedactedBackupForRelation(Oid relid)
+{
+	static const char disable_record[] =
+		MDB_REDACTED_BACKUP_DISABLE_WAL_MAGIC;
+
+	if (!is_mdb_redacted_catalog(relid))
+		return;
+
+	/* Interlock with restricted senders before generating sensitive WAL. */
+	LockSharedObject(AuthIdRelationId, InvalidOid, 0, AccessExclusiveLock);
+	CreateMDBRedactedBackupDisabledFile();
+	XLogBeginInsert();
+	XLogRegisterData(disable_record, sizeof(disable_record));
+	(void) XLogInsert(RM_XLOG_ID, XLOG_NOOP);
+}
+
 typedef struct
 {
 	const char *label;
@@ -71,6 +183,7 @@ typedef struct
 	bool		sendtblspcmapfile;
 	bool		send_to_client;
 	bool		use_copytblspc;
+	bool		redact_sensitive_catalogs;
 	BaseBackupTargetHandle *target_handle;
 	backup_manifest_option manifest;
 	pg_compress_algorithm compression;
@@ -80,11 +193,13 @@ typedef struct
 
 static int64 sendTablespace(bbsink *sink, char *path, Oid spcoid, bool sizeonly,
 							struct backup_manifest_info *manifest,
-							IncrementalBackupInfo *ib);
+							IncrementalBackupInfo *ib,
+							bool redact_sensitive_catalogs);
 static int64 sendDir(bbsink *sink, const char *path, int basepathlen, bool sizeonly,
 					 List *tablespaces, bool sendtblspclinks,
 					 backup_manifest_info *manifest, Oid spcoid,
-					 IncrementalBackupInfo *ib);
+					 IncrementalBackupInfo *ib,
+					 bool redact_sensitive_catalogs);
 static bool sendFile(bbsink *sink, const char *readfilename, const char *tarfilename,
 					 struct stat *statbuf, bool missing_ok,
 					 Oid dboid, Oid spcoid, RelFileNumber relfilenumber,
@@ -307,10 +422,12 @@ perform_base_backup(basebackup_options *opt, bbsink *sink,
 
 				if (tmp->path == NULL)
 					tmp->size = sendDir(sink, ".", 1, true, state.tablespaces,
-										true, NULL, InvalidOid, NULL);
+										true, NULL, InvalidOid, NULL,
+										opt->redact_sensitive_catalogs);
 				else
 					tmp->size = sendTablespace(sink, tmp->path, tmp->oid, true,
-											   NULL, NULL);
+											   NULL, NULL,
+											   opt->redact_sensitive_catalogs);
 				state.bytes_total += tmp->size;
 			}
 			state.bytes_total_is_valid = true;
@@ -346,9 +463,15 @@ perform_base_backup(basebackup_options *opt, bbsink *sink,
 					sendtblspclinks = false;
 				}
 
+				if (opt->redact_sensitive_catalogs)
+					sendFileWithContent(sink, MDB_REDACTED_BACKUP_MARKER,
+										MDB_REDACTED_BACKUP_CONTENT, -1,
+										&manifest);
+
 				/* Then the bulk of the files... */
 				sendDir(sink, ".", 1, false, state.tablespaces,
-						sendtblspclinks, &manifest, InvalidOid, ib);
+						sendtblspclinks, &manifest, InvalidOid, ib,
+						opt->redact_sensitive_catalogs);
 
 				/* ... and pg_control after everything else. */
 				if (lstat(XLOG_CONTROL_FILE, &statbuf) != 0)
@@ -366,7 +489,8 @@ perform_base_backup(basebackup_options *opt, bbsink *sink,
 
 				bbsink_begin_archive(sink, archive_name);
 
-				sendTablespace(sink, ti->path, ti->oid, false, &manifest, ib);
+				sendTablespace(sink, ti->path, ti->oid, false, &manifest, ib,
+							   opt->redact_sensitive_catalogs);
 			}
 
 			/*
@@ -985,7 +1109,8 @@ parse_basebackup_options(List *options, basebackup_options *opt)
  * the filesystem, bypassing the buffer cache.
  */
 void
-SendBaseBackup(BaseBackupCmd *cmd, IncrementalBackupInfo *ib)
+SendBaseBackup(BaseBackupCmd *cmd, IncrementalBackupInfo *ib,
+			   bool redact_sensitive_catalogs)
 {
 	basebackup_options opt;
 	bbsink	   *sink;
@@ -997,6 +1122,17 @@ SendBaseBackup(BaseBackupCmd *cmd, IncrementalBackupInfo *ib)
 				 errmsg("a backup is already in progress in this session")));
 
 	parse_basebackup_options(cmd->options, &opt);
+	opt.redact_sensitive_catalogs = redact_sensitive_catalogs;
+
+	if (redact_sensitive_catalogs && opt.incremental)
+		ereport(ERROR,
+				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+				 errmsg("incremental redacted base backups are not supported")));
+	if (redact_sensitive_catalogs && opt.includewal)
+		ereport(ERROR,
+				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+				 errmsg("redacted base backups require WAL streaming"),
+				 errhint("Use pg_basebackup with --wal-method=stream.")));
 
 	WalSndSetState(WALSNDSTATE_BACKUP);
 
@@ -1132,7 +1268,8 @@ sendFileWithContent(bbsink *sink, const char *filename, const char *content,
  */
 static int64
 sendTablespace(bbsink *sink, char *path, Oid spcoid, bool sizeonly,
-			   backup_manifest_info *manifest, IncrementalBackupInfo *ib)
+			   backup_manifest_info *manifest, IncrementalBackupInfo *ib,
+			   bool redact_sensitive_catalogs)
 {
 	int64		size;
 	char		pathbuf[MAXPGPATH];
@@ -1166,7 +1303,7 @@ sendTablespace(bbsink *sink, char *path, Oid spcoid, bool sizeonly,
 
 	/* Send all the files in the tablespace version directory */
 	size += sendDir(sink, pathbuf, strlen(path), sizeonly, NIL, true, manifest,
-					spcoid, ib);
+					spcoid, ib, redact_sensitive_catalogs);
 
 	return size;
 }
@@ -1186,7 +1323,8 @@ sendTablespace(bbsink *sink, char *path, Oid spcoid, bool sizeonly,
 static int64
 sendDir(bbsink *sink, const char *path, int basepathlen, bool sizeonly,
 		List *tablespaces, bool sendtblspclinks, backup_manifest_info *manifest,
-		Oid spcoid, IncrementalBackupInfo *ib)
+		Oid spcoid, IncrementalBackupInfo *ib,
+		bool redact_sensitive_catalogs)
 {
 	DIR		   *dir;
 	struct dirent *de;
@@ -1311,6 +1449,14 @@ sendDir(bbsink *sink, const char *path, int basepathlen, bool sizeonly,
 				parse_filename_for_nontemp_relation(de->d_name,
 													&relfilenumber,
 													&relForkNum, &segno);
+
+		if (redact_sensitive_catalogs && isRelationFile &&
+			IsMDBRedactedCatalogFile(isGlobalDir, relfilenumber))
+		{
+			elog(DEBUG1, "sensitive catalog file \"%s\" excluded from backup",
+				 de->d_name);
+			continue;
+		}
 
 		/* Exclude all forks for unlogged tables except the init fork */
 		if (isRelationFile && relForkNum != INIT_FORKNUM)
@@ -1468,7 +1614,8 @@ sendDir(bbsink *sink, const char *path, int basepathlen, bool sizeonly,
 
 			if (!skip_this_dir)
 				size += sendDir(sink, pathbuf, basepathlen, sizeonly, tablespaces,
-								sendtblspclinks, manifest, spcoid, ib);
+								sendtblspclinks, manifest, spcoid, ib,
+								redact_sensitive_catalogs);
 		}
 		else if (S_ISREG(statbuf.st_mode))
 		{
