@@ -163,6 +163,13 @@ INSERT INTO varlena_bug VALUES (repeat('Test', 250));
 ALTER TABLE varlena_bug ALTER COLUMN v SET STORAGE extended;
 SELECT bt_index_check('varlena_bug_idx', true);
 
+-- indexallkeysmatch: verify each index tuple points to heap tuple with same key
+SELECT bt_index_check('bttest_a_idx', false, true);
+SELECT bt_index_parent_check('bttest_a_idx', false, false, true);
+
+-- indexallkeysmatch on expression index (exercises FormIndexDatum/ii_ExpressionsState path)
+SELECT bt_index_check('bttest_a_expr_idx', false, true);
+
 -- cleanup
 DROP TABLE bttest_a;
 DROP TABLE bttest_b;
