@@ -234,6 +234,26 @@ SELECT bt_index_check('varlena_bug_idx', true);
  
 (1 row)
 
+-- indexallkeysmatch: verify each index tuple points to heap tuple with same key
+SELECT bt_index_check('bttest_a_idx', false, false, false, true);
+ bt_index_check 
+----------------
+ 
+(1 row)
+
+SELECT bt_index_parent_check('bttest_a_idx', false, false, false, false, true);
+ bt_index_parent_check 
+-----------------------
+ 
+(1 row)
+
+-- indexallkeysmatch on expression index (exercises FormIndexDatum/ii_ExpressionsState path)
+SELECT bt_index_check('bttest_a_expr_idx', false, false, false, true);
+ bt_index_check 
+----------------
+ 
+(1 row)
+
 -- cleanup
 DROP TABLE bttest_a;
 DROP TABLE bttest_b;
