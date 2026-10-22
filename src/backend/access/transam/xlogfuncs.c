@@ -359,6 +359,33 @@ pg_current_wal_flush_lsn(PG_FUNCTION_ARGS)
 }
 
 /*
+ * Report the oldest WAL segment number that must be kept, calculated
+ * using the same rules the checkpointer applies before removing old
+ * WAL (replication slots, WAL summarizer, wal_keep_size).
+ */
+Datum
+pg_wal_oldest_needed_segment(PG_FUNCTION_ARGS)
+{
+	XLogRecPtr	redoRecPtr;
+	XLogRecPtr	recptr;
+	XLogSegNo	segno;
+
+	if (RecoveryInProgress())
+		ereport(ERROR,
+				(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
+				 errmsg("recovery is in progress"),
+				 errhint("WAL control functions cannot be executed during recovery.")));
+
+	recptr = GetXLogWriteRecPtr();
+	redoRecPtr = GetRedoRecPtr();
+
+	XLogKeepSegments(recptr, redoRecPtr, &segno);
+
+	PG_RETURN_DATUM(DirectFunctionCall1(int8_numeric,
+										Int64GetDatum((int64) segno)));
+}
+
+/*
  * Report the last WAL receive location (same format as pg_backup_start etc)
  *
  * This is useful for determining how much of WAL is guaranteed to be received
