@@ -7847,18 +7847,16 @@ CreateCheckPoint(int flags)
 	 * Delete old log files, those no longer needed for last checkpoint to
 	 * prevent the disk holding the xlog from growing full.
 	 */
-	XLByteToSeg(RedoRecPtr, _logSegNo, wal_segment_size);
-	KeepLogSeg(recptr, &_logSegNo);
+	XLogKeepSegments(recptr, RedoRecPtr, &_logSegNo);
 	if (InvalidateObsoleteReplicationSlots(RS_INVAL_WAL_REMOVED | RS_INVAL_IDLE_TIMEOUT,
-										   _logSegNo, InvalidOid,
-										   InvalidTransactionId))
+											_logSegNo, InvalidOid,
+											InvalidTransactionId))
 	{
 		/*
 		 * Some slots have been invalidated; recalculate the old-segment
 		 * horizon, starting again from RedoRecPtr.
 		 */
-		XLByteToSeg(RedoRecPtr, _logSegNo, wal_segment_size);
-		KeepLogSeg(recptr, &_logSegNo);
+		XLogKeepSegments(recptr, RedoRecPtr, &_logSegNo);
 	}
 	_logSegNo--;
 	RemoveOldXlogFiles(_logSegNo, RedoRecPtr, recptr,
@@ -8310,8 +8308,6 @@ CreateRestartPoint(int flags)
 	 * Delete old log files, those no longer needed for last restartpoint to
 	 * prevent the disk holding the xlog from growing full.
 	 */
-	XLByteToSeg(RedoRecPtr, _logSegNo, wal_segment_size);
-
 	/*
 	 * Retreat _logSegNo using the current end of xlog replayed or received,
 	 * whichever is later.
@@ -8319,20 +8315,19 @@ CreateRestartPoint(int flags)
 	receivePtr = GetWalRcvFlushRecPtr(NULL, NULL);
 	replayPtr = GetXLogReplayRecPtr(&replayTLI);
 	endptr = (receivePtr < replayPtr) ? replayPtr : receivePtr;
-	KeepLogSeg(endptr, &_logSegNo);
+	XLogKeepSegments(endptr, RedoRecPtr, &_logSegNo);
 
 	INJECTION_POINT("restartpoint-before-slot-invalidation", NULL);
 
 	if (InvalidateObsoleteReplicationSlots(RS_INVAL_WAL_REMOVED | RS_INVAL_IDLE_TIMEOUT,
-										   _logSegNo, InvalidOid,
-										   InvalidTransactionId))
+											_logSegNo, InvalidOid,
+											InvalidTransactionId))
 	{
 		/*
 		 * Some slots have been invalidated; recalculate the old-segment
 		 * horizon, starting again from RedoRecPtr.
 		 */
-		XLByteToSeg(RedoRecPtr, _logSegNo, wal_segment_size);
-		KeepLogSeg(endptr, &_logSegNo);
+		XLogKeepSegments(endptr, RedoRecPtr, &_logSegNo);
 	}
 	_logSegNo--;
 
@@ -8568,6 +8563,28 @@ KeepLogSeg(XLogRecPtr recptr, XLogSegNo *logSegNo)
 	/* don't delete WAL segments newer than the calculated segment */
 	if (segno < *logSegNo)
 		*logSegNo = segno;
+}
+
+/*
+ * XLogKeepSegments
+ *
+ * Calculate the oldest WAL segment number that must be kept, applying the
+ * same rules the checkpointer uses before removing old WAL (see
+ * CreateCheckPoint() and CreateRestartPoint()): start from the redo
+ * location of the last checkpoint/restartpoint, and let KeepLogSeg()
+ * reserve the WAL that replication slots, the WAL summarizer and
+ * wal_keep_size require.
+ *
+ * On return, *logSegNo is the oldest segment that must be kept; segments
+ * older than that can be removed (the checkpointer deletes segments
+ * strictly below *logSegNo, after the slot-invalidation recalculation
+ * loop).
+ */
+void
+XLogKeepSegments(XLogRecPtr recptr, XLogRecPtr RedoRecPtr, XLogSegNo *logSegNo)
+{
+	XLByteToSeg(RedoRecPtr, *logSegNo, wal_segment_size);
+	KeepLogSeg(recptr, logSegNo);
 }
 
 /*
