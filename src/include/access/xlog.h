@@ -230,6 +230,7 @@ extern void XLogSetReplicationSlotMinimumLSN(XLogRecPtr lsn);
 extern XLogRecPtr XLogGetReplicationSlotMinimumLSN(void);
 extern void XLogKeepSegments(XLogRecPtr recptr, XLogRecPtr RedoRecPtr,
 							XLogSegNo *logSegNo);
+extern void XLogRecycleObsoleteWAL(void);
 
 extern void xlog_redo(struct XLogReaderState *record);
 extern void xlog2_redo(struct XLogReaderState *record);

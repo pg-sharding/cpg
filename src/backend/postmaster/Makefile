@@ -28,6 +28,7 @@ OBJS = \
 	startup.o \
 	syslogger.o \
 	walsummarizer.o \
+	wal_cleaner.o \
 	walwriter.o
 
 include $(top_srcdir)/src/backend/common.mk

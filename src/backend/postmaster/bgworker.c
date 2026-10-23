@@ -22,6 +22,7 @@
 #include "postmaster/datachecksum_state.h"
 #include "postmaster/postmaster.h"
 #include "replication/logicallauncher.h"
+#include "postmaster/wal_cleaner.h"
 #include "replication/logicalworker.h"
 #include "storage/ipc.h"
 #include "storage/latch.h"
@@ -142,6 +143,10 @@ static const struct
 	{
 		.fn_name = "ParallelApplyWorkerMain",
 		.fn_addr = ParallelApplyWorkerMain
+	},
+	{
+		.fn_name = "WalCleanerMain",
+		.fn_addr = WalCleanerMain
 	},
 	{
 		.fn_name = "ParallelWorkerMain",

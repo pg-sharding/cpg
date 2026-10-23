@@ -105,6 +105,7 @@
 #include "postmaster/pgarch.h"
 #include "postmaster/postmaster.h"
 #include "postmaster/syslogger.h"
+#include "postmaster/wal_cleaner.h"
 #include "postmaster/walsummarizer.h"
 #include "replication/logicallauncher.h"
 #include "replication/slotsync.h"
@@ -953,6 +954,11 @@ PostmasterMain(int argc, char *argv[])
 	 */
 	InitializeMaxBackends();
 	InitPostmasterChildSlots();
+
+	/*
+	 * Register the WAL cleaner background worker, if enabled.
+	 */
+	WalCleanerRegister();
 
 	/*
 	 * Calculate the size of the PGPROC fast-path lock arrays.

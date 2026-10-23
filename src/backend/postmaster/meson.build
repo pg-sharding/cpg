@@ -16,5 +16,6 @@ backend_sources += files(
   'startup.c',
   'syslogger.c',
   'walsummarizer.c',
+  'wal_cleaner.c',
   'walwriter.c',
 )

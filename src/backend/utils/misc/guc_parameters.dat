@@ -3457,6 +3457,21 @@
   check_hook => 'check_wal_buffers',
 },
 
+{ name => 'wal_cleaner', type => 'bool', context => 'PGC_POSTMASTER', group => 'WAL_CHECKPOINTS',
+  short_desc => 'Starts the WAL cleaner background worker to remove obsolete WAL segments between checkpoints.',
+  variable => 'wal_cleaner',
+  boot_val => 'false',
+},
+
+{ name => 'wal_cleaner_interval', type => 'int', context => 'PGC_SIGHUP', group => 'WAL_CHECKPOINTS',
+  short_desc => 'Sets the delay between WAL cleaner runs.',
+  flags => 'GUC_UNIT_S',
+  variable => 'wal_cleaner_interval',
+  boot_val => '10',
+  min => '1',
+  max => '86400',
+},
+
 { name => 'wal_compression', type => 'enum', context => 'PGC_SUSET', group => 'WAL_SETTINGS',
   short_desc => 'Compresses full-page writes written in WAL file with specified method.',
   variable => 'wal_compression',

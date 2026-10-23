@@ -8588,6 +8588,38 @@ XLogKeepSegments(XLogRecPtr recptr, XLogRecPtr RedoRecPtr, XLogSegNo *logSegNo)
 }
 
 /*
+ * XLogRecycleObsoleteWAL
+ *
+ * Remove or recycle WAL segments that are no longer needed, applying the
+ * same rules the checkpointer applies at checkpoint completion:  the
+ * horizon is derived from the redo location of the last checkpoint and
+ * XLogKeepSegments(), and segments strictly below it are handed to
+ * RemoveOldXlogFiles(), which either recycles them into future segments
+ * or deletes them.
+ *
+ * This is safe to call from any process with shared memory access; it is
+ * used by the WAL cleaner background worker to remove segments that
+ * became removable between checkpoints (e.g. after wal_keep_size was
+ * lowered or a replication slot was dropped).
+ */
+void
+XLogRecycleObsoleteWAL(void)
+{
+	XLogRecPtr	RedoRecPtr;
+	XLogRecPtr	recptr;
+	XLogSegNo	oldestSegNo;
+
+	RedoRecPtr = GetRedoRecPtr();
+	recptr = GetXLogWriteRecPtr();
+
+	XLogKeepSegments(recptr, RedoRecPtr, &oldestSegNo);
+	oldestSegNo--;
+
+	RemoveOldXlogFiles(oldestSegNo, RedoRecPtr, recptr,
+					   GetWALInsertionTimeLine());
+}
+
+/*
  * Write a NEXTOID log record
  */
 void
