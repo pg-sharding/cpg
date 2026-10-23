@@ -3169,6 +3169,16 @@ struct config_int ConfigureNamesInt[] =
 	},
 
 	{
+		{"sync_rep_waker_direct_limit", PGC_SIGHUP, REPLICATION_PRIMARY,
+			gettext_noop("Sets the largest synchronous replication batch to wake directly."),
+			gettext_noop("Larger confirmed batches are released by the sync rep waker; zero delegates all wakeups.")
+		},
+		&SyncRepWakerDirectLimit,
+		0, 0, 1024,
+		NULL, NULL, NULL
+	},
+
+	{
 		{"wal_sender_timeout", PGC_USERSET, REPLICATION_SENDING,
 			gettext_noop("Sets the maximum time to wait for WAL replication."),
 			NULL,

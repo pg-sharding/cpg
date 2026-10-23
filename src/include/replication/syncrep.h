@@ -81,6 +81,7 @@ extern PGDLLIMPORT SyncRepConfigData *SyncRepConfig;
 /* user-settable parameters for synchronous replication */
 extern PGDLLIMPORT char *SyncRepStandbyNames;
 extern PGDLLIMPORT bool SyncRepWaker;
+extern PGDLLIMPORT int SyncRepWakerDirectLimit;
 
 /* called by user backend */
 extern void SyncRepWaitForLSN(XLogRecPtr lsn, bool commit);

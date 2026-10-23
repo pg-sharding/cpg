@@ -139,7 +139,8 @@ def main():
                         help="new directory for raw logs; prefer tmpfs to avoid logging I/O")
     parser.add_argument("--cases", type=Path, required=True,
                         help="JSON array: name, clients, payload_bytes, rate, commit")
-    parser.add_argument("--variants", nargs="+", choices=["base", "off", "on"],
+    parser.add_argument("--variants", nargs="+",
+                        choices=["base", "off", "on", "hybrid4", "hybrid8", "hybrid16"],
                         default=["base", "off", "on"])
     parser.add_argument("--seconds", type=int, default=60)
     parser.add_argument("--warmup", type=int, default=10)
@@ -184,7 +185,11 @@ def main():
         command = [binary / "pg_ctl", "-D", data, "-l", root / (data.name + ".log"),
                    "-w", "-m", "fast"]
         if action == "start":
-            options = "-c sync_rep_waker=" + mode if mode != "base" else ""
+            if mode.startswith("hybrid"):
+                options = ("-c sync_rep_waker=on -c sync_rep_waker_direct_limit="
+                           + mode.removeprefix("hybrid"))
+            else:
+                options = "-c sync_rep_waker=" + mode if mode != "base" else ""
             command.extend(["-o", options])
         run(command + [action])
 

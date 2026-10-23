@@ -4858,6 +4858,32 @@ HINT:  If it is safe for all REPLICATION users to use this library as an output 
 
     <variablelist>
 
+    <varlistentry id="guc-sync-rep-waker-direct-limit" xreflabel="sync_rep_waker_direct_limit">
+      <term><varname>sync_rep_waker_direct_limit</varname> (<type>integer</type>)
+      <indexterm>
+       <primary><varname>sync_rep_waker_direct_limit</varname> configuration parameter</primary>
+      </indexterm>
+      </term>
+      <listitem>
+       <para>
+        When <xref linkend="guc-sync-rep-waker"/> is enabled, WAL senders
+        release a confirmed batch directly if its total size across the write,
+        flush and apply queues does not exceed this limit.  Larger batches
+        are released by the waker.  Waiters whose positions have not yet been
+        confirmed do not count toward the limit.  This avoids an additional
+        process handoff for small batches while keeping the sender's wakeup
+        work bounded when the waker is available.
+       </para>
+       <para>
+        The range is 0 to 1024.  The default, 0, delegates all wakeups to the
+        waker.  This setting has no effect when the waker is disabled or not
+        running.  This parameter can only be set in the
+        <filename>postgresql.conf</filename> file or on the server command line.
+        Changes take effect after a configuration reload.
+       </para>
+      </listitem>
+     </varlistentry>
+
      <varlistentry id="guc-sync-rep-waker" xreflabel="sync_rep_waker">
       <term><varname>sync_rep_waker</varname> (<type>boolean</type>)
       <indexterm>

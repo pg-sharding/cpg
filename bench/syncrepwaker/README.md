@@ -286,3 +286,31 @@ metadata, individual JSON rows, pgbench output, primary/standby logs and gzip
 transaction logs. Both servers and the client ran on one 8-vCPU host without
 CPU pinning or host isolation, which limits attribution of stalls and transfer
 to a production deployment. No original application workload was available.
+
+## Hybrid wakeup experiment
+
+`sync_rep_waker_direct_limit` permits the sender to release a small confirmed
+batch directly. The limit is a total across the write, flush and apply queues;
+unconfirmed waiters do not count. If the total exceeds the limit, the entire
+batch is delegated. Counting stops at the first limit+1 confirmed entries, so
+the sender does not traverse a large ready batch. The range is 0–1024 and the
+setting can be reloaded. Its default is 0, preserving fully delegated wakeups
+until a useful threshold has been established.
+
+The harness accepts `hybrid4`, `hybrid8` and `hybrid16` variants. They enable
+the waker and set the corresponding direct limit on the primary command line.
+`on` uses the feature binary's default limit of 0. The parent binary still
+uses no feature-specific parameters. `hybrid-cases.json` tests both a fixed
+15k/s arrival rate and unlimited tiny INSERTs at 128 clients. Use the same
+invocation as the latency comparison above with
+`--cases bench/syncrepwaker/hybrid-cases.json`,
+`--variants base on hybrid4 hybrid8 hybrid16`,
+`--seconds 20 --warmup 5 --repeats 1` and new output/data/log directories.
+
+Recovery testing with assertions passed all 84 assertions across
+`007_sync_rep`, `130_every_sync_rep`, `131_sync_rep_waker` and
+`132_sync_rep_waker_hybrid`. The hybrid test suspends the waker and sender to
+check direct wakeups in all three modes, the exact threshold, delegation above
+the threshold, and exclusion of an unconfirmed apply backlog. The existing
+test explicitly uses limit 0 to continue testing fully delegated wakeups,
+cancellation and worker lifecycle behavior.

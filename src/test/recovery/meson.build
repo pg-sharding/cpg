@@ -69,6 +69,7 @@ tests += {
       't/112_archive_shared_hazards.pl',
       't/130_every_sync_rep.pl',
       't/131_sync_rep_waker.pl',
+      't/132_sync_rep_waker_hybrid.pl',
     ],
   },
 }

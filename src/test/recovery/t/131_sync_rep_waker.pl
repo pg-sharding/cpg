@@ -13,7 +13,7 @@ plan skip_all => 'test requires Unix signals' if $windows_os;
 my $primary = PostgreSQL::Test::Cluster->new('primary');
 $primary->init(allows_streaming => 1);
 $primary->append_conf('postgresql.conf',
-	"sync_rep_waker = on\nrestart_after_crash = on");
+	"sync_rep_waker = on\nsync_rep_waker_direct_limit = 0\nrestart_after_crash = on");
 $primary->start;
 $primary->safe_psql('postgres', 'CREATE TABLE waker_test (a text)');
 $primary->backup('backup');

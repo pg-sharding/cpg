@@ -39,6 +39,7 @@
 
 /* GUC parameter */
 bool		SyncRepWaker = true;
+int			SyncRepWakerDirectLimit = 0;
 
 static void SyncRepWakerShutdown(int code, Datum arg);
 

@@ -100,6 +100,7 @@ static int	SyncRepWaitMode = SYNC_REP_NO_WAIT;
 static void SyncRepQueueInsert(int mode);
 static void SyncRepCancelWait(void);
 static int	SyncRepWakeQueue(bool all, int mode);
+static bool SyncRepWakeBatchIsSmall(int limit);
 
 static bool SyncRepGetSyncRecPtr(XLogRecPtr *writePtr,
 								 XLogRecPtr *flushPtr,
@@ -562,10 +563,21 @@ SyncRepReleaseWaiters(void)
 		walsndctl->lsn[SYNC_REP_WAIT_APPLY] = applyPtr;
 
 	/*
-	 * Leave queue traversal and backend wakeups to the waker.  If it has not
-	 * started, is disabled, or is shutting down, release waiters ourselves.
-	 * Only signal it when at least one queue has a confirmed waiter.
+	 * Avoid a process handoff when the entire confirmed batch fits within the
+	 * direct wakeup limit.  Count across all three queues, and stop as soon as
+	 * the limit is exceeded, so large batches still leave bounded work here.
+	 * If the waker is unavailable, always release waiters ourselves.
 	 */
+	if (WalSndCtl->syncRepWakerProcno == INVALID_PROC_NUMBER ||
+		SyncRepWakeBatchIsSmall(SyncRepWakerDirectLimit))
+	{
+		for (int mode = 0; mode < NUM_SYNC_REP_WAIT_MODE; mode++)
+			SyncRepWakeQueue(false, mode);
+		LWLockRelease(SyncRepLock);
+		return;
+	}
+
+	/* Only signal the waker when at least one waiter is confirmed. */
 	for (int mode = 0; mode < NUM_SYNC_REP_WAIT_MODE; mode++)
 	{
 		PGPROC	   *proc;
@@ -577,10 +589,8 @@ SyncRepReleaseWaiters(void)
 		if (proc->waitLSN > walsndctl->lsn[mode])
 			continue;
 
-		if (WalSndCtl->syncRepWakerProcno != INVALID_PROC_NUMBER)
-			waker = WalSndCtl->syncRepWakerProcno;
-		else
-			SyncRepWakeQueue(false, mode);
+		waker = WalSndCtl->syncRepWakerProcno;
+		break;
 	}
 
 	LWLockRelease(SyncRepLock);
@@ -950,6 +960,43 @@ SyncRepGetStandbyPriority(void)
 	 * same priority, one.
 	 */
 	return (SyncRepConfig->syncrep_method == SYNC_REP_PRIORITY) ? priority : 1;
+}
+
+/*
+ * Is the total confirmed batch small enough to release directly?
+ *
+ * Only confirmed waiters count: a long queue waiting for a later LSN must not
+ * prevent a small ready batch from taking the direct path.  We inspect at most
+ * limit + 1 confirmed entries, plus the first unconfirmed entry in each queue.
+ * The caller holds SyncRepLock throughout the check and subsequent wakeups.
+ */
+static bool
+SyncRepWakeBatchIsSmall(int limit)
+{
+	int			numprocs = 0;
+
+	Assert(LWLockHeldByMeInMode(SyncRepLock, LW_EXCLUSIVE));
+
+	/* Zero preserves fully delegated wakeups. */
+	if (limit == 0)
+		return false;
+
+	for (int mode = 0; mode < NUM_SYNC_REP_WAIT_MODE; mode++)
+	{
+		dlist_iter	iter;
+
+		dlist_foreach(iter, &WalSndCtl->SyncRepQueue[mode])
+		{
+			PGPROC	   *proc = dlist_container(PGPROC, syncRepLinks, iter.cur);
+
+			if (proc->waitLSN > WalSndCtl->lsn[mode])
+				break;
+			if (++numprocs > limit)
+				return false;
+		}
+	}
+
+	return true;
 }
 
 /*
