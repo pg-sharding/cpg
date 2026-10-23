@@ -140,7 +140,8 @@ def main():
     parser.add_argument("--cases", type=Path, required=True,
                         help="JSON array: name, clients, payload_bytes, rate, commit")
     parser.add_argument("--variants", nargs="+",
-                        choices=["base", "off", "on", "hybrid4", "hybrid8", "hybrid16"],
+                        choices=["base", "off", "on", "hybrid4", "hybrid8",
+                                 "hybrid16", "hybrid32", "hybrid64"],
                         default=["base", "off", "on"])
     parser.add_argument("--seconds", type=int, default=60)
     parser.add_argument("--warmup", type=int, default=10)

@@ -297,7 +297,8 @@ the sender does not traverse a large ready batch. The range is 0–1024 and the
 setting can be reloaded. Its default is 0, preserving fully delegated wakeups
 until a useful threshold has been established.
 
-The harness accepts `hybrid4`, `hybrid8` and `hybrid16` variants. They enable
+The harness accepts `hybrid4`, `hybrid8`, `hybrid16`, `hybrid32` and
+`hybrid64` variants. They enable
 the waker and set the corresponding direct limit on the primary command line.
 `on` uses the feature binary's default limit of 0. The parent binary still
 uses no feature-specific parameters. `hybrid-cases.json` tests both a fixed
@@ -314,3 +315,103 @@ check direct wakeups in all three modes, the exact threshold, delegation above
 the threshold, and exclusion of an unconfirmed apply backlog. The existing
 test explicitly uses limit 0 to continue testing fully delegated wakeups,
 cancellation and worker lifecycle behavior.
+
+### Hybrid measurements, 2026-10-23
+
+The parent remains `dc9f4918121`. The hybrid algorithm measured here is
+`73b816456c0`, built with the same release flags as the previous comparison.
+All feature controls use that same new binary: `on` means direct limit 0,
+and `hybrid8` means direct limit 8. The common standby and pgbench use the
+parent binaries. Data and transaction logs are in tmpfs, one synchronous
+standby uses a persistent physical slot, and synchronous commit waits for
+remote flush. All participants share the same 8-vCPU host; these are CPU and
+wakeup diagnostics rather than durable-storage or network-separated results.
+
+The first screen measured 20 seconds after five seconds of warmup per
+variant, once each, at both 15k/s and unlimited load with 128 clients.
+Limits 4/8/16 all brought light-load p50 close to the parent, while saturated
+p50 remained around 2 ms and p99 around 3.7–3.8 ms.
+
+A separate 20-second saturated screen checked larger limits:
+
+| Variant | TPS | p50 ms | p99 ms | p99.9 ms |
+| --- | ---: | ---: | ---: | ---: |
+| Parent | 59,581 | 0.849 | 11.195 | 16.561 |
+| Fully delegated | 60,486 | 2.027 | 3.736 | 5.288 |
+| Direct limit 32 | 61,698 | 1.875 | 6.212 | 11.120 |
+| Direct limit 64 | 59,435 | 1.069 | 10.912 | 16.252 |
+
+The larger limits traded away the tail benefit as median latency decreased.
+These single runs do not establish an optimal threshold. Limit 8 was selected
+for repeated testing as a small-batch compromise.
+
+At 15k/s, three 30-second windows after ten seconds of warmup produced the
+following medians of per-run metrics. Run order rotated base/on/hybrid8,
+on/hybrid8/base, hybrid8/base/on.
+
+| Variant | TPS | p50 ms | p95 ms | p99 ms | p99.9 ms | Process CPU, us/tx |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Parent | 14,970 | 0.317 | 0.425 | 0.531 | 1.116 | 252.24 |
+| Fully delegated | 14,970 | 0.348 | 0.484 | 0.596 | 1.861 | 263.32 |
+| Direct limit 8 | 14,970 | 0.326 | 0.462 | 0.579 | 1.573 | 252.44 |
+
+The hybrid removed 71% of the extra median latency in this case: the gap
+relative to the parent fell from 31 to 9 microseconds. Process CPU, including
+both servers and the client, returned close to the parent level. Response p99
+still exceeded the parent's median; its ranges were 0.506–0.552 ms for the
+parent, 0.583–0.930 ms for fully delegated wakeups and 0.547–0.947 ms for
+limit 8. This is a reduction in the small-load median regression, not a
+general latency improvement.
+
+The saturated confirmation used three 60-second measurement windows per
+variant after ten seconds of warmup, with the same rotating order:
+
+| Variant | TPS | p50 ms | p95 ms | p99 ms | p99.9 ms | Process CPU, us/tx |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Parent | 62,070 | 0.835 | 5.969 | 10.620 | 15.865 | 107.16 |
+| Fully delegated | 63,770 | 1.923 | 3.020 | 3.569 | 4.796 | 99.33 |
+| Direct limit 8 | 63,745 | 1.913 | 3.038 | 3.638 | 4.848 | 98.72 |
+
+Limit 8 did not resolve the saturated median regression. It retained most of
+the tail benefit relative to the parent: p99 fell by 65.7%. Per-run p99 ranges
+were 10.617–11.314 ms for the parent, 3.536–3.725 ms for fully delegated wakeups
+and 3.487–4.208 ms for limit 8. Relative to full delegation, the hybrid's
+median p99 was 1.9% higher, with nearly identical throughput and p50.
+
+The medians of mean transaction latency were 2.043 ms for the parent,
+1.966 ms for full delegation and 1.967 ms for limit 8. Thus a higher
+transaction p50 coexists with a lower mean and shorter tail. Transaction
+quantiles alone cannot isolate the time spent handing work to the waker;
+timing the confirmed-LSN-to-backend-wakeup path would be needed for that.
+
+To try the small-batch path, configure:
+
+```conf
+sync_rep_waker = on
+sync_rep_waker_direct_limit = 8
+```
+
+The direct limit is reloadable. Its default remains 0; a globally optimal
+threshold was not established. The tested hybrid improves the small-load
+median tradeoff, while larger tested limits reduce the saturated median at
+the cost of the tail benefit.
+
+`hybrid-results-2026-10-23.json` preserves all 32 new runs and 50,290,747
+measured transactions, including all screen thresholds. There were no failed
+or skipped transactions in the measured windows and no missing CPU snapshots.
+`hybrid-environment-2026-10-23.json` records the build, binary hashes,
+variant settings, configurations and run arguments. Raw transaction gzip logs,
+individual rows, pgbench output and server logs remain on the benchmark host.
+The temporary clusters from successful runs were stopped and removed.
+
+| Dataset | Cases | Variants | Seconds | Warmup | Repeats |
+| --- | --- | --- | ---: | ---: | ---: |
+| compare-hybrid-screen | hybrid-cases.json | base on hybrid4 hybrid8 hybrid16 | 20 | 5 | 1 |
+| compare-hybrid-large-screen | ram-confirm-cases.json | base on hybrid32 hybrid64 | 20 | 5 | 1 |
+| compare-hybrid-light | ram-light-cases.json | base on hybrid8 | 30 | 10 | 3 |
+| compare-hybrid-saturated | ram-confirm-cases.json | base on hybrid8 | 60 | 10 | 3 |
+
+```sh
+python3 bench/syncrepwaker/analyze_compare.py \
+  bench/syncrepwaker/hybrid-results-2026-10-23.json
+```
