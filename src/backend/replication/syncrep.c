@@ -135,8 +135,8 @@ static bool SyncRepQueueIsOrderedByLSN(int mode);
  *
  * Initially backends start in state SYNC_REP_NOT_WAITING and then
  * change that state to SYNC_REP_WAITING before adding ourselves
- * to the wait queue. During SyncRepWakeQueue() a WALSender changes
- * the state to SYNC_REP_WAIT_COMPLETE once replication is confirmed.
+ * to the wait queue. During SyncRepWakeQueue() the waker (or a WALSender)
+ * changes the state to SYNC_REP_WAIT_COMPLETE once replication is confirmed.
  * This backend then resets its state to SYNC_REP_NOT_WAITING.
  *
  * 'lsn' represents the LSN to wait for.  'commit' indicates whether this LSN
@@ -278,7 +278,7 @@ SyncRepWaitForLSN(XLogRecPtr lsn, bool commit)
 		/*
 		 * Acquiring the lock is not needed, the latch ensures proper
 		 * barriers. If it looks like we're done, we must really be done,
-		 * because once walsender changes the state to SYNC_REP_WAIT_COMPLETE,
+		 * because once the waker changes the state to SYNC_REP_WAIT_COMPLETE,
 		 * it will never update it again, so we can't be seeing a stale value
 		 * in that case.
 		 */
@@ -352,9 +352,9 @@ SyncRepWaitForLSN(XLogRecPtr lsn, bool commit)
 	}
 
 	/*
-	 * WalSender has checked our LSN and has removed us from queue. Clean up
-	 * state and leave.  It's OK to reset these shared memory fields without
-	 * holding SyncRepLock, because any walsenders will ignore us anyway when
+	 * Our LSN has been confirmed and we have been removed from the queue.
+	 * Clean up state and leave.  It's OK to reset these shared memory fields
+	 * without holding SyncRepLock, because the waker will ignore us anyway when
 	 * we're not on the queue.  We need a read barrier to make sure we see the
 	 * changes to the queue link (this might be unnecessary without
 	 * assertions, but better safe than sorry).
@@ -486,9 +486,7 @@ SyncRepReleaseWaiters(void)
 	XLogRecPtr	applyPtr;
 	bool		got_recptr;
 	bool		am_sync;
-	int			numwrite = 0;
-	int			numflush = 0;
-	int			numapply = 0;
+	ProcNumber	waker = INVALID_PROC_NUMBER;
 
 	/*
 	 * If this WALSender is serving a standby that is not on the list of
@@ -552,31 +550,43 @@ SyncRepReleaseWaiters(void)
 	}
 
 	/*
-	 * Set the lsn first so that when we wake backends they will release up to
-	 * this location.
+	 * Publish the confirmed positions before requesting wakeups.  New waiters
+	 * can use these positions without joining a queue, even if the waker has
+	 * not yet released the existing waiters.
 	 */
 	if (walsndctl->lsn[SYNC_REP_WAIT_WRITE] < writePtr)
-	{
 		walsndctl->lsn[SYNC_REP_WAIT_WRITE] = writePtr;
-		numwrite = SyncRepWakeQueue(false, SYNC_REP_WAIT_WRITE);
-	}
 	if (walsndctl->lsn[SYNC_REP_WAIT_FLUSH] < flushPtr)
-	{
 		walsndctl->lsn[SYNC_REP_WAIT_FLUSH] = flushPtr;
-		numflush = SyncRepWakeQueue(false, SYNC_REP_WAIT_FLUSH);
-	}
 	if (walsndctl->lsn[SYNC_REP_WAIT_APPLY] < applyPtr)
-	{
 		walsndctl->lsn[SYNC_REP_WAIT_APPLY] = applyPtr;
-		numapply = SyncRepWakeQueue(false, SYNC_REP_WAIT_APPLY);
+
+	/*
+	 * Leave queue traversal and backend wakeups to the waker.  If it has not
+	 * started, is disabled, or is shutting down, release waiters ourselves.
+	 * Only signal it when at least one queue has a confirmed waiter.
+	 */
+	for (int mode = 0; mode < NUM_SYNC_REP_WAIT_MODE; mode++)
+	{
+		PGPROC	   *proc;
+
+		if (dlist_is_empty(&WalSndCtl->SyncRepQueue[mode]))
+			continue;
+		proc = dlist_head_element(PGPROC, syncRepLinks,
+								  &WalSndCtl->SyncRepQueue[mode]);
+		if (proc->waitLSN > walsndctl->lsn[mode])
+			continue;
+
+		if (WalSndCtl->syncRepWakerProcno != INVALID_PROC_NUMBER)
+			waker = WalSndCtl->syncRepWakerProcno;
+		else
+			SyncRepWakeQueue(false, mode);
 	}
 
 	LWLockRelease(SyncRepLock);
 
-	elog(DEBUG3, "released %d procs up to write %X/%X, %d procs up to flush %X/%X, %d procs up to apply %X/%X",
-		 numwrite, LSN_FORMAT_ARGS(writePtr),
-		 numflush, LSN_FORMAT_ARGS(flushPtr),
-		 numapply, LSN_FORMAT_ARGS(applyPtr));
+	if (waker != INVALID_PROC_NUMBER)
+		SetLatch(&GetPGProcByNumber(waker)->procLatch);
 }
 
 /*
@@ -998,6 +1008,27 @@ SyncRepWakeQueue(bool all, int mode)
 	}
 
 	return numprocs;
+}
+
+/* Release all waiters covered by the positions published by WAL senders. */
+void
+SyncRepWakePendingWaiters(void)
+{
+	int			numprocs[NUM_SYNC_REP_WAIT_MODE];
+	XLogRecPtr	lsn[NUM_SYNC_REP_WAIT_MODE];
+
+	LWLockAcquire(SyncRepLock, LW_EXCLUSIVE);
+	for (int mode = 0; mode < NUM_SYNC_REP_WAIT_MODE; mode++)
+	{
+		lsn[mode] = WalSndCtl->lsn[mode];
+		numprocs[mode] = SyncRepWakeQueue(false, mode);
+	}
+	LWLockRelease(SyncRepLock);
+
+	elog(DEBUG3, "released %d procs up to write %X/%X, %d procs up to flush %X/%X, %d procs up to apply %X/%X",
+		 numprocs[SYNC_REP_WAIT_WRITE], LSN_FORMAT_ARGS(lsn[SYNC_REP_WAIT_WRITE]),
+		 numprocs[SYNC_REP_WAIT_FLUSH], LSN_FORMAT_ARGS(lsn[SYNC_REP_WAIT_FLUSH]),
+		 numprocs[SYNC_REP_WAIT_APPLY], LSN_FORMAT_ARGS(lsn[SYNC_REP_WAIT_APPLY]));
 }
 
 /*

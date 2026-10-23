@@ -366,6 +366,7 @@ typedef enum BackendType
 	B_CHECKPOINTER,
 	B_IO_WORKER,
 	B_STARTUP,
+	B_SYNC_REP_WAKER,
 	B_WAL_RECEIVER,
 	B_WAL_SUMMARIZER,
 	B_WAL_WRITER,
@@ -391,6 +392,7 @@ extern PGDLLIMPORT BackendType MyBackendType;
 #define AmBackgroundWriterProcess() (MyBackendType == B_BG_WRITER)
 #define AmCheckpointerProcess()		(MyBackendType == B_CHECKPOINTER)
 #define AmStartupProcess()			(MyBackendType == B_STARTUP)
+#define AmSyncRepWakerProcess()	(MyBackendType == B_SYNC_REP_WAKER)
 #define AmWalReceiverProcess()		(MyBackendType == B_WAL_RECEIVER)
 #define AmWalSummarizerProcess()	(MyBackendType == B_WAL_SUMMARIZER)
 #define AmWalWriterProcess()		(MyBackendType == B_WAL_WRITER)

@@ -4,6 +4,7 @@ backend_sources += files(
   'slot.c',
   'slotfuncs.c',
   'syncrep.c',
+  'syncrepwaker.c',
   'walreceiver.c',
   'walreceiverfuncs.c',
   'walsender.c',

@@ -68,6 +68,7 @@ tests += {
       't/111_archive_shared_checkpoint.pl',
       't/112_archive_shared_hazards.pl',
       't/130_every_sync_rep.pl',
+      't/131_sync_rep_waker.pl',
     ],
   },
 }

@@ -3859,6 +3859,7 @@ WalSndShmemInit(void)
 	{
 		/* First time through, so initialize */
 		MemSet(WalSndCtl, 0, WalSndShmemSize());
+		WalSndCtl->syncRepWakerProcno = INVALID_PROC_NUMBER;
 
 		for (i = 0; i < NUM_SYNC_REP_WAIT_MODE; i++)
 			dlist_init(&(WalSndCtl->SyncRepQueue[i]));

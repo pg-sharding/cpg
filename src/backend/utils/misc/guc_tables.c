@@ -1936,6 +1936,16 @@ struct config_bool ConfigureNamesBool[] =
 	},
 
 	{
+		{"sync_rep_waker", PGC_POSTMASTER, REPLICATION_PRIMARY,
+			gettext_noop("Uses a separate process to wake synchronous replication waiters."),
+			NULL
+		},
+		&SyncRepWaker,
+		true,
+		NULL, NULL, NULL
+	},
+
+	{
 		{"hot_standby", PGC_POSTMASTER, REPLICATION_STANDBY,
 			gettext_noop("Allows connections and queries during recovery."),
 			NULL
