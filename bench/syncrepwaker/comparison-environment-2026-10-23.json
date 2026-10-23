@@ -1,0 +1,492 @@
+{
+  "date": "2026-10-23",
+  "baseline_commit": "dc9f4918121638e93b8813cc411247e2dbdb3b10",
+  "feature_commit": "9b0f51c718c93b0071401c4d1b1cfaf33dc0cc0f",
+  "host": {
+    "cpu": "AMD EPYC Genoa",
+    "vcpus": 8,
+    "physical_cores": 4,
+    "memory_gib": 15,
+    "placement": "primary, standby and client on one host; no CPU pinning; not isolated from other host activity"
+  },
+  "postgres_sha256": {
+    "base": "b6fdeba74333cbacbd7d8168ad93b7be5eaea4e86ecc2de78234e78661dd6c56",
+    "feature": "a12280b00e6461f458f91dcf6bb34472894f2494d5a203db44820b9dc9a14e95"
+  },
+  "datasets": {
+    "compare-screen-ssd": {
+      "arguments": {
+        "baseline_bindir": "install-baseline/bin",
+        "feature_bindir": "install-release/bin",
+        "output": "/home/reshke/pgpg2/compare-screen-ssd",
+        "data_root": null,
+        "log_root": "/dev/shm/pgpg2-screen-ssd-logs",
+        "cases": "bench/syncrepwaker/screen-cases.json",
+        "variants": [
+          "base",
+          "on"
+        ],
+        "seconds": 10,
+        "warmup": 4,
+        "repeats": 1,
+        "port": 56532,
+        "tls": false
+      },
+      "cases": [
+        {
+          "name": "micro-c32",
+          "clients": 32,
+          "payload_bytes": 0,
+          "rate": 0,
+          "commit": "on"
+        },
+        {
+          "name": "micro-c128",
+          "clients": 128,
+          "payload_bytes": 0,
+          "rate": 0,
+          "commit": "on"
+        },
+        {
+          "name": "micro-c256",
+          "clients": 256,
+          "payload_bytes": 0,
+          "rate": 0,
+          "commit": "on"
+        },
+        {
+          "name": "wal1k-c128",
+          "clients": 128,
+          "payload_bytes": 1024,
+          "rate": 0,
+          "commit": "on"
+        }
+      ],
+      "uname": [
+        "Linux",
+        "pgfuzz",
+        "6.8.0-147-generic",
+        "#147-Ubuntu SMP PREEMPT_DYNAMIC Thu Sep 24 11:33:16 UTC 2026",
+        "x86_64"
+      ],
+      "cpu_affinity": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "baseline_configure": "'--prefix=/home/reshke/pgpg2/install-baseline' '--libdir=/home/reshke/pgpg2/install-baseline/lib/postgresql' '--enable-debug' '--disable-cassert' '--enable-depend' '--with-openssl' '--without-mdblocales' 'CFLAGS=-O2 -g -fno-omit-frame-pointer'",
+      "feature_configure": "'--prefix=/home/reshke/pgpg2/install-release' '--libdir=/home/reshke/pgpg2/install-release/lib/postgresql' '--enable-debug' '--disable-cassert' '--enable-depend' '--with-openssl' '--without-mdblocales' 'CFLAGS=-O2 -g -fno-omit-frame-pointer'",
+      "primary_config": "max_connections = 100\t\t\t# (change requires restart)\nshared_buffers = 128MB\t\t\t# min 128kB\ndynamic_shared_memory_type = posix\t# the default is usually the first option\nmax_wal_size = 1GB\nmin_wal_size = 80MB\nlog_timezone = 'Etc/UTC'\nautovacuum_worker_slots = 16\t\t# autovacuum worker slots to allocate\ndatestyle = 'iso, mdy'\ntimezone = 'Etc/UTC'\nlc_messages = C\t\t\t\t# locale for system error message\nlc_monetary = C\t\t\t\t# locale for monetary formatting\nlc_numeric = C\t\t\t\t# locale for number formatting\nlc_time = C\t\t\t\t# locale for time formatting\ndefault_text_search_config = 'pg_catalog.english'\nlisten_addresses = '127.0.0.1'\nport = 56532\nunix_socket_directories = '/home/reshke/pgpg2/compare-screen-ssd/data'\nmax_connections = 286\nshared_buffers = '256MB'\nmax_wal_senders = 4\nwal_level = replica\nwal_buffers = '64MB'\nmax_wal_size = '512MB'\nmin_wal_size = '80MB'\ncheckpoint_timeout = '30min'\nautovacuum = off\nfsync = on\nfull_page_writes = on\nsynchronous_standby_names = 'bench_standby'\n",
+      "persistent_replication_slot": false,
+      "valid_rows": 8
+    },
+    "compare-screen-ram": {
+      "arguments": {
+        "baseline_bindir": "install-baseline/bin",
+        "feature_bindir": "install-release/bin",
+        "output": "/home/reshke/pgpg2/compare-screen-ram",
+        "data_root": "/dev/shm/pgpg2-screen-ram-data",
+        "log_root": "/dev/shm/pgpg2-screen-ram-logs",
+        "cases": "bench/syncrepwaker/screen-cases.json",
+        "variants": [
+          "base",
+          "on"
+        ],
+        "seconds": 10,
+        "warmup": 4,
+        "repeats": 1,
+        "port": 56532,
+        "tls": false
+      },
+      "cases": [
+        {
+          "name": "micro-c32",
+          "clients": 32,
+          "payload_bytes": 0,
+          "rate": 0,
+          "commit": "on"
+        },
+        {
+          "name": "micro-c128",
+          "clients": 128,
+          "payload_bytes": 0,
+          "rate": 0,
+          "commit": "on"
+        },
+        {
+          "name": "micro-c256",
+          "clients": 256,
+          "payload_bytes": 0,
+          "rate": 0,
+          "commit": "on"
+        },
+        {
+          "name": "wal1k-c128",
+          "clients": 128,
+          "payload_bytes": 1024,
+          "rate": 0,
+          "commit": "on"
+        }
+      ],
+      "uname": [
+        "Linux",
+        "pgfuzz",
+        "6.8.0-147-generic",
+        "#147-Ubuntu SMP PREEMPT_DYNAMIC Thu Sep 24 11:33:16 UTC 2026",
+        "x86_64"
+      ],
+      "cpu_affinity": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "baseline_configure": "'--prefix=/home/reshke/pgpg2/install-baseline' '--libdir=/home/reshke/pgpg2/install-baseline/lib/postgresql' '--enable-debug' '--disable-cassert' '--enable-depend' '--with-openssl' '--without-mdblocales' 'CFLAGS=-O2 -g -fno-omit-frame-pointer'",
+      "feature_configure": "'--prefix=/home/reshke/pgpg2/install-release' '--libdir=/home/reshke/pgpg2/install-release/lib/postgresql' '--enable-debug' '--disable-cassert' '--enable-depend' '--with-openssl' '--without-mdblocales' 'CFLAGS=-O2 -g -fno-omit-frame-pointer'",
+      "primary_config": "max_connections = 100\t\t\t# (change requires restart)\nshared_buffers = 128MB\t\t\t# min 128kB\ndynamic_shared_memory_type = posix\t# the default is usually the first option\nmax_wal_size = 1GB\nmin_wal_size = 80MB\nlog_timezone = 'Etc/UTC'\nautovacuum_worker_slots = 16\t\t# autovacuum worker slots to allocate\ndatestyle = 'iso, mdy'\ntimezone = 'Etc/UTC'\nlc_messages = C\t\t\t\t# locale for system error message\nlc_monetary = C\t\t\t\t# locale for monetary formatting\nlc_numeric = C\t\t\t\t# locale for number formatting\nlc_time = C\t\t\t\t# locale for time formatting\ndefault_text_search_config = 'pg_catalog.english'\nlisten_addresses = '127.0.0.1'\nport = 56532\nunix_socket_directories = '/dev/shm/pgpg2-screen-ram-data'\nmax_connections = 286\nshared_buffers = '256MB'\nmax_wal_senders = 4\nwal_level = replica\nwal_buffers = '64MB'\nmax_wal_size = '512MB'\nmin_wal_size = '80MB'\ncheckpoint_timeout = '30min'\nautovacuum = off\nfsync = on\nfull_page_writes = on\nsynchronous_standby_names = 'bench_standby'\n",
+      "persistent_replication_slot": false,
+      "valid_rows": 8
+    },
+    "compare-confirm-ram": {
+      "arguments": {
+        "baseline_bindir": "install-baseline/bin",
+        "feature_bindir": "install-release/bin",
+        "output": "/home/reshke/pgpg2/compare-confirm-ram",
+        "data_root": "/dev/shm/pgpg2-confirm-ram-data",
+        "log_root": "/dev/shm/pgpg2-confirm-ram-logs",
+        "cases": "bench/syncrepwaker/ram-confirm-cases.json",
+        "variants": [
+          "base",
+          "off",
+          "on"
+        ],
+        "seconds": 60,
+        "warmup": 10,
+        "repeats": 3,
+        "port": 56532,
+        "tls": false,
+        "discard_data": true
+      },
+      "cases": [
+        {
+          "name": "micro-c128",
+          "clients": 128,
+          "payload_bytes": 0,
+          "rate": 0,
+          "commit": "on"
+        }
+      ],
+      "uname": [
+        "Linux",
+        "pgfuzz",
+        "6.8.0-147-generic",
+        "#147-Ubuntu SMP PREEMPT_DYNAMIC Thu Sep 24 11:33:16 UTC 2026",
+        "x86_64"
+      ],
+      "cpu_affinity": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "baseline_configure": "'--prefix=/home/reshke/pgpg2/install-baseline' '--libdir=/home/reshke/pgpg2/install-baseline/lib/postgresql' '--enable-debug' '--disable-cassert' '--enable-depend' '--with-openssl' '--without-mdblocales' 'CFLAGS=-O2 -g -fno-omit-frame-pointer'",
+      "feature_configure": "'--prefix=/home/reshke/pgpg2/install-release' '--libdir=/home/reshke/pgpg2/install-release/lib/postgresql' '--enable-debug' '--disable-cassert' '--enable-depend' '--with-openssl' '--without-mdblocales' 'CFLAGS=-O2 -g -fno-omit-frame-pointer'",
+      "primary_config": "max_connections = 100\t\t\t# (change requires restart)\nshared_buffers = 128MB\t\t\t# min 128kB\ndynamic_shared_memory_type = posix\t# the default is usually the first option\nmax_wal_size = 1GB\nmin_wal_size = 80MB\nlog_timezone = 'Etc/UTC'\nautovacuum_worker_slots = 16\t\t# autovacuum worker slots to allocate\ndatestyle = 'iso, mdy'\ntimezone = 'Etc/UTC'\nlc_messages = C\t\t\t\t# locale for system error message\nlc_monetary = C\t\t\t\t# locale for monetary formatting\nlc_numeric = C\t\t\t\t# locale for number formatting\nlc_time = C\t\t\t\t# locale for time formatting\ndefault_text_search_config = 'pg_catalog.english'\nlisten_addresses = '127.0.0.1'\nport = 56532\nunix_socket_directories = '/dev/shm/pgpg2-confirm-ram-data'\nmax_connections = 158\nshared_buffers = '256MB'\nmax_wal_senders = 4\nwal_level = replica\nwal_buffers = '64MB'\nmax_wal_size = '512MB'\nmin_wal_size = '80MB'\ncheckpoint_timeout = '30min'\nautovacuum = off\nfsync = on\nfull_page_writes = on\nsynchronous_standby_names = 'bench_standby'\n",
+      "persistent_replication_slot": false,
+      "valid_rows": 9
+    },
+    "compare-rate-ram": {
+      "arguments": {
+        "baseline_bindir": "install-baseline/bin",
+        "feature_bindir": "install-release/bin",
+        "output": "/home/reshke/pgpg2/compare-rate-ram",
+        "data_root": "/dev/shm/pgpg2-rate-ram-data",
+        "log_root": "/dev/shm/pgpg2-rate-ram-logs",
+        "cases": "bench/syncrepwaker/ram-rate-cases.json",
+        "variants": [
+          "base",
+          "on"
+        ],
+        "seconds": 60,
+        "warmup": 10,
+        "repeats": 3,
+        "port": 56532,
+        "tls": false,
+        "discard_data": true
+      },
+      "cases": [
+        {
+          "name": "micro-rate30k",
+          "clients": 128,
+          "payload_bytes": 0,
+          "rate": 30000,
+          "commit": "on"
+        }
+      ],
+      "uname": [
+        "Linux",
+        "pgfuzz",
+        "6.8.0-147-generic",
+        "#147-Ubuntu SMP PREEMPT_DYNAMIC Thu Sep 24 11:33:16 UTC 2026",
+        "x86_64"
+      ],
+      "cpu_affinity": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "baseline_configure": "'--prefix=/home/reshke/pgpg2/install-baseline' '--libdir=/home/reshke/pgpg2/install-baseline/lib/postgresql' '--enable-debug' '--disable-cassert' '--enable-depend' '--with-openssl' '--without-mdblocales' 'CFLAGS=-O2 -g -fno-omit-frame-pointer'",
+      "feature_configure": "'--prefix=/home/reshke/pgpg2/install-release' '--libdir=/home/reshke/pgpg2/install-release/lib/postgresql' '--enable-debug' '--disable-cassert' '--enable-depend' '--with-openssl' '--without-mdblocales' 'CFLAGS=-O2 -g -fno-omit-frame-pointer'",
+      "primary_config": "max_connections = 100\t\t\t# (change requires restart)\nshared_buffers = 128MB\t\t\t# min 128kB\ndynamic_shared_memory_type = posix\t# the default is usually the first option\nmax_wal_size = 1GB\nmin_wal_size = 80MB\nlog_timezone = 'Etc/UTC'\nautovacuum_worker_slots = 16\t\t# autovacuum worker slots to allocate\ndatestyle = 'iso, mdy'\ntimezone = 'Etc/UTC'\nlc_messages = C\t\t\t\t# locale for system error message\nlc_monetary = C\t\t\t\t# locale for monetary formatting\nlc_numeric = C\t\t\t\t# locale for number formatting\nlc_time = C\t\t\t\t# locale for time formatting\ndefault_text_search_config = 'pg_catalog.english'\nlisten_addresses = '127.0.0.1'\nport = 56532\nunix_socket_directories = '/dev/shm/pgpg2-rate-ram-data'\nmax_connections = 158\nshared_buffers = '256MB'\nmax_wal_senders = 4\nwal_level = replica\nwal_buffers = '64MB'\nmax_wal_size = '512MB'\nmin_wal_size = '80MB'\ncheckpoint_timeout = '30min'\nautovacuum = off\nfsync = on\nfull_page_writes = on\nsynchronous_standby_names = 'bench_standby'\n",
+      "persistent_replication_slot": false,
+      "valid_rows": 6
+    },
+    "compare-light-ram": {
+      "arguments": {
+        "baseline_bindir": "install-baseline/bin",
+        "feature_bindir": "install-release/bin",
+        "output": "/home/reshke/pgpg2/compare-light-ram",
+        "data_root": "/dev/shm/pgpg2-light-ram-data",
+        "log_root": "/dev/shm/pgpg2-light-ram-logs",
+        "cases": "bench/syncrepwaker/ram-light-cases.json",
+        "variants": [
+          "base",
+          "on"
+        ],
+        "seconds": 30,
+        "warmup": 10,
+        "repeats": 3,
+        "port": 56532,
+        "tls": false,
+        "discard_data": true
+      },
+      "cases": [
+        {
+          "name": "micro-rate15k",
+          "clients": 128,
+          "payload_bytes": 0,
+          "rate": 15000,
+          "commit": "on"
+        }
+      ],
+      "uname": [
+        "Linux",
+        "pgfuzz",
+        "6.8.0-147-generic",
+        "#147-Ubuntu SMP PREEMPT_DYNAMIC Thu Sep 24 11:33:16 UTC 2026",
+        "x86_64"
+      ],
+      "cpu_affinity": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "baseline_configure": "'--prefix=/home/reshke/pgpg2/install-baseline' '--libdir=/home/reshke/pgpg2/install-baseline/lib/postgresql' '--enable-debug' '--disable-cassert' '--enable-depend' '--with-openssl' '--without-mdblocales' 'CFLAGS=-O2 -g -fno-omit-frame-pointer'",
+      "feature_configure": "'--prefix=/home/reshke/pgpg2/install-release' '--libdir=/home/reshke/pgpg2/install-release/lib/postgresql' '--enable-debug' '--disable-cassert' '--enable-depend' '--with-openssl' '--without-mdblocales' 'CFLAGS=-O2 -g -fno-omit-frame-pointer'",
+      "primary_config": "max_connections = 100\t\t\t# (change requires restart)\nshared_buffers = 128MB\t\t\t# min 128kB\ndynamic_shared_memory_type = posix\t# the default is usually the first option\nmax_wal_size = 1GB\nmin_wal_size = 80MB\nlog_timezone = 'Etc/UTC'\nautovacuum_worker_slots = 16\t\t# autovacuum worker slots to allocate\ndatestyle = 'iso, mdy'\ntimezone = 'Etc/UTC'\nlc_messages = C\t\t\t\t# locale for system error message\nlc_monetary = C\t\t\t\t# locale for monetary formatting\nlc_numeric = C\t\t\t\t# locale for number formatting\nlc_time = C\t\t\t\t# locale for time formatting\ndefault_text_search_config = 'pg_catalog.english'\nlisten_addresses = '127.0.0.1'\nport = 56532\nunix_socket_directories = '/dev/shm/pgpg2-light-ram-data'\nmax_connections = 158\nshared_buffers = '256MB'\nmax_wal_senders = 4\nwal_level = replica\nwal_buffers = '64MB'\nmax_wal_size = '512MB'\nmin_wal_size = '80MB'\ncheckpoint_timeout = '30min'\nautovacuum = off\nfsync = on\nfull_page_writes = on\nsynchronous_standby_names = 'bench_standby'\n",
+      "persistent_replication_slot": false,
+      "valid_rows": 6
+    },
+    "compare-rate-disk": {
+      "arguments": {
+        "baseline_bindir": "install-baseline/bin",
+        "feature_bindir": "install-release/bin",
+        "output": "/home/reshke/pgpg2/compare-rate-disk",
+        "data_root": null,
+        "log_root": "/dev/shm/pgpg2-rate-disk-logs",
+        "cases": "bench/syncrepwaker/disk-rate-cases.json",
+        "variants": [
+          "base",
+          "on"
+        ],
+        "seconds": 45,
+        "warmup": 10,
+        "repeats": 3,
+        "port": 56532,
+        "tls": false,
+        "discard_data": true
+      },
+      "cases": [
+        {
+          "name": "wal1k-rate10k",
+          "clients": 128,
+          "payload_bytes": 1024,
+          "rate": 10000,
+          "commit": "on"
+        }
+      ],
+      "uname": [
+        "Linux",
+        "pgfuzz",
+        "6.8.0-147-generic",
+        "#147-Ubuntu SMP PREEMPT_DYNAMIC Thu Sep 24 11:33:16 UTC 2026",
+        "x86_64"
+      ],
+      "cpu_affinity": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "baseline_configure": "'--prefix=/home/reshke/pgpg2/install-baseline' '--libdir=/home/reshke/pgpg2/install-baseline/lib/postgresql' '--enable-debug' '--disable-cassert' '--enable-depend' '--with-openssl' '--without-mdblocales' 'CFLAGS=-O2 -g -fno-omit-frame-pointer'",
+      "feature_configure": "'--prefix=/home/reshke/pgpg2/install-release' '--libdir=/home/reshke/pgpg2/install-release/lib/postgresql' '--enable-debug' '--disable-cassert' '--enable-depend' '--with-openssl' '--without-mdblocales' 'CFLAGS=-O2 -g -fno-omit-frame-pointer'",
+      "primary_config": "max_connections = 100\t\t\t# (change requires restart)\nshared_buffers = 128MB\t\t\t# min 128kB\ndynamic_shared_memory_type = posix\t# the default is usually the first option\nmax_wal_size = 1GB\nmin_wal_size = 80MB\nlog_timezone = 'Etc/UTC'\nautovacuum_worker_slots = 16\t\t# autovacuum worker slots to allocate\ndatestyle = 'iso, mdy'\ntimezone = 'Etc/UTC'\nlc_messages = C\t\t\t\t# locale for system error message\nlc_monetary = C\t\t\t\t# locale for monetary formatting\nlc_numeric = C\t\t\t\t# locale for number formatting\nlc_time = C\t\t\t\t# locale for time formatting\ndefault_text_search_config = 'pg_catalog.english'\nlisten_addresses = '127.0.0.1'\nport = 56532\nunix_socket_directories = '/home/reshke/pgpg2/compare-rate-disk/data'\nmax_connections = 158\nshared_buffers = '256MB'\nmax_wal_senders = 4\nwal_level = replica\nwal_buffers = '64MB'\nmax_wal_size = '512MB'\nmin_wal_size = '80MB'\ncheckpoint_timeout = '30min'\nautovacuum = off\nfsync = on\nfull_page_writes = on\nsynchronous_standby_names = 'bench_standby'\n",
+      "persistent_replication_slot": false,
+      "valid_rows": 6
+    },
+    "compare-message-tls": {
+      "arguments": {
+        "baseline_bindir": "install-baseline/bin",
+        "feature_bindir": "install-release/bin",
+        "output": "/home/reshke/pgpg2/compare-message-tls",
+        "data_root": "/dev/shm/pgpg2-message-tls-data",
+        "log_root": "/dev/shm/pgpg2-message-tls-logs",
+        "cases": "bench/syncrepwaker/message-cases.json",
+        "variants": [
+          "base",
+          "on"
+        ],
+        "seconds": 15,
+        "warmup": 5,
+        "repeats": 1,
+        "port": 56532,
+        "tls": true,
+        "discard_data": true
+      },
+      "cases": [
+        {
+          "name": "message8k-c128",
+          "clients": 128,
+          "payload_bytes": 8192,
+          "rate": 0,
+          "commit": "on",
+          "workload": "message"
+        },
+        {
+          "name": "message32k-c128",
+          "clients": 128,
+          "payload_bytes": 32768,
+          "rate": 0,
+          "commit": "on",
+          "workload": "message"
+        }
+      ],
+      "uname": [
+        "Linux",
+        "pgfuzz",
+        "6.8.0-147-generic",
+        "#147-Ubuntu SMP PREEMPT_DYNAMIC Thu Sep 24 11:33:16 UTC 2026",
+        "x86_64"
+      ],
+      "cpu_affinity": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "baseline_configure": "'--prefix=/home/reshke/pgpg2/install-baseline' '--libdir=/home/reshke/pgpg2/install-baseline/lib/postgresql' '--enable-debug' '--disable-cassert' '--enable-depend' '--with-openssl' '--without-mdblocales' 'CFLAGS=-O2 -g -fno-omit-frame-pointer'",
+      "feature_configure": "'--prefix=/home/reshke/pgpg2/install-release' '--libdir=/home/reshke/pgpg2/install-release/lib/postgresql' '--enable-debug' '--disable-cassert' '--enable-depend' '--with-openssl' '--without-mdblocales' 'CFLAGS=-O2 -g -fno-omit-frame-pointer'",
+      "primary_config": "max_connections = 100\t\t\t# (change requires restart)\nshared_buffers = 128MB\t\t\t# min 128kB\ndynamic_shared_memory_type = posix\t# the default is usually the first option\nmax_wal_size = 1GB\nmin_wal_size = 80MB\nlog_timezone = 'Etc/UTC'\nautovacuum_worker_slots = 16\t\t# autovacuum worker slots to allocate\ndatestyle = 'iso, mdy'\ntimezone = 'Etc/UTC'\nlc_messages = C\t\t\t\t# locale for system error message\nlc_monetary = C\t\t\t\t# locale for monetary formatting\nlc_numeric = C\t\t\t\t# locale for number formatting\nlc_time = C\t\t\t\t# locale for time formatting\ndefault_text_search_config = 'pg_catalog.english'\nlisten_addresses = '127.0.0.1'\nport = 56532\nunix_socket_directories = '/dev/shm/pgpg2-message-tls-data'\nmax_connections = 158\nshared_buffers = '256MB'\nmax_wal_senders = 4\nwal_level = replica\nwal_buffers = '64MB'\nmax_wal_size = '512MB'\nmin_wal_size = '80MB'\ncheckpoint_timeout = '30min'\nautovacuum = off\nfsync = on\nfull_page_writes = on\nsynchronous_standby_names = 'bench_standby'\nssl = on\nssl_key_file = '/home/reshke/pgpg2/compare-message-tls/server.key'\nssl_cert_file = '/home/reshke/pgpg2/compare-message-tls/server.crt'\n",
+      "persistent_replication_slot": false,
+      "valid_rows": 2
+    },
+    "compare-message32k-tls-slot": {
+      "arguments": {
+        "baseline_bindir": "install-baseline/bin",
+        "feature_bindir": "install-release/bin",
+        "output": "compare-message32k-tls-slot",
+        "data_root": "/dev/shm/pgpg2-message32k-slot-data",
+        "log_root": "/dev/shm/pgpg2-message32k-slot-logs",
+        "cases": "bench/syncrepwaker/message32k-cases.json",
+        "variants": [
+          "base",
+          "on"
+        ],
+        "seconds": 15,
+        "warmup": 5,
+        "repeats": 1,
+        "port": 56532,
+        "tls": true,
+        "discard_data": true
+      },
+      "cases": [
+        {
+          "name": "message32k-c128",
+          "clients": 128,
+          "payload_bytes": 32768,
+          "rate": 0,
+          "commit": "on",
+          "workload": "message"
+        }
+      ],
+      "uname": [
+        "Linux",
+        "pgfuzz",
+        "6.8.0-147-generic",
+        "#147-Ubuntu SMP PREEMPT_DYNAMIC Thu Sep 24 11:33:16 UTC 2026",
+        "x86_64"
+      ],
+      "cpu_affinity": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "baseline_configure": "'--prefix=/home/reshke/pgpg2/install-baseline' '--libdir=/home/reshke/pgpg2/install-baseline/lib/postgresql' '--enable-debug' '--disable-cassert' '--enable-depend' '--with-openssl' '--without-mdblocales' 'CFLAGS=-O2 -g -fno-omit-frame-pointer'",
+      "feature_configure": "'--prefix=/home/reshke/pgpg2/install-release' '--libdir=/home/reshke/pgpg2/install-release/lib/postgresql' '--enable-debug' '--disable-cassert' '--enable-depend' '--with-openssl' '--without-mdblocales' 'CFLAGS=-O2 -g -fno-omit-frame-pointer'",
+      "primary_config": "max_connections = 100\t\t\t# (change requires restart)\nshared_buffers = 128MB\t\t\t# min 128kB\ndynamic_shared_memory_type = posix\t# the default is usually the first option\nmax_wal_size = 1GB\nmin_wal_size = 80MB\nlog_timezone = 'Etc/UTC'\nautovacuum_worker_slots = 16\t\t# autovacuum worker slots to allocate\ndatestyle = 'iso, mdy'\ntimezone = 'Etc/UTC'\nlc_messages = C\t\t\t\t# locale for system error message\nlc_monetary = C\t\t\t\t# locale for monetary formatting\nlc_numeric = C\t\t\t\t# locale for number formatting\nlc_time = C\t\t\t\t# locale for time formatting\ndefault_text_search_config = 'pg_catalog.english'\nlisten_addresses = '127.0.0.1'\nport = 56532\nunix_socket_directories = '/dev/shm/pgpg2-message32k-slot-data'\nmax_connections = 158\nshared_buffers = '256MB'\nmax_wal_senders = 4\nwal_level = replica\nwal_buffers = '64MB'\nmax_wal_size = '512MB'\nmin_wal_size = '80MB'\ncheckpoint_timeout = '30min'\nautovacuum = off\nfsync = on\nfull_page_writes = on\nsynchronous_standby_names = 'bench_standby'\nssl = on\nssl_key_file = '/home/reshke/pgpg2/compare-message32k-tls-slot/server.key'\nssl_cert_file = '/home/reshke/pgpg2/compare-message32k-tls-slot/server.crt'\n",
+      "persistent_replication_slot": true,
+      "valid_rows": 2
+    }
+  },
+  "failed_attempts": [
+    {
+      "dataset": "compare-message-tls",
+      "case": "message32k-c128",
+      "variant": "base",
+      "reason": "pgbench timed out after streaming standby requested WAL that had already been removed. No persistent physical replication slot was configured. No latency row included. Feature variant was not started. Retried both variants with a slot in compare-message32k-tls-slot."
+    }
+  ],
+  "notes": [
+    "All successful comparison rows are included, including regressions and queue stalls.",
+    "The filename screen-ssd is historical: actual disk medium was not established. It means persistent block storage.",
+    "Eight initial disk-screen CPU snapshots flagged an ephemeral monitoring connection; do not use those CPU totals for conclusions. Later runs exclude the monitor.",
+    "Quantiles are per measurement window. Summaries use medians across runs, not pooled transaction quantiles.",
+    "Original per-transaction gzip logs, stdout, server logs and full metadata remain in /home/reshke/pgpg2/<dataset>/ on the benchmark host."
+  ]
+}

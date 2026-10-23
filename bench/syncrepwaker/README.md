@@ -102,3 +102,187 @@ On-server artifacts:
 - `bench-results/`: pgbench logs, per-run PID profiles, raw perf data, server
   logs, and stopped test clusters.
 - `install/`: assertion-enabled binaries; `install-release/`: benchmark binaries.
+
+## Latency comparison against the parent binary
+
+`compare_bench.py` accepts two installations built with matching compiler
+options: the unmodified parent and the feature commit. `base`, `off`, and `on`
+mean the parent binary, feature binary with direct wakeups, and feature binary
+with delegated wakeups, respectively. All variants use the same baseline
+pgbench executable and the same baseline standby. The primary is restarted
+between variants. Run order rotates between repetitions.
+The current harness creates a persistent physical replication slot with
+`pg_basebackup -C -S bench_standby -R`, so the primary retains WAL needed by
+the standby across restarts and bursts of WAL generation.
+
+```sh
+python3 -m unittest discover -s bench/syncrepwaker -p test_compare_bench.py -v
+python3 bench/syncrepwaker/compare_bench.py \
+  --baseline-bindir "$PWD/install-baseline/bin" \
+  --feature-bindir "$PWD/install-release/bin" \
+  --output "$PWD/compare-confirm-ram" \
+  --data-root /dev/shm/pgpg2-confirm-ram-data \
+  --log-root /dev/shm/pgpg2-confirm-ram-logs \
+  --cases bench/syncrepwaker/ram-confirm-cases.json \
+  --variants base off on --seconds 60 --warmup 10 --repeats 3 --discard-data
+python3 bench/syncrepwaker/analyze_compare.py compare-confirm-ram/results.json
+```
+
+Use a new output/data/log directory for every invocation. Without `--data-root`,
+data are stored below the output directory. The benchmark always enables
+`fsync` and `full_page_writes`. A tmpfs data directory removes physical disk
+latency to diagnose CPU and wakeup effects; it does not provide durability
+across host failure. It complements the tests on the server's persistent disk.
+`--discard-data` removes only this invocation's temporary clusters after a
+successful run. Failed runs retain their clusters for inspection.
+
+Every transaction is logged, with no sampling, into the separate log directory.
+Putting that directory in tmpfs avoids competing disk writes from the client.
+After each run, logs are compressed into the output directory and removed from
+the temporary log directory. The measurement covers a full interval after
+warmup, while the same pgbench sessions remain connected; four extra seconds
+at the end keep processes alive for the final CPU snapshot. Quantiles use
+transactions completed inside the measurement window and the exact nearest-rank
+definition, with microsecond resolution. The results include five-second
+subwindows to expose stalls and run instability.
+
+In rate-limited cases, the main latency includes delay from the transaction's
+scheduled arrival. `execution` subtracts pgbench's scheduling lag, which is
+reported separately. A low server execution percentile alone must not hide
+an overloaded client queue. No latency limit or transaction dropping is used.
+Compare achieved TPS with the requested rate before interpreting percentiles.
+
+CPU snapshots include primary and standby postmasters, their live children,
+and the pgbench process. They count process CPU time, not all kernel interrupt
+work; host busy, I/O wait, and steal percentages are also recorded. Missing
+processes are flagged. Context-switch fields are Linux process-leader counters,
+so the pgbench counters do not include every client thread. The timed runs do
+not run perf. The comparison script
+reports the median of per-run quantiles and their range, rather than treating
+millions of correlated transactions as millions of independent experiments.
+
+The JSON case files cover small INSERTs, 1 KiB INSERT payloads, fixed arrival
+rates, and WAL-only messages. The message workload uses transactional
+`pg_logical_emit_message` to generate replication traffic without growing a
+heap, so it is a diagnostic for sender work rather than a typical application
+transaction. Add `--tls` to encrypt both pgbench and replication connections.
+
+### Saturated fast-storage result, 2026-10-23
+
+On the same 8-vCPU host, three 60-second measurement windows per variant
+(10-second warmup each) compared `dc9f4918121` with `9b0f51c718c` using 128
+clients and tiny INSERTs. The primary and the common baseline standby stored
+their data in tmpfs; pgbench logs also went to tmpfs. This is the CPU/wakeup
+diagnostic, not a durable-storage result. Run order was base/off/on, off/on/base,
+on/base/off. The table shows medians across runs, not pooled quantiles.
+
+| Primary variant | TPS | p50 ms | p95 ms | p99 ms | p99.9 ms | Process CPU, us/tx |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Parent | 60,883 | 0.817 | 6.302 | 11.040 | 16.734 | 107.30 |
+| Feature, waker off | 61,456 | 0.850 | 6.200 | 10.798 | 16.283 | 106.68 |
+| Feature, waker on | 61,917 | 1.968 | 3.150 | 3.800 | 5.471 | 99.75 |
+
+Delegation reduced median p99 by 65.6% and p99.9 by 67.3%, with similar TPS
+(+1.7%). It worsened p50 by 141%. Process CPU includes primary, standby, and
+client. The p99 ranges were 10.703–17.962 ms for the parent,
+10.422–19.858 ms with the waker off, and 3.606–10.299 ms with it on. Thus the
+size of the benefit varied considerably, even though the on/off distinction
+was visible. This supports a use case for tail latency near CPU saturation;
+it does not establish that delegation improves latency at lower offered loads.
+
+### Fixed arrival rates and TLS diagnostics
+
+The fixed-rate runs used the same one synchronous standby and
+`synchronous_commit=on`. These are medians across three runs. Latency includes
+pgbench scheduling lag, so these figures describe response time relative to
+the requested arrival rather than just time executing a query. Disk means
+the host's persistent block volume; its physical storage medium was not
+established.
+
+| Workload | Measured seconds/run | Parent TPS | Waker TPS | Parent p50 ms | Waker p50 ms | Parent p99 ms | Waker p99 ms |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Tiny INSERT, tmpfs, 128 clients, 15k/s | 30 | 14,970 | 14,970 | 0.325 | 0.365 | 0.738 | 1.054 |
+| 1 KiB INSERT, disk, 128 clients, 10k/s | 45 | 9,984 | 9,973 | 8.644 | 9.879 | 270.862 | 212.660 |
+
+At 15k/s, p99 worsened by 42.8% and process CPU per transaction increased
+from 253.13 to 263.60 us. Disk p99 varied from 96.137 to 828.563 ms for
+the parent and from 150.769 to 668.150 ms with the waker. The median disk
+execution-only p99 was 33.094 versus 35.748 ms. Given the overlapping
+response-time ranges and large scheduling queues, the lower median disk
+response p99 is not convincing evidence of a benefit.
+
+At 30k/s on tmpfs, both variants had severe intermittent queues. The p99
+response times for repetitions 1/2/3 were 0.901/14.184/908.397 ms for the
+parent and 0.971/3854.701/0.954 ms with the waker. In the 3854.701 ms run,
+scheduling-lag p99 was 3850.923 ms and execution-only p99 was 11.479 ms.
+All these observations are retained in the results. A median alone hides
+these stalls and cannot establish a reliable improvement at this rate.
+
+WAL-message workloads were exploratory: one 15-second measurement per
+variant after five seconds of warmup, with 128 clients, tmpfs data and TLS
+on both client and replication connections. They exercise different WAL
+volumes without growing a table. They are not substitutes for an application
+workload, and their small sample does not establish a reproducible gain.
+
+| WAL message per transaction | Parent TPS | Waker TPS | Parent p50 ms | Waker p50 ms | Parent p99 ms | Waker p99 ms |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 8 KiB | 43,480 | 38,532 | 2.621 | 3.183 | 7.722 | 5.583 |
+| 32 KiB, persistent replication slot | 20,508 | 22,062 | 6.244 | 5.701 | 8.303 | 9.398 |
+
+The first 32 KiB attempt timed out on the unmodified parent: the standby
+requested a WAL segment that the primary had already removed. That attempt
+had no persistent physical replication slot; the feature variant was never
+started. It has no completed result row. Adding the slot to the harness
+allowed both variants to complete in a fresh run. The earlier successful
+datasets used no persistent slot, so the 32 KiB result is kept as a separate
+diagnostic. At this WAL volume, `max_wal_size=512MB` caused frequent
+checkpoints in both variants; this is another limit of the short diagnostic.
+
+These results support retaining delegation as a workload-dependent option
+for tail latency near CPU saturation. They do not justify enabling it by
+default for every workload: median latency and light-load latency regressed,
+and a general throughput gain was not established. The feature commit
+currently defaults `sync_rep_waker` to `on`; these measurements do not change
+that setting. A default change needs a separate implementation decision.
+
+### Saved evidence and reproduction
+
+`comparison-results-2026-10-23.json` contains all 47 completed runs, covering
+54,224,304 transactions in their measurement windows. It preserves per-run
+quantiles, five-second subwindows, scheduling lag, execution time, WAL volume,
+CPU time by role, host CPU counters, and missing CPU snapshot counts. There
+were no failed or skipped transactions in these completed measurement windows.
+The one incomplete 32 KiB attempt is recorded separately in
+`comparison-environment-2026-10-23.json`, together with configurations, build
+options, binary hashes and run arguments. Eight initial disk-screen runs
+flagged a short-lived monitor connection in CPU accounting; later runs
+exclude that connection. Do not use those initial CPU totals for conclusions.
+
+```sh
+python3 bench/syncrepwaker/analyze_compare.py \
+  bench/syncrepwaker/comparison-results-2026-10-23.json
+```
+
+The eight datasets and corresponding case files are:
+
+| Dataset | Cases | Variants | Seconds | Warmup | Repeats | Data | TLS |
+| --- | --- | --- | ---: | ---: | ---: | --- | --- |
+| compare-screen-ssd | screen-cases.json | base on | 10 | 4 | 1 | disk | no |
+| compare-screen-ram | screen-cases.json | base on | 10 | 4 | 1 | tmpfs | no |
+| compare-confirm-ram | ram-confirm-cases.json | base off on | 60 | 10 | 3 | tmpfs | no |
+| compare-rate-ram | ram-rate-cases.json | base on | 60 | 10 | 3 | tmpfs | no |
+| compare-light-ram | ram-light-cases.json | base on | 30 | 10 | 3 | tmpfs | no |
+| compare-rate-disk | disk-rate-cases.json | base on | 45 | 10 | 3 | disk | no |
+| compare-message-tls | message-cases.json | base on | 15 | 5 | 1 | tmpfs | yes |
+| compare-message32k-tls-slot | message32k-cases.json | base on | 15 | 5 | 1 | tmpfs | yes |
+
+The first two datasets are short screens; use the longer repeated runs for
+conclusions. `compare-message-tls` completed only the 8 KiB pair before its
+32 KiB attempt failed. The current slot-enabled harness avoids that retention
+failure when rerunning `message-cases.json`.
+
+On the benchmark host, each `/home/reshke/pgpg2/<dataset>/` retains the full
+metadata, individual JSON rows, pgbench output, primary/standby logs and gzip
+transaction logs. Both servers and the client ran on one 8-vCPU host without
+CPU pinning or host isolation, which limits attribution of stalls and transfer
+to a production deployment. No original application workload was available.

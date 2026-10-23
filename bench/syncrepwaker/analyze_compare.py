@@ -1,0 +1,38 @@
+#!/usr/bin/env python3
+"""Report medians across runs, keeping run-to-run tail variability visible."""
+import argparse
+from collections import defaultdict
+import json
+from pathlib import Path
+from statistics import median
+
+
+def summarize(paths):
+    groups = defaultdict(list)
+    for path in paths:
+        dataset = path.parent.name if path.name == "results.json" else path.stem
+        for row in json.loads(path.read_text()):
+            groups[(row.get("dataset", dataset), row["case"]["name"], row["variant"])].append(row)
+    lines = ["| Dataset / case | Variant | Runs | TPS | p50 ms | p95 ms | p99 ms | p99 range ms | p99.9 ms | CPU us/tx | Sender CPU us/tx | Lag p99 ms |",
+             "| --- | --- | ---: | ---: | ---: | ---: | ---: | --- | ---: | ---: | ---: | ---: |"]
+    for (dataset, case, variant), rows in groups.items():
+        q = lambda name: median(row["latency"][name] for row in rows)
+        cpu = median(sum(v["cpu_seconds"] for v in row["cpu"].values()) /
+                     row["elapsed_seconds"] / row["tps"] * 1e6 for row in rows)
+        sender = median(row["cpu"].get("primary:walsender", {}).get("cpu_seconds", 0) /
+                        row["elapsed_seconds"] / row["tps"] * 1e6 for row in rows)
+        tails = [row["latency"]["p99_ms"] for row in rows]
+        lag = median(row["schedule_lag"]["p99_ms"] for row in rows)
+        lines.append(f"| {dataset} / {case} | {variant} | {len(rows)} | "
+                     f"{median(row['tps'] for row in rows):,.0f} | "
+                     f"{q('p50_ms'):.3f} | {q('p95_ms'):.3f} | {q('p99_ms'):.3f} | "
+                     f"{min(tails):.3f}–{max(tails):.3f} | {q('p999_ms'):.3f} | "
+                     f"{cpu:.2f} | {sender:.2f} | {lag:.3f} |")
+    return "\n".join(lines)
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("results", type=Path, nargs="+")
+    args = parser.parse_args()
+    print(summarize(args.results))
