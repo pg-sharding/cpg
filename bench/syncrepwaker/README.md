@@ -422,9 +422,15 @@ python3 bench/syncrepwaker/analyze_compare.py \
 pgbench simple-update, TPC-B-like, read/write mixes 90/10 and 50/50, batch
 INSERTs with 10/100/1000 rows, and 8/32 KiB INSERT payloads with TLS on both
 client and replication connections. Payload compression is disabled with
-STORAGE EXTERNAL. This suite uses persistent-disk data, one synchronous
+STORAGE EXTERNAL. SQL generates the payload on the server; the client sends
+small protocol messages and the resulting WAL carries the large values over
+TLS. Batch INSERTs use one `INSERT ... SELECT
+generate_series(...)` statement per transaction, into a table without indexes.
+This suite uses persistent-disk data, one synchronous
 standby, 128 clients, remote-flush commit, 4 GiB max_wal_size and 256 MiB
-shared_buffers. The OLTP families initialize pgbench at scale 10.
+shared_buffers. All seven plain families initialize pgbench at scale 10;
+the batch cases do not access those pgbench tables. The TLS families omit
+pgbench initialization.
 
 Each family is first calibrated with the parent binary for ten measured
 seconds after three seconds of warmup. A fixed arrival rate of approximately
@@ -462,3 +468,41 @@ Validation: four latency-accounting unit tests pass, including mixed-script
 classification, plus six short integration runs across all three variants.
 The integration runs checked empty restored history and separate read/write
 counts before starting the full matrix.
+
+After the matrix completes, collect its main rows and environment with:
+
+```sh
+python3 bench/syncrepwaker/collect_matrix.py compare-workloads \
+  --baseline-commit dc9f4918121638e93b8813cc411247e2dbdb3b10 \
+  --feature-commit 73b816456c0061ed747424c6339eb52bcb164428 \
+  --harness-commit 35a02718145bad1a0c1bf7d0b70e44df9b839c77
+```
+
+The collector verifies row counts, binary hashes, transaction accounting and
+snapshot restoration before writing `workload-results-<date>.json` and
+`workload-environment-<date>.json`. It also counts checkpoint/restartpoint log
+events within each measured window. Those event counts do not measure how
+long an ongoing checkpoint overlaps the window. Original per-transaction
+logs remain in the phase directories on the benchmark host.
+
+### Workload matrix results, 2026-10-23 UTC
+
+All 162 main runs and nine calibrations completed on the VM. The main windows
+contain 40,460,989 transactions without failed/skipped transactions or missing
+CPU snapshots. Successful clusters and snapshots were removed; raw logs remain
+on the host. Four accounting unit tests and six integration smoke runs also
+passed before the full matrix.
+
+The persistent-disk results do not establish a general improvement. At unlimited
+load, hybrid8 reduces simple-update p99 by 18.3% with approximately unchanged
+TPS, but batch10 TPS falls 7.8% and batch1000 TPS falls 7.3%. Full delegation
+loses 15.2% TPS on batch10 while gaining 5.4% on batch100. Transaction p50 does
+not improve consistently. Sender CPU decreases, while total process CPU is
+usually close to the baseline. The fixed 32 KiB TLS case accumulates a backlog
+in every variant and has large run-to-run tail variability.
+
+See [the full report](workload-report-2026-10-23.md) for both load modes,
+separate read/write metrics, per-run p99 ranges, counts, execution latency,
+scheduling lag and CPU/WAL measurements. [Main results](workload-results-2026-10-23.json)
+and [environment/calibration data](workload-environment-2026-10-23.json)
+preserve the measured rows and configurations.
