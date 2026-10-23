@@ -8,6 +8,7 @@ Server data are disposable clusters created in a new directory by this script.
 import argparse
 from collections import Counter, defaultdict
 import gzip
+import hashlib
 import json
 import math
 import os
@@ -15,6 +16,12 @@ from pathlib import Path
 import subprocess
 import shutil
 import time
+
+
+def write_json(path, value):
+    temporary = path.with_name(path.name + ".tmp")
+    temporary.write_text(json.dumps(value, indent=2) + "\n")
+    temporary.replace(path)
 
 
 def percentiles(counts):
@@ -39,6 +46,8 @@ def transaction_stats(prefix, start, end, rate):
     latency, execution, lag = Counter(), Counter(), Counter()
     blocks = defaultdict(Counter)
     failed = skipped = 0
+    scripts = defaultdict(lambda: {"latency": Counter(), "execution": Counter(),
+                                   "schedule_lag": Counter(), "failed": 0, "skipped": 0})
     files = sorted(prefix.parent.glob(prefix.name + ".*"))
     if not files:
         raise ValueError(f"no pgbench transaction logs for {prefix}")
@@ -49,13 +58,16 @@ def transaction_stats(prefix, start, end, rate):
                 finished = int(fields[4]) + int(fields[5]) / 1e6
                 if not start <= finished < end:
                     continue
+                script = scripts[fields[3]]
                 if fields[2] == "skipped":
                     skipped += 1
+                    script["skipped"] += 1
                     continue
                 try:
                     elapsed = int(fields[2])
                 except ValueError:
                     failed += 1
+                    script["failed"] += 1
                     continue
                 delay = int(fields[6]) if rate else 0
                 if delay > elapsed:
@@ -63,13 +75,57 @@ def transaction_stats(prefix, start, end, rate):
                 latency[elapsed] += 1
                 execution[elapsed - delay] += 1
                 lag[delay] += 1
+                script["latency"][elapsed] += 1
+                script["execution"][elapsed - delay] += 1
+                script["schedule_lag"][delay] += 1
                 blocks[int((finished - start) // 5)][elapsed] += 1
     result = {"latency": percentiles(latency), "execution": percentiles(execution),
               "schedule_lag": percentiles(lag), "failed": failed, "skipped": skipped,
               "tps": sum(latency.values()) / (end - start),
               "five_second_blocks": {str(k): percentiles(v) for k, v in blocks.items()},
               "log_files": [str(p) for p in files]}
+    result["by_script"] = {
+        name: {**{key: percentiles(group[key]) if group[key] else {"count": 0}
+                   for key in ("latency", "execution", "schedule_lag")},
+               "failed": group["failed"], "skipped": group["skipped"],
+               "tps": sum(group["latency"].values()) / (end - start)}
+        for name, group in scripts.items()}
     return result
+
+
+def workload_options(case, root, scale):
+    """Return pgbench script arguments and stable raw-log script labels."""
+    kind = case.get("workload", "insert")
+    if kind in ("simple-update", "tpcb", "mixed"):
+        if scale < 1:
+            raise ValueError("pgbench workloads require --pgbench-scale")
+        options = ["-s", scale]
+        if kind == "mixed":
+            read_weight = int(case["read_weight"])
+            if not 0 < read_weight < 100:
+                raise ValueError("read_weight must be between 1 and 99")
+            options += ["-b", f"select-only@{read_weight}",
+                        "-b", f"simple-update@{100 - read_weight}"]
+            return options, {"0": "read", "1": "write"}
+        options += ["-b", "simple-update" if kind == "simple-update" else "tpcb-like"]
+        return options, {"0": "write"}
+    path = root / (case["name"] + ".sql")
+    payload = int(case.get("payload_bytes", 0))
+    if kind == "message":
+        path.write_text("SELECT pg_logical_emit_message(true, 'bench', "
+                        f"repeat('x', {payload}));\n")
+    elif kind == "insert":
+        batch = int(case.get("batch_rows", 1))
+        if batch < 1:
+            raise ValueError("batch_rows must be positive")
+        if batch == 1:
+            path.write_text(f"INSERT INTO wake_bench VALUES (repeat('x', {payload}));\n")
+        else:
+            path.write_text(f"INSERT INTO wake_bench SELECT repeat('x', {payload}) "
+                            f"FROM generate_series(1, {batch});\n")
+    else:
+        raise ValueError(f"unknown workload: {kind}")
+    return ["-f", path], {"0": "write"}
 
 
 def proc_stat(pid):
@@ -148,6 +204,11 @@ def main():
     parser.add_argument("--repeats", type=int, default=3)
     parser.add_argument("--port", type=int, default=56532)
     parser.add_argument("--tls", action="store_true")
+    parser.add_argument("--pgbench-scale", type=int, default=0,
+                        help="initialize pgbench tables before the standby backup")
+    parser.add_argument("--restore-between-runs", action="store_true",
+                        help="restore both stopped clusters from a common snapshot before every run")
+    parser.add_argument("--max-wal-size", default="512MB")
     parser.add_argument("--discard-data", action="store_true",
                         help="remove this run's disposable clusters after successful completion")
     args = parser.parse_args()
@@ -160,6 +221,7 @@ def main():
     log_root.mkdir(parents=True, exist_ok=False)
     (root / "transactions").mkdir()
     primary, standby = data_root / "primary", data_root / "standby"
+    snapshot = root / "snapshot"
     base, feature = args.baseline_bindir.resolve(), args.feature_bindir.resolve()
     env = dict(os.environ, LC_ALL="C", PGHOST="127.0.0.1", PGPORT=str(args.port),
                PGDATABASE="postgres", PGSSLMODE="require" if args.tls else "disable",
@@ -169,8 +231,8 @@ def main():
     results = []
     completed = False
 
-    def run(command, output=None):
-        result = subprocess.run([str(p) for p in command], env=env, text=True,
+    def run(command, output=None, command_env=None):
+        result = subprocess.run([str(p) for p in command], env=command_env or env, text=True,
                                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         if output:
             output.write_text(result.stdout)
@@ -215,6 +277,26 @@ def main():
                 labels[int(pid)] = side + ":" + kind
         return labels
 
+    def clone_cluster(source, target):
+        run(["cp", "-a", "--reflink=auto", source, target])
+        # Flush only this copy, outside the measurement window.  Avoid leaving
+        # snapshot-copy writeback to compete with one variant's timed I/O.
+        for directory, _, files in os.walk(target, topdown=False):
+            for name in files:
+                path = Path(directory) / name
+                if path.is_symlink():
+                    continue
+                fd = os.open(path, os.O_RDONLY)
+                try:
+                    os.fsync(fd)
+                finally:
+                    os.close(fd)
+            fd = os.open(directory, os.O_RDONLY | os.O_DIRECTORY)
+            try:
+                os.fsync(fd)
+            finally:
+                os.close(fd)
+
     try:
         run([base / "initdb", "-D", primary, "--auth=trust", "--locale=C",
              "--encoding=UTF8"], root / "initdb.log")
@@ -223,7 +305,7 @@ def main():
                   f"max_connections = {max(c['clients'] for c in cases) + 30}\n"
                   "shared_buffers = '256MB'\nmax_wal_senders = 4\n"
                   "wal_level = replica\nwal_buffers = '64MB'\n"
-                  "max_wal_size = '512MB'\nmin_wal_size = '80MB'\n"
+                  f"max_wal_size = '{args.max_wal_size}'\nmin_wal_size = '80MB'\n"
                   "checkpoint_timeout = '30min'\nautovacuum = off\n"
                   "fsync = on\nfull_page_writes = on\n"
                   "synchronous_standby_names = 'bench_standby'\n")
@@ -240,11 +322,15 @@ def main():
         # This DDL must not wait for the not-yet-created standby.
         sql("SET synchronous_commit = local; CREATE TABLE wake_bench (payload text)")
         sql("SET synchronous_commit = local; ALTER TABLE wake_bench ALTER payload SET STORAGE EXTERNAL")
+        if args.pgbench_scale:
+            run([base / "pgbench", "-i", "-s", args.pgbench_scale],
+                root / "pgbench-init.log",
+                dict(env, PGOPTIONS="-c synchronous_commit=local"))
         # Keep WAL until the standby consumes it, including across primary
         # restarts and high-WAL message tests.  -R also records this slot in
         # the standby's primary_slot_name.
         run([base / "pg_basebackup", "-D", standby, "-X", "stream", "-R",
-             "-C", "-S", "bench_standby"], root / "basebackup.log")
+             "-C", "-S", "bench_standby", "--checkpoint=fast"], root / "basebackup.log")
         with (standby / "postgresql.auto.conf").open("a") as conf:
             conf.write(f"\nprimary_conninfo = 'host=127.0.0.1 port={args.port} "
                        f"application_name=bench_standby sslmode={env['PGSSLMODE']}'\n")
@@ -259,38 +345,53 @@ def main():
                     "uname": list(os.uname()), "cpu_affinity": sorted(os.sched_getaffinity(0)),
                     "baseline_configure": run([base / "pg_config", "--configure"]),
                     "feature_configure": run([feature / "pg_config", "--configure"]),
+                    "postgres_sha256": {label: hashlib.sha256((binary / "postgres").read_bytes()).hexdigest()
+                                        for label, binary in (("base", base), ("feature", feature))},
+                    "harness_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
                     "primary_config": (primary / "postgresql.conf").read_text()}
-        (root / "metadata.json").write_text(json.dumps(metadata, indent=2) + "\n")
+        write_json(root / "metadata.json", metadata)
+        if args.restore_between_runs:
+            ctl(standby, base, "stop")
+            ctl(primary, base, "stop")
+            snapshot.mkdir()
+            clone_cluster(primary, snapshot / "primary")
+            clone_cluster(standby, snapshot / "standby")
 
         for case in cases:
             if not case["name"].replace("-", "").replace("_", "").isalnum():
                 raise ValueError("case names must be letters, digits, dash or underscore")
-            workload = root / (case["name"] + ".sql")
-            payload = int(case["payload_bytes"])
-            if case.get("workload") == "message":
-                # Generate WAL without growing a heap or adding standby heap
-                # replay as a bottleneck.  The transaction still commits and
-                # waits for the configured synchronous replication level.
-                workload.write_text("SELECT pg_logical_emit_message(true, 'bench', "
-                                    f"repeat('x', {payload}));\n")
-            else:
-                workload.write_text(f"INSERT INTO wake_bench VALUES (repeat('x', {payload}));\n")
+            scripts, script_labels = workload_options(case, root, args.pgbench_scale)
             for repeat in range(args.repeats):
                 offset = repeat % len(args.variants)
                 order = args.variants[offset:] + args.variants[:offset]
                 for variant in order:
                     binary = base if variant == "base" else feature
-                    ctl(primary, base, "stop")
+                    if args.restore_between_runs:
+                        for data in (standby, primary):
+                            if (data / "postmaster.pid").exists():
+                                ctl(data, base, "stop")
+                        for data in (primary, standby):
+                            shutil.rmtree(data)
+                            clone_cluster(snapshot / data.name, data)
+                    else:
+                        ctl(primary, base, "stop")
                     ctl(primary, binary, "start", variant)
+                    if args.restore_between_runs:
+                        ctl(standby, base, "start")
                     wait_catchup()
                     sql("TRUNCATE wake_bench")
+                    initial_history = None
+                    if args.restore_between_runs and args.pgbench_scale:
+                        initial_history = int(sql("SELECT count(*) FROM pgbench_history"))
+                        if initial_history != 0:
+                            raise RuntimeError("restored pgbench history was not empty")
                     sql("CHECKPOINT")
                     wait_catchup()
                     label = f"{case['name']}-r{repeat + 1}-{variant}"
                     log_prefix = log_root / (label + ".transactions")
                     command = [base / "pgbench", "-n", "-M", "prepared", "-c", case["clients"],
                                "-j", min(case["clients"], 8), "-T", args.warmup + args.seconds + 4,
-                               "-f", workload, "-l", "--log-prefix", log_prefix, "-P", 5,
+                               *scripts, "-l", "--log-prefix", log_prefix, "-P", 5,
                                "--random-seed", 1000 + repeat]
                     if case.get("rate"):
                         command.extend(["-R", case["rate"]])
@@ -327,8 +428,10 @@ def main():
                                 client.wait(timeout=10)
                     row = dict(case=case, variant=variant, repeat=repeat + 1,
                                start_epoch=start, end_epoch=end, elapsed_seconds=elapsed,
-                               command=[str(p) for p in command], pids=labels)
+                               command=[str(p) for p in command], pids=labels,
+                               initial_history_rows=initial_history)
                     row.update(transaction_stats(log_prefix, start, end, case.get("rate")))
+                    row["script_labels"] = script_labels
                     compressed = []
                     for raw in row["log_files"]:
                         path = Path(raw)
@@ -345,9 +448,9 @@ def main():
                                          "iowait_pct": 100 * system_delta[4] / system_total,
                                          "steal_pct": 100 * system_delta[7] / system_total}
                     row["wal_bytes"] = lsn_integer(lsn_end) - lsn_integer(lsn_start)
-                    (root / (label + ".json")).write_text(json.dumps(row, indent=2) + "\n")
+                    write_json(root / (label + ".json"), row)
                     results.append(row)
-                    (root / "results.json").write_text(json.dumps(results, indent=2) + "\n")
+                    write_json(root / "results.json", results)
                     print(json.dumps({k: row[k] for k in
                                       ["case", "variant", "repeat", "tps", "latency", "schedule_lag", "missing_cpu_pids"]}),
                           flush=True)
@@ -358,6 +461,8 @@ def main():
                 ctl(data, base, "stop")
         if completed and args.discard_data:
             shutil.rmtree(data_root)
+            if snapshot.exists():
+                shutil.rmtree(snapshot)
 
 
 if __name__ == "__main__":

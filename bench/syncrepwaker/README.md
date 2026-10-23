@@ -415,3 +415,50 @@ The temporary clusters from successful runs were stopped and removed.
 python3 bench/syncrepwaker/analyze_compare.py \
   bench/syncrepwaker/hybrid-results-2026-10-23.json
 ```
+
+## Expanded workload matrix
+
+`run_matrix.py` runs nine workload families from `workload-cases.json`:
+pgbench simple-update, TPC-B-like, read/write mixes 90/10 and 50/50, batch
+INSERTs with 10/100/1000 rows, and 8/32 KiB INSERT payloads with TLS on both
+client and replication connections. Payload compression is disabled with
+STORAGE EXTERNAL. This suite uses persistent-disk data, one synchronous
+standby, 128 clients, remote-flush commit, 4 GiB max_wal_size and 256 MiB
+shared_buffers. The OLTP families initialize pgbench at scale 10.
+
+Each family is first calibrated with the parent binary for ten measured
+seconds after three seconds of warmup. A fixed arrival rate of approximately
+60% of that TPS is then used unchanged for all variants. Each family tests
+that rate and unlimited load, with base/on/hybrid8 in rotating order and three
+20-second measurement windows after five seconds of warmup: 162 main runs
+plus nine calibration runs. Small transaction counts limit interpretation of
+p99.9; keep the reported per-window counts visible.
+
+Both clusters are stopped and restored from a common clean snapshot before
+every calibration or main run. Only the copied cluster files are fsynced
+before startup, outside the timed window. This resets pgbench history,
+balances and update bloat. The harness checks that restored pgbench history
+is empty. Per-script statistics retain read and write quantiles separately,
+including scheduling lag and failures. Whole-process CPU cannot be attributed
+to just the writer class and is reported only for the complete workload.
+
+```sh
+python3 bench/syncrepwaker/run_matrix.py \
+  --baseline-bindir "$PWD/install-baseline/bin" \
+  --feature-bindir "$PWD/install-release/bin" \
+  --output "$PWD/compare-workloads" \
+  --log-root /dev/shm/pgpg2-workloads-logs
+```
+
+Use new directories for the initial invocation. The state file and completed
+phase outputs allow resuming the same command with `--resume`; a failed
+phase gets a new attempt directory, retaining its earlier evidence. Runs are
+sequential. Successful temporary clusters and their snapshots are removed,
+while compressed raw logs, server logs, metadata and JSON rows remain.
+Use `analyze_compare.py --by-script` to inspect writer latency in mixed
+workloads without hiding it behind the more numerous reads.
+
+Validation: four latency-accounting unit tests pass, including mixed-script
+classification, plus six short integration runs across all three variants.
+The integration runs checked empty restored history and separate read/write
+counts before starting the full matrix.
