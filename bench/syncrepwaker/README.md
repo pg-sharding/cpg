@@ -512,3 +512,7 @@ add signed percentage changes for TPS, p50, p99 and p99.9, with separate
 read latency for mixed workloads. Percentages compare unrounded medians of
 the same three runs: `100 * (variant / baseline - 1)`. Positive TPS and
 negative latency changes are improvements.
+
+A [base versus hybrid8 comparison](workload-report-2026-10-23.md#baseline-versus-hybrid8)
+shows both absolute TPS/p50/p99 and the hybrid's percentage change, for all
+nine workloads at unlimited and fixed offered load.

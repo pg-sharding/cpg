@@ -90,6 +90,45 @@ named number of rows. Fixed-rate response quantiles include scheduling lag.
 | insert8k-tls | 3000 | 2,989 / 2,984 / 2,977 | 8.528 / 8.364 / 8.861 | 95.296 / 97.860 / 112.673 |
 | insert32k-tls | 1100 | 1,035 / 1,032 / 1,035 | 19.346 / 22.455 / 21.944 | 2626.944 / 2602.029 / 2562.379 |
 
+## Baseline versus hybrid8
+
+Direct comparison of the parent with direct limit 8. Each metric is the
+median of the same three repeated runs. Percent changes use unrounded
+medians: `100 * (hybrid8 / base - 1)`. Higher TPS and lower latency are
+better. TPS counts the entire workload; latency describes writes only.
+
+### Unlimited offered load
+
+| Workload | Offered TPS | Base TPS | Hybrid8 TPS | Δ TPS | Base p50 ms | Hybrid8 p50 ms | Δ p50 | Base p99 ms | Hybrid8 p99 ms | Δ p99 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| simple-update | unlimited | 12,465 | 12,475 | +0.1% | 8.803 | 8.992 | +2.1% | 34.778 | 28.413 | -18.3% |
+| tpcb | unlimited | 1,423 | 1,412 | -0.8% | 43.352 | 43.506 | +0.4% | 612.503 | 639.302 | +4.4% |
+| mixed90 | unlimited | 76,492 | 76,022 | -0.6% | 9.569 | 9.846 | +2.9% | 33.132 | 31.472 | -5.0% |
+| mixed50 | unlimited | 23,264 | 23,286 | +0.1% | 8.769 | 8.573 | -2.2% | 34.735 | 34.742 | 0.0% |
+| batch10 | unlimited | 18,170 | 16,752 | -7.8% | 5.921 | 6.264 | +5.8% | 23.321 | 28.607 | +22.7% |
+| batch100 | unlimited | 7,038 | 7,079 | +0.6% | 14.417 | 14.491 | +0.5% | 87.186 | 89.944 | +3.2% |
+| batch1000 | unlimited | 1,079 | 1,001 | -7.3% | 79.117 | 87.434 | +10.5% | 792.530 | 842.476 | +6.3% |
+| insert8k-tls | unlimited | 4,254 | 4,170 | -2.0% | 21.145 | 20.732 | -2.0% | 144.197 | 148.227 | +2.8% |
+| insert32k-tls | unlimited | 1,430 | 1,454 | +1.7% | 56.435 | 51.836 | -8.1% | 592.803 | 592.733 | 0.0% |
+
+### Fixed offered load
+
+| Workload | Offered TPS | Base TPS | Hybrid8 TPS | Δ TPS | Base p50 ms | Hybrid8 p50 ms | Δ p50 | Base p99 ms | Hybrid8 p99 ms | Δ p99 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| simple-update | 7000 | 6,978 | 6,974 | -0.1% | 7.357 | 6.675 | -9.3% | 103.032 | 76.068 | -26.2% |
+| tpcb | 720 | 723 | 723 | -0.1% | 8.033 | 7.759 | -3.4% | 116.961 | 64.024 | -45.3% |
+| mixed90 | 41700 | 41,646 | 41,648 | 0.0% | 7.929 | 7.141 | -9.9% | 45.765 | 41.030 | -10.3% |
+| mixed50 | 13100 | 13,068 | 13,078 | +0.1% | 6.727 | 6.777 | +0.7% | 46.115 | 53.094 | +15.1% |
+| batch10 | 10200 | 10,177 | 10,179 | 0.0% | 7.018 | 6.341 | -9.6% | 91.698 | 101.818 | +11.0% |
+| batch100 | 3700 | 3,696 | 3,690 | -0.2% | 6.823 | 6.985 | +2.4% | 76.806 | 99.348 | +29.3% |
+| batch1000 | 760 | 763 | 762 | -0.2% | 11.165 | 10.841 | -2.9% | 108.513 | 111.816 | +3.0% |
+| insert8k-tls | 3000 | 2,989 | 2,977 | -0.4% | 8.528 | 8.861 | +3.9% | 95.296 | 112.673 | +18.2% |
+| insert32k-tls | 1100 | 1,035 | 1,035 | 0.0% | 19.346 | 21.944 | +13.4% | 2626.944 | 2562.379 | -2.5% |
+
+The fixed 32 KiB TLS case accumulates a backlog in both variants. Compare
+its response quantiles with achieved TPS, scheduling lag and per-run ranges
+in the detailed results; the percentage alone does not establish a gain.
+
 ## Changes relative to baseline
 
 Percent change = 100 × (variant median / baseline median − 1), calculated
