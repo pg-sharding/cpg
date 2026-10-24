@@ -300,7 +300,7 @@ The original hybrid implementation used an all-or-nothing batch threshold:
 an oversized batch was delegated in its entirety. Reports through 2026-10-24
 predating the bounded-prefix experiment describe that original behavior.
 `134_sync_rep_waker_handoff` pauses the sender after direct wakeups and checks
-the exact shared budget and completion of the delegated remainder.
+the direct budget in each wait mode and completion of the delegated remainder.
 
 The harness accepts `hybrid4`, `hybrid8`, `hybrid16`, `hybrid32` and
 `hybrid64` variants. They enable
@@ -548,6 +548,14 @@ registered with `--variant-bindir LABEL=BIN_DIRECTORY`; each label ends in a
 known setting such as `-hybrid8`. Their postgres hashes are recorded in matrix
 fingerprints and phase metadata. `report_compare.py --reference current-hybrid8`
 shows incremental percentages relative to the control.
+
+The [audited 144-run factorial report](factorial-report-2026-10-24.md) contains
+all independent and conditional comparisons, absolute quantiles, paired TPS
+changes, and CPU costs. Relative to the latch-after-unlock control, bounded
+prefix alone improves RAM saturation TPS by 3.1%, and both changes improve it
+by 4.1% with a 7.0% lower p50 at fixed 50k/s. Coalescing alone has no consistent
+benefit. Disk results are mixed; both changes lose 9.7% TPS on cross-AZ 32-KiB
+inserts. Full raw-log counts and pgbench summaries agree for all 144 runs.
 
 ```sh
 python3 bench/syncrepwaker/run_factorial.py \

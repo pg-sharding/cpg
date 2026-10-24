@@ -50,6 +50,20 @@ def main():
     for (dataset, case), rows in sorted(groups.items()):
         lines.append(f"| {dataset} / {case} | {changes(rows['hybrid8'], rows['coalesce-hybrid8'])} | "
                      f"{changes(rows['hybrid8'], rows['prefix-hybrid8'])} |")
+    lines += ["", "## Paired TPS changes", "",
+              "Each cell pairs a candidate with the control from the same rotating round/seed, "
+              "then shows the median percentage and observed minimum/maximum. This helps expose "
+              "drift between rounds. The range is not a confidence interval; these values can "
+              "differ from ratios of medians above.", "",
+              "| Dataset / case | Prefix only | Coalescing only | Both |",
+              "| --- | ---: | ---: | ---: |"]
+    for (dataset, case), rows in sorted(groups.items()):
+        control = {r['random_seed']: r for r in rows['current-hybrid8']}
+        cells = []
+        for variant in variants[1:]:
+            paired = [100 * (r['tps'] / control[r['random_seed']]['tps'] - 1) for r in rows[variant]]
+            cells.append(f"{median(paired):+.1f}% [{min(paired):+.1f}, {max(paired):+.1f}]")
+        lines.append(f"| {dataset} / {case} | " + " | ".join(cells) + " |")
     lines += ["", "## Absolute results and control-relative changes", "",
               report(args.results, reference="current-hybrid8"), "",
               "## CPU cost", "",
