@@ -584,9 +584,9 @@ unrelated compiler, restore and t198 stress work occupied the VM. Unattributed
 busy CPU rose from 4.4% to 58.2%; the unchanged reference also lost over half
 its TPS. Every window in that attempt is excluded. Its original rows and an
 `interference.json` marker remain in `compare-wakeoutside-confirm` on the host.
-The benchmark's temporary servers were stopped. Clean repeated performance
-validation remains pending a quiet interval; a throughput or latency benefit
-has not been established for this patch.
+The benchmark's temporary servers were stopped. At that point, repeated
+performance validation was still pending. The later repeated comparisons
+below provide measurements on another VM and across two availability zones.
 
 ## Primary and standby in different availability zones
 
@@ -702,3 +702,37 @@ window count against the saved quantiles, clock ordering and coverage of the
 warmup/window/tail. Accepted attempt paths come from the environment metadata;
 an interrupted first attempt can differ from the selected later attempt.
 This audit is intentionally outside the measurement windows.
+
+## Repeated local and cross-AZ results, 2026-10-24 UTC
+
+The new VM zov (ru-central1-a) ran the primary and pgbench. The standby ran
+either on zov or on pgfuzz (ru-central1-d), using the private network and TLS
+for disk tests. Final RTT averaged 5.11 ms without loss. PostgreSQL binary
+hashes match across the two VMs. The five disk workloads cover simple-update,
+batch10, batch1000, single-client INSERT and 32 KiB INSERT; separate tmpfs
+controls cover saturation and a common offered rate of 50,000 TPS.
+
+All 144 accepted runs completed: 45,215,974 measured transactions. Independent
+raw-log audits matched 64,966,395 full-run transactions to pgbench's counters
+and every measurement-window count to the saved results. Nine Linux unit
+tests and eight variant-specific functional smoke runs passed. Six CPU-guard
+attempts containing 35 measured rows are excluded. Temporary servers are
+stopped on both hosts and the RAM data have been removed; original logs remain.
+
+The candidate's RAM saturation median reaches 81,083 TPS versus 61,675 for
+base (+31.5%), with p99 -73.5%, while p50 remains +73.0%. At the same offered
+50,000 TPS, candidate hybrid8 improves response p50 by 4.2% and p99 by 68.0%;
+the candidate's direct mode improves them by 12.9% and 67.6%. The RAM gain
+also exists with the auxiliary waker disabled.
+
+There is no universal persistent-storage or cross-AZ win. Candidate hybrid8
+on cross-AZ 32 KiB INSERT loses 4.7% TPS and increases p99 by 18.6% versus
+base, while the former hybrid8 gains 4.5% TPS in that case. Some disk cases
+have wide run-to-run ranges, and the remote standby shared CPU with unrelated
+work. The report retains those ranges and actual per-run host CPU metrics.
+
+See the [complete tables and interpretation](crossaz-report-2026-10-24.md),
+[per-run results](crossaz-results-2026-10-24.json),
+[environment and excluded attempts](crossaz-environment-2026-10-24.json),
+and [raw-log audit](crossaz-log-audit-2026-10-24.json). The tables include signed
+baseline percentages and a separate candidate-versus-former-hybrid8 comparison.
