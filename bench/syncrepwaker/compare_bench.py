@@ -389,8 +389,10 @@ def main():
         run([base / "initdb", "-D", primary, "--auth=trust", "--locale=C",
              "--encoding=UTF8"], root / "initdb.log")
         listen = "127.0.0.1" + ("," + args.primary_address if remote else "")
+        # All clients use TCP. Long per-attempt paths can exceed the platform's
+        # Unix socket limit, even though the benchmark never uses that socket.
         config = (f"\nlisten_addresses = '{listen}'\nport = {args.port}\n"
-                  f"unix_socket_directories = '{data_root}'\n"
+                  "unix_socket_directories = ''\n"
                   f"max_connections = {max(c['clients'] for c in cases) + 30}\n"
                   "shared_buffers = '256MB'\nmax_wal_senders = 4\n"
                   "wal_level = replica\nwal_buffers = '64MB'\n"
@@ -436,7 +438,7 @@ def main():
         append_standby(standby / "postgresql.conf", f"\nport = {args.port + 1}\n"
                        "wal_receiver_status_interval = '1s'\n"
                        "wal_retrieve_retry_interval = '10ms'\n" +
-                       (f"listen_addresses = '127.0.0.1'\nunix_socket_directories = '{root / 'data'}'\n"
+                       ("listen_addresses = '127.0.0.1'\nunix_socket_directories = ''\n"
                         "ssl = off\n" if remote else ""))
         ctl(standby, base, "start")
         wait_catchup()

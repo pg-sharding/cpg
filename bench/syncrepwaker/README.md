@@ -135,6 +135,9 @@ latency to diagnose CPU and wakeup effects; it does not provide durability
 across host failure. It complements the tests on the server's persistent disk.
 `--discard-data` removes only this invocation's temporary clusters after a
 successful run. Failed runs retain their clusters for inspection.
+All benchmark and replication connections use TCP. The harness disables unused
+Unix sockets so that long per-attempt output paths do not exceed Linux's socket
+pathname limit; this applies equally to every variant in an attempt.
 
 Every transaction is logged, with no sampling, into the separate log directory.
 Putting that directory in tmpfs avoids competing disk writes from the client.
