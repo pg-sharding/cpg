@@ -2,6 +2,7 @@
 """Read checkpoint files without touching active benchmark clusters."""
 import argparse
 import json
+import time
 from pathlib import Path
 
 
@@ -11,7 +12,7 @@ def main():
     args = parser.parse_args()
     root = args.output.resolve()
     plan = json.loads((root / 'plan.json').read_text())
-    completed = partial = calibrations = failures = 0
+    completed = partial = calibrations = partial_calibrations = failures = 0
     active = None
     for name, _ in plan['plans']:
         path = root / name / 'state.json'
@@ -30,8 +31,15 @@ def main():
             active = dict(matrix=name, phase=current, status=state['status'])
             phase = state['phases'].get(current, {})
             results = Path(phase.get('output', root / 'absent')) / 'results.json'
-            if current and current.startswith('main-') and phase.get('status') != 'complete' and results.exists():
-                partial += len(json.loads(results.read_text()))
+            if phase:
+                active['attempt'] = phase['attempt']
+                active['elapsed_seconds'] = round(time.time() - phase['started_epoch'])
+            if current and phase.get('status') != 'complete' and results.exists():
+                count = len(json.loads(results.read_text()))
+                if current.startswith('main-'):
+                    partial += count
+                else:
+                    partial_calibrations += count
     bootstrap_path = root / 'bootstrap.json'
     status = json.loads(bootstrap_path.read_text())['status'] if bootstrap_path.exists() else 'running'
     audit = root / 'collected/audit.json'
@@ -41,6 +49,7 @@ def main():
         status = 'auditing'
     print(json.dumps(dict(status=status, completed=completed, saved=completed + partial,
                           expected=plan['expected_main_rows'], calibrations=calibrations,
+                          saved_calibrations=calibrations + partial_calibrations,
                           failed_attempts=failures, active=active)))
 
 

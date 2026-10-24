@@ -565,9 +565,14 @@ python3 bench/syncrepwaker/run_full_suite.py \
 
 `full_suite_status.py OUTPUT` reads the saved checkpoints without touching
 the active servers. It reports complete rounds, saved partial-round rows,
-calibrations, failed attempts and the current phase. Generate the final
+calibrations, failed attempts and the current phase/attempt. Generate the final
 same-binary comparisons, reader/writer tails and CPU tables with
 `report_waker_necessity.py OUTPUT/collected/results.json`.
+With the detached supervisor recording `bootstrap.json`, run
+`finalize_full_suite.py OUTPUT --wait` to generate `collected/report.md`,
+`validation.json` and before/after RTT observations automatically. It refuses
+an incomplete supervisor, mismatched binary hashes, missing rounds or a failed
+raw-log audit; it does no raw-log work during the timed measurements.
 
 The experiment at `2e1e7821b1c` collects latch pointers in a private array,
 publishing completion and unlinking waiters under SyncRepLock, then setting
