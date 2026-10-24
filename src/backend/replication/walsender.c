@@ -65,6 +65,7 @@
 #include "catalog/pg_authid.h"
 #include "catalog/pg_type.h"
 #include "commands/defrem.h"
+#include "fmgr.h"
 #include "funcapi.h"
 #include "libpq/libpq.h"
 #include "libpq/pqformat.h"
@@ -151,6 +152,7 @@ int			wal_sender_shutdown_timeout = -1;	/* maximum time to wait during
 
 bool		log_replication_commands = false;
 bool		wal_sender_restore = false;
+bool		wal_sender_fetch = false;
 
 /*
  * State for WalSndWakeupRequest
@@ -164,10 +166,17 @@ bool		wake_wal_senders = false;
  */
 static XLogReaderState *xlogreader = NULL;
 
-/* Private archive copy for physical streaming, never installed as local WAL. */
+/* Private WAL copy for physical streaming, never installed as local WAL. */
 static char restoreDir[MAXPGPATH];
 static int	restoredFile = -1;
 static bool restoreInProgress = false;
+
+/* A fetch uses its own connection, never the recovery walreceiver's state. */
+static WalReceiverConn *fetchConn = NULL;
+static XLogRecPtr fetchRequestUpto = InvalidXLogRecPtr;
+static XLogRecPtr fetchedUpto = InvalidXLogRecPtr;
+
+#define WALSND_RESTORE_FILE "RECOVERYXLOG"
 
 /* Minimum delay after a failed archive restore, in milliseconds. */
 #define WALSND_RESTORE_DELAY 1000
@@ -334,8 +343,15 @@ static bool TransactionIdInRecentPast(TransactionId xid, uint32 epoch);
 
 static void WalSndSegmentOpen(XLogReaderState *state, XLogSegNo nextSegNo,
 							  TimeLineID *tli_p);
+static void WalSndPhysicalSegmentOpen(XLogReaderState *state, XLogSegNo nextSegNo,
+									  TimeLineID *tli_p);
+static void WalSndSegmentOpenInternal(XLogReaderState *state, XLogSegNo nextSegNo,
+									  TimeLineID *tli_p, bool allowFetch);
 static void WalSndSegmentClose(XLogReaderState *state);
 static bool WalSndRestoreSegment(XLogReaderState *state, const char *xlogfname);
+static void WalSndCreateRestoreDirectory(char *recovername);
+static bool WalSndFetchSegment(XLogReaderState *state, XLogSegNo segno,
+							   const char *xlogfname);
 static void WalSndRestoreCleanup(int code, Datum arg);
 
 
@@ -887,7 +903,7 @@ StartReplication(StartReplicationCmd *cmd)
 	/* create xlogreader for physical replication */
 	xlogreader =
 		XLogReaderAllocate(wal_segment_size, NULL,
-						   XL_ROUTINE(.segment_open = WalSndSegmentOpen,
+						   XL_ROUTINE(.segment_open = WalSndPhysicalSegmentOpen,
 									  .segment_close = WalSndSegmentClose),
 						   NULL);
 
@@ -3335,6 +3351,21 @@ static void
 WalSndSegmentOpen(XLogReaderState *state, XLogSegNo nextSegNo,
 				  TimeLineID *tli_p)
 {
+	WalSndSegmentOpenInternal(state, nextSegNo, tli_p, false);
+}
+
+/* Physical streaming can additionally fetch missing WAL. */
+static void
+WalSndPhysicalSegmentOpen(XLogReaderState *state, XLogSegNo nextSegNo,
+						  TimeLineID *tli_p)
+{
+	WalSndSegmentOpenInternal(state, nextSegNo, tli_p, true);
+}
+
+static void
+WalSndSegmentOpenInternal(XLogReaderState *state, XLogSegNo nextSegNo,
+						  TimeLineID *tli_p, bool allowFetch)
+{
 	char		path[MAXPGPATH];
 
 	/*-------
@@ -3415,11 +3446,15 @@ WalSndSegmentOpen(XLogReaderState *state, XLogSegNo nextSegNo,
 
 		XLogFileName(xlogfname, *tli_p, nextSegNo, wal_segment_size);
 
-		/* Only physical streaming may fall back to the archive. */
-		if (wal_sender_restore &&
-			state->routine.segment_close == WalSndSegmentClose &&
-			WalSndRestoreSegment(state, xlogfname))
-			return;
+		/* Only physical streaming may fetch missing WAL. */
+		if (allowFetch)
+		{
+			if (wal_sender_restore && WalSndRestoreSegment(state, xlogfname))
+				return;
+			if (wal_sender_fetch &&
+				WalSndFetchSegment(state, nextSegNo, xlogfname))
+				return;
+		}
 
 		errno = save_errno;
 		ereport(ERROR,
@@ -3434,7 +3469,7 @@ WalSndSegmentOpen(XLogReaderState *state, XLogSegNo nextSegNo,
 						path)));
 }
 
-/* Remove a private archive copy on normal close, ERROR, or process exit. */
+/* Remove a private WAL copy on normal close, ERROR, or process exit. */
 static void
 WalSndRestoreCleanup(int code, Datum arg)
 {
@@ -3449,6 +3484,12 @@ WalSndRestoreCleanup(int code, Datum arg)
 		restoreInProgress = false;
 	}
 
+	if (fetchConn != NULL)
+	{
+		walrcv_disconnect(fetchConn);
+		fetchConn = NULL;
+	}
+	fetchedUpto = InvalidXLogRecPtr;
 	if (restoredFile >= 0)
 	{
 		close(restoredFile);
@@ -3462,7 +3503,7 @@ WalSndRestoreCleanup(int code, Datum arg)
 		 * Do not use rmtree(): this can run from a memory context reset
 		 * callback, where its allocations could raise another error.
 		 */
-		snprintf(path, sizeof(path), "%s/RECOVERYXLOG", restoreDir);
+		snprintf(path, sizeof(path), "%s/%s", restoreDir, WALSND_RESTORE_FILE);
 		if (unlink(path) != 0 && errno != ENOENT)
 			ereport(WARNING,
 					(errcode_for_file_access(),
@@ -3499,7 +3540,6 @@ WalSndSegmentClose(XLogReaderState *state)
 static bool
 WalSndRestoreSegment(XLogReaderState *state, const char *xlogfname)
 {
-	char		dir[MAXPGPATH];
 	char		recovername[MAXPGPATH];
 	char		path[MAXPGPATH];
 	TimestampTz delayUntil;
@@ -3539,16 +3579,7 @@ WalSndRestoreSegment(XLogReaderState *state, const char *xlogfname)
 	}
 
 	restoreInProgress = true;
-	snprintf(recovername, sizeof(recovername),
-			 "xlogtemp.%d." INT64_FORMAT ".walsender", MyProcPid,
-			 MyStartTimestamp);
-	snprintf(dir, sizeof(dir), XLOGDIR "/%s", recovername);
-	if (MakePGDirectory(dir) < 0)
-		ereport(ERROR,
-				(errcode_for_file_access(),
-				 errmsg("could not create directory \"%s\": %m", dir)));
-	strlcpy(restoreDir, dir, sizeof(restoreDir));
-	strlcat(recovername, "/RECOVERYXLOG", sizeof(recovername));
+	WalSndCreateRestoreDirectory(recovername);
 
 	/* WalSndErrorCleanup and the exit callback handle failures from here on. */
 	INJECTION_POINT("walsender-before-archive-restore", NULL);
@@ -3569,6 +3600,204 @@ WalSndRestoreSegment(XLogReaderState *state, const char *xlogfname)
 
 	restoreInProgress = false;
 	INJECTION_POINT("walsender-after-archive-restore", NULL);
+	return true;
+}
+
+/* Share private-file naming and cleanup with archive restoration. */
+static void
+WalSndCreateRestoreDirectory(char *recovername)
+{
+	char		dir[MAXPGPATH];
+
+	Assert(restoredFile < 0 && restoreDir[0] == '\0');
+
+	snprintf(recovername, MAXPGPATH,
+			 "xlogtemp.%d." INT64_FORMAT ".walsender", MyProcPid,
+			 MyStartTimestamp);
+	snprintf(dir, sizeof(dir), XLOGDIR "/%s", recovername);
+	if (MakePGDirectory(dir) < 0)
+		ereport(ERROR,
+				(errcode_for_file_access(),
+				 errmsg("could not create directory \"%s\": %m", dir)));
+	strlcpy(restoreDir, dir, sizeof(restoreDir));
+	strlcat(recovername, "/" WALSND_RESTORE_FILE, MAXPGPATH);
+}
+
+/*
+ * Fetch a segment prefix through a separate physical replication connection.
+ * This is deliberately independent of the recovery walreceiver, its slot and
+ * its write/flush positions.  The private copy needs no fsync and must never
+ * be reported as flushed or replayed to the upstream.
+ *
+ * fetchRequestUpto is the normal physical sender's local send limit.  A
+ * complete old segment is fetched in one operation; for the current segment
+ * or the end of a historic timeline we fetch only the locally valid prefix.
+ *
+ * XXX: Like archive restoration, connection setup and fetching are synchronous
+ * with respect to the downstream.  A production implementation must service
+ * both connections, and avoid reconnecting for every segment or longer prefix.
+ */
+static bool
+WalSndFetchSegment(XLogReaderState *state, XLogSegNo segno,
+				   const char *xlogfname)
+{
+	WalRcvStreamOptions options = {0};
+	char		recovername[MAXPGPATH];
+	char		path[MAXPGPATH];
+	char		sysid[32];
+	char	   *upstreamSysid;
+	char	   *err;
+	TimeLineID	upstreamTLI;
+	XLogRecPtr	startptr = segno * (XLogRecPtr) wal_segment_size;
+	XLogRecPtr	endptr = Min(startptr + wal_segment_size, fetchRequestUpto);
+	XLogRecPtr	recptr = startptr;
+	TimestampTz lastReceipt;
+	StringInfoData feedback;
+
+	if (!RecoveryInProgress() ||
+		PrimaryConnInfo == NULL || PrimaryConnInfo[0] == '\0')
+		return false;
+
+	Assert(fetchConn == NULL);
+	Assert(endptr > startptr);
+	load_file("libpqwalreceiver", false);
+	fetchConn = walrcv_connect(PrimaryConnInfo, true, false, false,
+							   "wal_sender_fetch", &err);
+	if (fetchConn == NULL)
+		ereport(ERROR,
+				(errcode(ERRCODE_CONNECTION_FAILURE),
+				 errmsg("could not connect to upstream to fetch WAL: %s", err)));
+
+	upstreamSysid = walrcv_identify_system(fetchConn, &upstreamTLI, NULL);
+	snprintf(sysid, sizeof(sysid), UINT64_FORMAT, GetSystemIdentifier());
+	if (strcmp(upstreamSysid, sysid) != 0)
+		ereport(ERROR,
+				(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
+				 errmsg("WAL fetch upstream has a different system identifier")));
+	pfree(upstreamSysid);
+	if (upstreamTLI < sendTimeLine)
+		ereport(ERROR,
+				(errmsg("WAL fetch upstream timeline %u is behind requested timeline %u",
+						upstreamTLI, sendTimeLine)));
+
+	options.startpoint = startptr;
+	/* Request the sending timeline, even when its prefix is in a newer file. */
+	options.proto.physical.startpointTLI = sendTimeLine;
+	if (!walrcv_startstreaming(fetchConn, &options))
+		ereport(ERROR,
+				(errmsg("upstream did not start streaming requested WAL")));
+
+	WalSndCreateRestoreDirectory(recovername);
+	snprintf(path, sizeof(path), XLOGDIR "/%s", recovername);
+	restoredFile = BasicOpenFile(path, O_RDWR | O_CREAT | O_EXCL | PG_BINARY);
+	if (restoredFile < 0)
+		ereport(ERROR,
+				(errcode_for_file_access(),
+				 errmsg("could not create file \"%s\": %m", path)));
+
+	initStringInfo(&feedback);
+	lastReceipt = GetCurrentTimestamp();
+	while (recptr < endptr)
+	{
+		char	   *buf;
+		int			len;
+		pgsocket	wait_fd = PGINVALID_SOCKET;
+		StringInfoData msg;
+
+		CHECK_FOR_INTERRUPTS();
+		WalSndCheckShutdownTimeout();
+		len = walrcv_receive(fetchConn, &buf, &wait_fd);
+		if (len < 0)
+			ereport(ERROR,
+					(errmsg("upstream ended WAL fetch before %X/%08X",
+							LSN_FORMAT_ARGS(endptr))));
+		if (len == 0)
+		{
+			if (wal_receiver_timeout > 0 &&
+				TimestampDifferenceExceeds(lastReceipt, GetCurrentTimestamp(),
+										   wal_receiver_timeout))
+				ereport(ERROR,
+						(errmsg("timeout while fetching WAL from upstream")));
+			(void) WaitLatchOrSocket(MyLatch,
+									 WL_LATCH_SET | WL_SOCKET_READABLE | WL_TIMEOUT |
+									 WL_EXIT_ON_PM_DEATH,
+									 wait_fd, 100L, WAIT_EVENT_WAL_SENDER_FETCH);
+			ResetLatch(MyLatch);
+			continue;
+		}
+		lastReceipt = GetCurrentTimestamp();
+		initReadOnlyStringInfo(&msg, buf + 1, len - 1);
+		if (buf[0] == PqReplMsg_WALData)
+		{
+			XLogRecPtr	dataStart = pq_getmsgint64(&msg);
+			Size		nbytes;
+			Size		written = 0;
+
+			(void) pq_getmsgint64(&msg);	/* upstream WAL end */
+			(void) pq_getmsgint64(&msg);	/* send time */
+			if (dataStart != recptr || msg.cursor == msg.len)
+				ereport(ERROR,
+						(errcode(ERRCODE_PROTOCOL_VIOLATION),
+						 errmsg("unexpected WAL position in upstream fetch")));
+			nbytes = Min((XLogRecPtr) (msg.len - msg.cursor), endptr - recptr);
+			while (written < nbytes)
+			{
+				ssize_t		n;
+
+				errno = 0;
+				n = pg_pwrite(restoredFile, msg.data + msg.cursor + written,
+							  nbytes - written, recptr - startptr + written);
+				if (n <= 0)
+				{
+					if (errno == EINTR)
+					{
+						CHECK_FOR_INTERRUPTS();
+						continue;
+					}
+					if (errno == 0)
+						errno = ENOSPC;
+					ereport(ERROR,
+							(errcode_for_file_access(),
+							 errmsg("could not write file \"%s\": %m", path)));
+				}
+				written += n;
+			}
+			recptr += nbytes;
+		}
+		else if (buf[0] == PqReplMsg_Keepalive)
+		{
+			bool		replyRequested;
+
+			(void) pq_getmsgint64(&msg);
+			(void) pq_getmsgint64(&msg);
+			replyRequested = pq_getmsgbyte(&msg);
+			pq_getmsgend(&msg);
+			if (replyRequested)
+			{
+				resetStringInfo(&feedback);
+				pq_sendbyte(&feedback, PqReplMsg_StandbyStatusUpdate);
+				/* This connection owns no durable or replayed WAL. */
+				pq_sendint64(&feedback, InvalidXLogRecPtr);
+				pq_sendint64(&feedback, InvalidXLogRecPtr);
+				pq_sendint64(&feedback, InvalidXLogRecPtr);
+				pq_sendint64(&feedback, GetCurrentTimestamp());
+				pq_sendbyte(&feedback, 0);
+				walrcv_send(fetchConn, feedback.data, feedback.len);
+			}
+		}
+		else
+			ereport(ERROR,
+					(errcode(ERRCODE_PROTOCOL_VIOLATION),
+					 errmsg("unexpected replication message in upstream WAL fetch")));
+	}
+	pfree(feedback.data);
+	walrcv_disconnect(fetchConn);
+	fetchConn = NULL;
+	fetchedUpto = endptr;
+	state->seg.ws_file = restoredFile;
+	XLogReaderRegisterResetCallback(state);
+	elog(DEBUG1, "fetched WAL segment %s from upstream up to %X/%08X",
+		 xlogfname, LSN_FORMAT_ARGS(endptr));
 	return true;
 }
 
@@ -3793,6 +4022,11 @@ XLogSendPhysical(void)
 		endptr -= (endptr % XLOG_BLCKSZ);
 		WalSndCaughtUp = false;
 	}
+
+	/* A private upstream copy may contain only a locally valid prefix. */
+	if (XLogRecPtrIsValid(fetchedUpto) && endptr > fetchedUpto)
+		WalSndSegmentClose(xlogreader);
+	fetchRequestUpto = SendRqstPtr;
 
 	nbytes = endptr - startptr;
 	Assert(nbytes <= MAX_SEND_SIZE);

@@ -5028,6 +5028,47 @@ HINT:  If it is safe for all REPLICATION users to use this library as an output 
       </listitem>
      </varlistentry>
 
+     <varlistentry id="guc-wal-sender-fetch" xreflabel="wal_sender_fetch">
+      <term><varname>wal_sender_fetch</varname> (<type>boolean</type>)</term>
+      <listitem>
+       <para>
+        Allows a physical replication sender on a standby to fetch missing
+        WAL through a separate physical replication connection using
+        <xref linkend="guc-primary-conninfo"/>. The default is
+        <literal>off</literal>. This parameter can only be set in the
+        <filename>postgresql.conf</filename> file or on the server command line.
+        If <xref linkend="guc-wal-sender-restore"/> is also enabled, the local
+        archive is tried first. The upstream may in turn restore WAL from
+        its archive or fetch it from its own upstream.
+       </para>
+       <para>
+        Each sender fetches one segment, or its locally valid prefix, into
+        the same private temporary storage used for archive restoration.
+        The regular WAL receiver and its replication slot are unaffected.
+        Fetched data does not advance the standby's write, flush or replay
+        positions, and is not acknowledged as durable to the upstream.
+        The existing local limits on WAL sent downstream still apply.
+       </para>
+       <para>
+        This is a proof of concept. Fetching is synchronous and does not
+        service the downstream connection. Connection establishment and
+        queries have the same interruptible waits as other WAL receiver
+        connections; an idle fetch is limited by
+        <xref linkend="guc-wal-receiver-timeout"/>. A slow fetch can still
+        cause downstream replication timeouts. A new upstream connection
+        is made for each segment or longer prefix; no slot is used for it.
+        Allow enough upstream WAL senders for these extra connections.
+       </para>
+       <para>
+        The connection inherits options, including an explicit application
+        name, from <varname>primary_conninfo</varname>. Its fallback application
+        name is <literal>wal_sender_fetch</literal>. Do not let these extra
+        connections participate in synchronous replication. The replication
+        topology must be acyclic; this prototype does not detect fetch loops.
+       </para>
+      </listitem>
+     </varlistentry>
+
      <varlistentry id="guc-wal-sender-restore" xreflabel="wal_sender_restore">
       <term><varname>wal_sender_restore</varname> (<type>boolean</type>)
       <indexterm>

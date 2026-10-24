@@ -3573,6 +3573,12 @@
   check_hook => 'check_wal_segment_size',
 },
 
+{ name => 'wal_sender_fetch', type => 'bool', context => 'PGC_SIGHUP', group => 'REPLICATION_SENDING',
+  short_desc => 'Allows physical WAL senders on a standby to fetch missing WAL from upstream.',
+  variable => 'wal_sender_fetch',
+  boot_val => 'false',
+},
+
 { name => 'wal_sender_restore', type => 'bool', context => 'PGC_SIGHUP', group => 'REPLICATION_SENDING',
   short_desc => 'Allows physical WAL senders to restore missing WAL from the archive.',
   variable => 'wal_sender_restore',
