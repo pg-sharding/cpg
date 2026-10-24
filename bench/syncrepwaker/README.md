@@ -659,3 +659,10 @@ and 32 KiB INSERT. Every family is a separate phase. Add `--resume` with the
 same arguments after a failed attempt; completed phases are retained and the
 failed phase is retried in a new directory. The state fingerprint covers
 arguments, catalog contents and all three postgres binary hashes.
+
+`--max-standby-unattributed-busy-pct` overrides the CPU guard only on the
+remote standby. The primary retains `--max-unattributed-busy-pct`; without an
+override both hosts use that value. Runs allowing substantial background work
+on the standby are exploratory comparisons under that load. Keep their
+`standby_unattributed_host_busy_pct`, CPU/iowait/steal and per-run tail ranges
+with the results, and distinguish them from runs with a quiet standby.

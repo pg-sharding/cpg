@@ -32,6 +32,7 @@ def main():
     parser.add_argument("--tls-all", action="store_true", help="enable client and replication TLS in every family")
     parser.add_argument("--max-wal-size", default="4GB")
     parser.add_argument("--max-unattributed-busy-pct", type=float)
+    parser.add_argument("--max-standby-unattributed-busy-pct", type=float)
     parser.add_argument("--standby-ssh")
     parser.add_argument("--primary-address")
     parser.add_argument("--standby-address")
@@ -42,7 +43,8 @@ def main():
         parser.error("--rate-fraction must be between zero and one")
     root, logs = args.output.resolve(), args.log_root.resolve()
     arguments = {k: str(v.resolve()) if isinstance(v, Path) else v
-                 for k, v in vars(args).items() if k != "resume"}
+                 for k, v in vars(args).items() if k != "resume" and
+                 (k != "max_standby_unattributed_busy_pct" or v is not None)}
     catalog = json.loads(args.catalog.read_text())
     fingerprint = {
         "arguments": arguments,
@@ -90,7 +92,7 @@ def main():
             "--repeats", str(repeats), "--port", str(args.port),
             "--pgbench-scale", str(scale), "--max-wal-size", args.max_wal_size,
             "--restore-between-runs", "--discard-data"]
-        for option in ("reference_feature_bindir", "max_unattributed_busy_pct", "standby_ssh",
+        for option in ("reference_feature_bindir", "max_unattributed_busy_pct", "max_standby_unattributed_busy_pct", "standby_ssh",
                        "primary_address", "standby_address", "ssh_known_hosts"):
             value = getattr(args, option)
             if value is not None:

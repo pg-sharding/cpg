@@ -218,6 +218,8 @@ def main():
                         help="diagnostic run: profile the selected role during an extended client tail")
     parser.add_argument("--max-unattributed-busy-pct", type=float,
                         help="stop after saving a run if host busy CPU exceeds tracked process CPU by this percentage")
+    parser.add_argument("--max-standby-unattributed-busy-pct", type=float,
+                        help="separate remote-standby guard; defaults to the primary guard")
     parser.add_argument("--pgbench-scale", type=int, default=0,
                         help="initialize pgbench tables before the standby backup")
     parser.add_argument("--restore-between-runs", action="store_true",
@@ -242,6 +244,11 @@ def main():
         parser.error("waker profiling requires an enabled feature waker in every variant")
     if args.max_unattributed_busy_pct is not None and not 0 <= args.max_unattributed_busy_pct <= 100:
         parser.error("--max-unattributed-busy-pct must be between zero and 100")
+    if args.max_standby_unattributed_busy_pct is not None:
+        if not args.standby_ssh:
+            parser.error("--max-standby-unattributed-busy-pct requires --standby-ssh")
+        if not 0 <= args.max_standby_unattributed_busy_pct <= 100:
+            parser.error("--max-standby-unattributed-busy-pct must be between zero and 100")
     cases = json.loads(args.cases.read_text())
     root = args.output.resolve()
     root.mkdir(parents=True, exist_ok=False)
@@ -590,9 +597,13 @@ def main():
                                                      "steal_pct": 100 * remote_delta[7] / total,
                                                      "elapsed_seconds": remote_elapsed}
                         row["standby_unattributed_host_busy_pct"] = max(0, busy - tracked)
-                    interference = (args.max_unattributed_busy_pct is not None and
-                                    max(row["unattributed_host_busy_pct"], row.get("standby_unattributed_host_busy_pct", 0))
-                                    > args.max_unattributed_busy_pct)
+                    standby_guard = (args.max_standby_unattributed_busy_pct
+                                     if args.max_standby_unattributed_busy_pct is not None
+                                     else args.max_unattributed_busy_pct)
+                    interference = ((args.max_unattributed_busy_pct is not None and
+                                     row["unattributed_host_busy_pct"] > args.max_unattributed_busy_pct) or
+                                    (remote and standby_guard is not None and
+                                     row["standby_unattributed_host_busy_pct"] > standby_guard))
                     if interference:
                         row["interference"] = "host busy CPU substantially exceeds tracked benchmark CPU"
                     row["wal_bytes"] = lsn_integer(lsn_end) - lsn_integer(lsn_start)
@@ -606,7 +617,7 @@ def main():
                         write_json(root / "interference.json", {"label": label, "reason": row["interference"]})
                         raise RuntimeError(f"unattributed host CPU {row['unattributed_host_busy_pct']:.1f}% primary, "
                                            f"{row.get('standby_unattributed_host_busy_pct', 0):.1f}% standby "
-                                           f"exceeded guard {args.max_unattributed_busy_pct:.1f}%; "
+                                           f"exceeded guards primary={args.max_unattributed_busy_pct}, standby={standby_guard}%; "
                                            "saved the run and stopped; exclude this attempt from scores")
         completed = True
     finally:
