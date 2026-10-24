@@ -32,8 +32,16 @@ def collect(datasets):
             if sum(s["latency"]["count"] for s in row["by_script"].values()) != row["latency"]["count"]:
                 raise ValueError(f"{name}: script transaction count mismatch")
             connection = row["replication"]
-            if connection["sync_state"] != "sync" or connection["ssl"] != arguments["tls"]:
+            if (connection["sync_state"] != "sync" or connection["state"] != "streaming" or
+                    connection["ssl"] != arguments["tls"]):
                 raise ValueError(f"{name}: unexpected replication mode")
+            variant = row["variant"].removeprefix("reference-")
+            expected_settings = {
+                "sync_rep_waker": None if variant == "base" else "off" if variant == "off" else "on",
+                "sync_rep_waker_direct_limit": None if variant == "base" else
+                    variant.removeprefix("hybrid") if variant.startswith("hybrid") else "0"}
+            if row["server_parameters"] != expected_settings:
+                raise ValueError(f"{name}: unexpected effective waker settings")
             row["checkpoint_events"] = {
                 side: {kind: sum(row["start_epoch"] <= instant < row["end_epoch"] and event == kind
                                  for instant, event in values)

@@ -18,9 +18,9 @@ def report(path):
         if "base" not in variants:
             raise ValueError(f"{dataset}/{case}: baseline is missing")
         value = lambda rows, key: median(r["tps"] if key == "tps" else r["latency"][key] for r in rows)
-        for variant in ("base", "reference-hybrid8", "off", "hybrid8", "on"):
-            if variant not in variants:
-                continue
+        preferred = ["base", "reference-hybrid8", "off", "hybrid8", "on"]
+        order = [v for v in preferred if v in variants] + sorted(set(variants) - set(preferred))
+        for variant in order:
             rows = variants[variant]
             cells = []
             for key in ("tps", "p50_ms", "p95_ms", "p99_ms", "p999_ms"):

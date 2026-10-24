@@ -15,6 +15,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--baseline-bindir", type=Path, required=True)
     parser.add_argument("--feature-bindir", type=Path, required=True)
+    parser.add_argument("--reference-feature-bindir", type=Path)
+    parser.add_argument("--variants", nargs="+", default=["base", "on", "hybrid8"])
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--log-root", type=Path, required=True)
     parser.add_argument("--catalog", type=Path,
@@ -26,6 +28,14 @@ def main():
     parser.add_argument("--rate-fraction", type=float, default=0.6)
     parser.add_argument("--pgbench-scale", type=int, default=10)
     parser.add_argument("--port", type=int, default=56532)
+    parser.add_argument("--saturation-only", action="store_true", help="omit rate calibration and fixed-rate cases")
+    parser.add_argument("--tls-all", action="store_true", help="enable client and replication TLS in every family")
+    parser.add_argument("--max-wal-size", default="4GB")
+    parser.add_argument("--max-unattributed-busy-pct", type=float)
+    parser.add_argument("--standby-ssh")
+    parser.add_argument("--primary-address")
+    parser.add_argument("--standby-address")
+    parser.add_argument("--ssh-known-hosts", type=Path)
     parser.add_argument("--resume", action="store_true")
     args = parser.parse_args()
     if not 0 < args.rate_fraction < 1:
@@ -41,6 +51,9 @@ def main():
             label: hashlib.sha256((path / "postgres").read_bytes()).hexdigest()
             for label, path in (("base", args.baseline_bindir), ("feature", args.feature_bindir))
         }}
+    if args.reference_feature_bindir:
+        fingerprint["binary_sha256"]["reference"] = hashlib.sha256(
+            (args.reference_feature_bindir / "postgres").read_bytes()).hexdigest()
     state_path = root / "state.json"
     if args.resume:
         state = json.loads(state_path.read_text())
@@ -52,7 +65,8 @@ def main():
         state = {"benchmark": "syncrepwaker-workload-matrix-v1",
                  "fingerprint": fingerprint, "started_epoch": time.time(),
                  "status": "running", "phases": {}, "rates": {}, "failed_attempts": [],
-                 "expected_main_rows": sum(map(len, catalog.values())) * 2 * 3 * args.repeats}
+                 "expected_main_rows": sum(map(len, catalog.values())) *
+                     (1 if args.saturation_only else 2) * len(args.variants) * args.repeats}
     state["status"] = "running"
     write_json(state_path, state)
     harness = Path(__file__).with_name("compare_bench.py").resolve()
@@ -74,8 +88,13 @@ def main():
             "--cases", str(case_path), "--variants", *variants,
             "--seconds", str(seconds), "--warmup", str(warmup),
             "--repeats", str(repeats), "--port", str(args.port),
-            "--pgbench-scale", str(scale), "--max-wal-size", "4GB",
+            "--pgbench-scale", str(scale), "--max-wal-size", args.max_wal_size,
             "--restore-between-runs", "--discard-data"]
+        for option in ("reference_feature_bindir", "max_unattributed_busy_pct", "standby_ssh",
+                       "primary_address", "standby_address", "ssh_known_hosts"):
+            value = getattr(args, option)
+            if value is not None:
+                command += ["--" + option.replace("_", "-"), str(value.resolve() if isinstance(value, Path) else value)]
         if tls:
             command.append("--tls")
         phase = {"status": "running", "attempt": attempt, "output": str(output),
@@ -103,7 +122,7 @@ def main():
         rows = json.loads((output / "results.json").read_text())
         if len(rows) != phase["expected_rows"]:
             fail("incomplete result rows")
-        if any(row["failed"] or row["skipped"] or row["missing_cpu_pids"] or
+        if any(row["failed"] or row["skipped"] or row["missing_cpu_pids"] or row.get("missing_standby_cpu_pids") or
                row.get("diagnostic") or row.get("interference") for row in rows):
             fail("failed/skipped transactions, missing CPU snapshots or unscored diagnostic/interference rows")
         phase["status"] = "complete"
@@ -114,9 +133,9 @@ def main():
 
     # Calibrate each family against the parent before selecting any fixed
     # arrival rate.  Every variant in a family receives the same chosen rate.
-    for group, families in catalog.items():
+    for group, families in ([] if args.saturation_only else catalog.items()):
         cases = [dict(case, family=case["name"], rate=0, commit="on") for case in families]
-        rows = invoke("calibrate-" + group, cases, group == "tls",
+        rows = invoke("calibrate-" + group, cases, group == "tls" or args.tls_all,
                       args.pgbench_scale if group == "plain" else 0,
                       args.calibration_seconds, 3, 1, ["base"])
         for row in rows:
@@ -132,12 +151,13 @@ def main():
             name = family["name"]
             cases = [
                 dict(family, name=name + "-sat", family=name, load_mode="saturation",
-                     rate=0, commit="on"),
-                dict(family, name=name + "-rate", family=name, load_mode="fixed_rate",
-                     rate=state["rates"][name]["rate"], commit="on")]
-            invoke("main-" + name, cases, group == "tls",
+                     rate=0, commit="on")]
+            if not args.saturation_only:
+                cases.append(dict(family, name=name + "-rate", family=name, load_mode="fixed_rate",
+                                  rate=state["rates"][name]["rate"], commit="on"))
+            invoke("main-" + name, cases, group == "tls" or args.tls_all,
                    args.pgbench_scale if group == "plain" else 0,
-                   args.seconds, args.warmup, args.repeats, ["base", "on", "hybrid8"])
+                   args.seconds, args.warmup, args.repeats, args.variants)
     state["status"] = "complete"
     state["finished_epoch"] = time.time()
     state.pop("current_phase", None)

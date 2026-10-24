@@ -648,3 +648,14 @@ and measurement clocks. It preserves per-run quantiles, CPU/context-switch
 counts, WAL bytes and checkpoint events. Percentage changes use unrounded
 medians, `100 * (variant / base - 1)`. Positive TPS and negative latency
 changes are improvements; the table retains per-run p99 ranges.
+
+For a longer comparison use `run_matrix.py --catalog
+bench/syncrepwaker/crossaz-catalog.json --saturation-only --tls-all
+--variants base reference-hybrid8 off hybrid8`, together with the installation,
+output and timing arguments above. It forwards `--reference-feature-bindir`,
+the remote-standby arguments, `--max-wal-size` and the CPU guard to the harness.
+This catalog covers simple-update, batch10, batch1000, single-client INSERT
+and 32 KiB INSERT. Every family is a separate phase. Add `--resume` with the
+same arguments after a failed attempt; completed phases are retained and the
+failed phase is retried in a new directory. The state fingerprint covers
+arguments, catalog contents and all three postgres binary hashes.
