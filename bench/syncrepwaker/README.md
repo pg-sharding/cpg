@@ -506,3 +506,9 @@ separate read/write metrics, per-run p99 ranges, counts, execution latency,
 scheduling lag and CPU/WAL measurements. [Main results](workload-results-2026-10-23.json)
 and [environment/calibration data](workload-environment-2026-10-23.json)
 preserve the measured rows and configurations.
+
+The report's [baseline-relative tables](workload-report-2026-10-23.md#changes-relative-to-baseline)
+add signed percentage changes for TPS, p50, p99 and p99.9, with separate
+read latency for mixed workloads. Percentages compare unrounded medians of
+the same three runs: `100 * (variant / baseline - 1)`. Positive TPS and
+negative latency changes are improvements.

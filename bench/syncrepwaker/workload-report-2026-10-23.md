@@ -90,6 +90,104 @@ named number of rows. Fixed-rate response quantiles include scheduling lag.
 | insert8k-tls | 3000 | 2,989 / 2,984 / 2,977 | 8.528 / 8.364 / 8.861 | 95.296 / 97.860 / 112.673 |
 | insert32k-tls | 1100 | 1,035 / 1,032 / 1,035 | 19.346 / 22.455 / 21.944 | 2626.944 / 2602.029 / 2562.379 |
 
+## Changes relative to baseline
+
+Percent change = 100 × (variant median / baseline median − 1), calculated
+from unrounded medians of the same three repeats. Positive TPS is better;
+negative latency is better. These deltas do not account for run-to-run
+variability; the p99 ranges remain in the detailed table below.
+
+TPS covers the whole workload, including reads in mixed cases. The latency
+columns below describe writes. Baseline rows have zero change by definition.
+
+### Unlimited offered load
+
+| Workload | Offered TPS | Variant | Achieved TPS | Δ TPS | Write p50 ms | Δ p50 | Write p99 ms | Δ p99 | Write p99.9 ms | Δ p99.9 |
+| --- | ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| simple-update | unlimited | base | 12,465 | 0.0% | 8.803 | 0.0% | 34.778 | 0.0% | 80.672 | 0.0% |
+| simple-update | unlimited | on | 12,399 | -0.5% | 8.953 | +1.7% | 30.710 | -11.7% | 82.597 | +2.4% |
+| simple-update | unlimited | hybrid8 | 12,475 | +0.1% | 8.992 | +2.1% | 28.413 | -18.3% | 76.493 | -5.2% |
+| tpcb | unlimited | base | 1,423 | 0.0% | 43.352 | 0.0% | 612.503 | 0.0% | 1116.887 | 0.0% |
+| tpcb | unlimited | on | 1,403 | -1.4% | 45.347 | +4.6% | 599.082 | -2.2% | 1158.580 | +3.7% |
+| tpcb | unlimited | hybrid8 | 1,412 | -0.8% | 43.506 | +0.4% | 639.302 | +4.4% | 1095.704 | -1.9% |
+| mixed90 | unlimited | base | 76,492 | 0.0% | 9.569 | 0.0% | 33.132 | 0.0% | 75.247 | 0.0% |
+| mixed90 | unlimited | on | 75,524 | -1.3% | 9.983 | +4.3% | 36.038 | +8.8% | 75.667 | +0.6% |
+| mixed90 | unlimited | hybrid8 | 76,022 | -0.6% | 9.846 | +2.9% | 31.472 | -5.0% | 72.419 | -3.8% |
+| mixed50 | unlimited | base | 23,264 | 0.0% | 8.769 | 0.0% | 34.735 | 0.0% | 72.743 | 0.0% |
+| mixed50 | unlimited | on | 23,217 | -0.2% | 8.675 | -1.1% | 32.651 | -6.0% | 73.716 | +1.3% |
+| mixed50 | unlimited | hybrid8 | 23,286 | +0.1% | 8.573 | -2.2% | 34.742 | 0.0% | 71.270 | -2.0% |
+| batch10 | unlimited | base | 18,170 | 0.0% | 5.921 | 0.0% | 23.321 | 0.0% | 65.828 | 0.0% |
+| batch10 | unlimited | on | 15,410 | -15.2% | 6.842 | +15.6% | 32.603 | +39.8% | 67.766 | +2.9% |
+| batch10 | unlimited | hybrid8 | 16,752 | -7.8% | 6.264 | +5.8% | 28.607 | +22.7% | 69.962 | +6.3% |
+| batch100 | unlimited | base | 7,038 | 0.0% | 14.417 | 0.0% | 87.186 | 0.0% | 107.297 | 0.0% |
+| batch100 | unlimited | on | 7,420 | +5.4% | 13.603 | -5.6% | 85.172 | -2.3% | 109.523 | +2.1% |
+| batch100 | unlimited | hybrid8 | 7,079 | +0.6% | 14.491 | +0.5% | 89.944 | +3.2% | 116.665 | +8.7% |
+| batch1000 | unlimited | base | 1,079 | 0.0% | 79.117 | 0.0% | 792.530 | 0.0% | 984.642 | 0.0% |
+| batch1000 | unlimited | on | 1,008 | -6.6% | 83.845 | +6.0% | 839.635 | +5.9% | 959.665 | -2.5% |
+| batch1000 | unlimited | hybrid8 | 1,001 | -7.3% | 87.434 | +10.5% | 842.476 | +6.3% | 920.202 | -6.5% |
+| insert8k-tls | unlimited | base | 4,254 | 0.0% | 21.145 | 0.0% | 144.197 | 0.0% | 447.423 | 0.0% |
+| insert8k-tls | unlimited | on | 4,234 | -0.5% | 20.680 | -2.2% | 145.325 | +0.8% | 615.585 | +37.6% |
+| insert8k-tls | unlimited | hybrid8 | 4,170 | -2.0% | 20.732 | -2.0% | 148.227 | +2.8% | 421.182 | -5.9% |
+| insert32k-tls | unlimited | base | 1,430 | 0.0% | 56.435 | 0.0% | 592.803 | 0.0% | 769.553 | 0.0% |
+| insert32k-tls | unlimited | on | 1,417 | -0.9% | 56.379 | -0.1% | 553.048 | -6.7% | 705.179 | -8.4% |
+| insert32k-tls | unlimited | hybrid8 | 1,454 | +1.7% | 51.836 | -8.1% | 592.733 | 0.0% | 749.775 | -2.6% |
+
+### Fixed offered load
+
+| Workload | Offered TPS | Variant | Achieved TPS | Δ TPS | Write p50 ms | Δ p50 | Write p99 ms | Δ p99 | Write p99.9 ms | Δ p99.9 |
+| --- | ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| simple-update | 7000 | base | 6,978 | 0.0% | 7.357 | 0.0% | 103.032 | 0.0% | 122.316 | 0.0% |
+| simple-update | 7000 | on | 6,948 | -0.4% | 6.621 | -10.0% | 75.328 | -26.9% | 125.112 | +2.3% |
+| simple-update | 7000 | hybrid8 | 6,974 | -0.1% | 6.675 | -9.3% | 76.068 | -26.2% | 106.190 | -13.2% |
+| tpcb | 720 | base | 723 | 0.0% | 8.033 | 0.0% | 116.961 | 0.0% | 351.437 | 0.0% |
+| tpcb | 720 | on | 722 | -0.1% | 8.177 | +1.8% | 101.153 | -13.5% | 270.989 | -22.9% |
+| tpcb | 720 | hybrid8 | 723 | -0.1% | 7.759 | -3.4% | 64.024 | -45.3% | 134.818 | -61.6% |
+| mixed90 | 41700 | base | 41,646 | 0.0% | 7.929 | 0.0% | 45.765 | 0.0% | 84.708 | 0.0% |
+| mixed90 | 41700 | on | 41,647 | 0.0% | 7.235 | -8.8% | 47.186 | +3.1% | 94.154 | +11.2% |
+| mixed90 | 41700 | hybrid8 | 41,648 | 0.0% | 7.141 | -9.9% | 41.030 | -10.3% | 62.940 | -25.7% |
+| mixed50 | 13100 | base | 13,068 | 0.0% | 6.727 | 0.0% | 46.115 | 0.0% | 71.878 | 0.0% |
+| mixed50 | 13100 | on | 13,075 | +0.1% | 6.443 | -4.2% | 63.149 | +36.9% | 105.637 | +47.0% |
+| mixed50 | 13100 | hybrid8 | 13,078 | +0.1% | 6.777 | +0.7% | 53.094 | +15.1% | 80.064 | +11.4% |
+| batch10 | 10200 | base | 10,177 | 0.0% | 7.018 | 0.0% | 91.698 | 0.0% | 129.209 | 0.0% |
+| batch10 | 10200 | on | 10,188 | +0.1% | 6.287 | -10.4% | 94.643 | +3.2% | 117.730 | -8.9% |
+| batch10 | 10200 | hybrid8 | 10,179 | 0.0% | 6.341 | -9.6% | 101.818 | +11.0% | 142.777 | +10.5% |
+| batch100 | 3700 | base | 3,696 | 0.0% | 6.823 | 0.0% | 76.806 | 0.0% | 92.008 | 0.0% |
+| batch100 | 3700 | on | 3,697 | 0.0% | 6.418 | -5.9% | 81.522 | +6.1% | 100.803 | +9.6% |
+| batch100 | 3700 | hybrid8 | 3,690 | -0.2% | 6.985 | +2.4% | 99.348 | +29.3% | 147.440 | +60.2% |
+| batch1000 | 760 | base | 763 | 0.0% | 11.165 | 0.0% | 108.513 | 0.0% | 146.103 | 0.0% |
+| batch1000 | 760 | on | 763 | 0.0% | 11.666 | +4.5% | 113.074 | +4.2% | 148.509 | +1.6% |
+| batch1000 | 760 | hybrid8 | 762 | -0.2% | 10.841 | -2.9% | 111.816 | +3.0% | 156.874 | +7.4% |
+| insert8k-tls | 3000 | base | 2,989 | 0.0% | 8.528 | 0.0% | 95.296 | 0.0% | 130.074 | 0.0% |
+| insert8k-tls | 3000 | on | 2,984 | -0.2% | 8.364 | -1.9% | 97.860 | +2.7% | 127.950 | -1.6% |
+| insert8k-tls | 3000 | hybrid8 | 2,977 | -0.4% | 8.861 | +3.9% | 112.673 | +18.2% | 150.323 | +15.6% |
+| insert32k-tls | 1100 | base | 1,035 | 0.0% | 19.346 | 0.0% | 2626.944 | 0.0% | 2789.241 | 0.0% |
+| insert32k-tls | 1100 | on | 1,032 | -0.3% | 22.455 | +16.1% | 2602.029 | -0.9% | 2697.250 | -3.3% |
+| insert32k-tls | 1100 | hybrid8 | 1,035 | 0.0% | 21.944 | +13.4% | 2562.379 | -2.5% | 2727.494 | -2.2% |
+
+### Read latency in mixed workloads
+
+The following deltas use the read class only. Read-only latency includes
+scheduling lag at fixed offered rates, as in the absolute metrics.
+
+| Workload | Load | Variant | Read p50 ms | Δ p50 | Read p99 ms | Δ p99 | Read p99.9 ms | Δ p99.9 |
+| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| mixed90 | saturation | base | 0.363 | 0.0% | 2.457 | 0.0% | 3.987 | 0.0% |
+| mixed90 | saturation | on | 0.354 | -2.5% | 2.421 | -1.5% | 3.935 | -1.3% |
+| mixed90 | saturation | hybrid8 | 0.365 | +0.6% | 2.425 | -1.3% | 3.949 | -1.0% |
+| mixed90 | fixed_rate | base | 0.248 | 0.0% | 22.013 | 0.0% | 60.974 | 0.0% |
+| mixed90 | fixed_rate | on | 0.246 | -0.8% | 24.664 | +12.0% | 70.474 | +15.6% |
+| mixed90 | fixed_rate | hybrid8 | 0.247 | -0.4% | 16.785 | -23.7% | 40.448 | -33.7% |
+| mixed50 | saturation | base | 0.408 | 0.0% | 2.439 | 0.0% | 3.518 | 0.0% |
+| mixed50 | saturation | on | 0.405 | -0.7% | 2.376 | -2.6% | 3.388 | -3.7% |
+| mixed50 | saturation | hybrid8 | 0.411 | +0.7% | 2.399 | -1.6% | 3.515 | -0.1% |
+| mixed50 | fixed_rate | base | 0.208 | 0.0% | 27.863 | 0.0% | 56.357 | 0.0% |
+| mixed50 | fixed_rate | on | 0.206 | -1.0% | 45.590 | +63.6% | 90.373 | +60.4% |
+| mixed50 | fixed_rate | hybrid8 | 0.206 | -1.0% | 35.462 | +27.3% | 61.785 | +9.6% |
+
+The fixed 32 KiB TLS case accumulates a backlog in all variants. Its small
+response-p99 percentage differences should be read alongside achieved TPS,
+scheduling lag and the large per-run p99 ranges.
+
 ## Method
 
 The comparison uses parent `dc9f4918121`, the waker/hybrid algorithm at
