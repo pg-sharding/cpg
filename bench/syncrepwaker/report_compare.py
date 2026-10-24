@@ -12,9 +12,9 @@ def report(path):
     groups = defaultdict(lambda: defaultdict(list))
     for row in score_rows(path):
         groups[(row.get("dataset", path.parent.name), row["case"]["name"])][row["variant"]].append(row)
-    lines = ["| Dataset / case | Variant | Runs | TPS (Δ base) | p50 ms (Δ) | p95 ms (Δ) | p99 ms (Δ) | p99.9 ms (Δ) | p99 range ms |",
-             "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |"]
-    for (dataset, case), variants in groups.items():
+    lines = ["| Dataset / case | Variant | Runs | TPS (Δ base) | p50 ms (Δ) | p95 ms (Δ) | p99 ms (Δ) | p99.9 ms (Δ) | TPS range | p99 range ms |",
+             "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- |"]
+    for (dataset, case), variants in sorted(groups.items()):
         if "base" not in variants:
             raise ValueError(f"{dataset}/{case}: baseline is missing")
         value = lambda rows, key: median(r["tps"] if key == "tps" else r["latency"][key] for r in rows)
@@ -28,8 +28,9 @@ def report(path):
                 formatted = f"{result:,.0f}" if key == "tps" else f"{result:.3f}"
                 cells.append(formatted + (f" ({100 * (result / baseline - 1):+.1f}%)" if variant != "base" else ""))
             tails = [r["latency"]["p99_ms"] for r in rows]
+            throughput = [r["tps"] for r in rows]
             lines.append(f"| {dataset} / {case} | {variant} | {len(rows)} | " + " | ".join(cells) +
-                         f" | {min(tails):.3f}–{max(tails):.3f} |")
+                         f" | {min(throughput):,.0f}–{max(throughput):,.0f} | {min(tails):.3f}–{max(tails):.3f} |")
     return "\n".join(lines)
 
 

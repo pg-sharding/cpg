@@ -51,6 +51,7 @@ def collect(datasets):
                        for kind in sorted({event for _, event in values})}
                 for side, values in events.items()}
             row["dataset"] = group[0] if group else name
+            row["source_phase"] = name
             row["random_seed"] = arguments.get("random_seed", 1000) + row["repeat"] - 1
             identifier = (row["dataset"], row["case"]["name"], row["variant"], row["random_seed"])
             if identifier in identifiers:

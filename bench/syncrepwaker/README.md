@@ -684,3 +684,21 @@ artifact records the selection, original status and failed attempts. The
 collector checks case/variant/seed uniqueness across the combined phases.
 This allows independently completed workload phases to be retained without
 including partial or CPU-interrupted rounds.
+
+`run_matrix.py --data-root /dev/shm/NAME` places each attempt's disposable
+clusters under that parent while preserving snapshots and compressed logs in
+the output directory. This supports a separate CPU-focused tmpfs control;
+tmpfs results do not model persistent-storage durability or disk latency.
+`--fixed-rate TPS` selects only that offered rate, without calibration or a
+saturation case. Use it to compare latency at a common arrival rate when the
+variants have different saturation throughput. Keep achieved TPS and scheduling
+lag alongside response quantiles; execution quantiles subtract each individual
+transaction's scheduling lag before computing the percentile.
+
+After all measurements stop, `audit_compare_logs.py ENVIRONMENT.json
+--output AUDIT.json` streams the selected attempts' compressed raw logs. It
+checks the full transaction count against pgbench's summary, the selected
+window count against the saved quantiles, clock ordering and coverage of the
+warmup/window/tail. Accepted attempt paths come from the environment metadata;
+an interrupted first attempt can differ from the selected later attempt.
+This audit is intentionally outside the measurement windows.

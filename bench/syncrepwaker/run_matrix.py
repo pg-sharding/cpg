@@ -19,6 +19,7 @@ def main():
     parser.add_argument("--variants", nargs="+", default=["base", "on", "hybrid8"])
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--log-root", type=Path, required=True)
+    parser.add_argument("--data-root", type=Path, help="optional parent for per-attempt clusters, e.g. tmpfs")
     parser.add_argument("--catalog", type=Path,
                         default=Path(__file__).with_name("workload-cases.json"))
     parser.add_argument("--seconds", type=int, default=20)
@@ -31,6 +32,8 @@ def main():
     parser.add_argument("--pgbench-scale", type=int, default=10)
     parser.add_argument("--port", type=int, default=56532)
     parser.add_argument("--saturation-only", action="store_true", help="omit rate calibration and fixed-rate cases")
+    parser.add_argument("--fixed-rate", type=int,
+                        help="run only this offered TPS in every family, without calibration or saturation")
     parser.add_argument("--tls-all", action="store_true", help="enable client and replication TLS in every family")
     parser.add_argument("--max-wal-size", default="4GB")
     parser.add_argument("--max-unattributed-busy-pct", type=float)
@@ -41,12 +44,17 @@ def main():
     parser.add_argument("--ssh-known-hosts", type=Path)
     parser.add_argument("--resume", action="store_true")
     args = parser.parse_args()
+    if args.fixed_rate is not None and (args.fixed_rate <= 0 or args.saturation_only):
+        parser.error("--fixed-rate must be positive and cannot be combined with --saturation-only")
+    single_mode = args.saturation_only or args.fixed_rate is not None
     if not 0 < args.rate_fraction < 1:
         parser.error("--rate-fraction must be between zero and one")
     root, logs = args.output.resolve(), args.log_root.resolve()
     arguments = {k: str(v.resolve()) if isinstance(v, Path) else v
                  for k, v in vars(args).items() if k != "resume" and
                  (k != "block_repeats" or v) and
+                 (k != "data_root" or v is not None) and
+                 (k != "fixed_rate" or v is not None) and
                  (k != "max_standby_unattributed_busy_pct" or v is not None)}
     catalog = json.loads(args.catalog.read_text())
     fingerprint = {
@@ -71,7 +79,7 @@ def main():
                  "fingerprint": fingerprint, "started_epoch": time.time(),
                  "status": "running", "phases": {}, "rates": {}, "failed_attempts": [],
                  "expected_main_rows": sum(map(len, catalog.values())) *
-                     (1 if args.saturation_only else 2) * len(args.variants) * args.repeats}
+                     (1 if single_mode else 2) * len(args.variants) * args.repeats}
     state["status"] = "running"
     write_json(state_path, state)
     harness = Path(__file__).with_name("compare_bench.py").resolve()
@@ -101,6 +109,8 @@ def main():
             value = getattr(args, option)
             if value is not None:
                 command += ["--" + option.replace("_", "-"), str(value.resolve() if isinstance(value, Path) else value)]
+        if args.data_root:
+            command += ["--data-root", str(args.data_root.resolve() / label)]
         if tls:
             command.append("--tls")
         phase = {"status": "running", "attempt": attempt, "output": str(output),
@@ -139,7 +149,7 @@ def main():
 
     # Calibrate each family against the parent before selecting any fixed
     # arrival rate.  Every variant in a family receives the same chosen rate.
-    for group, families in ([] if args.saturation_only else catalog.items()):
+    for group, families in ([] if single_mode else catalog.items()):
         cases = [dict(case, family=case["name"], rate=0, commit="on") for case in families]
         rows = invoke("calibrate-" + group, cases, group == "tls" or args.tls_all,
                       args.pgbench_scale if group == "plain" else 0,
@@ -156,9 +166,10 @@ def main():
         for family in families:
             name = family["name"]
             cases = [
-                dict(family, name=name + "-sat", family=name, load_mode="saturation",
-                     rate=0, commit="on")]
-            if not args.saturation_only:
+                dict(family, name=name + ("-rate" if args.fixed_rate is not None else "-sat"),
+                     family=name, load_mode="fixed_rate" if args.fixed_rate is not None else "saturation",
+                     rate=args.fixed_rate or 0, commit="on")]
+            if not single_mode:
                 cases.append(dict(family, name=name + "-rate", family=name, load_mode="fixed_rate",
                                   rate=state["rates"][name]["rate"], commit="on"))
             if args.block_repeats:
