@@ -1936,6 +1936,16 @@ struct config_bool ConfigureNamesBool[] =
 	},
 
 	{
+		{"sync_rep_waker", PGC_POSTMASTER, REPLICATION_PRIMARY,
+			gettext_noop("Uses a separate process to wake synchronous replication waiters."),
+			NULL
+		},
+		&SyncRepWaker,
+		true,
+		NULL, NULL, NULL
+	},
+
+	{
 		{"hot_standby", PGC_POSTMASTER, REPLICATION_STANDBY,
 			gettext_noop("Allows connections and queries during recovery."),
 			NULL
@@ -3155,6 +3165,16 @@ struct config_int ConfigureNamesInt[] =
 		},
 		&max_slot_wal_keep_size_mb,
 		-1, -1, MAX_KILOBYTES,
+		NULL, NULL, NULL
+	},
+
+	{
+		{"sync_rep_waker_direct_limit", PGC_SIGHUP, REPLICATION_PRIMARY,
+			gettext_noop("Sets the maximum number of synchronous replication waiters to wake directly per reply."),
+			gettext_noop("The sync rep waker releases any confirmed remainder; zero delegates all wakeups.")
+		},
+		&SyncRepWakerDirectLimit,
+		0, 0, 1024,
 		NULL, NULL, NULL
 	},
 

@@ -1,0 +1,268 @@
+{
+  "date": "2026-10-23",
+  "baseline_commit": "dc9f4918121638e93b8813cc411247e2dbdb3b10",
+  "algorithm_commit": "73b816456c0061ed747424c6339eb52bcb164428",
+  "host": {
+    "cpu": "AMD EPYC Genoa",
+    "vcpus": 8,
+    "physical_cores": 4,
+    "memory_gib": 15,
+    "placement": "primary, standby and client on one host; no CPU pinning; not isolated from other host activity"
+  },
+  "postgres_sha256": {
+    "base": "b6fdeba74333cbacbd7d8168ad93b7be5eaea4e86ecc2de78234e78661dd6c56",
+    "hybrid": "04bcd558c0c4a2185d7612202733972f8d7a9423206ada49ac26b1fbf10480de"
+  },
+  "variant_settings": {
+    "base": "unmodified parent binary",
+    "on": {
+      "sync_rep_waker": "on",
+      "sync_rep_waker_direct_limit": 0
+    },
+    "hybrid4": {
+      "sync_rep_waker": "on",
+      "sync_rep_waker_direct_limit": 4
+    },
+    "hybrid8": {
+      "sync_rep_waker": "on",
+      "sync_rep_waker_direct_limit": 8
+    },
+    "hybrid16": {
+      "sync_rep_waker": "on",
+      "sync_rep_waker_direct_limit": 16
+    },
+    "hybrid32": {
+      "sync_rep_waker": "on",
+      "sync_rep_waker_direct_limit": 32
+    },
+    "hybrid64": {
+      "sync_rep_waker": "on",
+      "sync_rep_waker_direct_limit": 64
+    }
+  },
+  "datasets": {
+    "compare-hybrid-screen": {
+      "arguments": {
+        "baseline_bindir": "install-baseline/bin",
+        "feature_bindir": "install-release/bin",
+        "output": "compare-hybrid-screen",
+        "data_root": "/dev/shm/pgpg2-hybrid-screen-data",
+        "log_root": "/dev/shm/pgpg2-hybrid-screen-logs",
+        "cases": "bench/syncrepwaker/hybrid-cases.json",
+        "variants": [
+          "base",
+          "on",
+          "hybrid4",
+          "hybrid8",
+          "hybrid16"
+        ],
+        "seconds": 20,
+        "warmup": 5,
+        "repeats": 1,
+        "port": 56532,
+        "tls": false,
+        "discard_data": true
+      },
+      "cases": [
+        {
+          "name": "micro-rate15k",
+          "clients": 128,
+          "payload_bytes": 0,
+          "rate": 15000,
+          "commit": "on"
+        },
+        {
+          "name": "micro-c128",
+          "clients": 128,
+          "payload_bytes": 0,
+          "rate": 0,
+          "commit": "on"
+        }
+      ],
+      "uname": [
+        "Linux",
+        "pgfuzz",
+        "6.8.0-147-generic",
+        "#147-Ubuntu SMP PREEMPT_DYNAMIC Thu Sep 24 11:33:16 UTC 2026",
+        "x86_64"
+      ],
+      "cpu_affinity": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "baseline_configure": "'--prefix=/home/reshke/pgpg2/install-baseline' '--libdir=/home/reshke/pgpg2/install-baseline/lib/postgresql' '--enable-debug' '--disable-cassert' '--enable-depend' '--with-openssl' '--without-mdblocales' 'CFLAGS=-O2 -g -fno-omit-frame-pointer'",
+      "feature_configure": "'--prefix=/home/reshke/pgpg2/install-release' '--libdir=/home/reshke/pgpg2/install-release/lib/postgresql' '--enable-debug' '--disable-cassert' '--enable-depend' '--with-openssl' '--without-mdblocales' 'CFLAGS=-O2 -g -fno-omit-frame-pointer'",
+      "primary_config": "max_connections = 100\t\t\t# (change requires restart)\nshared_buffers = 128MB\t\t\t# min 128kB\ndynamic_shared_memory_type = posix\t# the default is usually the first option\nmax_wal_size = 1GB\nmin_wal_size = 80MB\nlog_timezone = 'Etc/UTC'\nautovacuum_worker_slots = 16\t\t# autovacuum worker slots to allocate\ndatestyle = 'iso, mdy'\ntimezone = 'Etc/UTC'\nlc_messages = C\t\t\t\t# locale for system error message\nlc_monetary = C\t\t\t\t# locale for monetary formatting\nlc_numeric = C\t\t\t\t# locale for number formatting\nlc_time = C\t\t\t\t# locale for time formatting\ndefault_text_search_config = 'pg_catalog.english'\nlisten_addresses = '127.0.0.1'\nport = 56532\nunix_socket_directories = '/dev/shm/pgpg2-hybrid-screen-data'\nmax_connections = 158\nshared_buffers = '256MB'\nmax_wal_senders = 4\nwal_level = replica\nwal_buffers = '64MB'\nmax_wal_size = '512MB'\nmin_wal_size = '80MB'\ncheckpoint_timeout = '30min'\nautovacuum = off\nfsync = on\nfull_page_writes = on\nsynchronous_standby_names = 'bench_standby'\n",
+      "valid_rows": 10
+    },
+    "compare-hybrid-large-screen": {
+      "arguments": {
+        "baseline_bindir": "install-baseline/bin",
+        "feature_bindir": "install-release/bin",
+        "output": "compare-hybrid-large-screen",
+        "data_root": "/dev/shm/pgpg2-hybrid-large-screen-data",
+        "log_root": "/dev/shm/pgpg2-hybrid-large-screen-logs",
+        "cases": "bench/syncrepwaker/ram-confirm-cases.json",
+        "variants": [
+          "base",
+          "on",
+          "hybrid32",
+          "hybrid64"
+        ],
+        "seconds": 20,
+        "warmup": 5,
+        "repeats": 1,
+        "port": 56532,
+        "tls": false,
+        "discard_data": true
+      },
+      "cases": [
+        {
+          "name": "micro-c128",
+          "clients": 128,
+          "payload_bytes": 0,
+          "rate": 0,
+          "commit": "on"
+        }
+      ],
+      "uname": [
+        "Linux",
+        "pgfuzz",
+        "6.8.0-147-generic",
+        "#147-Ubuntu SMP PREEMPT_DYNAMIC Thu Sep 24 11:33:16 UTC 2026",
+        "x86_64"
+      ],
+      "cpu_affinity": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "baseline_configure": "'--prefix=/home/reshke/pgpg2/install-baseline' '--libdir=/home/reshke/pgpg2/install-baseline/lib/postgresql' '--enable-debug' '--disable-cassert' '--enable-depend' '--with-openssl' '--without-mdblocales' 'CFLAGS=-O2 -g -fno-omit-frame-pointer'",
+      "feature_configure": "'--prefix=/home/reshke/pgpg2/install-release' '--libdir=/home/reshke/pgpg2/install-release/lib/postgresql' '--enable-debug' '--disable-cassert' '--enable-depend' '--with-openssl' '--without-mdblocales' 'CFLAGS=-O2 -g -fno-omit-frame-pointer'",
+      "primary_config": "max_connections = 100\t\t\t# (change requires restart)\nshared_buffers = 128MB\t\t\t# min 128kB\ndynamic_shared_memory_type = posix\t# the default is usually the first option\nmax_wal_size = 1GB\nmin_wal_size = 80MB\nlog_timezone = 'Etc/UTC'\nautovacuum_worker_slots = 16\t\t# autovacuum worker slots to allocate\ndatestyle = 'iso, mdy'\ntimezone = 'Etc/UTC'\nlc_messages = C\t\t\t\t# locale for system error message\nlc_monetary = C\t\t\t\t# locale for monetary formatting\nlc_numeric = C\t\t\t\t# locale for number formatting\nlc_time = C\t\t\t\t# locale for time formatting\ndefault_text_search_config = 'pg_catalog.english'\nlisten_addresses = '127.0.0.1'\nport = 56532\nunix_socket_directories = '/dev/shm/pgpg2-hybrid-large-screen-data'\nmax_connections = 158\nshared_buffers = '256MB'\nmax_wal_senders = 4\nwal_level = replica\nwal_buffers = '64MB'\nmax_wal_size = '512MB'\nmin_wal_size = '80MB'\ncheckpoint_timeout = '30min'\nautovacuum = off\nfsync = on\nfull_page_writes = on\nsynchronous_standby_names = 'bench_standby'\n",
+      "valid_rows": 4
+    },
+    "compare-hybrid-light": {
+      "arguments": {
+        "baseline_bindir": "install-baseline/bin",
+        "feature_bindir": "install-release/bin",
+        "output": "compare-hybrid-light",
+        "data_root": "/dev/shm/pgpg2-hybrid-light-data",
+        "log_root": "/dev/shm/pgpg2-hybrid-light-logs",
+        "cases": "bench/syncrepwaker/ram-light-cases.json",
+        "variants": [
+          "base",
+          "on",
+          "hybrid8"
+        ],
+        "seconds": 30,
+        "warmup": 10,
+        "repeats": 3,
+        "port": 56532,
+        "tls": false,
+        "discard_data": true
+      },
+      "cases": [
+        {
+          "name": "micro-rate15k",
+          "clients": 128,
+          "payload_bytes": 0,
+          "rate": 15000,
+          "commit": "on"
+        }
+      ],
+      "uname": [
+        "Linux",
+        "pgfuzz",
+        "6.8.0-147-generic",
+        "#147-Ubuntu SMP PREEMPT_DYNAMIC Thu Sep 24 11:33:16 UTC 2026",
+        "x86_64"
+      ],
+      "cpu_affinity": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "baseline_configure": "'--prefix=/home/reshke/pgpg2/install-baseline' '--libdir=/home/reshke/pgpg2/install-baseline/lib/postgresql' '--enable-debug' '--disable-cassert' '--enable-depend' '--with-openssl' '--without-mdblocales' 'CFLAGS=-O2 -g -fno-omit-frame-pointer'",
+      "feature_configure": "'--prefix=/home/reshke/pgpg2/install-release' '--libdir=/home/reshke/pgpg2/install-release/lib/postgresql' '--enable-debug' '--disable-cassert' '--enable-depend' '--with-openssl' '--without-mdblocales' 'CFLAGS=-O2 -g -fno-omit-frame-pointer'",
+      "primary_config": "max_connections = 100\t\t\t# (change requires restart)\nshared_buffers = 128MB\t\t\t# min 128kB\ndynamic_shared_memory_type = posix\t# the default is usually the first option\nmax_wal_size = 1GB\nmin_wal_size = 80MB\nlog_timezone = 'Etc/UTC'\nautovacuum_worker_slots = 16\t\t# autovacuum worker slots to allocate\ndatestyle = 'iso, mdy'\ntimezone = 'Etc/UTC'\nlc_messages = C\t\t\t\t# locale for system error message\nlc_monetary = C\t\t\t\t# locale for monetary formatting\nlc_numeric = C\t\t\t\t# locale for number formatting\nlc_time = C\t\t\t\t# locale for time formatting\ndefault_text_search_config = 'pg_catalog.english'\nlisten_addresses = '127.0.0.1'\nport = 56532\nunix_socket_directories = '/dev/shm/pgpg2-hybrid-light-data'\nmax_connections = 158\nshared_buffers = '256MB'\nmax_wal_senders = 4\nwal_level = replica\nwal_buffers = '64MB'\nmax_wal_size = '512MB'\nmin_wal_size = '80MB'\ncheckpoint_timeout = '30min'\nautovacuum = off\nfsync = on\nfull_page_writes = on\nsynchronous_standby_names = 'bench_standby'\n",
+      "valid_rows": 9
+    },
+    "compare-hybrid-saturated": {
+      "arguments": {
+        "baseline_bindir": "install-baseline/bin",
+        "feature_bindir": "install-release/bin",
+        "output": "compare-hybrid-saturated",
+        "data_root": "/dev/shm/pgpg2-hybrid-saturated-data",
+        "log_root": "/dev/shm/pgpg2-hybrid-saturated-logs",
+        "cases": "bench/syncrepwaker/ram-confirm-cases.json",
+        "variants": [
+          "base",
+          "on",
+          "hybrid8"
+        ],
+        "seconds": 60,
+        "warmup": 10,
+        "repeats": 3,
+        "port": 56532,
+        "tls": false,
+        "discard_data": true
+      },
+      "cases": [
+        {
+          "name": "micro-c128",
+          "clients": 128,
+          "payload_bytes": 0,
+          "rate": 0,
+          "commit": "on"
+        }
+      ],
+      "uname": [
+        "Linux",
+        "pgfuzz",
+        "6.8.0-147-generic",
+        "#147-Ubuntu SMP PREEMPT_DYNAMIC Thu Sep 24 11:33:16 UTC 2026",
+        "x86_64"
+      ],
+      "cpu_affinity": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "baseline_configure": "'--prefix=/home/reshke/pgpg2/install-baseline' '--libdir=/home/reshke/pgpg2/install-baseline/lib/postgresql' '--enable-debug' '--disable-cassert' '--enable-depend' '--with-openssl' '--without-mdblocales' 'CFLAGS=-O2 -g -fno-omit-frame-pointer'",
+      "feature_configure": "'--prefix=/home/reshke/pgpg2/install-release' '--libdir=/home/reshke/pgpg2/install-release/lib/postgresql' '--enable-debug' '--disable-cassert' '--enable-depend' '--with-openssl' '--without-mdblocales' 'CFLAGS=-O2 -g -fno-omit-frame-pointer'",
+      "primary_config": "max_connections = 100\t\t\t# (change requires restart)\nshared_buffers = 128MB\t\t\t# min 128kB\ndynamic_shared_memory_type = posix\t# the default is usually the first option\nmax_wal_size = 1GB\nmin_wal_size = 80MB\nlog_timezone = 'Etc/UTC'\nautovacuum_worker_slots = 16\t\t# autovacuum worker slots to allocate\ndatestyle = 'iso, mdy'\ntimezone = 'Etc/UTC'\nlc_messages = C\t\t\t\t# locale for system error message\nlc_monetary = C\t\t\t\t# locale for monetary formatting\nlc_numeric = C\t\t\t\t# locale for number formatting\nlc_time = C\t\t\t\t# locale for time formatting\ndefault_text_search_config = 'pg_catalog.english'\nlisten_addresses = '127.0.0.1'\nport = 56532\nunix_socket_directories = '/dev/shm/pgpg2-hybrid-saturated-data'\nmax_connections = 158\nshared_buffers = '256MB'\nmax_wal_senders = 4\nwal_level = replica\nwal_buffers = '64MB'\nmax_wal_size = '512MB'\nmin_wal_size = '80MB'\ncheckpoint_timeout = '30min'\nautovacuum = off\nfsync = on\nfull_page_writes = on\nsynchronous_standby_names = 'bench_standby'\n",
+      "valid_rows": 9
+    }
+  },
+  "notes": [
+    "All completed rows are retained, including regressions.",
+    "The repeated candidate, 8, was selected after the short screens; it is not established as an optimal threshold.",
+    "All datasets use tmpfs data, tmpfs client logs, fsync=on, full_page_writes=on, one synchronous standby, synchronous_commit=on, and a persistent physical replication slot.",
+    "Parent, standby and client share one host without pinning or host isolation.",
+    "The on control uses the new feature binary with direct limit 0, retaining fully delegated wakeups.",
+    "The initial measured binary defaults the direct limit to 0; hybrid variants explicitly set their limits.",
+    "Full per-transaction gzip logs and server logs remain in /home/reshke/pgpg2/<dataset>/ on the benchmark host."
+  ]
+}

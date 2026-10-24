@@ -80,6 +80,8 @@ extern PGDLLIMPORT SyncRepConfigData *SyncRepConfig;
 
 /* user-settable parameters for synchronous replication */
 extern PGDLLIMPORT char *SyncRepStandbyNames;
+extern PGDLLIMPORT bool SyncRepWaker;
+extern PGDLLIMPORT int SyncRepWakerDirectLimit;
 
 /* called by user backend */
 extern void SyncRepWaitForLSN(XLogRecPtr lsn, bool commit);
@@ -90,6 +92,10 @@ extern void SyncRepCleanupAtProcExit(void);
 /* called by wal sender */
 extern void SyncRepInitConfig(void);
 extern void SyncRepReleaseWaiters(void);
+
+/* called by the synchronous replication waker */
+extern void SyncRepWakerMain(const void *startup_data, size_t startup_data_len);
+extern void SyncRepWakePendingWaiters(bool force);
 
 /* called by wal sender and user backend */
 extern int	SyncRepGetCandidateStandbys(SyncRepStandbyData **standbys,

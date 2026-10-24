@@ -311,6 +311,9 @@ GetBackendTypeDesc(BackendType backendType)
 		case B_WAL_RECEIVER:
 			backendDesc = gettext_noop("walreceiver");
 			break;
+		case B_SYNC_REP_WAKER:
+			backendDesc = gettext_noop("sync rep waker");
+			break;
 		case B_WAL_SENDER:
 			backendDesc = gettext_noop("walsender");
 			break;

@@ -16,8 +16,10 @@
 #include "lib/ilist.h"
 #include "nodes/nodes.h"
 #include "nodes/replnodes.h"
+#include "port/atomics.h"
 #include "replication/syncrep.h"
 #include "storage/condition_variable.h"
+#include "storage/procnumber.h"
 #include "storage/shmem.h"
 #include "storage/spin.h"
 
@@ -91,10 +93,19 @@ typedef struct
 	dlist_head	SyncRepQueue[NUM_SYNC_REP_WAIT_MODE];
 
 	/*
-	 * Current location of the head of the queue. All waiters should have a
-	 * waitLSN that follows this value. Protected by SyncRepLock.
+	 * Confirmed replication positions.  Queued waiters at or below these
+	 * positions can be released by the waker. Protected by SyncRepLock.
 	 */
 	XLogRecPtr	lsn[NUM_SYNC_REP_WAIT_MODE];
+
+	/* Registered waker, or INVALID_PROC_NUMBER. Protected by SyncRepLock. */
+	ProcNumber	syncRepWakerProcno;
+
+	/*
+	 * A sender has requested a queue drain. Writers hold SyncRepLock; the
+	 * waker can read this atomically to skip stale latch events and timeouts.
+	 */
+	pg_atomic_uint32 syncRepWakerPending;
 
 	/*
 	 * Status of data related to the synchronous standbys.  Waiting backends

@@ -20,6 +20,7 @@ OBJS = \
 	slot.o \
 	slotfuncs.o \
 	syncrep.o \
+	syncrepwaker.o \
 	syncrep_gram.o \
 	syncrep_scanner.o \
 	walreceiver.o \

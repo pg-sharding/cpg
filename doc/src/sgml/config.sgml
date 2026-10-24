@@ -4858,6 +4858,60 @@ HINT:  If it is safe for all REPLICATION users to use this library as an output 
 
     <variablelist>
 
+    <varlistentry id="guc-sync-rep-waker-direct-limit" xreflabel="sync_rep_waker_direct_limit">
+      <term><varname>sync_rep_waker_direct_limit</varname> (<type>integer</type>)
+      <indexterm>
+       <primary><varname>sync_rep_waker_direct_limit</varname> configuration parameter</primary>
+      </indexterm>
+      </term>
+      <listitem>
+       <para>
+        When <xref linkend="guc-sync-rep-waker"/> is enabled, WAL senders
+        release a confirmed batch directly if its total size across the write,
+        flush and apply queues does not exceed this limit.  Larger batches
+        are released by the waker.  Waiters whose positions have not yet been
+        confirmed do not count toward the limit.  This avoids an additional
+        process handoff for small batches while keeping the sender's wakeup
+        work bounded when the waker is available.
+       </para>
+       <para>
+        The range is 0 to 1024.  The default, 0, delegates all wakeups to the
+        waker.  This setting has no effect when the waker is disabled or not
+        running.  This parameter can only be set in the
+        <filename>postgresql.conf</filename> file or on the server command line.
+        Changes take effect after a configuration reload.
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry id="guc-sync-rep-waker" xreflabel="sync_rep_waker">
+      <term><varname>sync_rep_waker</varname> (<type>boolean</type>)
+      <indexterm>
+       <primary><varname>sync_rep_waker</varname> configuration parameter</primary>
+      </indexterm>
+      </term>
+      <listitem>
+       <para>
+        Starts an auxiliary process that releases backends waiting for
+        synchronous replication.  WAL senders publish confirmed replication
+        positions and notify this process, allowing the senders to resume
+        streaming while the waker traverses the wait queues.  This can reduce
+        WAL sender CPU time when many transactions wait for replication, at
+        the cost of an additional process handoff on the commit path.
+        The default is <literal>on</literal>.  When disabled, WAL senders
+        release waiters directly.  They also do so when the waker is not
+        running.  This parameter can only be set at server start.
+       </para>
+       <para>
+        The process runs only on the primary and only when
+        <xref linkend="guc-max-wal-senders"/> is greater than zero.  It appears
+        as <literal>sync rep waker</literal> in
+        <structname>pg_stat_activity</structname> and uses the
+        <literal>SyncRepWakerMain</literal> wait event when idle.
+       </para>
+      </listitem>
+     </varlistentry>
+
      <varlistentry id="guc-synchronous-standby-names" xreflabel="synchronous_standby_names">
       <term><varname>synchronous_standby_names</varname> (<type>string</type>)
       <indexterm>
