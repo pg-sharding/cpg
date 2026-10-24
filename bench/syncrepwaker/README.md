@@ -530,6 +530,14 @@ their latches after releasing it. The array is allocated once before taking
 the lock and covers all three wait queues. The sender's direct path, the
 waker and the checkpointer's configuration-reset path all use it.
 
+The subsequent notification-coalescing experiment adds an atomic pending bit.
+Senders set it under SyncRepLock and notify the waker only on its 0-to-1
+transition. The waker clears it under that same lock before draining all
+published positions. Stale latch events and idle timeouts skip the queue lock
+when no work is pending. Clean shutdown still forces a drain. The recovery
+test `135_sync_rep_waker_notifications` covers ACKs arriving on either side
+of the pending-bit reset in all three wait modes, with further ACKs stopped.
+
 All 112 assertions in five recovery tests pass with assertions and injection
 points enabled. `133_sync_rep_wake_after_unlock` pauses the releaser before
 setting latches, lets the completed backend exit through an unrelated wake,

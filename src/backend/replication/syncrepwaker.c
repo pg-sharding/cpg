@@ -74,7 +74,7 @@ SyncRepWakerMain(const void *startup_data, size_t startup_data_len)
 		/* Reset before inspecting the queues, so no notification is lost. */
 		ResetLatch(MyLatch);
 		ProcessMainLoopInterrupts();
-		SyncRepWakePendingWaiters();
+		SyncRepWakePendingWaiters(false);
 
 		(void) WaitLatch(MyLatch,
 						 WL_LATCH_SET | WL_TIMEOUT | WL_EXIT_ON_PM_DEATH,
@@ -92,5 +92,5 @@ SyncRepWakerShutdown(int code, Datum arg)
 	LWLockRelease(SyncRepLock);
 
 	/* A sender may have published a position immediately before our exit. */
-	SyncRepWakePendingWaiters();
+	SyncRepWakePendingWaiters(true);
 }

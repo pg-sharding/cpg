@@ -72,6 +72,7 @@ tests += {
       't/132_sync_rep_waker_hybrid.pl',
       't/133_sync_rep_wake_after_unlock.pl',
       't/134_sync_rep_waker_handoff.pl',
+      't/135_sync_rep_waker_notifications.pl',
     ],
   },
 }

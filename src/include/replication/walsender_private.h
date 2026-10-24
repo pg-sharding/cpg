@@ -16,6 +16,7 @@
 #include "lib/ilist.h"
 #include "nodes/nodes.h"
 #include "nodes/replnodes.h"
+#include "port/atomics.h"
 #include "replication/syncrep.h"
 #include "storage/condition_variable.h"
 #include "storage/procnumber.h"
@@ -99,6 +100,12 @@ typedef struct
 
 	/* Registered waker, or INVALID_PROC_NUMBER. Protected by SyncRepLock. */
 	ProcNumber	syncRepWakerProcno;
+
+	/*
+	 * A sender has requested a queue drain. Writers hold SyncRepLock; the
+	 * waker can read this atomically to skip stale latch events and timeouts.
+	 */
+	pg_atomic_uint32 syncRepWakerPending;
 
 	/*
 	 * Status of data related to the synchronous standbys.  Waiting backends

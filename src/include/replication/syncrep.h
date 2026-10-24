@@ -95,7 +95,7 @@ extern void SyncRepReleaseWaiters(void);
 
 /* called by the synchronous replication waker */
 extern void SyncRepWakerMain(const void *startup_data, size_t startup_data_len);
-extern void SyncRepWakePendingWaiters(void);
+extern void SyncRepWakePendingWaiters(bool force);
 
 /* called by wal sender and user backend */
 extern int	SyncRepGetCandidateStandbys(SyncRepStandbyData **standbys,

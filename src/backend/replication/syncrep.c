@@ -601,6 +601,14 @@ SyncRepReleaseWaiters(void)
 			continue;
 
 		waker = WalSndCtl->syncRepWakerProcno;
+		/* One notification owns all positions published before the drain. */
+		if (waker != INVALID_PROC_NUMBER)
+		{
+			if (pg_atomic_read_u32(&WalSndCtl->syncRepWakerPending) == 0)
+				pg_atomic_write_u32(&WalSndCtl->syncRepWakerPending, 1);
+			else
+				waker = INVALID_PROC_NUMBER;
+		}
 		break;
 	}
 
@@ -1072,15 +1080,29 @@ SyncRepWakeQueue(bool all, int mode, int limit)
 	return numprocs;
 }
 
-/* Release all waiters covered by the positions published by WAL senders. */
+/*
+ * Release waiters covered by published positions. A stale latch notification
+ * or the periodic timeout need not take the queue lock. Shutdown forces a
+ * drain after unregistering, even if no notification is pending.
+ */
 void
-SyncRepWakePendingWaiters(void)
+SyncRepWakePendingWaiters(bool force)
 {
 	int			numprocs[NUM_SYNC_REP_WAIT_MODE];
 	XLogRecPtr	lsn[NUM_SYNC_REP_WAIT_MODE];
 
+	if (!force && pg_atomic_read_u32(&WalSndCtl->syncRepWakerPending) == 0)
+		return;
+
+	INJECTION_POINT("sync-rep-waker-before-drain", NULL);
 	SyncRepInitWakeList();
 	LWLockAcquire(SyncRepLock, LW_EXCLUSIVE);
+	/*
+	 * Clear under the same lock as the drain. An earlier ACK is covered by
+	 * this pass; a later ACK must arrange another notification. The caller
+	 * resets its latch before inspecting pending, so neither case loses work.
+	 */
+	pg_atomic_write_u32(&WalSndCtl->syncRepWakerPending, 0);
 	for (int mode = 0; mode < NUM_SYNC_REP_WAIT_MODE; mode++)
 	{
 		lsn[mode] = WalSndCtl->lsn[mode];
