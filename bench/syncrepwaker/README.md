@@ -516,3 +516,74 @@ negative latency changes are improvements.
 A [base versus hybrid8 comparison](workload-report-2026-10-23.md#baseline-versus-hybrid8)
 shows both absolute TPS/p50/p99 and the hybrid's percentage change, for all
 nine workloads at unlimited and fixed offered load.
+
+## Wakeups after releasing SyncRepLock
+
+The experiment at `2e1e7821b1c` collects latch pointers in a private array,
+publishing completion and unlinking waiters under SyncRepLock, then setting
+their latches after releasing it. The array is allocated once before taking
+the lock and covers all three wait queues. The sender's direct path, the
+waker and the checkpointer's configuration-reset path all use it.
+
+All 112 assertions in five recovery tests pass with assertions and injection
+points enabled. `133_sync_rep_wake_after_unlock` pauses the releaser before
+setting latches, lets the completed backend exit through an unrelated wake,
+and reuses that exact PGPROC slot for a new unconfirmed wait. It checks that
+the new waiter can acquire the queue lock and cannot be completed by the old
+latch. This covers the worker, hybrid direct and disabled-worker paths.
+
+The harness accepts `--reference-feature-bindir` and `reference-hybrid8` to
+keep the old feature binary in the same rotating run order as the candidate.
+Per-run rows record the binary role and actual waker/direct-limit settings.
+The focused cases in `wakeoutside-cases.json` cover simple-update, batch10
+and batch1000 at 128 clients. A four-variant smoke passed before screening.
+
+```sh
+python3 bench/syncrepwaker/compare_bench.py \
+  --baseline-bindir "$PWD/install-baseline/bin" \
+  --reference-feature-bindir "$PWD/install-release/bin" \
+  --feature-bindir "$PWD/install-wakeoutside-release/bin" \
+  --variants base reference-hybrid8 off hybrid8 \
+  --cases bench/syncrepwaker/wakeoutside-cases.json \
+  --output "$PWD/compare-wakeoutside-screen" \
+  --log-root /dev/shm/pgpg2-wakeoutside-screen \
+  --seconds 20 --warmup 5 --repeats 1 --pgbench-scale 10 \
+  --restore-between-runs --discard-data --max-wal-size 4GB
+```
+
+Use `profile_wake.py` only during separate diagnostic runs. It attaches
+bpftrace to one selected benchmark sender or waker PID using `-p`, measures
+LWLock acquisition/hold durations inside the release routines, released-batch
+sizes and worker wake-to-schedule delays, and retains JSONL, probe source and
+metadata. It needs passwordless sudo for bpftrace. Uprobe overhead affects the
+observed timings and workload; traced rows must be excluded from score tables.
+`compare_bench.py --profile-role waker` (or `walsender`) automates profiling
+during an extended client tail, records `diagnostic: true`, and saves the
+profile output beside the run. Use only enabled-worker variants when profiling
+the waker. Each profiler invocation attaches to a single PID.
+
+`--max-unattributed-busy-pct 10` stops a focused comparison after preserving
+a run when VM busy CPU exceeds tracked primary+standby+client CPU by more
+than ten percentage points. This is a coarse interference guard; IRQ work,
+monitoring and other untracked work also contribute to the difference.
+It cannot detect every source of storage or CPU interference. The analyzer
+rejects diagnostic/interfered rows and attempts with an `interference.json`
+marker, so those cannot silently enter score tables.
+
+### Experiment status, 2026-10-24 UTC
+
+The short screen completed 12 runs, and the separate PID-scoped profiles
+completed for the former hybrid8 and the candidate. In those traced samples,
+average waker lock-hold time fell from about 298 to 38 us, while full release
+duration remained similar (339 versus 354 us). These are observations under
+tracing overhead. [Raw profiles, probe source and binary hashes](wakeoutside-profile-2026-10-24.json)
+are explicitly excluded from performance scores.
+
+The 60-second confirmation attempt was stopped after seven windows because
+unrelated compiler, restore and t198 stress work occupied the VM. Unattributed
+busy CPU rose from 4.4% to 58.2%; the unchanged reference also lost over half
+its TPS. Every window in that attempt is excluded. Its original rows and an
+`interference.json` marker remain in `compare-wakeoutside-confirm` on the host.
+The benchmark's temporary servers were stopped. Clean repeated performance
+validation remains pending a quiet interval; a throughput or latency benefit
+has not been established for this patch.

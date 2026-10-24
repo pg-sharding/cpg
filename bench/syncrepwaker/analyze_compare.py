@@ -7,11 +7,22 @@ from pathlib import Path
 from statistics import median
 
 
+def score_rows(path):
+    if (path.parent / "interference.json").exists():
+        raise ValueError(f"{path}: attempt was marked as affected by host interference")
+    rows = json.loads(path.read_text())
+    if not isinstance(rows, list):
+        raise ValueError(f"{path}: expected a score-row array, not a diagnostic document")
+    if any(row.get("diagnostic") or row.get("interference") for row in rows):
+        raise ValueError(f"{path}: diagnostic or interfered rows cannot be used as scores")
+    return rows
+
+
 def summarize(paths):
     groups = defaultdict(list)
     for path in paths:
         dataset = path.parent.name if path.name == "results.json" else path.stem
-        for row in json.loads(path.read_text()):
+        for row in score_rows(path):
             groups[(row.get("dataset", dataset), row["case"]["name"], row["variant"])].append(row)
     lines = ["| Dataset / case | Variant | Runs | TPS | p50 ms | p95 ms | p99 ms | p99 range ms | p99.9 ms | CPU us/tx | Sender CPU us/tx | Lag p99 ms |",
              "| --- | --- | ---: | ---: | ---: | ---: | ---: | --- | ---: | ---: | ---: | ---: |"]
@@ -35,7 +46,7 @@ def summarize_scripts(paths):
     groups = defaultdict(list)
     for path in paths:
         dataset = path.parent.name if path.name == "results.json" else path.stem
-        for row in json.loads(path.read_text()):
+        for row in score_rows(path):
             for number, metrics in row.get("by_script", {}).items():
                 label = row.get("script_labels", {}).get(number, number)
                 if metrics["latency"]["count"]:

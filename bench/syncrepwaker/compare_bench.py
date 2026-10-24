@@ -189,6 +189,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--baseline-bindir", type=Path, required=True)
     parser.add_argument("--feature-bindir", type=Path, required=True)
+    parser.add_argument("--reference-feature-bindir", type=Path,
+                        help="unchanged previous feature binary for reference-hybrid8")
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--data-root", type=Path)
     parser.add_argument("--log-root", type=Path, required=True,
@@ -196,7 +198,7 @@ def main():
     parser.add_argument("--cases", type=Path, required=True,
                         help="JSON array: name, clients, payload_bytes, rate, commit")
     parser.add_argument("--variants", nargs="+",
-                        choices=["base", "off", "on", "hybrid4", "hybrid8",
+                        choices=["base", "off", "on", "reference-hybrid8", "hybrid4", "hybrid8",
                                  "hybrid16", "hybrid32", "hybrid64"],
                         default=["base", "off", "on"])
     parser.add_argument("--seconds", type=int, default=60)
@@ -204,6 +206,10 @@ def main():
     parser.add_argument("--repeats", type=int, default=3)
     parser.add_argument("--port", type=int, default=56532)
     parser.add_argument("--tls", action="store_true")
+    parser.add_argument("--profile-role", choices=["walsender", "waker"],
+                        help="diagnostic run: profile the selected role during an extended client tail")
+    parser.add_argument("--max-unattributed-busy-pct", type=float,
+                        help="stop after saving a run if host busy CPU exceeds tracked process CPU by this percentage")
     parser.add_argument("--pgbench-scale", type=int, default=0,
                         help="initialize pgbench tables before the standby backup")
     parser.add_argument("--restore-between-runs", action="store_true",
@@ -212,6 +218,12 @@ def main():
     parser.add_argument("--discard-data", action="store_true",
                         help="remove this run's disposable clusters after successful completion")
     args = parser.parse_args()
+    if "reference-hybrid8" in args.variants and args.reference_feature_bindir is None:
+        parser.error("reference-hybrid8 requires --reference-feature-bindir")
+    if args.profile_role == "waker" and any(v in ("base", "off") for v in args.variants):
+        parser.error("waker profiling requires an enabled feature waker in every variant")
+    if args.max_unattributed_busy_pct is not None and not 0 <= args.max_unattributed_busy_pct <= 100:
+        parser.error("--max-unattributed-busy-pct must be between zero and 100")
     cases = json.loads(args.cases.read_text())
     root = args.output.resolve()
     root.mkdir(parents=True, exist_ok=False)
@@ -223,6 +235,7 @@ def main():
     primary, standby = data_root / "primary", data_root / "standby"
     snapshot = root / "snapshot"
     base, feature = args.baseline_bindir.resolve(), args.feature_bindir.resolve()
+    reference = args.reference_feature_bindir.resolve() if args.reference_feature_bindir else None
     env = dict(os.environ, LC_ALL="C", PGHOST="127.0.0.1", PGPORT=str(args.port),
                PGDATABASE="postgres", PGSSLMODE="require" if args.tls else "disable",
                PGAPPNAME="bench_monitor")
@@ -349,6 +362,9 @@ def main():
                                         for label, binary in (("base", base), ("feature", feature))},
                     "harness_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
                     "primary_config": (primary / "postgresql.conf").read_text()}
+        if reference is not None:
+            metadata["postgres_sha256"]["reference"] = hashlib.sha256((reference / "postgres").read_bytes()).hexdigest()
+            metadata["reference_configure"] = run([reference / "pg_config", "--configure"])
         write_json(root / "metadata.json", metadata)
         if args.restore_between_runs:
             ctl(standby, base, "stop")
@@ -365,7 +381,9 @@ def main():
                 offset = repeat % len(args.variants)
                 order = args.variants[offset:] + args.variants[:offset]
                 for variant in order:
-                    binary = base if variant == "base" else feature
+                    binary_role = ("base" if variant == "base" else
+                                   "reference" if variant.startswith("reference-") else "feature")
+                    binary = {"base": base, "feature": feature, "reference": reference}[binary_role]
                     if args.restore_between_runs:
                         for data in (standby, primary):
                             if (data / "postmaster.pid").exists():
@@ -375,10 +393,13 @@ def main():
                             clone_cluster(snapshot / data.name, data)
                     else:
                         ctl(primary, base, "stop")
-                    ctl(primary, binary, "start", variant)
+                    ctl(primary, binary, "start", variant.removeprefix("reference-"))
                     if args.restore_between_runs:
                         ctl(standby, base, "start")
                     wait_catchup()
+                    server_parameters = json.loads(sql(
+                        "SELECT json_build_object('sync_rep_waker', current_setting('sync_rep_waker', true), "
+                        "'sync_rep_waker_direct_limit', current_setting('sync_rep_waker_direct_limit', true))"))
                     sql("TRUNCATE wake_bench")
                     initial_history = None
                     if args.restore_between_runs and args.pgbench_scale:
@@ -390,7 +411,8 @@ def main():
                     label = f"{case['name']}-r{repeat + 1}-{variant}"
                     log_prefix = log_root / (label + ".transactions")
                     command = [base / "pgbench", "-n", "-M", "prepared", "-c", case["clients"],
-                               "-j", min(case["clients"], 8), "-T", args.warmup + args.seconds + 4,
+                               "-j", min(case["clients"], 8), "-T",
+                               args.warmup + args.seconds + (34 if args.profile_role else 4),
                                *scripts, "-l", "--log-prefix", log_prefix, "-P", 5,
                                "--random-seed", 1000 + repeat]
                     if case.get("rate"):
@@ -420,6 +442,14 @@ def main():
                             after = process_tree(primary_pid) | process_tree(standby_pid) | process_tree(client.pid)
                             system_after = system_cpu()
                             lsn_end = sql("SELECT pg_current_wal_insert_lsn()")
+                            if args.profile_role:
+                                with (root / (label + ".profile.log")).open("w") as profile_log:
+                                    subprocess.run([
+                                        "python3", str(Path(__file__).with_name("profile_wake.py")),
+                                        "--psql", str(base / "psql"), "--binary", str(binary / "postgres"),
+                                        "--port", str(args.port), "--role", args.profile_role,
+                                        "--output", str(root / (label + ".profile"))],
+                                        stdout=profile_log, stderr=subprocess.STDOUT, check=True, timeout=30)
                             if client.wait(timeout=30) != 0:
                                 raise RuntimeError(f"pgbench failed: {label}")
                         finally:
@@ -430,6 +460,9 @@ def main():
                                start_epoch=start, end_epoch=end, elapsed_seconds=elapsed,
                                command=[str(p) for p in command], pids=labels,
                                initial_history_rows=initial_history)
+                    row["binary_role"] = binary_role
+                    row["server_parameters"] = server_parameters
+                    row["diagnostic"] = args.profile_role is not None
                     row.update(transaction_stats(log_prefix, start, end, case.get("rate")))
                     row["script_labels"] = script_labels
                     compressed = []
@@ -447,6 +480,13 @@ def main():
                     row["system_cpu"] = {"busy_pct": 100 * sum(system_delta[i] for i in (0, 1, 2, 5, 6)) / system_total,
                                          "iowait_pct": 100 * system_delta[4] / system_total,
                                          "steal_pct": 100 * system_delta[7] / system_total}
+                    tracked_busy = (100 * sum(c["cpu_seconds"] for c in row["cpu"].values()) /
+                                    (elapsed * os.cpu_count()))
+                    row["unattributed_host_busy_pct"] = max(0, row["system_cpu"]["busy_pct"] - tracked_busy)
+                    interference = (args.max_unattributed_busy_pct is not None and
+                                    row["unattributed_host_busy_pct"] > args.max_unattributed_busy_pct)
+                    if interference:
+                        row["interference"] = "host busy CPU substantially exceeds tracked benchmark CPU"
                     row["wal_bytes"] = lsn_integer(lsn_end) - lsn_integer(lsn_start)
                     write_json(root / (label + ".json"), row)
                     results.append(row)
@@ -454,6 +494,10 @@ def main():
                     print(json.dumps({k: row[k] for k in
                                       ["case", "variant", "repeat", "tps", "latency", "schedule_lag", "missing_cpu_pids"]}),
                           flush=True)
+                    if interference:
+                        raise RuntimeError(f"unattributed host CPU {row['unattributed_host_busy_pct']:.1f}% "
+                                           f"exceeded guard {args.max_unattributed_busy_pct:.1f}%; "
+                                           "saved the run and stopped; exclude this attempt from scores")
         completed = True
     finally:
         for data in (standby, primary):

@@ -80,7 +80,8 @@ def main():
             if key in unique:
                 raise RuntimeError(f"duplicate row: {key}")
             unique.add(key)
-            if row["failed"] or row["skipped"] or row["missing_cpu_pids"]:
+            if (row["failed"] or row["skipped"] or row["missing_cpu_pids"] or
+                    row.get("diagnostic") or row.get("interference")):
                 raise RuntimeError(f"invalid measured row: {key}")
             if abs(row["end_epoch"] - row["start_epoch"] - row["elapsed_seconds"]) > .01:
                 raise RuntimeError(f"wall/monotonic clock mismatch: {key}")

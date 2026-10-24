@@ -103,8 +103,9 @@ def main():
         rows = json.loads((output / "results.json").read_text())
         if len(rows) != phase["expected_rows"]:
             fail("incomplete result rows")
-        if any(row["failed"] or row["skipped"] or row["missing_cpu_pids"] for row in rows):
-            fail("failed/skipped transactions or missing CPU snapshots")
+        if any(row["failed"] or row["skipped"] or row["missing_cpu_pids"] or
+               row.get("diagnostic") or row.get("interference") for row in rows):
+            fail("failed/skipped transactions, missing CPU snapshots or unscored diagnostic/interference rows")
         phase["status"] = "complete"
         phase["rows"] = len(rows)
         write_json(state_path, state)
