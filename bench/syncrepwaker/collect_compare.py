@@ -11,7 +11,10 @@ from compare_bench import write_json
 
 def collect(datasets):
     rows, phases = [], {}
-    for name, output in datasets:
+    identifiers = set()
+    for name, output, *group in datasets:
+        if name in phases:
+            raise ValueError(f"duplicate phase label: {name}")
         metadata = json.loads((output / "metadata.json").read_text())
         arguments = metadata["arguments"]
         source = score_rows(output / "results.json")
@@ -47,7 +50,12 @@ def collect(datasets):
                                  for instant, event in values)
                        for kind in sorted({event for _, event in values})}
                 for side, values in events.items()}
-            row["dataset"] = name
+            row["dataset"] = group[0] if group else name
+            row["random_seed"] = arguments.get("random_seed", 1000) + row["repeat"] - 1
+            identifier = (row["dataset"], row["case"]["name"], row["variant"], row["random_seed"])
+            if identifier in identifiers:
+                raise ValueError(f"duplicate case/variant/seed: {identifier}")
+            identifiers.add(identifier)
             for key in ("command", "pids", "standby_pids", "log_files"):
                 row.pop(key, None)
             rows.append(row)
@@ -66,14 +74,32 @@ def collect(datasets):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--dataset", action="append", required=True, help="LABEL=OUTPUT_DIRECTORY")
+    parser.add_argument("--dataset", action="append", default=[], help="LABEL=OUTPUT_DIRECTORY")
+    parser.add_argument("--matrix", action="append", default=[], help="LABEL=MATRIX_DIRECTORY; matrix must be complete")
+    parser.add_argument("--completed-matrix", action="append", default=[],
+                        help="LABEL=MATRIX_DIRECTORY; explicitly select only its complete phase attempts")
     parser.add_argument("--output", type=Path, required=True, help="new directory for compact artifacts")
     parser.add_argument("--annotations", type=Path, help="JSON with source commits and network/host observations")
     args = parser.parse_args()
     datasets = [(name, Path(path)) for name, path in (item.split("=", 1) for item in args.dataset)]
-    if len({name for name, _ in datasets}) != len(datasets):
-        parser.error("dataset labels must be unique")
+    selections = []
+    for item, require_complete in ([(v, True) for v in args.matrix] +
+                                   [(v, False) for v in args.completed_matrix]):
+        label, path = item.split("=", 1)
+        state = json.loads(Path(path).joinpath("state.json").read_text())
+        if require_complete and state["status"] != "complete":
+            raise ValueError(f"{path}: matrix is incomplete")
+        included = [name for name, phase in state["phases"].items()
+                    if name.startswith("main-") and phase["status"] == "complete"]
+        for name in included:
+            datasets.append((label + "/" + name, Path(state["phases"][name]["output"]), label))
+        selections.append({"dataset": label, "path": path, "matrix_status": state["status"],
+                           "expected_main_rows": state["expected_main_rows"], "included_phases": included,
+                           "failed_attempts": state["failed_attempts"], "fingerprint": state["fingerprint"]})
+    if not datasets:
+        parser.error("at least one dataset or complete phase is required")
     rows, environment = collect(datasets)
+    environment["matrix_selections"] = selections
     if args.annotations:
         environment["annotations"] = json.loads(args.annotations.read_text())
     args.output.mkdir(parents=True, exist_ok=False)

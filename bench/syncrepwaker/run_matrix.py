@@ -24,6 +24,8 @@ def main():
     parser.add_argument("--seconds", type=int, default=20)
     parser.add_argument("--warmup", type=int, default=5)
     parser.add_argument("--repeats", type=int, default=3)
+    parser.add_argument("--block-repeats", action="store_true",
+                        help="save each complete rotating variant round as a separate resumable phase")
     parser.add_argument("--calibration-seconds", type=int, default=10)
     parser.add_argument("--rate-fraction", type=float, default=0.6)
     parser.add_argument("--pgbench-scale", type=int, default=10)
@@ -44,6 +46,7 @@ def main():
     root, logs = args.output.resolve(), args.log_root.resolve()
     arguments = {k: str(v.resolve()) if isinstance(v, Path) else v
                  for k, v in vars(args).items() if k != "resume" and
+                 (k != "block_repeats" or v) and
                  (k != "max_standby_unattributed_busy_pct" or v is not None)}
     catalog = json.loads(args.catalog.read_text())
     fingerprint = {
@@ -73,7 +76,7 @@ def main():
     write_json(state_path, state)
     harness = Path(__file__).with_name("compare_bench.py").resolve()
 
-    def invoke(name, cases, tls, scale, seconds, warmup, repeats, variants):
+    def invoke(name, cases, tls, scale, seconds, warmup, repeats, variants, seed=1000):
         previous = state["phases"].get(name, {})
         if previous.get("status") == "complete":
             return json.loads(Path(previous["output"]).joinpath("results.json").read_text())
@@ -90,6 +93,7 @@ def main():
             "--cases", str(case_path), "--variants", *variants,
             "--seconds", str(seconds), "--warmup", str(warmup),
             "--repeats", str(repeats), "--port", str(args.port),
+            "--random-seed", str(seed),
             "--pgbench-scale", str(scale), "--max-wal-size", args.max_wal_size,
             "--restore-between-runs", "--discard-data"]
         for option in ("reference_feature_bindir", "max_unattributed_busy_pct", "max_standby_unattributed_busy_pct", "standby_ssh",
@@ -157,9 +161,17 @@ def main():
             if not args.saturation_only:
                 cases.append(dict(family, name=name + "-rate", family=name, load_mode="fixed_rate",
                                   rate=state["rates"][name]["rate"], commit="on"))
-            invoke("main-" + name, cases, group == "tls" or args.tls_all,
-                   args.pgbench_scale if group == "plain" else 0,
-                   args.seconds, args.warmup, args.repeats, args.variants)
+            if args.block_repeats:
+                for block in range(args.repeats):
+                    offset = block % len(args.variants)
+                    order = args.variants[offset:] + args.variants[:offset]
+                    invoke(f"main-{name}-b{block + 1}", cases, group == "tls" or args.tls_all,
+                           args.pgbench_scale if group == "plain" else 0,
+                           args.seconds, args.warmup, 1, order, seed=1000 + block)
+            else:
+                invoke("main-" + name, cases, group == "tls" or args.tls_all,
+                       args.pgbench_scale if group == "plain" else 0,
+                       args.seconds, args.warmup, args.repeats, args.variants)
     state["status"] = "complete"
     state["finished_epoch"] = time.time()
     state.pop("current_phase", None)

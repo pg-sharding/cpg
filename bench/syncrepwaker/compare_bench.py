@@ -208,6 +208,7 @@ def main():
     parser.add_argument("--seconds", type=int, default=60)
     parser.add_argument("--warmup", type=int, default=10)
     parser.add_argument("--repeats", type=int, default=3)
+    parser.add_argument("--random-seed", type=int, default=1000)
     parser.add_argument("--port", type=int, default=56532)
     parser.add_argument("--tls", action="store_true")
     parser.add_argument("--standby-ssh", help="SSH destination for a standby on another VM")
@@ -502,7 +503,7 @@ def main():
                                "-j", min(case["clients"], 8), "-T",
                                args.warmup + args.seconds + (34 if args.profile_role else 4),
                                *scripts, "-l", "--log-prefix", log_prefix, "-P", 5,
-                               "--random-seed", 1000 + repeat]
+                               "--random-seed", args.random_seed + repeat]
                     if case.get("rate"):
                         command.extend(["-R", case["rate"]])
                     workload_env = dict(env, PGOPTIONS="-c synchronous_commit=" + case.get("commit", "on"),

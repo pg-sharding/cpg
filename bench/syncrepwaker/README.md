@@ -666,3 +666,21 @@ override both hosts use that value. Runs allowing substantial background work
 on the standby are exploratory comparisons under that load. Keep their
 `standby_unattributed_host_busy_pct`, CPU/iowait/steal and per-run tail ranges
 with the results, and distinguish them from runs with a quiet standby.
+
+On shared VMs, `run_matrix.py --block-repeats` saves each complete variant
+round as a phase (`...-b1`, `...-b2`, etc.). Round `i` retains the original
+variant rotation and seed `1000 + i - 1`; `compare_bench.py --random-seed`
+sets the starting seed explicitly. A CPU-interrupted round is rejected in
+full. Resume reruns that round with its original seed and order.
+`run_quiet_matrix.py --matrix-output ROOT -- COMMAND...` waits for ten seconds
+with local host busy CPU at most 3%, then runs the matrix command. It retries
+only attempts with an interference marker, at most five attempts per phase;
+other failures stop for inspection. It never stops unrelated workloads.
+
+`collect_compare.py --matrix LABEL=ROOT` combines a complete matrix's phases
+under one dataset label. `--completed-matrix LABEL=ROOT` explicitly selects
+only completed phase attempts from an interrupted matrix. The environment
+artifact records the selection, original status and failed attempts. The
+collector checks case/variant/seed uniqueness across the combined phases.
+This allows independently completed workload phases to be retained without
+including partial or CPU-interrupted rounds.
