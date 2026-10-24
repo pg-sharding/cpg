@@ -94,6 +94,12 @@ for my $point ('sync-rep-waker-before-drain', 'sync-rep-before-latch-wake')
 		ok($primary->poll_query_until('postgres',
 			"SELECT $position >= '$lsn'::pg_lsn FROM pg_stat_replication WHERE application_name = 'standby'"),
 			"$mode: second ACK published while waker paused at $point");
+		# The replication statistics are updated just before ReleaseWaiters.
+		# Observe the sender back in its idle loop before stopping it, so the
+		# confirmed positions and pending bit have actually been published.
+		die 'sender did not finish publishing the second ACK'
+		  unless $primary->poll_query_until('postgres',
+			"SELECT wait_event = 'WalSenderMain' FROM pg_stat_activity WHERE backend_type = 'walsender'");
 		# Prevent periodic feedback from repairing a missed notification.
 		$sender = stop_sender();
 		$primary->safe_psql('postgres',
