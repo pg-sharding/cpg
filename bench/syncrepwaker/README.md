@@ -14,10 +14,10 @@ continues to release all queues in the checkpointer, even if the waker is stuck.
 An unclean waker exit triggers cluster crash recovery, as for other auxiliary
 processes modifying shared memory.
 
-The waker still takes `SyncRepLock` while traversing queues and setting backend
-latches. This experiment removes that work from the sender, but does not remove
-lock contention or the wakeup CPU cost. The extra handoff may hurt commit
-latency, particularly at low concurrency.
+The waker takes `SyncRepLock` while traversing queues and publishing completion.
+The current experiment collects latch pointers and sets them after releasing
+the lock. Queue contention and the wakeup CPU cost remain; the extra handoff
+may hurt commit latency, particularly at low concurrency.
 
 Build with assertions for correctness testing:
 
@@ -587,3 +587,64 @@ its TPS. Every window in that attempt is excluded. Its original rows and an
 The benchmark's temporary servers were stopped. Clean repeated performance
 validation remains pending a quiet interval; a throughput or latency benefit
 has not been established for this patch.
+
+## Primary and standby in different availability zones
+
+`compare_bench.py` can keep the primary and pgbench on one VM and manage a
+baseline standby through a persistent SSH helper on another VM. Both hosts
+need the same absolute path to `bench/syncrepwaker/remote_host.py` and the
+baseline installation; their postgres binary hashes are checked. The helper
+uses Python's standard library and runs as the SSH user. Existing PostgreSQL
+instances are not managed by the harness.
+
+```sh
+python3 bench/syncrepwaker/compare_bench.py \
+  --baseline-bindir "$PWD/install-baseline/bin" \
+  --reference-feature-bindir "$PWD/install-release/bin" \
+  --feature-bindir "$PWD/install-wakeoutside-release/bin" \
+  --variants base reference-hybrid8 off hybrid8 \
+  --cases bench/syncrepwaker/wakeoutside-cases.json \
+  --output "$PWD/compare-crossaz-core-tls" \
+  --log-root /dev/shm/pgpg2-crossaz-core-tls \
+  --standby-ssh reshke@10.0.0.8 --primary-address 10.128.0.41 \
+  --standby-address 10.0.0.8 --ssh-known-hosts "$PWD/bench-known-hosts" \
+  --tls --seconds 20 --warmup 5 --repeats 3 --pgbench-scale 10 \
+  --restore-between-runs --discard-data --max-wal-size 16GB \
+  --max-unattributed-busy-pct 10
+```
+
+The output path must be new on both hosts. The primary listens on loopback
+and its supplied private IP. An additional pg_hba entry permits replication
+only from the peer's supplied IP; with `--tls` this is a `hostssl` entry.
+Replication uses TLS and synchronous remote flush. The harness checks the
+actual streaming connection, cipher and synchronous state before every run.
+Standby administration stays on its loopback through SSH. The standby's SQL
+listener has SSL disabled; this does not disable TLS on its WAL receiver.
+
+Stopped snapshots are copied and fsynced on each host before every run.
+Only the primary binary and its waker settings change. CPU snapshots and
+unattributed-busy guards are separate for the two hosts, so identical numeric
+PIDs cannot overwrite each other. The remote helper communicates outside
+the timed sleep; its snapshots bracket a slightly longer interval recorded
+in `standby_system_cpu.elapsed_seconds`. CPU guards do not detect all storage,
+network, hypervisor or scheduler interference. Failed attempts retain data
+and an `interference.json` marker; successful `--discard-data` removes only
+this attempt's clusters and snapshots on both hosts. Server logs and compressed
+transaction logs remain on the primary host.
+
+Collect complete datasets and produce baseline-relative tables with:
+
+```sh
+python3 bench/syncrepwaker/collect_compare.py \
+  --dataset local-tls=compare-zov-core-tls \
+  --dataset crossaz-tls=compare-crossaz-core-tls \
+  --output compare-collected
+python3 bench/syncrepwaker/report_compare.py compare-collected/results.json
+```
+
+The collector verifies all expected case/variant/repeat combinations,
+transaction accounting, CPU samples, restored history, synchronous/TLS state
+and measurement clocks. It preserves per-run quantiles, CPU/context-switch
+counts, WAL bytes and checkpoint events. Percentage changes use unrounded
+medians, `100 * (variant / base - 1)`. Positive TPS and negative latency
+changes are improvements; the table retains per-run p99 ranges.

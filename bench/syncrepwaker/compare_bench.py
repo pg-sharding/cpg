@@ -8,7 +8,9 @@ Server data are disposable clusters created in a new directory by this script.
 import argparse
 from collections import Counter, defaultdict
 import gzip
+import getpass
 import hashlib
+import ipaddress
 import json
 import math
 import os
@@ -16,6 +18,8 @@ from pathlib import Path
 import subprocess
 import shutil
 import time
+
+from remote_host import RemoteHost
 
 
 def write_json(path, value):
@@ -206,6 +210,10 @@ def main():
     parser.add_argument("--repeats", type=int, default=3)
     parser.add_argument("--port", type=int, default=56532)
     parser.add_argument("--tls", action="store_true")
+    parser.add_argument("--standby-ssh", help="SSH destination for a standby on another VM")
+    parser.add_argument("--primary-address", help="private primary IP reachable by the remote standby")
+    parser.add_argument("--standby-address", help="private standby IP permitted in replication pg_hba.conf")
+    parser.add_argument("--ssh-known-hosts", type=Path)
     parser.add_argument("--profile-role", choices=["walsender", "waker"],
                         help="diagnostic run: profile the selected role during an extended client tail")
     parser.add_argument("--max-unattributed-busy-pct", type=float,
@@ -218,6 +226,16 @@ def main():
     parser.add_argument("--discard-data", action="store_true",
                         help="remove this run's disposable clusters after successful completion")
     args = parser.parse_args()
+    if args.standby_ssh and not (args.primary_address and args.standby_address):
+        parser.error("--standby-ssh requires --primary-address and --standby-address")
+    if args.standby_ssh:
+        try:
+            for address in (args.primary_address, args.standby_address):
+                ipaddress.IPv4Address(address)
+        except ValueError:
+            parser.error("remote replication addresses must be IPv4 literals")
+    if args.standby_ssh and args.profile_role:
+        parser.error("remote standby profiling is not supported")
     if "reference-hybrid8" in args.variants and args.reference_feature_bindir is None:
         parser.error("reference-hybrid8 requires --reference-feature-bindir")
     if args.profile_role == "waker" and any(v in ("base", "off") for v in args.variants):
@@ -236,6 +254,13 @@ def main():
     snapshot = root / "snapshot"
     base, feature = args.baseline_bindir.resolve(), args.feature_bindir.resolve()
     reference = args.reference_feature_bindir.resolve() if args.reference_feature_bindir else None
+    remote = RemoteHost(args.standby_ssh, Path(__file__).resolve().with_name("remote_host.py"),
+                        args.ssh_known_hosts) if args.standby_ssh else None
+    if remote:
+        # A new directory on each host makes cleanup specific to this attempt.
+        remote.call("mkdir", path=str(root))
+        remote.call("mkdir", path=str(root / "data"))
+        standby = root / "data" / "standby"
     env = dict(os.environ, LC_ALL="C", PGHOST="127.0.0.1", PGPORT=str(args.port),
                PGDATABASE="postgres", PGSSLMODE="require" if args.tls else "disable",
                PGAPPNAME="bench_monitor")
@@ -243,6 +268,25 @@ def main():
         env.pop(key, None)
     results = []
     completed = False
+
+    def remote_run(command):
+        return remote.call("run", command=[str(p) for p in command],
+                           env={"LC_ALL": "C", "PGHOST": "127.0.0.1",
+                                "PGPORT": str(args.port + 1), "PGDATABASE": "postgres",
+                                "PGSSLMODE": "disable", "PGAPPNAME": "bench_monitor"})
+
+    def exists(path, is_standby=False):
+        return remote.call("exists", path=str(path)) if remote and is_standby else path.exists()
+
+    def read(path, is_standby=False):
+        return remote.call("read", path=str(path)) if remote and is_standby else path.read_text()
+
+    def append_standby(path, text):
+        if remote:
+            remote.call("write", path=str(path), text=text, append=True)
+        else:
+            with path.open("a") as conf:
+                conf.write(text)
 
     def run(command, output=None, command_env=None):
         result = subprocess.run([str(p) for p in command], env=command_env or env, text=True,
@@ -254,7 +298,8 @@ def main():
         return result.stdout.strip()
 
     def sql(query, is_standby=False):
-        return run([base / "psql", "-XAt", "-v", "ON_ERROR_STOP=1", "-p",
+        executor = remote_run if remote and is_standby else run
+        return executor([base / "psql", "-XAt", "-v", "ON_ERROR_STOP=1", "-p",
                     args.port + int(is_standby), "-c", query])
 
     def ctl(data, binary, action, mode="base"):
@@ -267,7 +312,7 @@ def main():
             else:
                 options = "-c sync_rep_waker=" + mode if mode != "base" else ""
             command.extend(["-o", options])
-        run(command + [action])
+        (remote_run if remote and data == standby else run)(command + [action])
 
     def wait_catchup():
         lsn = sql("SELECT pg_current_wal_flush_lsn()")
@@ -279,9 +324,9 @@ def main():
             time.sleep(0.05)
         raise RuntimeError("standby did not catch up")
 
-    def server_labels():
+    def server_labels(sides=(False, True)):
         labels = {}
-        for is_standby in (False, True):
+        for is_standby in sides:
             side = "standby" if is_standby else "primary"
             for line in sql("SELECT pid, backend_type, application_name FROM pg_stat_activity", is_standby).splitlines():
                 pid, kind, app = line.split("|", 2)
@@ -313,7 +358,8 @@ def main():
     try:
         run([base / "initdb", "-D", primary, "--auth=trust", "--locale=C",
              "--encoding=UTF8"], root / "initdb.log")
-        config = (f"\nlisten_addresses = '127.0.0.1'\nport = {args.port}\n"
+        listen = "127.0.0.1" + ("," + args.primary_address if remote else "")
+        config = (f"\nlisten_addresses = '{listen}'\nport = {args.port}\n"
                   f"unix_socket_directories = '{data_root}'\n"
                   f"max_connections = {max(c['clients'] for c in cases) + 30}\n"
                   "shared_buffers = '256MB'\nmax_wal_senders = 4\n"
@@ -331,6 +377,10 @@ def main():
             config += f"ssl = on\nssl_key_file = '{key}'\nssl_cert_file = '{cert}'\n"
         with (primary / "postgresql.conf").open("a") as conf:
             conf.write(config)
+        if remote:
+            with (primary / "pg_hba.conf").open("a") as hba:
+                hba.write(f"\n{'hostssl' if args.tls else 'host'} replication "
+                          f"{getpass.getuser()} {args.standby_address}/32 trust\n")
         ctl(primary, base, "start")
         # This DDL must not wait for the not-yet-created standby.
         sql("SET synchronous_commit = local; CREATE TABLE wake_bench (payload text)")
@@ -342,15 +392,22 @@ def main():
         # Keep WAL until the standby consumes it, including across primary
         # restarts and high-WAL message tests.  -R also records this slot in
         # the standby's primary_slot_name.
-        run([base / "pg_basebackup", "-D", standby, "-X", "stream", "-R",
-             "-C", "-S", "bench_standby", "--checkpoint=fast"], root / "basebackup.log")
-        with (standby / "postgresql.auto.conf").open("a") as conf:
-            conf.write(f"\nprimary_conninfo = 'host=127.0.0.1 port={args.port} "
-                       f"application_name=bench_standby sslmode={env['PGSSLMODE']}'\n")
-        with (standby / "postgresql.conf").open("a") as conf:
-            conf.write(f"\nport = {args.port + 1}\n"
+        backup = [base / "pg_basebackup", "-D", standby, "-X", "stream", "-R",
+                  "-C", "-S", "bench_standby", "--checkpoint=fast"]
+        if remote:
+            backup += ["-d", f"host={args.primary_address} port={args.port} "
+                       f"user={getpass.getuser()} sslmode={env['PGSSLMODE']}"]
+            (root / "basebackup.log").write_text(remote_run(backup))
+        else:
+            run(backup, root / "basebackup.log")
+        append_standby(standby / "postgresql.auto.conf",
+                       f"\nprimary_conninfo = 'host={args.primary_address if remote else '127.0.0.1'} "
+                       f"port={args.port} application_name=bench_standby sslmode={env['PGSSLMODE']}'\n")
+        append_standby(standby / "postgresql.conf", f"\nport = {args.port + 1}\n"
                        "wal_receiver_status_interval = '1s'\n"
-                       "wal_retrieve_retry_interval = '10ms'\n")
+                       "wal_retrieve_retry_interval = '10ms'\n" +
+                       (f"listen_addresses = '127.0.0.1'\nunix_socket_directories = '{root / 'data'}'\n"
+                        "ssl = off\n" if remote else ""))
         ctl(standby, base, "start")
         wait_catchup()
         metadata = {"arguments": {k: str(v) if isinstance(v, Path) else v
@@ -362,6 +419,16 @@ def main():
                                         for label, binary in (("base", base), ("feature", feature))},
                     "harness_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
                     "primary_config": (primary / "postgresql.conf").read_text()}
+        metadata["primary_host"] = {"cpu_count": os.cpu_count(),
+                                    "cpuinfo": Path("/proc/cpuinfo").read_text(),
+                                    "meminfo": Path("/proc/meminfo").read_text()}
+        if remote:
+            metadata["standby_host"] = remote.call("metadata")
+            metadata["standby_postgres_sha256"] = remote_run(["sha256sum", base / "postgres"]).split()[0]
+            if metadata["standby_postgres_sha256"] != metadata["postgres_sha256"]["base"]:
+                raise RuntimeError("remote standby baseline binary differs from local baseline")
+            metadata["remote_helper_sha256"] = hashlib.sha256(
+                Path(__file__).with_name("remote_host.py").read_bytes()).hexdigest()
         if reference is not None:
             metadata["postgres_sha256"]["reference"] = hashlib.sha256((reference / "postgres").read_bytes()).hexdigest()
             metadata["reference_configure"] = run([reference / "pg_config", "--configure"])
@@ -371,7 +438,11 @@ def main():
             ctl(primary, base, "stop")
             snapshot.mkdir()
             clone_cluster(primary, snapshot / "primary")
-            clone_cluster(standby, snapshot / "standby")
+            if remote:
+                remote.call("mkdir", path=str(snapshot))
+                remote.call("clone", source=str(standby), target=str(snapshot / "standby"))
+            else:
+                clone_cluster(standby, snapshot / "standby")
 
         for case in cases:
             if not case["name"].replace("-", "").replace("_", "").isalnum():
@@ -386,11 +457,15 @@ def main():
                     binary = {"base": base, "feature": feature, "reference": reference}[binary_role]
                     if args.restore_between_runs:
                         for data in (standby, primary):
-                            if (data / "postmaster.pid").exists():
+                            if exists(data / "postmaster.pid", data == standby):
                                 ctl(data, base, "stop")
                         for data in (primary, standby):
-                            shutil.rmtree(data)
-                            clone_cluster(snapshot / data.name, data)
+                            if remote and data == standby:
+                                remote.call("remove", path=str(data))
+                                remote.call("clone", source=str(snapshot / data.name), target=str(data))
+                            else:
+                                shutil.rmtree(data)
+                                clone_cluster(snapshot / data.name, data)
                     else:
                         ctl(primary, base, "stop")
                     ctl(primary, binary, "start", variant.removeprefix("reference-"))
@@ -400,6 +475,12 @@ def main():
                     server_parameters = json.loads(sql(
                         "SELECT json_build_object('sync_rep_waker', current_setting('sync_rep_waker', true), "
                         "'sync_rep_waker_direct_limit', current_setting('sync_rep_waker_direct_limit', true))"))
+                    replication = json.loads(sql("SELECT row_to_json(r) FROM ("
+                        "SELECT a.application_name, a.client_addr, a.sync_state, a.state, "
+                        "s.ssl, s.version, s.cipher FROM pg_stat_replication a "
+                        "JOIN pg_stat_ssl s USING (pid) WHERE a.application_name='bench_standby') r"))
+                    if replication["sync_state"] != "sync" or replication["ssl"] != args.tls:
+                        raise RuntimeError(f"unexpected replication connection: {replication}")
                     sql("TRUNCATE wake_bench")
                     initial_history = None
                     if args.restore_between_runs and args.pgbench_scale:
@@ -427,20 +508,29 @@ def main():
                             if client.poll() is not None:
                                 raise RuntimeError(f"pgbench exited during warmup: {label}")
                             lsn_start = sql("SELECT pg_current_wal_insert_lsn()")
-                            labels = server_labels()
+                            labels = server_labels((False,) if remote else (False, True))
+                            standby_labels = server_labels((True,)) if remote else {}
                             primary_pid = int((primary / "postmaster.pid").read_text().splitlines()[0])
-                            standby_pid = int((standby / "postmaster.pid").read_text().splitlines()[0])
-                            labels.update({primary_pid: "primary:postmaster", standby_pid: "standby:postmaster",
-                                           client.pid: "client:pgbench"})
+                            standby_pid = int(read(standby / "postmaster.pid", True).splitlines()[0])
+                            labels.update({primary_pid: "primary:postmaster", client.pid: "client:pgbench"})
+                            (standby_labels if remote else labels)[standby_pid] = "standby:postmaster"
+                            if remote:
+                                standby_before = remote.call("sample", pid=standby_pid)
                             system_before = system_cpu()
-                            before = process_tree(primary_pid) | process_tree(standby_pid) | process_tree(client.pid)
+                            before = process_tree(primary_pid) | process_tree(client.pid)
+                            if not remote:
+                                before |= process_tree(standby_pid)
                             start = time.time()
                             start_mono = time.monotonic()
                             time.sleep(args.seconds)
                             end = time.time()
                             elapsed = time.monotonic() - start_mono
-                            after = process_tree(primary_pid) | process_tree(standby_pid) | process_tree(client.pid)
+                            after = process_tree(primary_pid) | process_tree(client.pid)
+                            if not remote:
+                                after |= process_tree(standby_pid)
                             system_after = system_cpu()
+                            if remote:
+                                standby_after = remote.call("sample", pid=standby_pid)
                             lsn_end = sql("SELECT pg_current_wal_insert_lsn()")
                             if args.profile_role:
                                 with (root / (label + ".profile.log")).open("w") as profile_log:
@@ -462,6 +552,7 @@ def main():
                                initial_history_rows=initial_history)
                     row["binary_role"] = binary_role
                     row["server_parameters"] = server_parameters
+                    row["replication"] = replication
                     row["diagnostic"] = args.profile_role is not None
                     row.update(transaction_stats(log_prefix, start, end, case.get("rate")))
                     row["script_labels"] = script_labels
@@ -483,8 +574,25 @@ def main():
                     tracked_busy = (100 * sum(c["cpu_seconds"] for c in row["cpu"].values()) /
                                     (elapsed * os.cpu_count()))
                     row["unattributed_host_busy_pct"] = max(0, row["system_cpu"]["busy_pct"] - tracked_busy)
+                    if remote:
+                        remote_cpu, missing = cpu_delta(
+                            {int(k): v for k, v in standby_before["processes"].items()},
+                            {int(k): v for k, v in standby_after["processes"].items()}, standby_labels)
+                        row["cpu"].update(remote_cpu)
+                        row["missing_standby_cpu_pids"] = missing
+                        row["standby_pids"] = standby_labels
+                        remote_elapsed = standby_after["monotonic"] - standby_before["monotonic"]
+                        remote_delta = [b - a for a, b in zip(standby_before["system"], standby_after["system"])]
+                        total = sum(remote_delta)
+                        busy = 100 * sum(remote_delta[i] for i in (0, 1, 2, 5, 6)) / total
+                        tracked = 100 * sum(c["cpu_seconds"] for c in remote_cpu.values()) / (remote_elapsed * standby_before["cpus"])
+                        row["standby_system_cpu"] = {"busy_pct": busy, "iowait_pct": 100 * remote_delta[4] / total,
+                                                     "steal_pct": 100 * remote_delta[7] / total,
+                                                     "elapsed_seconds": remote_elapsed}
+                        row["standby_unattributed_host_busy_pct"] = max(0, busy - tracked)
                     interference = (args.max_unattributed_busy_pct is not None and
-                                    row["unattributed_host_busy_pct"] > args.max_unattributed_busy_pct)
+                                    max(row["unattributed_host_busy_pct"], row.get("standby_unattributed_host_busy_pct", 0))
+                                    > args.max_unattributed_busy_pct)
                     if interference:
                         row["interference"] = "host busy CPU substantially exceeds tracked benchmark CPU"
                     row["wal_bytes"] = lsn_integer(lsn_end) - lsn_integer(lsn_start)
@@ -495,18 +603,30 @@ def main():
                                       ["case", "variant", "repeat", "tps", "latency", "schedule_lag", "missing_cpu_pids"]}),
                           flush=True)
                     if interference:
-                        raise RuntimeError(f"unattributed host CPU {row['unattributed_host_busy_pct']:.1f}% "
+                        write_json(root / "interference.json", {"label": label, "reason": row["interference"]})
+                        raise RuntimeError(f"unattributed host CPU {row['unattributed_host_busy_pct']:.1f}% primary, "
+                                           f"{row.get('standby_unattributed_host_busy_pct', 0):.1f}% standby "
                                            f"exceeded guard {args.max_unattributed_busy_pct:.1f}%; "
                                            "saved the run and stopped; exclude this attempt from scores")
         completed = True
     finally:
         for data in (standby, primary):
-            if (data / "postmaster.pid").exists():
+            if exists(data / "postmaster.pid", data == standby):
                 ctl(data, base, "stop")
+        if remote:
+            for name in ("standby.log",):
+                if remote.call("exists", path=str(root / name)):
+                    (root / name).write_text(remote.call("read", path=str(root / name)))
         if completed and args.discard_data:
             shutil.rmtree(data_root)
             if snapshot.exists():
                 shutil.rmtree(snapshot)
+            if remote:
+                remote.call("remove", path=str(root / "data"))
+                if args.restore_between_runs:
+                    remote.call("remove", path=str(snapshot))
+        if remote:
+            remote.close()
 
 
 if __name__ == "__main__":
