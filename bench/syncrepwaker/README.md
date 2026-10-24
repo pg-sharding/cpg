@@ -289,13 +289,18 @@ to a production deployment. No original application workload was available.
 
 ## Hybrid wakeup experiment
 
-`sync_rep_waker_direct_limit` permits the sender to release a small confirmed
-batch directly. The limit is a total across the write, flush and apply queues;
-unconfirmed waiters do not count. If the total exceeds the limit, the entire
-batch is delegated. Counting stops at the first limit+1 confirmed entries, so
-the sender does not traverse a large ready batch. The range is 0–1024 and the
-setting can be reloaded. Its default is 0, preserving fully delegated wakeups
-until a useful threshold has been established.
+`sync_rep_waker_direct_limit` now bounds the confirmed prefix that the sender
+releases directly per reply. The budget is shared across the write, flush and
+apply queues; unconfirmed waiters do not consume it. The waker releases any
+confirmed remainder. If no waker is registered, the sender drains all confirmed
+waiters. The range is 0–1024 and the setting can be reloaded. Its default is 0,
+preserving fully delegated wakeups until a useful threshold has been established.
+
+The original hybrid implementation used an all-or-nothing batch threshold:
+an oversized batch was delegated in its entirety. Reports through 2026-10-24
+predating the bounded-prefix experiment describe that original behavior.
+`134_sync_rep_waker_handoff` pauses the sender after direct wakeups and checks
+the exact shared budget and completion of the delegated remainder.
 
 The harness accepts `hybrid4`, `hybrid8`, `hybrid16`, `hybrid32` and
 `hybrid64` variants. They enable

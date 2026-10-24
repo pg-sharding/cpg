@@ -3170,8 +3170,8 @@ struct config_int ConfigureNamesInt[] =
 
 	{
 		{"sync_rep_waker_direct_limit", PGC_SIGHUP, REPLICATION_PRIMARY,
-			gettext_noop("Sets the largest synchronous replication batch to wake directly."),
-			gettext_noop("Larger confirmed batches are released by the sync rep waker; zero delegates all wakeups.")
+			gettext_noop("Sets the maximum number of synchronous replication waiters to wake directly per reply."),
+			gettext_noop("The sync rep waker releases any confirmed remainder; zero delegates all wakeups.")
 		},
 		&SyncRepWakerDirectLimit,
 		0, 0, 1024,

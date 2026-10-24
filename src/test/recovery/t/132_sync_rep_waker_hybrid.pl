@@ -1,7 +1,7 @@
 # Copyright (c) 2026, PostgreSQL Global Development Group
 
-# Small confirmed batches bypass a stopped waker, while larger batches must
-# wait for it.  Hold the sender while assembling a batch so that its WAL fits
+# Small confirmed batches bypass a stopped waker. Hold the sender while
+# assembling a batch so that its WAL fits
 # in one replication message, rather than testing timing between commits.
 use strict;
 use warnings FATAL => 'all';
@@ -94,9 +94,9 @@ for my $mode ('remote_write', 'on', 'remote_apply')
 	resume_process($waker);
 }
 
-# The exact boundary takes the direct path; one more ready waiter delegates
-# the whole batch.  Stop the sender before queueing so one reply confirms it.
-for my $size (4, 5)
+# The exact boundary takes the direct path. Oversized prefixes are tested
+# with a deterministic sender pause in 134_sync_rep_waker_handoff.
+for my $size (4)
 {
 	my $waker = suspend_process('sync rep waker');
 	my $sender = suspend_process('walsender');
@@ -109,16 +109,8 @@ for my $size (4, 5)
 	}
 	resume_process($sender);
 	wait_for_ack('flush_lsn');
-	if ($size > 4)
-	{
-		is($primary->safe_psql('postgres',
-			"SELECT count(*) FROM pg_stat_activity WHERE wait_event = 'SyncRep' AND pid IN ("
-			  . join(',', @pids) . ')'),
-			'5', 'oversized confirmed batch waits for the waker');
-		resume_process($waker);
-	}
 	finish_waiter($_) for @sessions;
-	resume_process($waker) if $size <= 4;
+	resume_process($waker);
 }
 
 # A long unconfirmed apply queue must not prevent one ready flush waiter
@@ -149,7 +141,7 @@ finish_waiter($_) for @apply_sessions;
 
 $primary->wait_for_replay_catchup($standby);
 is($standby->safe_psql('postgres', 'SELECT count(*) FROM hybrid_test'),
-	'18', 'all hybrid-path transactions reached the standby');
+	'13', 'all hybrid-path transactions reached the standby');
 $standby->stop;
 $primary->stop;
 done_testing();

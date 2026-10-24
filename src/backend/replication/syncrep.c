@@ -107,8 +107,7 @@ static void SyncRepQueueInsert(int mode);
 static void SyncRepCancelWait(void);
 static void SyncRepInitWakeList(void);
 static void SyncRepWakeFromList(void);
-static int	SyncRepWakeQueue(bool all, int mode);
-static bool SyncRepWakeBatchIsSmall(int limit);
+static int	SyncRepWakeQueue(bool all, int mode, int limit);
 
 static bool SyncRepGetSyncRecPtr(XLogRecPtr *writePtr,
 								 XLogRecPtr *flushPtr,
@@ -572,19 +571,21 @@ SyncRepReleaseWaiters(void)
 		walsndctl->lsn[SYNC_REP_WAIT_APPLY] = applyPtr;
 
 	/*
-	 * Avoid a process handoff when the entire confirmed batch fits within the
-	 * direct wakeup limit.  Count across all three queues, and stop as soon as
-	 * the limit is exceeded, so large batches still leave bounded work here.
-	 * If the waker is unavailable, always release waiters ourselves.
+	 * Release a bounded prefix directly, sharing the budget across all three
+	 * queues.  The waker handles any confirmed remainder.  If it is unavailable,
+	 * we must drain all confirmed waiters ourselves.
 	 */
-	if (WalSndCtl->syncRepWakerProcno == INVALID_PROC_NUMBER ||
-		SyncRepWakeBatchIsSmall(SyncRepWakerDirectLimit))
 	{
+		int			remaining = WalSndCtl->syncRepWakerProcno == INVALID_PROC_NUMBER ?
+			-1 : SyncRepWakerDirectLimit;
+
 		for (int mode = 0; mode < NUM_SYNC_REP_WAIT_MODE; mode++)
-			SyncRepWakeQueue(false, mode);
-		LWLockRelease(SyncRepLock);
-		SyncRepWakeFromList();
-		return;
+		{
+			int			nwoken = SyncRepWakeQueue(false, mode, remaining);
+
+			if (remaining >= 0)
+				remaining -= nwoken;
+		}
 	}
 
 	/* Only signal the waker when at least one waiter is confirmed. */
@@ -604,9 +605,13 @@ SyncRepReleaseWaiters(void)
 	}
 
 	LWLockRelease(SyncRepLock);
+	SyncRepWakeFromList();
 
 	if (waker != INVALID_PROC_NUMBER)
+	{
+		INJECTION_POINT("sync-rep-after-direct-wake", NULL);
 		SetLatch(&GetPGProcByNumber(waker)->procLatch);
+	}
 }
 
 /*
@@ -972,43 +977,6 @@ SyncRepGetStandbyPriority(void)
 	return (SyncRepConfig->syncrep_method == SYNC_REP_PRIORITY) ? priority : 1;
 }
 
-/*
- * Is the total confirmed batch small enough to release directly?
- *
- * Only confirmed waiters count: a long queue waiting for a later LSN must not
- * prevent a small ready batch from taking the direct path.  We inspect at most
- * limit + 1 confirmed entries, plus the first unconfirmed entry in each queue.
- * The caller holds SyncRepLock throughout the check and subsequent wakeups.
- */
-static bool
-SyncRepWakeBatchIsSmall(int limit)
-{
-	int			numprocs = 0;
-
-	Assert(LWLockHeldByMeInMode(SyncRepLock, LW_EXCLUSIVE));
-
-	/* Zero preserves fully delegated wakeups. */
-	if (limit == 0)
-		return false;
-
-	for (int mode = 0; mode < NUM_SYNC_REP_WAIT_MODE; mode++)
-	{
-		dlist_iter	iter;
-
-		dlist_foreach(iter, &WalSndCtl->SyncRepQueue[mode])
-		{
-			PGPROC	   *proc = dlist_container(PGPROC, syncRepLinks, iter.cur);
-
-			if (proc->waitLSN > WalSndCtl->lsn[mode])
-				break;
-			if (++numprocs > limit)
-				return false;
-		}
-	}
-
-	return true;
-}
-
 /* Allocate once, before taking the queue lock. */
 static void
 SyncRepInitWakeList(void)
@@ -1042,14 +1010,15 @@ SyncRepWakeFromList(void)
  * Walk the specified queue from head.  Set the state of any backends that
  * need to be woken, remove them, and collect their latches for the caller.
  * Pass all = true to wake whole queue; otherwise, just wake up to
- * the walsender's LSN.
+ * the walsender's LSN.  A nonnegative limit bounds the number released;
+ * pass -1 for an unlimited drain.
  *
  * The caller must initialize the wake list before taking SyncRepLock in
  * exclusive mode, then drain it after releasing the lock.  Nothing between
  * collecting a latch and setting it may throw an error.
  */
 static int
-SyncRepWakeQueue(bool all, int mode)
+SyncRepWakeQueue(bool all, int mode, int limit)
 {
 	volatile WalSndCtlData *walsndctl = WalSndCtl;
 	int			numprocs = 0;
@@ -1058,6 +1027,10 @@ SyncRepWakeQueue(bool all, int mode)
 	Assert(mode >= 0 && mode < NUM_SYNC_REP_WAIT_MODE);
 	Assert(LWLockHeldByMeInMode(SyncRepLock, LW_EXCLUSIVE));
 	Assert(SyncRepQueueIsOrderedByLSN(mode));
+	Assert(limit >= -1);
+
+	if (limit == 0)
+		return 0;
 
 	dlist_foreach_modify(iter, &WalSndCtl->SyncRepQueue[mode])
 	{
@@ -1092,6 +1065,8 @@ SyncRepWakeQueue(bool all, int mode)
 		SyncRepWakeList[SyncRepWakeListCount++] = &proc->procLatch;
 
 		numprocs++;
+		if (limit >= 0 && numprocs >= limit)
+			break;
 	}
 
 	return numprocs;
@@ -1109,7 +1084,7 @@ SyncRepWakePendingWaiters(void)
 	for (int mode = 0; mode < NUM_SYNC_REP_WAIT_MODE; mode++)
 	{
 		lsn[mode] = WalSndCtl->lsn[mode];
-		numprocs[mode] = SyncRepWakeQueue(false, mode);
+		numprocs[mode] = SyncRepWakeQueue(false, mode, -1);
 	}
 	LWLockRelease(SyncRepLock);
 	SyncRepWakeFromList();
@@ -1148,7 +1123,7 @@ SyncRepUpdateSyncStandbysDefined(void)
 			int			i;
 
 			for (i = 0; i < NUM_SYNC_REP_WAIT_MODE; i++)
-				SyncRepWakeQueue(true, i);
+				SyncRepWakeQueue(true, i, -1);
 		}
 
 		/*
