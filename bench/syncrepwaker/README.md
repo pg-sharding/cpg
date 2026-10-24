@@ -524,6 +524,45 @@ nine workloads at unlimited and fixed offered load.
 
 ## Wakeups after releasing SyncRepLock
 
+### Full repeat and separate-process controls
+
+`run_full_suite.py` remeasures the complete patch with five controls: pristine
+`base`, P1-only with the waker disabled (`current-off`), the combined binary
+with the waker disabled (`off`), full delegation (`on`, direct limit 0), and
+the combined hybrid (`hybrid8`, direct limit 8). The last three use exactly
+the same postgres binary. P2's direct budget and P3's notification protocol
+are inactive when the waker is disabled; that path drains directly.
+
+Five rotating rounds put each variant in every order position once. The
+full catalog includes pgbench simple-update and TPC-B, mixed 90/10 and 50/50
+read/write workloads, batches of 10/100/1000, small and 1/8/32-KiB INSERTs,
+8/32-KiB transactional WAL messages, and a single-client INSERT. All 14
+families run on persistent disk both locally and across AZs, under saturation
+and a shared offered rate calibrated at 60% of the pristine baseline before
+the candidate runs. RAM additionally covers 32/128/256 clients, saturation,
+and common offered rates (including the previous 50k/s control at 128 clients).
+There are 62 case/topology/load combinations and 1550 measured runs, plus
+30 baseline calibrations. Mixed workloads retain separate reader/writer
+quantiles. Completed rounds survive retries; raw logs are audited after all
+measurements. CPU guards, snapshots, TLS, fsync and other settings follow
+the previous experiments.
+
+Run it from a durable VM session with a persistent VM-to-VM SSH master;
+long agent-forwarded laptop connections can expire. `--close-ssh-master`
+closes a benchmark-specific master after successful collection and audit.
+
+```sh
+python3 bench/syncrepwaker/run_full_suite.py \
+  --pg-root /home/reshke/pgpg2 \
+  --output /home/reshke/pgpg2/compare-waker-full-rerun-2026-10-24 \
+  --log-root /dev/shm/pgpg2-waker-rerun-logs \
+  --ram-root /dev/shm/pgpg2-waker-rerun-data \
+  --standby-ssh reshke@10.0.0.8 \
+  --primary-address 10.128.0.41 --standby-address 10.0.0.8 \
+  --ssh-known-hosts /home/reshke/pgpg2/bench-known-hosts \
+  --close-ssh-master
+```
+
 The experiment at `2e1e7821b1c` collects latch pointers in a private array,
 publishing completion and unlinking waiters under SyncRepLock, then setting
 their latches after releasing it. The array is allocated once before taking
