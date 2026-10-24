@@ -8,7 +8,7 @@ import subprocess
 import sys
 import time
 
-from compare_bench import write_json
+from compare_bench import extra_binaries, write_json
 
 
 def main():
@@ -16,6 +16,7 @@ def main():
     parser.add_argument("--baseline-bindir", type=Path, required=True)
     parser.add_argument("--feature-bindir", type=Path, required=True)
     parser.add_argument("--reference-feature-bindir", type=Path)
+    parser.add_argument("--variant-bindir", action="append", default=[])
     parser.add_argument("--variants", nargs="+", default=["base", "on", "hybrid8"])
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--log-root", type=Path, required=True)
@@ -44,6 +45,7 @@ def main():
     parser.add_argument("--ssh-known-hosts", type=Path)
     parser.add_argument("--resume", action="store_true")
     args = parser.parse_args()
+    extras = extra_binaries(args.variant_bindir)
     if args.fixed_rate is not None and (args.fixed_rate <= 0 or args.saturation_only):
         parser.error("--fixed-rate must be positive and cannot be combined with --saturation-only")
     single_mode = args.saturation_only or args.fixed_rate is not None
@@ -54,6 +56,7 @@ def main():
                  for k, v in vars(args).items() if k != "resume" and
                  (k != "block_repeats" or v) and
                  (k != "data_root" or v is not None) and
+                 (k != "variant_bindir" or v) and
                  (k != "fixed_rate" or v is not None) and
                  (k != "max_standby_unattributed_busy_pct" or v is not None)}
     catalog = json.loads(args.catalog.read_text())
@@ -67,6 +70,8 @@ def main():
     if args.reference_feature_bindir:
         fingerprint["binary_sha256"]["reference"] = hashlib.sha256(
             (args.reference_feature_bindir / "postgres").read_bytes()).hexdigest()
+    for label, binary in extras.items():
+        fingerprint["binary_sha256"][label] = hashlib.sha256((binary / "postgres").read_bytes()).hexdigest()
     state_path = root / "state.json"
     if args.resume:
         state = json.loads(state_path.read_text())
@@ -111,6 +116,8 @@ def main():
                 command += ["--" + option.replace("_", "-"), str(value.resolve() if isinstance(value, Path) else value)]
         if args.data_root:
             command += ["--data-root", str(args.data_root.resolve() / label)]
+        for specification in args.variant_bindir:
+            command += ["--variant-bindir", specification]
         if tls:
             command.append("--tls")
         phase = {"status": "running", "attempt": attempt, "output": str(output),

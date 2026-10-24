@@ -21,6 +21,23 @@ import time
 
 from remote_host import RemoteHost
 
+STANDARD_VARIANTS = {"base", "off", "on", "reference-hybrid8", "hybrid4", "hybrid8",
+                     "hybrid16", "hybrid32", "hybrid64"}
+
+
+def extra_binaries(specifications):
+    """Labels retain a known mode suffix so settings and attribution are explicit."""
+    result = {}
+    for specification in specifications:
+        label, separator, directory = specification.partition("=")
+        mode = label.rsplit("-", 1)[-1]
+        if (not separator or not directory or not label.replace("-", "").isalnum() or
+                label in STANDARD_VARIANTS or label in result or
+                mode not in STANDARD_VARIANTS - {"base", "reference-hybrid8"}):
+            raise ValueError(f"invalid or duplicate variant binary: {specification}")
+        result[label] = Path(directory).resolve()
+    return result
+
 
 def write_json(path, value):
     temporary = path.with_name(path.name + ".tmp")
@@ -195,16 +212,15 @@ def main():
     parser.add_argument("--feature-bindir", type=Path, required=True)
     parser.add_argument("--reference-feature-bindir", type=Path,
                         help="unchanged previous feature binary for reference-hybrid8")
+    parser.add_argument("--variant-bindir", action="append", default=[],
+                        help="additional LABEL=BIN_DIRECTORY; label ends in -hybrid8, -on, -off, etc.")
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--data-root", type=Path)
     parser.add_argument("--log-root", type=Path, required=True,
                         help="new directory for raw logs; prefer tmpfs to avoid logging I/O")
     parser.add_argument("--cases", type=Path, required=True,
                         help="JSON array: name, clients, payload_bytes, rate, commit")
-    parser.add_argument("--variants", nargs="+",
-                        choices=["base", "off", "on", "reference-hybrid8", "hybrid4", "hybrid8",
-                                 "hybrid16", "hybrid32", "hybrid64"],
-                        default=["base", "off", "on"])
+    parser.add_argument("--variants", nargs="+", default=["base", "off", "on"])
     parser.add_argument("--seconds", type=int, default=60)
     parser.add_argument("--warmup", type=int, default=10)
     parser.add_argument("--repeats", type=int, default=3)
@@ -229,6 +245,12 @@ def main():
     parser.add_argument("--discard-data", action="store_true",
                         help="remove this run's disposable clusters after successful completion")
     args = parser.parse_args()
+    try:
+        extras = extra_binaries(args.variant_bindir)
+    except ValueError as error:
+        parser.error(str(error))
+    if len(set(args.variants)) != len(args.variants) or set(args.variants) - STANDARD_VARIANTS - extras.keys():
+        parser.error("variants must be unique standard labels or labels registered by --variant-bindir")
     if args.standby_ssh and not (args.primary_address and args.standby_address):
         parser.error("--standby-ssh requires --primary-address and --standby-address")
     if args.standby_ssh:
@@ -241,7 +263,7 @@ def main():
         parser.error("remote standby profiling is not supported")
     if "reference-hybrid8" in args.variants and args.reference_feature_bindir is None:
         parser.error("reference-hybrid8 requires --reference-feature-bindir")
-    if args.profile_role == "waker" and any(v in ("base", "off") for v in args.variants):
+    if args.profile_role == "waker" and any(v.rsplit("-", 1)[-1] in ("base", "off") for v in args.variants):
         parser.error("waker profiling requires an enabled feature waker in every variant")
     if args.max_unattributed_busy_pct is not None and not 0 <= args.max_unattributed_busy_pct <= 100:
         parser.error("--max-unattributed-busy-pct must be between zero and 100")
@@ -440,6 +462,9 @@ def main():
         if reference is not None:
             metadata["postgres_sha256"]["reference"] = hashlib.sha256((reference / "postgres").read_bytes()).hexdigest()
             metadata["reference_configure"] = run([reference / "pg_config", "--configure"])
+        metadata["extra_variant_binaries"] = {label: str(path) for label, path in extras.items()}
+        for label, binary in extras.items():
+            metadata["postgres_sha256"][label] = hashlib.sha256((binary / "postgres").read_bytes()).hexdigest()
         write_json(root / "metadata.json", metadata)
         if args.restore_between_runs:
             ctl(standby, base, "stop")
@@ -460,9 +485,9 @@ def main():
                 offset = repeat % len(args.variants)
                 order = args.variants[offset:] + args.variants[:offset]
                 for variant in order:
-                    binary_role = ("base" if variant == "base" else
+                    binary_role = (variant if variant in extras else "base" if variant == "base" else
                                    "reference" if variant.startswith("reference-") else "feature")
-                    binary = {"base": base, "feature": feature, "reference": reference}[binary_role]
+                    binary = {"base": base, "feature": feature, "reference": reference, **extras}[binary_role]
                     if args.restore_between_runs:
                         for data in (standby, primary):
                             if exists(data / "postmaster.pid", data == standby):
@@ -476,7 +501,7 @@ def main():
                                 clone_cluster(snapshot / data.name, data)
                     else:
                         ctl(primary, base, "stop")
-                    ctl(primary, binary, "start", variant.removeprefix("reference-"))
+                    ctl(primary, binary, "start", variant.rsplit("-", 1)[-1])
                     if args.restore_between_runs:
                         ctl(standby, base, "start")
                     wait_catchup()

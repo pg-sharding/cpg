@@ -4,10 +4,19 @@ import tempfile
 from pathlib import Path
 import unittest
 
-from compare_bench import percentiles, transaction_stats
+from compare_bench import extra_binaries, percentiles, transaction_stats
 
 
 class LatencyAccounting(unittest.TestCase):
+    def test_extra_binary_attribution(self):
+        self.assertEqual(extra_binaries(["prefix-hybrid8=/tmp/prefix/bin"]),
+                         {"prefix-hybrid8": Path("/tmp/prefix/bin").resolve()})
+        for specifications in (["base=/tmp/other"], ["prefix-base=/tmp/other"],
+                               ["../escape-hybrid8=/tmp/other"], ["prefix-bad=/tmp/other"],
+                               ["prefix-hybrid8=/a", "prefix-hybrid8=/b"]):
+            with self.assertRaises(ValueError):
+                extra_binaries(specifications)
+
     def test_nearest_rank_and_units(self):
         stats = percentiles({1000: 95, 10000: 4, 100000: 1})
         self.assertEqual(stats["count"], 100)

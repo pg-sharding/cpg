@@ -538,6 +538,28 @@ when no work is pending. Clean shutdown still forces a drain. The recovery
 test `135_sync_rep_waker_notifications` covers ACKs arriving on either side
 of the pending-bit reset in all three wait modes, with further ACKs stopped.
 
+`run_factorial.py` measures the two later changes independently: current
+(`2e1e7821b1c` behavior), bounded prefix only, coalescing only, and both. All
+four use direct limit 8. It runs RAM saturation and a common offered 50k/s,
+then the five disk workloads locally and across hosts, with three rotating
+rounds per case. This is 144 measured runs. The control is the current
+implementation, rather than the pristine MDB branch. Extra installations are
+registered with `--variant-bindir LABEL=BIN_DIRECTORY`; each label ends in a
+known setting such as `-hybrid8`. Their postgres hashes are recorded in matrix
+fingerprints and phase metadata. `report_compare.py --reference current-hybrid8`
+shows incremental percentages relative to the control.
+
+```sh
+python3 bench/syncrepwaker/run_factorial.py \
+  --pg-root /home/reshke/pgpg2 \
+  --output /home/reshke/pgpg2/compare-factorial-2026-10-24 \
+  --log-root /dev/shm/pgpg2-factorial-logs \
+  --ram-root /dev/shm/pgpg2-factorial-data \
+  --standby-ssh reshke@10.0.0.8 \
+  --primary-address 10.128.0.41 --standby-address 10.0.0.8 \
+  --ssh-known-hosts /home/reshke/pgpg2/bench-known-hosts
+```
+
 All 112 assertions in five recovery tests pass with assertions and injection
 points enabled. `133_sync_rep_wake_after_unlock` pauses the releaser before
 setting latches, lets the completed backend exit through an unrelated wake,

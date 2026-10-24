@@ -38,7 +38,7 @@ def collect(datasets):
             if (connection["sync_state"] != "sync" or connection["state"] != "streaming" or
                     connection["ssl"] != arguments["tls"]):
                 raise ValueError(f"{name}: unexpected replication mode")
-            variant = row["variant"].removeprefix("reference-")
+            variant = row["variant"].rsplit("-", 1)[-1]
             expected_settings = {
                 "sync_rep_waker": None if variant == "base" else "off" if variant == "off" else "on",
                 "sync_rep_waker_direct_limit": None if variant == "base" else
