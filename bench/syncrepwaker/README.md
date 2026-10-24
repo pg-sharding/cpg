@@ -563,6 +563,12 @@ python3 bench/syncrepwaker/run_full_suite.py \
   --close-ssh-master
 ```
 
+`full_suite_status.py OUTPUT` reads the saved checkpoints without touching
+the active servers. It reports complete rounds, saved partial-round rows,
+calibrations, failed attempts and the current phase. Generate the final
+same-binary comparisons, reader/writer tails and CPU tables with
+`report_waker_necessity.py OUTPUT/collected/results.json`.
+
 The experiment at `2e1e7821b1c` collects latch pointers in a private array,
 publishing completion and unlinking waiters under SyncRepLock, then setting
 their latches after releasing it. The array is allocated once before taking
