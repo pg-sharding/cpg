@@ -772,6 +772,9 @@ full. Resume reruns that round with its original seed and order.
 with local host busy CPU at most 3%, then runs the matrix command. It retries
 only attempts with an interference marker, at most five attempts per phase;
 other failures stop for inspection. It never stops unrelated workloads.
+For a remote replica, pass the wrapper `--standby-ssh`, `--ssh-known-hosts`
+and `--standby-idle-busy-pct` to require a quiet interval on both hosts before
+each retry. This startup check supplements the per-window CPU guards.
 
 `collect_compare.py --matrix LABEL=ROOT` combines a complete matrix's phases
 under one dataset label. `--completed-matrix LABEL=ROOT` explicitly selects

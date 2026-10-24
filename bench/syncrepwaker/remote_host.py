@@ -61,6 +61,9 @@ def dispatch(request):
         from compare_bench import process_tree, system_cpu
         return {"processes": process_tree(request["pid"]), "system": system_cpu(),
                 "monotonic": time.monotonic(), "cpus": os.cpu_count()}
+    if action == "system_cpu":
+        from compare_bench import system_cpu
+        return system_cpu()
     if action == "metadata":
         return {"uname": list(os.uname()), "cpu_count": os.cpu_count(),
                 "cpu_affinity": sorted(os.sched_getaffinity(0)),

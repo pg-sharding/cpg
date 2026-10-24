@@ -34,7 +34,7 @@ def main():
             if phase:
                 active['attempt'] = phase['attempt']
                 active['elapsed_seconds'] = round(time.time() - phase['started_epoch'])
-            if current and phase.get('status') != 'complete' and results.exists():
+            if current and phase.get('status') == 'running' and results.exists():
                 count = len(json.loads(results.read_text()))
                 if current.startswith('main-'):
                     partial += count

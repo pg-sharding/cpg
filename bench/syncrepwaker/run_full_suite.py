@@ -30,18 +30,18 @@ def plans(args, scripts):
     disk = ["--catalog", str(scripts / "full-cases.json"), "--pgbench-scale", "10",
             "--calibration-seconds", "15", "--rate-fraction", "0.6", "--tls-all"]
     return [
-        ("ram-sat", ["--catalog", str(micro), "--pgbench-scale", "0", "--saturation-only",
-                     "--data-root", str(args.ram_root.resolve() / "sat")]),
-        ("ram-rate50k", ["--catalog", str(micro), "--pgbench-scale", "0", "--fixed-rate", "50000",
-                         "--data-root", str(args.ram_root.resolve() / "rate")]),
-        ("ram-concurrency", ["--catalog", str(concurrency), "--pgbench-scale", "0",
+        ["ram-sat", ["--catalog", str(micro), "--pgbench-scale", "0", "--saturation-only",
+                     "--data-root", str(args.ram_root.resolve() / "sat")]],
+        ["ram-rate50k", ["--catalog", str(micro), "--pgbench-scale", "0", "--fixed-rate", "50000",
+                         "--data-root", str(args.ram_root.resolve() / "rate")]],
+        ["ram-concurrency", ["--catalog", str(concurrency), "--pgbench-scale", "0",
                              "--calibration-seconds", "15", "--rate-fraction", "0.6",
-                             "--data-root", str(args.ram_root.resolve() / "concurrency")]),
-        ("crossaz-tls", [*disk, "--standby-ssh", args.standby_ssh,
+                             "--data-root", str(args.ram_root.resolve() / "concurrency")]],
+        ["crossaz-tls", [*disk, "--standby-ssh", args.standby_ssh,
                          "--primary-address", args.primary_address, "--standby-address", args.standby_address,
                          "--ssh-known-hosts", str(args.ssh_known_hosts.resolve()),
-                         "--max-standby-unattributed-busy-pct", "60"]),
-        ("local-tls", disk)]
+                         "--max-standby-unattributed-busy-pct", "60"]],
+        ["local-tls", disk]]
 
 
 def main():
@@ -95,8 +95,12 @@ def main():
         write_json(old_plan, plan)
     for name, options in phases:
         command = [sys.executable, str(scripts / "run_quiet_matrix.py"),
-                   "--matrix-output", str(output / name), "--idle-timeout", "1800", "--",
-                   sys.executable, str(scripts / "run_matrix.py"), *common,
+                   "--matrix-output", str(output / name), "--idle-timeout", "1800"]
+        if name == 'crossaz-tls':
+            command += ["--standby-ssh", args.standby_ssh,
+                        "--ssh-known-hosts", str(args.ssh_known_hosts.resolve()),
+                        "--standby-idle-busy-pct", "60"]
+        command += ["--", sys.executable, str(scripts / "run_matrix.py"), *common,
                    "--output", str(output / name), "--log-root", str(args.log_root.resolve() / name), *options]
         print(json.dumps({"phase": name, "command": command}), flush=True)
         subprocess.run(command, check=True)
