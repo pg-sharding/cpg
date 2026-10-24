@@ -38,7 +38,7 @@ def dispatch(request):
                                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                                 timeout=180)
         if result.returncode:
-            raise RuntimeError(result.stdout)
+            raise RuntimeError(f"remote command exited {result.returncode}: {result.stdout}")
         return result.stdout.strip()
     if action == "read":
         return path.read_text()
