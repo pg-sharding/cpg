@@ -74,6 +74,27 @@ def main():
             values = [100 * (r['tps'] / controls[r['random_seed']]['tps'] - 1) for r in rows.get(variant, [])]
             cells.append(f'{median(values):+.1f}% [{min(values):+.1f}, {max(values):+.1f}]' if values else '—')
         lines.append(f'| {dataset} / {case} | ' + ' | '.join(cells) + ' |')
+    lines += ['', '## Paired response-time effects of the separate process', '',
+              'Median paired percentage change, followed by the observed minimum/maximum across rounds. '
+              'Negative values improve response latency.', '',
+              '| Dataset / case | Full delegation p50 | Full delegation p99 | Hybrid8 p50 | Hybrid8 p99 |',
+              '| --- | ---: | ---: | ---: | ---: |']
+    for (dataset, case), rows in sorted(groups.items()):
+        controls = {r['random_seed']: r for r in rows['off']}
+        cells = []
+        for variant in ('on', 'hybrid8'):
+            for key in ('p50_ms', 'p99_ms'):
+                values = [100 * (r['latency'][key] / controls[r['random_seed']]['latency'][key] - 1)
+                          for r in rows.get(variant, [])]
+                cells.append(f'{median(values):+.1f}% [{min(values):+.1f}, {max(values):+.1f}]' if values else '—')
+        lines.append(f'| {dataset} / {case} | ' + ' | '.join(cells) + ' |')
+    lines += ['', '## Combined direct path relative to P1 alone', '',
+              'This control checks whether the later changes improve the path without a waker. '
+              'Cells show Δ TPS / Δ p50 / Δ p99 from medians, relative to P1-only direct wakeups.', '',
+              '| Dataset / case | Combined direct versus P1 direct |',
+              '| --- | ---: |']
+    for (dataset, case), rows in sorted(groups.items()):
+        lines.append(f"| {dataset} / {case} | {changes(rows['off'], rows.get('current-off'))} |")
     lines += ['', '## Absolute results and changes relative to base', '', report(args.results), '',
               '## Mixed workloads: read and write transactions separately', '',
               'These class-specific response quantiles avoid hiding commit latency behind read-only transactions. '
