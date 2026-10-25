@@ -68,6 +68,11 @@ tests += {
       't/111_archive_shared_checkpoint.pl',
       't/112_archive_shared_hazards.pl',
       't/130_every_sync_rep.pl',
+      't/131_sync_rep_waker.pl',
+      't/132_sync_rep_waker_hybrid.pl',
+      't/133_sync_rep_wake_after_unlock.pl',
+      't/134_sync_rep_waker_handoff.pl',
+      't/135_sync_rep_waker_notifications.pl',
     ],
   },
 }

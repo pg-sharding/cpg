@@ -360,6 +360,7 @@ pgstat_tracks_io_bktype(BackendType bktype)
 		case B_DEAD_END_BACKEND:
 		case B_ARCHIVER:
 		case B_LOGGER:
+		case B_SYNC_REP_WAKER:
 			return false;
 
 		case B_AUTOVAC_LAUNCHER:

@@ -1,0 +1,2793 @@
+{
+  "date_utc": "2026-10-23",
+  "baseline_commit": "dc9f4918121638e93b8813cc411247e2dbdb3b10",
+  "feature_algorithm_commit": "73b816456c0061ed747424c6339eb52bcb164428",
+  "harness_commit": "35a02718145bad1a0c1bf7d0b70e44df9b839c77",
+  "matrix_state": {
+    "benchmark": "syncrepwaker-workload-matrix-v1",
+    "fingerprint": {
+      "arguments": {
+        "baseline_bindir": "/home/reshke/pgpg2/install-baseline/bin",
+        "feature_bindir": "/home/reshke/pgpg2/install-release/bin",
+        "output": "/home/reshke/pgpg2/compare-workloads",
+        "log_root": "/dev/shm/pgpg2-workloads-logs",
+        "catalog": "/home/reshke/pgpg2/bench/syncrepwaker/workload-cases.json",
+        "seconds": 20,
+        "warmup": 5,
+        "repeats": 3,
+        "calibration_seconds": 10,
+        "rate_fraction": 0.6,
+        "pgbench_scale": 10,
+        "port": 56532
+      },
+      "catalog_sha256": "3c905e426f9a096ee041cbfb67cb15a97d1d21cef99d9008006d2ae04214e7e4",
+      "binary_sha256": {
+        "base": "b6fdeba74333cbacbd7d8168ad93b7be5eaea4e86ecc2de78234e78661dd6c56",
+        "feature": "04bcd558c0c4a2185d7612202733972f8d7a9423206ada49ac26b1fbf10480de"
+      }
+    },
+    "started_epoch": 1792776114.1039913,
+    "status": "complete",
+    "phases": {
+      "calibrate-plain": {
+        "status": "complete",
+        "attempt": 1,
+        "output": "/home/reshke/pgpg2/compare-workloads/calibrate-plain-a1",
+        "log": "/home/reshke/pgpg2/compare-workloads/calibrate-plain-a1.log",
+        "command": [
+          "/usr/bin/python3",
+          "/home/reshke/pgpg2/bench/syncrepwaker/compare_bench.py",
+          "--baseline-bindir",
+          "/home/reshke/pgpg2/install-baseline/bin",
+          "--feature-bindir",
+          "/home/reshke/pgpg2/install-release/bin",
+          "--output",
+          "/home/reshke/pgpg2/compare-workloads/calibrate-plain-a1",
+          "--log-root",
+          "/dev/shm/pgpg2-workloads-logs/calibrate-plain-a1",
+          "--cases",
+          "/home/reshke/pgpg2/compare-workloads/calibrate-plain-a1.cases.json",
+          "--variants",
+          "base",
+          "--seconds",
+          "10",
+          "--warmup",
+          "3",
+          "--repeats",
+          "1",
+          "--port",
+          "56532",
+          "--pgbench-scale",
+          "10",
+          "--max-wal-size",
+          "4GB",
+          "--restore-between-runs",
+          "--discard-data"
+        ],
+        "started_epoch": 1792776114.1045656,
+        "expected_rows": 7,
+        "finished_epoch": 1792776347.2753744,
+        "rows": 7
+      },
+      "calibrate-tls": {
+        "status": "complete",
+        "attempt": 1,
+        "output": "/home/reshke/pgpg2/compare-workloads/calibrate-tls-a1",
+        "log": "/home/reshke/pgpg2/compare-workloads/calibrate-tls-a1.log",
+        "command": [
+          "/usr/bin/python3",
+          "/home/reshke/pgpg2/bench/syncrepwaker/compare_bench.py",
+          "--baseline-bindir",
+          "/home/reshke/pgpg2/install-baseline/bin",
+          "--feature-bindir",
+          "/home/reshke/pgpg2/install-release/bin",
+          "--output",
+          "/home/reshke/pgpg2/compare-workloads/calibrate-tls-a1",
+          "--log-root",
+          "/dev/shm/pgpg2-workloads-logs/calibrate-tls-a1",
+          "--cases",
+          "/home/reshke/pgpg2/compare-workloads/calibrate-tls-a1.cases.json",
+          "--variants",
+          "base",
+          "--seconds",
+          "10",
+          "--warmup",
+          "3",
+          "--repeats",
+          "1",
+          "--port",
+          "56532",
+          "--pgbench-scale",
+          "0",
+          "--max-wal-size",
+          "4GB",
+          "--restore-between-runs",
+          "--discard-data",
+          "--tls"
+        ],
+        "started_epoch": 1792776347.2809324,
+        "expected_rows": 2,
+        "finished_epoch": 1792776426.971797,
+        "rows": 2
+      },
+      "main-simple-update": {
+        "status": "complete",
+        "attempt": 1,
+        "output": "/home/reshke/pgpg2/compare-workloads/main-simple-update-a1",
+        "log": "/home/reshke/pgpg2/compare-workloads/main-simple-update-a1.log",
+        "command": [
+          "/usr/bin/python3",
+          "/home/reshke/pgpg2/bench/syncrepwaker/compare_bench.py",
+          "--baseline-bindir",
+          "/home/reshke/pgpg2/install-baseline/bin",
+          "--feature-bindir",
+          "/home/reshke/pgpg2/install-release/bin",
+          "--output",
+          "/home/reshke/pgpg2/compare-workloads/main-simple-update-a1",
+          "--log-root",
+          "/dev/shm/pgpg2-workloads-logs/main-simple-update-a1",
+          "--cases",
+          "/home/reshke/pgpg2/compare-workloads/main-simple-update-a1.cases.json",
+          "--variants",
+          "base",
+          "on",
+          "hybrid8",
+          "--seconds",
+          "20",
+          "--warmup",
+          "5",
+          "--repeats",
+          "3",
+          "--port",
+          "56532",
+          "--pgbench-scale",
+          "10",
+          "--max-wal-size",
+          "4GB",
+          "--restore-between-runs",
+          "--discard-data"
+        ],
+        "started_epoch": 1792776426.9749923,
+        "expected_rows": 18,
+        "finished_epoch": 1792777205.2442338,
+        "rows": 18
+      },
+      "main-tpcb": {
+        "status": "complete",
+        "attempt": 1,
+        "output": "/home/reshke/pgpg2/compare-workloads/main-tpcb-a1",
+        "log": "/home/reshke/pgpg2/compare-workloads/main-tpcb-a1.log",
+        "command": [
+          "/usr/bin/python3",
+          "/home/reshke/pgpg2/bench/syncrepwaker/compare_bench.py",
+          "--baseline-bindir",
+          "/home/reshke/pgpg2/install-baseline/bin",
+          "--feature-bindir",
+          "/home/reshke/pgpg2/install-release/bin",
+          "--output",
+          "/home/reshke/pgpg2/compare-workloads/main-tpcb-a1",
+          "--log-root",
+          "/dev/shm/pgpg2-workloads-logs/main-tpcb-a1",
+          "--cases",
+          "/home/reshke/pgpg2/compare-workloads/main-tpcb-a1.cases.json",
+          "--variants",
+          "base",
+          "on",
+          "hybrid8",
+          "--seconds",
+          "20",
+          "--warmup",
+          "5",
+          "--repeats",
+          "3",
+          "--port",
+          "56532",
+          "--pgbench-scale",
+          "10",
+          "--max-wal-size",
+          "4GB",
+          "--restore-between-runs",
+          "--discard-data"
+        ],
+        "started_epoch": 1792777205.2467031,
+        "expected_rows": 18,
+        "finished_epoch": 1792777955.419075,
+        "rows": 18
+      },
+      "main-mixed90": {
+        "status": "complete",
+        "attempt": 1,
+        "output": "/home/reshke/pgpg2/compare-workloads/main-mixed90-a1",
+        "log": "/home/reshke/pgpg2/compare-workloads/main-mixed90-a1.log",
+        "command": [
+          "/usr/bin/python3",
+          "/home/reshke/pgpg2/bench/syncrepwaker/compare_bench.py",
+          "--baseline-bindir",
+          "/home/reshke/pgpg2/install-baseline/bin",
+          "--feature-bindir",
+          "/home/reshke/pgpg2/install-release/bin",
+          "--output",
+          "/home/reshke/pgpg2/compare-workloads/main-mixed90-a1",
+          "--log-root",
+          "/dev/shm/pgpg2-workloads-logs/main-mixed90-a1",
+          "--cases",
+          "/home/reshke/pgpg2/compare-workloads/main-mixed90-a1.cases.json",
+          "--variants",
+          "base",
+          "on",
+          "hybrid8",
+          "--seconds",
+          "20",
+          "--warmup",
+          "5",
+          "--repeats",
+          "3",
+          "--port",
+          "56532",
+          "--pgbench-scale",
+          "10",
+          "--max-wal-size",
+          "4GB",
+          "--restore-between-runs",
+          "--discard-data"
+        ],
+        "started_epoch": 1792777955.421339,
+        "expected_rows": 18,
+        "finished_epoch": 1792778760.057903,
+        "rows": 18
+      },
+      "main-mixed50": {
+        "status": "complete",
+        "attempt": 1,
+        "output": "/home/reshke/pgpg2/compare-workloads/main-mixed50-a1",
+        "log": "/home/reshke/pgpg2/compare-workloads/main-mixed50-a1.log",
+        "command": [
+          "/usr/bin/python3",
+          "/home/reshke/pgpg2/bench/syncrepwaker/compare_bench.py",
+          "--baseline-bindir",
+          "/home/reshke/pgpg2/install-baseline/bin",
+          "--feature-bindir",
+          "/home/reshke/pgpg2/install-release/bin",
+          "--output",
+          "/home/reshke/pgpg2/compare-workloads/main-mixed50-a1",
+          "--log-root",
+          "/dev/shm/pgpg2-workloads-logs/main-mixed50-a1",
+          "--cases",
+          "/home/reshke/pgpg2/compare-workloads/main-mixed50-a1.cases.json",
+          "--variants",
+          "base",
+          "on",
+          "hybrid8",
+          "--seconds",
+          "20",
+          "--warmup",
+          "5",
+          "--repeats",
+          "3",
+          "--port",
+          "56532",
+          "--pgbench-scale",
+          "10",
+          "--max-wal-size",
+          "4GB",
+          "--restore-between-runs",
+          "--discard-data"
+        ],
+        "started_epoch": 1792778760.0602937,
+        "expected_rows": 18,
+        "finished_epoch": 1792779528.9126759,
+        "rows": 18
+      },
+      "main-batch10": {
+        "status": "complete",
+        "attempt": 1,
+        "output": "/home/reshke/pgpg2/compare-workloads/main-batch10-a1",
+        "log": "/home/reshke/pgpg2/compare-workloads/main-batch10-a1.log",
+        "command": [
+          "/usr/bin/python3",
+          "/home/reshke/pgpg2/bench/syncrepwaker/compare_bench.py",
+          "--baseline-bindir",
+          "/home/reshke/pgpg2/install-baseline/bin",
+          "--feature-bindir",
+          "/home/reshke/pgpg2/install-release/bin",
+          "--output",
+          "/home/reshke/pgpg2/compare-workloads/main-batch10-a1",
+          "--log-root",
+          "/dev/shm/pgpg2-workloads-logs/main-batch10-a1",
+          "--cases",
+          "/home/reshke/pgpg2/compare-workloads/main-batch10-a1.cases.json",
+          "--variants",
+          "base",
+          "on",
+          "hybrid8",
+          "--seconds",
+          "20",
+          "--warmup",
+          "5",
+          "--repeats",
+          "3",
+          "--port",
+          "56532",
+          "--pgbench-scale",
+          "10",
+          "--max-wal-size",
+          "4GB",
+          "--restore-between-runs",
+          "--discard-data"
+        ],
+        "started_epoch": 1792779528.915129,
+        "expected_rows": 18,
+        "finished_epoch": 1792780286.0163507,
+        "rows": 18
+      },
+      "main-batch100": {
+        "status": "complete",
+        "attempt": 1,
+        "output": "/home/reshke/pgpg2/compare-workloads/main-batch100-a1",
+        "log": "/home/reshke/pgpg2/compare-workloads/main-batch100-a1.log",
+        "command": [
+          "/usr/bin/python3",
+          "/home/reshke/pgpg2/bench/syncrepwaker/compare_bench.py",
+          "--baseline-bindir",
+          "/home/reshke/pgpg2/install-baseline/bin",
+          "--feature-bindir",
+          "/home/reshke/pgpg2/install-release/bin",
+          "--output",
+          "/home/reshke/pgpg2/compare-workloads/main-batch100-a1",
+          "--log-root",
+          "/dev/shm/pgpg2-workloads-logs/main-batch100-a1",
+          "--cases",
+          "/home/reshke/pgpg2/compare-workloads/main-batch100-a1.cases.json",
+          "--variants",
+          "base",
+          "on",
+          "hybrid8",
+          "--seconds",
+          "20",
+          "--warmup",
+          "5",
+          "--repeats",
+          "3",
+          "--port",
+          "56532",
+          "--pgbench-scale",
+          "10",
+          "--max-wal-size",
+          "4GB",
+          "--restore-between-runs",
+          "--discard-data"
+        ],
+        "started_epoch": 1792780286.0187662,
+        "expected_rows": 18,
+        "finished_epoch": 1792781081.6524167,
+        "rows": 18
+      },
+      "main-batch1000": {
+        "status": "complete",
+        "attempt": 1,
+        "output": "/home/reshke/pgpg2/compare-workloads/main-batch1000-a1",
+        "log": "/home/reshke/pgpg2/compare-workloads/main-batch1000-a1.log",
+        "command": [
+          "/usr/bin/python3",
+          "/home/reshke/pgpg2/bench/syncrepwaker/compare_bench.py",
+          "--baseline-bindir",
+          "/home/reshke/pgpg2/install-baseline/bin",
+          "--feature-bindir",
+          "/home/reshke/pgpg2/install-release/bin",
+          "--output",
+          "/home/reshke/pgpg2/compare-workloads/main-batch1000-a1",
+          "--log-root",
+          "/dev/shm/pgpg2-workloads-logs/main-batch1000-a1",
+          "--cases",
+          "/home/reshke/pgpg2/compare-workloads/main-batch1000-a1.cases.json",
+          "--variants",
+          "base",
+          "on",
+          "hybrid8",
+          "--seconds",
+          "20",
+          "--warmup",
+          "5",
+          "--repeats",
+          "3",
+          "--port",
+          "56532",
+          "--pgbench-scale",
+          "10",
+          "--max-wal-size",
+          "4GB",
+          "--restore-between-runs",
+          "--discard-data"
+        ],
+        "started_epoch": 1792781081.6627045,
+        "expected_rows": 18,
+        "finished_epoch": 1792781902.6295645,
+        "rows": 18
+      },
+      "main-insert8k-tls": {
+        "status": "complete",
+        "attempt": 1,
+        "output": "/home/reshke/pgpg2/compare-workloads/main-insert8k-tls-a1",
+        "log": "/home/reshke/pgpg2/compare-workloads/main-insert8k-tls-a1.log",
+        "command": [
+          "/usr/bin/python3",
+          "/home/reshke/pgpg2/bench/syncrepwaker/compare_bench.py",
+          "--baseline-bindir",
+          "/home/reshke/pgpg2/install-baseline/bin",
+          "--feature-bindir",
+          "/home/reshke/pgpg2/install-release/bin",
+          "--output",
+          "/home/reshke/pgpg2/compare-workloads/main-insert8k-tls-a1",
+          "--log-root",
+          "/dev/shm/pgpg2-workloads-logs/main-insert8k-tls-a1",
+          "--cases",
+          "/home/reshke/pgpg2/compare-workloads/main-insert8k-tls-a1.cases.json",
+          "--variants",
+          "base",
+          "on",
+          "hybrid8",
+          "--seconds",
+          "20",
+          "--warmup",
+          "5",
+          "--repeats",
+          "3",
+          "--port",
+          "56532",
+          "--pgbench-scale",
+          "0",
+          "--max-wal-size",
+          "4GB",
+          "--restore-between-runs",
+          "--discard-data",
+          "--tls"
+        ],
+        "started_epoch": 1792781902.6352623,
+        "expected_rows": 18,
+        "finished_epoch": 1792782714.9962401,
+        "rows": 18
+      },
+      "main-insert32k-tls": {
+        "status": "complete",
+        "attempt": 1,
+        "output": "/home/reshke/pgpg2/compare-workloads/main-insert32k-tls-a1",
+        "log": "/home/reshke/pgpg2/compare-workloads/main-insert32k-tls-a1.log",
+        "command": [
+          "/usr/bin/python3",
+          "/home/reshke/pgpg2/bench/syncrepwaker/compare_bench.py",
+          "--baseline-bindir",
+          "/home/reshke/pgpg2/install-baseline/bin",
+          "--feature-bindir",
+          "/home/reshke/pgpg2/install-release/bin",
+          "--output",
+          "/home/reshke/pgpg2/compare-workloads/main-insert32k-tls-a1",
+          "--log-root",
+          "/dev/shm/pgpg2-workloads-logs/main-insert32k-tls-a1",
+          "--cases",
+          "/home/reshke/pgpg2/compare-workloads/main-insert32k-tls-a1.cases.json",
+          "--variants",
+          "base",
+          "on",
+          "hybrid8",
+          "--seconds",
+          "20",
+          "--warmup",
+          "5",
+          "--repeats",
+          "3",
+          "--port",
+          "56532",
+          "--pgbench-scale",
+          "0",
+          "--max-wal-size",
+          "4GB",
+          "--restore-between-runs",
+          "--discard-data",
+          "--tls"
+        ],
+        "started_epoch": 1792782714.9992337,
+        "expected_rows": 18,
+        "finished_epoch": 1792783559.271519,
+        "rows": 18
+      }
+    },
+    "rates": {
+      "simple-update": {
+        "calibration_tps": 11798.21294314838,
+        "fraction": 0.6,
+        "rate": 7000
+      },
+      "tpcb": {
+        "calibration_tps": 1202.2785875772256,
+        "fraction": 0.6,
+        "rate": 720
+      },
+      "mixed90": {
+        "calibration_tps": 69543.5123065603,
+        "fraction": 0.6,
+        "rate": 41700
+      },
+      "mixed50": {
+        "calibration_tps": 21959.808372376985,
+        "fraction": 0.6,
+        "rate": 13100
+      },
+      "batch10": {
+        "calibration_tps": 17023.42994038713,
+        "fraction": 0.6,
+        "rate": 10200
+      },
+      "batch100": {
+        "calibration_tps": 6303.443191968761,
+        "fraction": 0.6,
+        "rate": 3700
+      },
+      "batch1000": {
+        "calibration_tps": 1282.6674922098107,
+        "fraction": 0.6,
+        "rate": 760
+      },
+      "insert8k-tls": {
+        "calibration_tps": 5051.752665834482,
+        "fraction": 0.6,
+        "rate": 3000
+      },
+      "insert32k-tls": {
+        "calibration_tps": 1896.9818637436065,
+        "fraction": 0.6,
+        "rate": 1100
+      }
+    },
+    "failed_attempts": [],
+    "expected_main_rows": 162,
+    "finished_epoch": 1792783559.2763758
+  },
+  "phases": {
+    "calibrate-plain": {
+      "arguments": {
+        "baseline_bindir": "/home/reshke/pgpg2/install-baseline/bin",
+        "feature_bindir": "/home/reshke/pgpg2/install-release/bin",
+        "output": "/home/reshke/pgpg2/compare-workloads/calibrate-plain-a1",
+        "data_root": null,
+        "log_root": "/dev/shm/pgpg2-workloads-logs/calibrate-plain-a1",
+        "cases": "/home/reshke/pgpg2/compare-workloads/calibrate-plain-a1.cases.json",
+        "variants": [
+          "base"
+        ],
+        "seconds": 10,
+        "warmup": 3,
+        "repeats": 1,
+        "port": 56532,
+        "tls": false,
+        "pgbench_scale": 10,
+        "restore_between_runs": true,
+        "max_wal_size": "4GB",
+        "discard_data": true
+      },
+      "cases": [
+        {
+          "name": "simple-update",
+          "workload": "simple-update",
+          "clients": 128,
+          "family": "simple-update",
+          "rate": 0,
+          "commit": "on"
+        },
+        {
+          "name": "tpcb",
+          "workload": "tpcb",
+          "clients": 128,
+          "family": "tpcb",
+          "rate": 0,
+          "commit": "on"
+        },
+        {
+          "name": "mixed90",
+          "workload": "mixed",
+          "read_weight": 90,
+          "clients": 128,
+          "family": "mixed90",
+          "rate": 0,
+          "commit": "on"
+        },
+        {
+          "name": "mixed50",
+          "workload": "mixed",
+          "read_weight": 50,
+          "clients": 128,
+          "family": "mixed50",
+          "rate": 0,
+          "commit": "on"
+        },
+        {
+          "name": "batch10",
+          "workload": "insert",
+          "batch_rows": 10,
+          "payload_bytes": 0,
+          "clients": 128,
+          "family": "batch10",
+          "rate": 0,
+          "commit": "on"
+        },
+        {
+          "name": "batch100",
+          "workload": "insert",
+          "batch_rows": 100,
+          "payload_bytes": 0,
+          "clients": 128,
+          "family": "batch100",
+          "rate": 0,
+          "commit": "on"
+        },
+        {
+          "name": "batch1000",
+          "workload": "insert",
+          "batch_rows": 1000,
+          "payload_bytes": 0,
+          "clients": 128,
+          "family": "batch1000",
+          "rate": 0,
+          "commit": "on"
+        }
+      ],
+      "uname": [
+        "Linux",
+        "pgfuzz",
+        "6.8.0-147-generic",
+        "#147-Ubuntu SMP PREEMPT_DYNAMIC Thu Sep 24 11:33:16 UTC 2026",
+        "x86_64"
+      ],
+      "cpu_affinity": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "baseline_configure": "'--prefix=/home/reshke/pgpg2/install-baseline' '--libdir=/home/reshke/pgpg2/install-baseline/lib/postgresql' '--enable-debug' '--disable-cassert' '--enable-depend' '--with-openssl' '--without-mdblocales' 'CFLAGS=-O2 -g -fno-omit-frame-pointer'",
+      "feature_configure": "'--prefix=/home/reshke/pgpg2/install-release' '--libdir=/home/reshke/pgpg2/install-release/lib/postgresql' '--enable-debug' '--disable-cassert' '--enable-depend' '--with-openssl' '--without-mdblocales' 'CFLAGS=-O2 -g -fno-omit-frame-pointer'",
+      "postgres_sha256": {
+        "base": "b6fdeba74333cbacbd7d8168ad93b7be5eaea4e86ecc2de78234e78661dd6c56",
+        "feature": "04bcd558c0c4a2185d7612202733972f8d7a9423206ada49ac26b1fbf10480de"
+      },
+      "harness_sha256": "009eb98797281cd4378fc599a360ceb36d6a41290c3393c293715078ce2e3a14",
+      "primary_config": "max_connections = 100\t\t\t# (change requires restart)\nshared_buffers = 128MB\t\t\t# min 128kB\ndynamic_shared_memory_type = posix\t# the default is usually the first option\nmax_wal_size = 1GB\nmin_wal_size = 80MB\nlog_timezone = 'Etc/UTC'\nautovacuum_worker_slots = 16\t\t# autovacuum worker slots to allocate\ndatestyle = 'iso, mdy'\ntimezone = 'Etc/UTC'\nlc_messages = C\t\t\t\t# locale for system error message\nlc_monetary = C\t\t\t\t# locale for monetary formatting\nlc_numeric = C\t\t\t\t# locale for number formatting\nlc_time = C\t\t\t\t# locale for time formatting\ndefault_text_search_config = 'pg_catalog.english'\nlisten_addresses = '127.0.0.1'\nport = 56532\nunix_socket_directories = '/home/reshke/pgpg2/compare-workloads/calibrate-plain-a1/data'\nmax_connections = 158\nshared_buffers = '256MB'\nmax_wal_senders = 4\nwal_level = replica\nwal_buffers = '64MB'\nmax_wal_size = '4GB'\nmin_wal_size = '80MB'\ncheckpoint_timeout = '30min'\nautovacuum = off\nfsync = on\nfull_page_writes = on\nsynchronous_standby_names = 'bench_standby'\n"
+    },
+    "calibrate-tls": {
+      "arguments": {
+        "baseline_bindir": "/home/reshke/pgpg2/install-baseline/bin",
+        "feature_bindir": "/home/reshke/pgpg2/install-release/bin",
+        "output": "/home/reshke/pgpg2/compare-workloads/calibrate-tls-a1",
+        "data_root": null,
+        "log_root": "/dev/shm/pgpg2-workloads-logs/calibrate-tls-a1",
+        "cases": "/home/reshke/pgpg2/compare-workloads/calibrate-tls-a1.cases.json",
+        "variants": [
+          "base"
+        ],
+        "seconds": 10,
+        "warmup": 3,
+        "repeats": 1,
+        "port": 56532,
+        "tls": true,
+        "pgbench_scale": 0,
+        "restore_between_runs": true,
+        "max_wal_size": "4GB",
+        "discard_data": true
+      },
+      "cases": [
+        {
+          "name": "insert8k-tls",
+          "workload": "insert",
+          "payload_bytes": 8192,
+          "clients": 128,
+          "family": "insert8k-tls",
+          "rate": 0,
+          "commit": "on"
+        },
+        {
+          "name": "insert32k-tls",
+          "workload": "insert",
+          "payload_bytes": 32768,
+          "clients": 128,
+          "family": "insert32k-tls",
+          "rate": 0,
+          "commit": "on"
+        }
+      ],
+      "uname": [
+        "Linux",
+        "pgfuzz",
+        "6.8.0-147-generic",
+        "#147-Ubuntu SMP PREEMPT_DYNAMIC Thu Sep 24 11:33:16 UTC 2026",
+        "x86_64"
+      ],
+      "cpu_affinity": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "baseline_configure": "'--prefix=/home/reshke/pgpg2/install-baseline' '--libdir=/home/reshke/pgpg2/install-baseline/lib/postgresql' '--enable-debug' '--disable-cassert' '--enable-depend' '--with-openssl' '--without-mdblocales' 'CFLAGS=-O2 -g -fno-omit-frame-pointer'",
+      "feature_configure": "'--prefix=/home/reshke/pgpg2/install-release' '--libdir=/home/reshke/pgpg2/install-release/lib/postgresql' '--enable-debug' '--disable-cassert' '--enable-depend' '--with-openssl' '--without-mdblocales' 'CFLAGS=-O2 -g -fno-omit-frame-pointer'",
+      "postgres_sha256": {
+        "base": "b6fdeba74333cbacbd7d8168ad93b7be5eaea4e86ecc2de78234e78661dd6c56",
+        "feature": "04bcd558c0c4a2185d7612202733972f8d7a9423206ada49ac26b1fbf10480de"
+      },
+      "harness_sha256": "009eb98797281cd4378fc599a360ceb36d6a41290c3393c293715078ce2e3a14",
+      "primary_config": "max_connections = 100\t\t\t# (change requires restart)\nshared_buffers = 128MB\t\t\t# min 128kB\ndynamic_shared_memory_type = posix\t# the default is usually the first option\nmax_wal_size = 1GB\nmin_wal_size = 80MB\nlog_timezone = 'Etc/UTC'\nautovacuum_worker_slots = 16\t\t# autovacuum worker slots to allocate\ndatestyle = 'iso, mdy'\ntimezone = 'Etc/UTC'\nlc_messages = C\t\t\t\t# locale for system error message\nlc_monetary = C\t\t\t\t# locale for monetary formatting\nlc_numeric = C\t\t\t\t# locale for number formatting\nlc_time = C\t\t\t\t# locale for time formatting\ndefault_text_search_config = 'pg_catalog.english'\nlisten_addresses = '127.0.0.1'\nport = 56532\nunix_socket_directories = '/home/reshke/pgpg2/compare-workloads/calibrate-tls-a1/data'\nmax_connections = 158\nshared_buffers = '256MB'\nmax_wal_senders = 4\nwal_level = replica\nwal_buffers = '64MB'\nmax_wal_size = '4GB'\nmin_wal_size = '80MB'\ncheckpoint_timeout = '30min'\nautovacuum = off\nfsync = on\nfull_page_writes = on\nsynchronous_standby_names = 'bench_standby'\nssl = on\nssl_key_file = '/home/reshke/pgpg2/compare-workloads/calibrate-tls-a1/server.key'\nssl_cert_file = '/home/reshke/pgpg2/compare-workloads/calibrate-tls-a1/server.crt'\n"
+    },
+    "main-simple-update": {
+      "arguments": {
+        "baseline_bindir": "/home/reshke/pgpg2/install-baseline/bin",
+        "feature_bindir": "/home/reshke/pgpg2/install-release/bin",
+        "output": "/home/reshke/pgpg2/compare-workloads/main-simple-update-a1",
+        "data_root": null,
+        "log_root": "/dev/shm/pgpg2-workloads-logs/main-simple-update-a1",
+        "cases": "/home/reshke/pgpg2/compare-workloads/main-simple-update-a1.cases.json",
+        "variants": [
+          "base",
+          "on",
+          "hybrid8"
+        ],
+        "seconds": 20,
+        "warmup": 5,
+        "repeats": 3,
+        "port": 56532,
+        "tls": false,
+        "pgbench_scale": 10,
+        "restore_between_runs": true,
+        "max_wal_size": "4GB",
+        "discard_data": true
+      },
+      "cases": [
+        {
+          "name": "simple-update-sat",
+          "workload": "simple-update",
+          "clients": 128,
+          "family": "simple-update",
+          "load_mode": "saturation",
+          "rate": 0,
+          "commit": "on"
+        },
+        {
+          "name": "simple-update-rate",
+          "workload": "simple-update",
+          "clients": 128,
+          "family": "simple-update",
+          "load_mode": "fixed_rate",
+          "rate": 7000,
+          "commit": "on"
+        }
+      ],
+      "uname": [
+        "Linux",
+        "pgfuzz",
+        "6.8.0-147-generic",
+        "#147-Ubuntu SMP PREEMPT_DYNAMIC Thu Sep 24 11:33:16 UTC 2026",
+        "x86_64"
+      ],
+      "cpu_affinity": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "baseline_configure": "'--prefix=/home/reshke/pgpg2/install-baseline' '--libdir=/home/reshke/pgpg2/install-baseline/lib/postgresql' '--enable-debug' '--disable-cassert' '--enable-depend' '--with-openssl' '--without-mdblocales' 'CFLAGS=-O2 -g -fno-omit-frame-pointer'",
+      "feature_configure": "'--prefix=/home/reshke/pgpg2/install-release' '--libdir=/home/reshke/pgpg2/install-release/lib/postgresql' '--enable-debug' '--disable-cassert' '--enable-depend' '--with-openssl' '--without-mdblocales' 'CFLAGS=-O2 -g -fno-omit-frame-pointer'",
+      "postgres_sha256": {
+        "base": "b6fdeba74333cbacbd7d8168ad93b7be5eaea4e86ecc2de78234e78661dd6c56",
+        "feature": "04bcd558c0c4a2185d7612202733972f8d7a9423206ada49ac26b1fbf10480de"
+      },
+      "harness_sha256": "009eb98797281cd4378fc599a360ceb36d6a41290c3393c293715078ce2e3a14",
+      "primary_config": "max_connections = 100\t\t\t# (change requires restart)\nshared_buffers = 128MB\t\t\t# min 128kB\ndynamic_shared_memory_type = posix\t# the default is usually the first option\nmax_wal_size = 1GB\nmin_wal_size = 80MB\nlog_timezone = 'Etc/UTC'\nautovacuum_worker_slots = 16\t\t# autovacuum worker slots to allocate\ndatestyle = 'iso, mdy'\ntimezone = 'Etc/UTC'\nlc_messages = C\t\t\t\t# locale for system error message\nlc_monetary = C\t\t\t\t# locale for monetary formatting\nlc_numeric = C\t\t\t\t# locale for number formatting\nlc_time = C\t\t\t\t# locale for time formatting\ndefault_text_search_config = 'pg_catalog.english'\nlisten_addresses = '127.0.0.1'\nport = 56532\nunix_socket_directories = '/home/reshke/pgpg2/compare-workloads/main-simple-update-a1/data'\nmax_connections = 158\nshared_buffers = '256MB'\nmax_wal_senders = 4\nwal_level = replica\nwal_buffers = '64MB'\nmax_wal_size = '4GB'\nmin_wal_size = '80MB'\ncheckpoint_timeout = '30min'\nautovacuum = off\nfsync = on\nfull_page_writes = on\nsynchronous_standby_names = 'bench_standby'\n"
+    },
+    "main-tpcb": {
+      "arguments": {
+        "baseline_bindir": "/home/reshke/pgpg2/install-baseline/bin",
+        "feature_bindir": "/home/reshke/pgpg2/install-release/bin",
+        "output": "/home/reshke/pgpg2/compare-workloads/main-tpcb-a1",
+        "data_root": null,
+        "log_root": "/dev/shm/pgpg2-workloads-logs/main-tpcb-a1",
+        "cases": "/home/reshke/pgpg2/compare-workloads/main-tpcb-a1.cases.json",
+        "variants": [
+          "base",
+          "on",
+          "hybrid8"
+        ],
+        "seconds": 20,
+        "warmup": 5,
+        "repeats": 3,
+        "port": 56532,
+        "tls": false,
+        "pgbench_scale": 10,
+        "restore_between_runs": true,
+        "max_wal_size": "4GB",
+        "discard_data": true
+      },
+      "cases": [
+        {
+          "name": "tpcb-sat",
+          "workload": "tpcb",
+          "clients": 128,
+          "family": "tpcb",
+          "load_mode": "saturation",
+          "rate": 0,
+          "commit": "on"
+        },
+        {
+          "name": "tpcb-rate",
+          "workload": "tpcb",
+          "clients": 128,
+          "family": "tpcb",
+          "load_mode": "fixed_rate",
+          "rate": 720,
+          "commit": "on"
+        }
+      ],
+      "uname": [
+        "Linux",
+        "pgfuzz",
+        "6.8.0-147-generic",
+        "#147-Ubuntu SMP PREEMPT_DYNAMIC Thu Sep 24 11:33:16 UTC 2026",
+        "x86_64"
+      ],
+      "cpu_affinity": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "baseline_configure": "'--prefix=/home/reshke/pgpg2/install-baseline' '--libdir=/home/reshke/pgpg2/install-baseline/lib/postgresql' '--enable-debug' '--disable-cassert' '--enable-depend' '--with-openssl' '--without-mdblocales' 'CFLAGS=-O2 -g -fno-omit-frame-pointer'",
+      "feature_configure": "'--prefix=/home/reshke/pgpg2/install-release' '--libdir=/home/reshke/pgpg2/install-release/lib/postgresql' '--enable-debug' '--disable-cassert' '--enable-depend' '--with-openssl' '--without-mdblocales' 'CFLAGS=-O2 -g -fno-omit-frame-pointer'",
+      "postgres_sha256": {
+        "base": "b6fdeba74333cbacbd7d8168ad93b7be5eaea4e86ecc2de78234e78661dd6c56",
+        "feature": "04bcd558c0c4a2185d7612202733972f8d7a9423206ada49ac26b1fbf10480de"
+      },
+      "harness_sha256": "009eb98797281cd4378fc599a360ceb36d6a41290c3393c293715078ce2e3a14",
+      "primary_config": "max_connections = 100\t\t\t# (change requires restart)\nshared_buffers = 128MB\t\t\t# min 128kB\ndynamic_shared_memory_type = posix\t# the default is usually the first option\nmax_wal_size = 1GB\nmin_wal_size = 80MB\nlog_timezone = 'Etc/UTC'\nautovacuum_worker_slots = 16\t\t# autovacuum worker slots to allocate\ndatestyle = 'iso, mdy'\ntimezone = 'Etc/UTC'\nlc_messages = C\t\t\t\t# locale for system error message\nlc_monetary = C\t\t\t\t# locale for monetary formatting\nlc_numeric = C\t\t\t\t# locale for number formatting\nlc_time = C\t\t\t\t# locale for time formatting\ndefault_text_search_config = 'pg_catalog.english'\nlisten_addresses = '127.0.0.1'\nport = 56532\nunix_socket_directories = '/home/reshke/pgpg2/compare-workloads/main-tpcb-a1/data'\nmax_connections = 158\nshared_buffers = '256MB'\nmax_wal_senders = 4\nwal_level = replica\nwal_buffers = '64MB'\nmax_wal_size = '4GB'\nmin_wal_size = '80MB'\ncheckpoint_timeout = '30min'\nautovacuum = off\nfsync = on\nfull_page_writes = on\nsynchronous_standby_names = 'bench_standby'\n"
+    },
+    "main-mixed90": {
+      "arguments": {
+        "baseline_bindir": "/home/reshke/pgpg2/install-baseline/bin",
+        "feature_bindir": "/home/reshke/pgpg2/install-release/bin",
+        "output": "/home/reshke/pgpg2/compare-workloads/main-mixed90-a1",
+        "data_root": null,
+        "log_root": "/dev/shm/pgpg2-workloads-logs/main-mixed90-a1",
+        "cases": "/home/reshke/pgpg2/compare-workloads/main-mixed90-a1.cases.json",
+        "variants": [
+          "base",
+          "on",
+          "hybrid8"
+        ],
+        "seconds": 20,
+        "warmup": 5,
+        "repeats": 3,
+        "port": 56532,
+        "tls": false,
+        "pgbench_scale": 10,
+        "restore_between_runs": true,
+        "max_wal_size": "4GB",
+        "discard_data": true
+      },
+      "cases": [
+        {
+          "name": "mixed90-sat",
+          "workload": "mixed",
+          "read_weight": 90,
+          "clients": 128,
+          "family": "mixed90",
+          "load_mode": "saturation",
+          "rate": 0,
+          "commit": "on"
+        },
+        {
+          "name": "mixed90-rate",
+          "workload": "mixed",
+          "read_weight": 90,
+          "clients": 128,
+          "family": "mixed90",
+          "load_mode": "fixed_rate",
+          "rate": 41700,
+          "commit": "on"
+        }
+      ],
+      "uname": [
+        "Linux",
+        "pgfuzz",
+        "6.8.0-147-generic",
+        "#147-Ubuntu SMP PREEMPT_DYNAMIC Thu Sep 24 11:33:16 UTC 2026",
+        "x86_64"
+      ],
+      "cpu_affinity": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "baseline_configure": "'--prefix=/home/reshke/pgpg2/install-baseline' '--libdir=/home/reshke/pgpg2/install-baseline/lib/postgresql' '--enable-debug' '--disable-cassert' '--enable-depend' '--with-openssl' '--without-mdblocales' 'CFLAGS=-O2 -g -fno-omit-frame-pointer'",
+      "feature_configure": "'--prefix=/home/reshke/pgpg2/install-release' '--libdir=/home/reshke/pgpg2/install-release/lib/postgresql' '--enable-debug' '--disable-cassert' '--enable-depend' '--with-openssl' '--without-mdblocales' 'CFLAGS=-O2 -g -fno-omit-frame-pointer'",
+      "postgres_sha256": {
+        "base": "b6fdeba74333cbacbd7d8168ad93b7be5eaea4e86ecc2de78234e78661dd6c56",
+        "feature": "04bcd558c0c4a2185d7612202733972f8d7a9423206ada49ac26b1fbf10480de"
+      },
+      "harness_sha256": "009eb98797281cd4378fc599a360ceb36d6a41290c3393c293715078ce2e3a14",
+      "primary_config": "max_connections = 100\t\t\t# (change requires restart)\nshared_buffers = 128MB\t\t\t# min 128kB\ndynamic_shared_memory_type = posix\t# the default is usually the first option\nmax_wal_size = 1GB\nmin_wal_size = 80MB\nlog_timezone = 'Etc/UTC'\nautovacuum_worker_slots = 16\t\t# autovacuum worker slots to allocate\ndatestyle = 'iso, mdy'\ntimezone = 'Etc/UTC'\nlc_messages = C\t\t\t\t# locale for system error message\nlc_monetary = C\t\t\t\t# locale for monetary formatting\nlc_numeric = C\t\t\t\t# locale for number formatting\nlc_time = C\t\t\t\t# locale for time formatting\ndefault_text_search_config = 'pg_catalog.english'\nlisten_addresses = '127.0.0.1'\nport = 56532\nunix_socket_directories = '/home/reshke/pgpg2/compare-workloads/main-mixed90-a1/data'\nmax_connections = 158\nshared_buffers = '256MB'\nmax_wal_senders = 4\nwal_level = replica\nwal_buffers = '64MB'\nmax_wal_size = '4GB'\nmin_wal_size = '80MB'\ncheckpoint_timeout = '30min'\nautovacuum = off\nfsync = on\nfull_page_writes = on\nsynchronous_standby_names = 'bench_standby'\n"
+    },
+    "main-mixed50": {
+      "arguments": {
+        "baseline_bindir": "/home/reshke/pgpg2/install-baseline/bin",
+        "feature_bindir": "/home/reshke/pgpg2/install-release/bin",
+        "output": "/home/reshke/pgpg2/compare-workloads/main-mixed50-a1",
+        "data_root": null,
+        "log_root": "/dev/shm/pgpg2-workloads-logs/main-mixed50-a1",
+        "cases": "/home/reshke/pgpg2/compare-workloads/main-mixed50-a1.cases.json",
+        "variants": [
+          "base",
+          "on",
+          "hybrid8"
+        ],
+        "seconds": 20,
+        "warmup": 5,
+        "repeats": 3,
+        "port": 56532,
+        "tls": false,
+        "pgbench_scale": 10,
+        "restore_between_runs": true,
+        "max_wal_size": "4GB",
+        "discard_data": true
+      },
+      "cases": [
+        {
+          "name": "mixed50-sat",
+          "workload": "mixed",
+          "read_weight": 50,
+          "clients": 128,
+          "family": "mixed50",
+          "load_mode": "saturation",
+          "rate": 0,
+          "commit": "on"
+        },
+        {
+          "name": "mixed50-rate",
+          "workload": "mixed",
+          "read_weight": 50,
+          "clients": 128,
+          "family": "mixed50",
+          "load_mode": "fixed_rate",
+          "rate": 13100,
+          "commit": "on"
+        }
+      ],
+      "uname": [
+        "Linux",
+        "pgfuzz",
+        "6.8.0-147-generic",
+        "#147-Ubuntu SMP PREEMPT_DYNAMIC Thu Sep 24 11:33:16 UTC 2026",
+        "x86_64"
+      ],
+      "cpu_affinity": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "baseline_configure": "'--prefix=/home/reshke/pgpg2/install-baseline' '--libdir=/home/reshke/pgpg2/install-baseline/lib/postgresql' '--enable-debug' '--disable-cassert' '--enable-depend' '--with-openssl' '--without-mdblocales' 'CFLAGS=-O2 -g -fno-omit-frame-pointer'",
+      "feature_configure": "'--prefix=/home/reshke/pgpg2/install-release' '--libdir=/home/reshke/pgpg2/install-release/lib/postgresql' '--enable-debug' '--disable-cassert' '--enable-depend' '--with-openssl' '--without-mdblocales' 'CFLAGS=-O2 -g -fno-omit-frame-pointer'",
+      "postgres_sha256": {
+        "base": "b6fdeba74333cbacbd7d8168ad93b7be5eaea4e86ecc2de78234e78661dd6c56",
+        "feature": "04bcd558c0c4a2185d7612202733972f8d7a9423206ada49ac26b1fbf10480de"
+      },
+      "harness_sha256": "009eb98797281cd4378fc599a360ceb36d6a41290c3393c293715078ce2e3a14",
+      "primary_config": "max_connections = 100\t\t\t# (change requires restart)\nshared_buffers = 128MB\t\t\t# min 128kB\ndynamic_shared_memory_type = posix\t# the default is usually the first option\nmax_wal_size = 1GB\nmin_wal_size = 80MB\nlog_timezone = 'Etc/UTC'\nautovacuum_worker_slots = 16\t\t# autovacuum worker slots to allocate\ndatestyle = 'iso, mdy'\ntimezone = 'Etc/UTC'\nlc_messages = C\t\t\t\t# locale for system error message\nlc_monetary = C\t\t\t\t# locale for monetary formatting\nlc_numeric = C\t\t\t\t# locale for number formatting\nlc_time = C\t\t\t\t# locale for time formatting\ndefault_text_search_config = 'pg_catalog.english'\nlisten_addresses = '127.0.0.1'\nport = 56532\nunix_socket_directories = '/home/reshke/pgpg2/compare-workloads/main-mixed50-a1/data'\nmax_connections = 158\nshared_buffers = '256MB'\nmax_wal_senders = 4\nwal_level = replica\nwal_buffers = '64MB'\nmax_wal_size = '4GB'\nmin_wal_size = '80MB'\ncheckpoint_timeout = '30min'\nautovacuum = off\nfsync = on\nfull_page_writes = on\nsynchronous_standby_names = 'bench_standby'\n"
+    },
+    "main-batch10": {
+      "arguments": {
+        "baseline_bindir": "/home/reshke/pgpg2/install-baseline/bin",
+        "feature_bindir": "/home/reshke/pgpg2/install-release/bin",
+        "output": "/home/reshke/pgpg2/compare-workloads/main-batch10-a1",
+        "data_root": null,
+        "log_root": "/dev/shm/pgpg2-workloads-logs/main-batch10-a1",
+        "cases": "/home/reshke/pgpg2/compare-workloads/main-batch10-a1.cases.json",
+        "variants": [
+          "base",
+          "on",
+          "hybrid8"
+        ],
+        "seconds": 20,
+        "warmup": 5,
+        "repeats": 3,
+        "port": 56532,
+        "tls": false,
+        "pgbench_scale": 10,
+        "restore_between_runs": true,
+        "max_wal_size": "4GB",
+        "discard_data": true
+      },
+      "cases": [
+        {
+          "name": "batch10-sat",
+          "workload": "insert",
+          "batch_rows": 10,
+          "payload_bytes": 0,
+          "clients": 128,
+          "family": "batch10",
+          "load_mode": "saturation",
+          "rate": 0,
+          "commit": "on"
+        },
+        {
+          "name": "batch10-rate",
+          "workload": "insert",
+          "batch_rows": 10,
+          "payload_bytes": 0,
+          "clients": 128,
+          "family": "batch10",
+          "load_mode": "fixed_rate",
+          "rate": 10200,
+          "commit": "on"
+        }
+      ],
+      "uname": [
+        "Linux",
+        "pgfuzz",
+        "6.8.0-147-generic",
+        "#147-Ubuntu SMP PREEMPT_DYNAMIC Thu Sep 24 11:33:16 UTC 2026",
+        "x86_64"
+      ],
+      "cpu_affinity": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "baseline_configure": "'--prefix=/home/reshke/pgpg2/install-baseline' '--libdir=/home/reshke/pgpg2/install-baseline/lib/postgresql' '--enable-debug' '--disable-cassert' '--enable-depend' '--with-openssl' '--without-mdblocales' 'CFLAGS=-O2 -g -fno-omit-frame-pointer'",
+      "feature_configure": "'--prefix=/home/reshke/pgpg2/install-release' '--libdir=/home/reshke/pgpg2/install-release/lib/postgresql' '--enable-debug' '--disable-cassert' '--enable-depend' '--with-openssl' '--without-mdblocales' 'CFLAGS=-O2 -g -fno-omit-frame-pointer'",
+      "postgres_sha256": {
+        "base": "b6fdeba74333cbacbd7d8168ad93b7be5eaea4e86ecc2de78234e78661dd6c56",
+        "feature": "04bcd558c0c4a2185d7612202733972f8d7a9423206ada49ac26b1fbf10480de"
+      },
+      "harness_sha256": "009eb98797281cd4378fc599a360ceb36d6a41290c3393c293715078ce2e3a14",
+      "primary_config": "max_connections = 100\t\t\t# (change requires restart)\nshared_buffers = 128MB\t\t\t# min 128kB\ndynamic_shared_memory_type = posix\t# the default is usually the first option\nmax_wal_size = 1GB\nmin_wal_size = 80MB\nlog_timezone = 'Etc/UTC'\nautovacuum_worker_slots = 16\t\t# autovacuum worker slots to allocate\ndatestyle = 'iso, mdy'\ntimezone = 'Etc/UTC'\nlc_messages = C\t\t\t\t# locale for system error message\nlc_monetary = C\t\t\t\t# locale for monetary formatting\nlc_numeric = C\t\t\t\t# locale for number formatting\nlc_time = C\t\t\t\t# locale for time formatting\ndefault_text_search_config = 'pg_catalog.english'\nlisten_addresses = '127.0.0.1'\nport = 56532\nunix_socket_directories = '/home/reshke/pgpg2/compare-workloads/main-batch10-a1/data'\nmax_connections = 158\nshared_buffers = '256MB'\nmax_wal_senders = 4\nwal_level = replica\nwal_buffers = '64MB'\nmax_wal_size = '4GB'\nmin_wal_size = '80MB'\ncheckpoint_timeout = '30min'\nautovacuum = off\nfsync = on\nfull_page_writes = on\nsynchronous_standby_names = 'bench_standby'\n"
+    },
+    "main-batch100": {
+      "arguments": {
+        "baseline_bindir": "/home/reshke/pgpg2/install-baseline/bin",
+        "feature_bindir": "/home/reshke/pgpg2/install-release/bin",
+        "output": "/home/reshke/pgpg2/compare-workloads/main-batch100-a1",
+        "data_root": null,
+        "log_root": "/dev/shm/pgpg2-workloads-logs/main-batch100-a1",
+        "cases": "/home/reshke/pgpg2/compare-workloads/main-batch100-a1.cases.json",
+        "variants": [
+          "base",
+          "on",
+          "hybrid8"
+        ],
+        "seconds": 20,
+        "warmup": 5,
+        "repeats": 3,
+        "port": 56532,
+        "tls": false,
+        "pgbench_scale": 10,
+        "restore_between_runs": true,
+        "max_wal_size": "4GB",
+        "discard_data": true
+      },
+      "cases": [
+        {
+          "name": "batch100-sat",
+          "workload": "insert",
+          "batch_rows": 100,
+          "payload_bytes": 0,
+          "clients": 128,
+          "family": "batch100",
+          "load_mode": "saturation",
+          "rate": 0,
+          "commit": "on"
+        },
+        {
+          "name": "batch100-rate",
+          "workload": "insert",
+          "batch_rows": 100,
+          "payload_bytes": 0,
+          "clients": 128,
+          "family": "batch100",
+          "load_mode": "fixed_rate",
+          "rate": 3700,
+          "commit": "on"
+        }
+      ],
+      "uname": [
+        "Linux",
+        "pgfuzz",
+        "6.8.0-147-generic",
+        "#147-Ubuntu SMP PREEMPT_DYNAMIC Thu Sep 24 11:33:16 UTC 2026",
+        "x86_64"
+      ],
+      "cpu_affinity": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "baseline_configure": "'--prefix=/home/reshke/pgpg2/install-baseline' '--libdir=/home/reshke/pgpg2/install-baseline/lib/postgresql' '--enable-debug' '--disable-cassert' '--enable-depend' '--with-openssl' '--without-mdblocales' 'CFLAGS=-O2 -g -fno-omit-frame-pointer'",
+      "feature_configure": "'--prefix=/home/reshke/pgpg2/install-release' '--libdir=/home/reshke/pgpg2/install-release/lib/postgresql' '--enable-debug' '--disable-cassert' '--enable-depend' '--with-openssl' '--without-mdblocales' 'CFLAGS=-O2 -g -fno-omit-frame-pointer'",
+      "postgres_sha256": {
+        "base": "b6fdeba74333cbacbd7d8168ad93b7be5eaea4e86ecc2de78234e78661dd6c56",
+        "feature": "04bcd558c0c4a2185d7612202733972f8d7a9423206ada49ac26b1fbf10480de"
+      },
+      "harness_sha256": "009eb98797281cd4378fc599a360ceb36d6a41290c3393c293715078ce2e3a14",
+      "primary_config": "max_connections = 100\t\t\t# (change requires restart)\nshared_buffers = 128MB\t\t\t# min 128kB\ndynamic_shared_memory_type = posix\t# the default is usually the first option\nmax_wal_size = 1GB\nmin_wal_size = 80MB\nlog_timezone = 'Etc/UTC'\nautovacuum_worker_slots = 16\t\t# autovacuum worker slots to allocate\ndatestyle = 'iso, mdy'\ntimezone = 'Etc/UTC'\nlc_messages = C\t\t\t\t# locale for system error message\nlc_monetary = C\t\t\t\t# locale for monetary formatting\nlc_numeric = C\t\t\t\t# locale for number formatting\nlc_time = C\t\t\t\t# locale for time formatting\ndefault_text_search_config = 'pg_catalog.english'\nlisten_addresses = '127.0.0.1'\nport = 56532\nunix_socket_directories = '/home/reshke/pgpg2/compare-workloads/main-batch100-a1/data'\nmax_connections = 158\nshared_buffers = '256MB'\nmax_wal_senders = 4\nwal_level = replica\nwal_buffers = '64MB'\nmax_wal_size = '4GB'\nmin_wal_size = '80MB'\ncheckpoint_timeout = '30min'\nautovacuum = off\nfsync = on\nfull_page_writes = on\nsynchronous_standby_names = 'bench_standby'\n"
+    },
+    "main-batch1000": {
+      "arguments": {
+        "baseline_bindir": "/home/reshke/pgpg2/install-baseline/bin",
+        "feature_bindir": "/home/reshke/pgpg2/install-release/bin",
+        "output": "/home/reshke/pgpg2/compare-workloads/main-batch1000-a1",
+        "data_root": null,
+        "log_root": "/dev/shm/pgpg2-workloads-logs/main-batch1000-a1",
+        "cases": "/home/reshke/pgpg2/compare-workloads/main-batch1000-a1.cases.json",
+        "variants": [
+          "base",
+          "on",
+          "hybrid8"
+        ],
+        "seconds": 20,
+        "warmup": 5,
+        "repeats": 3,
+        "port": 56532,
+        "tls": false,
+        "pgbench_scale": 10,
+        "restore_between_runs": true,
+        "max_wal_size": "4GB",
+        "discard_data": true
+      },
+      "cases": [
+        {
+          "name": "batch1000-sat",
+          "workload": "insert",
+          "batch_rows": 1000,
+          "payload_bytes": 0,
+          "clients": 128,
+          "family": "batch1000",
+          "load_mode": "saturation",
+          "rate": 0,
+          "commit": "on"
+        },
+        {
+          "name": "batch1000-rate",
+          "workload": "insert",
+          "batch_rows": 1000,
+          "payload_bytes": 0,
+          "clients": 128,
+          "family": "batch1000",
+          "load_mode": "fixed_rate",
+          "rate": 760,
+          "commit": "on"
+        }
+      ],
+      "uname": [
+        "Linux",
+        "pgfuzz",
+        "6.8.0-147-generic",
+        "#147-Ubuntu SMP PREEMPT_DYNAMIC Thu Sep 24 11:33:16 UTC 2026",
+        "x86_64"
+      ],
+      "cpu_affinity": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "baseline_configure": "'--prefix=/home/reshke/pgpg2/install-baseline' '--libdir=/home/reshke/pgpg2/install-baseline/lib/postgresql' '--enable-debug' '--disable-cassert' '--enable-depend' '--with-openssl' '--without-mdblocales' 'CFLAGS=-O2 -g -fno-omit-frame-pointer'",
+      "feature_configure": "'--prefix=/home/reshke/pgpg2/install-release' '--libdir=/home/reshke/pgpg2/install-release/lib/postgresql' '--enable-debug' '--disable-cassert' '--enable-depend' '--with-openssl' '--without-mdblocales' 'CFLAGS=-O2 -g -fno-omit-frame-pointer'",
+      "postgres_sha256": {
+        "base": "b6fdeba74333cbacbd7d8168ad93b7be5eaea4e86ecc2de78234e78661dd6c56",
+        "feature": "04bcd558c0c4a2185d7612202733972f8d7a9423206ada49ac26b1fbf10480de"
+      },
+      "harness_sha256": "009eb98797281cd4378fc599a360ceb36d6a41290c3393c293715078ce2e3a14",
+      "primary_config": "max_connections = 100\t\t\t# (change requires restart)\nshared_buffers = 128MB\t\t\t# min 128kB\ndynamic_shared_memory_type = posix\t# the default is usually the first option\nmax_wal_size = 1GB\nmin_wal_size = 80MB\nlog_timezone = 'Etc/UTC'\nautovacuum_worker_slots = 16\t\t# autovacuum worker slots to allocate\ndatestyle = 'iso, mdy'\ntimezone = 'Etc/UTC'\nlc_messages = C\t\t\t\t# locale for system error message\nlc_monetary = C\t\t\t\t# locale for monetary formatting\nlc_numeric = C\t\t\t\t# locale for number formatting\nlc_time = C\t\t\t\t# locale for time formatting\ndefault_text_search_config = 'pg_catalog.english'\nlisten_addresses = '127.0.0.1'\nport = 56532\nunix_socket_directories = '/home/reshke/pgpg2/compare-workloads/main-batch1000-a1/data'\nmax_connections = 158\nshared_buffers = '256MB'\nmax_wal_senders = 4\nwal_level = replica\nwal_buffers = '64MB'\nmax_wal_size = '4GB'\nmin_wal_size = '80MB'\ncheckpoint_timeout = '30min'\nautovacuum = off\nfsync = on\nfull_page_writes = on\nsynchronous_standby_names = 'bench_standby'\n"
+    },
+    "main-insert8k-tls": {
+      "arguments": {
+        "baseline_bindir": "/home/reshke/pgpg2/install-baseline/bin",
+        "feature_bindir": "/home/reshke/pgpg2/install-release/bin",
+        "output": "/home/reshke/pgpg2/compare-workloads/main-insert8k-tls-a1",
+        "data_root": null,
+        "log_root": "/dev/shm/pgpg2-workloads-logs/main-insert8k-tls-a1",
+        "cases": "/home/reshke/pgpg2/compare-workloads/main-insert8k-tls-a1.cases.json",
+        "variants": [
+          "base",
+          "on",
+          "hybrid8"
+        ],
+        "seconds": 20,
+        "warmup": 5,
+        "repeats": 3,
+        "port": 56532,
+        "tls": true,
+        "pgbench_scale": 0,
+        "restore_between_runs": true,
+        "max_wal_size": "4GB",
+        "discard_data": true
+      },
+      "cases": [
+        {
+          "name": "insert8k-tls-sat",
+          "workload": "insert",
+          "payload_bytes": 8192,
+          "clients": 128,
+          "family": "insert8k-tls",
+          "load_mode": "saturation",
+          "rate": 0,
+          "commit": "on"
+        },
+        {
+          "name": "insert8k-tls-rate",
+          "workload": "insert",
+          "payload_bytes": 8192,
+          "clients": 128,
+          "family": "insert8k-tls",
+          "load_mode": "fixed_rate",
+          "rate": 3000,
+          "commit": "on"
+        }
+      ],
+      "uname": [
+        "Linux",
+        "pgfuzz",
+        "6.8.0-147-generic",
+        "#147-Ubuntu SMP PREEMPT_DYNAMIC Thu Sep 24 11:33:16 UTC 2026",
+        "x86_64"
+      ],
+      "cpu_affinity": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "baseline_configure": "'--prefix=/home/reshke/pgpg2/install-baseline' '--libdir=/home/reshke/pgpg2/install-baseline/lib/postgresql' '--enable-debug' '--disable-cassert' '--enable-depend' '--with-openssl' '--without-mdblocales' 'CFLAGS=-O2 -g -fno-omit-frame-pointer'",
+      "feature_configure": "'--prefix=/home/reshke/pgpg2/install-release' '--libdir=/home/reshke/pgpg2/install-release/lib/postgresql' '--enable-debug' '--disable-cassert' '--enable-depend' '--with-openssl' '--without-mdblocales' 'CFLAGS=-O2 -g -fno-omit-frame-pointer'",
+      "postgres_sha256": {
+        "base": "b6fdeba74333cbacbd7d8168ad93b7be5eaea4e86ecc2de78234e78661dd6c56",
+        "feature": "04bcd558c0c4a2185d7612202733972f8d7a9423206ada49ac26b1fbf10480de"
+      },
+      "harness_sha256": "009eb98797281cd4378fc599a360ceb36d6a41290c3393c293715078ce2e3a14",
+      "primary_config": "max_connections = 100\t\t\t# (change requires restart)\nshared_buffers = 128MB\t\t\t# min 128kB\ndynamic_shared_memory_type = posix\t# the default is usually the first option\nmax_wal_size = 1GB\nmin_wal_size = 80MB\nlog_timezone = 'Etc/UTC'\nautovacuum_worker_slots = 16\t\t# autovacuum worker slots to allocate\ndatestyle = 'iso, mdy'\ntimezone = 'Etc/UTC'\nlc_messages = C\t\t\t\t# locale for system error message\nlc_monetary = C\t\t\t\t# locale for monetary formatting\nlc_numeric = C\t\t\t\t# locale for number formatting\nlc_time = C\t\t\t\t# locale for time formatting\ndefault_text_search_config = 'pg_catalog.english'\nlisten_addresses = '127.0.0.1'\nport = 56532\nunix_socket_directories = '/home/reshke/pgpg2/compare-workloads/main-insert8k-tls-a1/data'\nmax_connections = 158\nshared_buffers = '256MB'\nmax_wal_senders = 4\nwal_level = replica\nwal_buffers = '64MB'\nmax_wal_size = '4GB'\nmin_wal_size = '80MB'\ncheckpoint_timeout = '30min'\nautovacuum = off\nfsync = on\nfull_page_writes = on\nsynchronous_standby_names = 'bench_standby'\nssl = on\nssl_key_file = '/home/reshke/pgpg2/compare-workloads/main-insert8k-tls-a1/server.key'\nssl_cert_file = '/home/reshke/pgpg2/compare-workloads/main-insert8k-tls-a1/server.crt'\n"
+    },
+    "main-insert32k-tls": {
+      "arguments": {
+        "baseline_bindir": "/home/reshke/pgpg2/install-baseline/bin",
+        "feature_bindir": "/home/reshke/pgpg2/install-release/bin",
+        "output": "/home/reshke/pgpg2/compare-workloads/main-insert32k-tls-a1",
+        "data_root": null,
+        "log_root": "/dev/shm/pgpg2-workloads-logs/main-insert32k-tls-a1",
+        "cases": "/home/reshke/pgpg2/compare-workloads/main-insert32k-tls-a1.cases.json",
+        "variants": [
+          "base",
+          "on",
+          "hybrid8"
+        ],
+        "seconds": 20,
+        "warmup": 5,
+        "repeats": 3,
+        "port": 56532,
+        "tls": true,
+        "pgbench_scale": 0,
+        "restore_between_runs": true,
+        "max_wal_size": "4GB",
+        "discard_data": true
+      },
+      "cases": [
+        {
+          "name": "insert32k-tls-sat",
+          "workload": "insert",
+          "payload_bytes": 32768,
+          "clients": 128,
+          "family": "insert32k-tls",
+          "load_mode": "saturation",
+          "rate": 0,
+          "commit": "on"
+        },
+        {
+          "name": "insert32k-tls-rate",
+          "workload": "insert",
+          "payload_bytes": 32768,
+          "clients": 128,
+          "family": "insert32k-tls",
+          "load_mode": "fixed_rate",
+          "rate": 1100,
+          "commit": "on"
+        }
+      ],
+      "uname": [
+        "Linux",
+        "pgfuzz",
+        "6.8.0-147-generic",
+        "#147-Ubuntu SMP PREEMPT_DYNAMIC Thu Sep 24 11:33:16 UTC 2026",
+        "x86_64"
+      ],
+      "cpu_affinity": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "baseline_configure": "'--prefix=/home/reshke/pgpg2/install-baseline' '--libdir=/home/reshke/pgpg2/install-baseline/lib/postgresql' '--enable-debug' '--disable-cassert' '--enable-depend' '--with-openssl' '--without-mdblocales' 'CFLAGS=-O2 -g -fno-omit-frame-pointer'",
+      "feature_configure": "'--prefix=/home/reshke/pgpg2/install-release' '--libdir=/home/reshke/pgpg2/install-release/lib/postgresql' '--enable-debug' '--disable-cassert' '--enable-depend' '--with-openssl' '--without-mdblocales' 'CFLAGS=-O2 -g -fno-omit-frame-pointer'",
+      "postgres_sha256": {
+        "base": "b6fdeba74333cbacbd7d8168ad93b7be5eaea4e86ecc2de78234e78661dd6c56",
+        "feature": "04bcd558c0c4a2185d7612202733972f8d7a9423206ada49ac26b1fbf10480de"
+      },
+      "harness_sha256": "009eb98797281cd4378fc599a360ceb36d6a41290c3393c293715078ce2e3a14",
+      "primary_config": "max_connections = 100\t\t\t# (change requires restart)\nshared_buffers = 128MB\t\t\t# min 128kB\ndynamic_shared_memory_type = posix\t# the default is usually the first option\nmax_wal_size = 1GB\nmin_wal_size = 80MB\nlog_timezone = 'Etc/UTC'\nautovacuum_worker_slots = 16\t\t# autovacuum worker slots to allocate\ndatestyle = 'iso, mdy'\ntimezone = 'Etc/UTC'\nlc_messages = C\t\t\t\t# locale for system error message\nlc_monetary = C\t\t\t\t# locale for monetary formatting\nlc_numeric = C\t\t\t\t# locale for number formatting\nlc_time = C\t\t\t\t# locale for time formatting\ndefault_text_search_config = 'pg_catalog.english'\nlisten_addresses = '127.0.0.1'\nport = 56532\nunix_socket_directories = '/home/reshke/pgpg2/compare-workloads/main-insert32k-tls-a1/data'\nmax_connections = 158\nshared_buffers = '256MB'\nmax_wal_senders = 4\nwal_level = replica\nwal_buffers = '64MB'\nmax_wal_size = '4GB'\nmin_wal_size = '80MB'\ncheckpoint_timeout = '30min'\nautovacuum = off\nfsync = on\nfull_page_writes = on\nsynchronous_standby_names = 'bench_standby'\nssl = on\nssl_key_file = '/home/reshke/pgpg2/compare-workloads/main-insert32k-tls-a1/server.key'\nssl_cert_file = '/home/reshke/pgpg2/compare-workloads/main-insert32k-tls-a1/server.crt'\n"
+    }
+  },
+  "calibration_rows": [
+    {
+      "case": {
+        "name": "simple-update",
+        "workload": "simple-update",
+        "clients": 128,
+        "family": "simple-update",
+        "rate": 0,
+        "commit": "on"
+      },
+      "variant": "base",
+      "repeat": 1,
+      "start_epoch": 1792776143.9296057,
+      "end_epoch": 1792776153.9299338,
+      "elapsed_seconds": 10.000330173999828,
+      "initial_history_rows": 0,
+      "latency": {
+        "count": 117986,
+        "mean_ms": 10.773667079144984,
+        "p50_ms": 9.514,
+        "p95_ms": 18.765,
+        "p99_ms": 31.114,
+        "p999_ms": 75.159,
+        "max_ms": 82.373
+      },
+      "execution": {
+        "count": 117986,
+        "mean_ms": 10.773667079144984,
+        "p50_ms": 9.514,
+        "p95_ms": 18.765,
+        "p99_ms": 31.114,
+        "p999_ms": 75.159,
+        "max_ms": 82.373
+      },
+      "schedule_lag": {
+        "count": 117986,
+        "mean_ms": 0.0,
+        "p50_ms": 0.0,
+        "p95_ms": 0.0,
+        "p99_ms": 0.0,
+        "p999_ms": 0.0,
+        "max_ms": 0.0
+      },
+      "failed": 0,
+      "skipped": 0,
+      "tps": 11798.21294314838,
+      "five_second_blocks": {
+        "0": {
+          "count": 59929,
+          "mean_ms": 10.603224048457342,
+          "p50_ms": 9.503,
+          "p95_ms": 17.967,
+          "p99_ms": 26.685,
+          "p999_ms": 75.045,
+          "max_ms": 77.107
+        },
+        "1": {
+          "count": 58053,
+          "mean_ms": 10.949910512807262,
+          "p50_ms": 9.527,
+          "p95_ms": 20.439,
+          "p99_ms": 32.075,
+          "p999_ms": 75.202,
+          "max_ms": 82.373
+        },
+        "2": {
+          "count": 4,
+          "mean_ms": 6.52875,
+          "p50_ms": 6.472,
+          "p95_ms": 6.657,
+          "p99_ms": 6.657,
+          "p999_ms": 6.657,
+          "max_ms": 6.657
+        }
+      },
+      "by_script": {
+        "0": {
+          "latency": {
+            "count": 117986,
+            "mean_ms": 10.773667079144984,
+            "p50_ms": 9.514,
+            "p95_ms": 18.765,
+            "p99_ms": 31.114,
+            "p999_ms": 75.159,
+            "max_ms": 82.373
+          },
+          "execution": {
+            "count": 117986,
+            "mean_ms": 10.773667079144984,
+            "p50_ms": 9.514,
+            "p95_ms": 18.765,
+            "p99_ms": 31.114,
+            "p999_ms": 75.159,
+            "max_ms": 82.373
+          },
+          "schedule_lag": {
+            "count": 117986,
+            "mean_ms": 0.0,
+            "p50_ms": 0.0,
+            "p95_ms": 0.0,
+            "p99_ms": 0.0,
+            "p999_ms": 0.0,
+            "max_ms": 0.0
+          },
+          "failed": 0,
+          "skipped": 0,
+          "tps": 11798.21294314838
+        }
+      },
+      "script_labels": {
+        "0": "write"
+      },
+      "cpu": {
+        "primary:client backend": {
+          "cpu_seconds": 33.29000000000003
+        },
+        "primary:walsender": {
+          "cpu_seconds": 0.9299999999999999
+        },
+        "standby:walreceiver": {
+          "cpu_seconds": 0.5800000000000001
+        },
+        "standby:startup": {
+          "cpu_seconds": 0.8099999999999999
+        },
+        "client:pgbench": {
+          "cpu_seconds": 12.85
+        }
+      },
+      "system_cpu": {
+        "busy_pct": 64.00972364379831,
+        "iowait_pct": 13.779426816783552,
+        "steal_pct": 0.20470829068573984
+      },
+      "wal_bytes": 67433296,
+      "checkpoint_events": {
+        "primary": {
+          "checkpoint complete:": 0,
+          "checkpoint starting:": 0
+        },
+        "standby": {
+          "restartpoint complete:": 0,
+          "restartpoint starting:": 0
+        }
+      },
+      "dataset": "calibrate-plain",
+      "missing_cpu_count": 0
+    },
+    {
+      "case": {
+        "name": "tpcb",
+        "workload": "tpcb",
+        "clients": 128,
+        "family": "tpcb",
+        "rate": 0,
+        "commit": "on"
+      },
+      "variant": "base",
+      "repeat": 1,
+      "start_epoch": 1792776172.932641,
+      "end_epoch": 1792776182.9328191,
+      "elapsed_seconds": 10.000179875998583,
+      "initial_history_rows": 0,
+      "latency": {
+        "count": 12023,
+        "mean_ms": 105.7264243533228,
+        "p50_ms": 48.105,
+        "p95_ms": 397.61,
+        "p99_ms": 766.016,
+        "p999_ms": 1548.409,
+        "max_ms": 2854.326
+      },
+      "execution": {
+        "count": 12023,
+        "mean_ms": 105.7264243533228,
+        "p50_ms": 48.105,
+        "p95_ms": 397.61,
+        "p99_ms": 766.016,
+        "p999_ms": 1548.409,
+        "max_ms": 2854.326
+      },
+      "schedule_lag": {
+        "count": 12023,
+        "mean_ms": 0.0,
+        "p50_ms": 0.0,
+        "p95_ms": 0.0,
+        "p99_ms": 0.0,
+        "p999_ms": 0.0,
+        "max_ms": 0.0
+      },
+      "failed": 0,
+      "skipped": 0,
+      "tps": 1202.2785875772256,
+      "five_second_blocks": {
+        "0": {
+          "count": 6424,
+          "mean_ms": 99.20073988169365,
+          "p50_ms": 46.698,
+          "p95_ms": 371.785,
+          "p99_ms": 707.311,
+          "p999_ms": 1174.895,
+          "max_ms": 1313.01
+        },
+        "1": {
+          "count": 5599,
+          "mean_ms": 113.21365368815859,
+          "p50_ms": 49.924,
+          "p95_ms": 433.89,
+          "p99_ms": 820.599,
+          "p999_ms": 1775.611,
+          "max_ms": 2854.326
+        }
+      },
+      "by_script": {
+        "0": {
+          "latency": {
+            "count": 12023,
+            "mean_ms": 105.7264243533228,
+            "p50_ms": 48.105,
+            "p95_ms": 397.61,
+            "p99_ms": 766.016,
+            "p999_ms": 1548.409,
+            "max_ms": 2854.326
+          },
+          "execution": {
+            "count": 12023,
+            "mean_ms": 105.7264243533228,
+            "p50_ms": 48.105,
+            "p95_ms": 397.61,
+            "p99_ms": 766.016,
+            "p999_ms": 1548.409,
+            "max_ms": 2854.326
+          },
+          "schedule_lag": {
+            "count": 12023,
+            "mean_ms": 0.0,
+            "p50_ms": 0.0,
+            "p95_ms": 0.0,
+            "p99_ms": 0.0,
+            "p999_ms": 0.0,
+            "max_ms": 0.0
+          },
+          "failed": 0,
+          "skipped": 0,
+          "tps": 1202.2785875772256
+        }
+      },
+      "script_labels": {
+        "0": "write"
+      },
+      "cpu": {
+        "primary:client backend": {
+          "cpu_seconds": 10.479999999999997
+        },
+        "primary:walsender": {
+          "cpu_seconds": 0.45999999999999996
+        },
+        "standby:walreceiver": {
+          "cpu_seconds": 0.65
+        },
+        "standby:startup": {
+          "cpu_seconds": 0.39
+        },
+        "client:pgbench": {
+          "cpu_seconds": 3.0
+        }
+      },
+      "system_cpu": {
+        "busy_pct": 21.14497950819267,
+        "iowait_pct": 30.26383196720789,
+        "steal_pct": 0.06403688524588665
+      },
+      "wal_bytes": 67814712,
+      "checkpoint_events": {
+        "primary": {
+          "checkpoint complete:": 0,
+          "checkpoint starting:": 0
+        },
+        "standby": {
+          "restartpoint complete:": 0,
+          "restartpoint starting:": 0
+        }
+      },
+      "dataset": "calibrate-plain",
+      "missing_cpu_count": 0
+    },
+    {
+      "case": {
+        "name": "mixed90",
+        "workload": "mixed",
+        "read_weight": 90,
+        "clients": 128,
+        "family": "mixed90",
+        "rate": 0,
+        "commit": "on"
+      },
+      "variant": "base",
+      "repeat": 1,
+      "start_epoch": 1792776202.396789,
+      "end_epoch": 1792776212.3971756,
+      "elapsed_seconds": 10.000387025000236,
+      "initial_history_rows": 0,
+      "latency": {
+        "count": 695462,
+        "mean_ms": 1.7481974442888324,
+        "p50_ms": 0.492,
+        "p95_ms": 10.649,
+        "p99_ms": 17.016,
+        "p999_ms": 48.436,
+        "max_ms": 111.051
+      },
+      "execution": {
+        "count": 695462,
+        "mean_ms": 1.7481974442888324,
+        "p50_ms": 0.492,
+        "p95_ms": 10.649,
+        "p99_ms": 17.016,
+        "p999_ms": 48.436,
+        "max_ms": 111.051
+      },
+      "schedule_lag": {
+        "count": 695462,
+        "mean_ms": 0.0,
+        "p50_ms": 0.0,
+        "p95_ms": 0.0,
+        "p99_ms": 0.0,
+        "p999_ms": 0.0,
+        "max_ms": 0.0
+      },
+      "failed": 0,
+      "skipped": 0,
+      "tps": 69543.5123065603,
+      "five_second_blocks": {
+        "0": {
+          "count": 347113,
+          "mean_ms": 1.7525386833682404,
+          "p50_ms": 0.53,
+          "p95_ms": 10.574,
+          "p99_ms": 15.897,
+          "p999_ms": 53.743,
+          "max_ms": 87.554
+        },
+        "1": {
+          "count": 348317,
+          "mean_ms": 1.7439963108317997,
+          "p50_ms": 0.453,
+          "p95_ms": 10.742,
+          "p99_ms": 18.374,
+          "p999_ms": 39.255,
+          "max_ms": 111.051
+        },
+        "2": {
+          "count": 32,
+          "mean_ms": 0.3865,
+          "p50_ms": 0.295,
+          "p95_ms": 0.873,
+          "p99_ms": 1.261,
+          "p999_ms": 1.261,
+          "max_ms": 1.261
+        }
+      },
+      "by_script": {
+        "0": {
+          "latency": {
+            "count": 625892,
+            "mean_ms": 0.5770481856294696,
+            "p50_ms": 0.425,
+            "p95_ms": 1.611,
+            "p99_ms": 2.511,
+            "p999_ms": 4.087,
+            "max_ms": 8.711
+          },
+          "execution": {
+            "count": 625892,
+            "mean_ms": 0.5770481856294696,
+            "p50_ms": 0.425,
+            "p95_ms": 1.611,
+            "p99_ms": 2.511,
+            "p999_ms": 4.087,
+            "max_ms": 8.711
+          },
+          "schedule_lag": {
+            "count": 625892,
+            "mean_ms": 0.0,
+            "p50_ms": 0.0,
+            "p95_ms": 0.0,
+            "p99_ms": 0.0,
+            "p999_ms": 0.0,
+            "max_ms": 0.0
+          },
+          "failed": 0,
+          "skipped": 0,
+          "tps": 62586.78116788213
+        },
+        "1": {
+          "latency": {
+            "count": 69570,
+            "mean_ms": 12.284534253270087,
+            "p50_ms": 10.648,
+            "p95_ms": 22.388,
+            "p99_ms": 48.436,
+            "p999_ms": 96.148,
+            "max_ms": 111.051
+          },
+          "execution": {
+            "count": 69570,
+            "mean_ms": 12.284534253270087,
+            "p50_ms": 10.648,
+            "p95_ms": 22.388,
+            "p99_ms": 48.436,
+            "p999_ms": 96.148,
+            "max_ms": 111.051
+          },
+          "schedule_lag": {
+            "count": 69570,
+            "mean_ms": 0.0,
+            "p50_ms": 0.0,
+            "p95_ms": 0.0,
+            "p99_ms": 0.0,
+            "p999_ms": 0.0,
+            "max_ms": 0.0
+          },
+          "failed": 0,
+          "skipped": 0,
+          "tps": 6956.731138678174
+        }
+      },
+      "script_labels": {
+        "0": "read",
+        "1": "write"
+      },
+      "cpu": {
+        "primary:client backend": {
+          "cpu_seconds": 46.47999999999998
+        },
+        "primary:walsender": {
+          "cpu_seconds": 0.63
+        },
+        "primary:walwriter": {
+          "cpu_seconds": 0.02
+        },
+        "standby:walreceiver": {
+          "cpu_seconds": 0.55
+        },
+        "standby:startup": {
+          "cpu_seconds": 0.71
+        },
+        "client:pgbench": {
+          "cpu_seconds": 20.73
+        }
+      },
+      "system_cpu": {
+        "busy_pct": 89.4057171514639,
+        "iowait_pct": 4.012036108325088,
+        "steal_pct": 0.36359077231698955
+      },
+      "wal_bytes": 83092408,
+      "checkpoint_events": {
+        "primary": {
+          "checkpoint complete:": 0,
+          "checkpoint starting:": 0
+        },
+        "standby": {
+          "restartpoint complete:": 0,
+          "restartpoint starting:": 0
+        }
+      },
+      "dataset": "calibrate-plain",
+      "missing_cpu_count": 0
+    },
+    {
+      "case": {
+        "name": "mixed50",
+        "workload": "mixed",
+        "read_weight": 50,
+        "clients": 128,
+        "family": "mixed50",
+        "rate": 0,
+        "commit": "on"
+      },
+      "variant": "base",
+      "repeat": 1,
+      "start_epoch": 1792776232.8748138,
+      "end_epoch": 1792776242.8752654,
+      "elapsed_seconds": 10.000452538999525,
+      "initial_history_rows": 0,
+      "latency": {
+        "count": 219608,
+        "mean_ms": 5.752926810498707,
+        "p50_ms": 3.143,
+        "p95_ms": 15.647,
+        "p99_ms": 28.483,
+        "p999_ms": 74.02,
+        "max_ms": 106.73
+      },
+      "execution": {
+        "count": 219608,
+        "mean_ms": 5.752926810498707,
+        "p50_ms": 3.143,
+        "p95_ms": 15.647,
+        "p99_ms": 28.483,
+        "p999_ms": 74.02,
+        "max_ms": 106.73
+      },
+      "schedule_lag": {
+        "count": 219608,
+        "mean_ms": 0.0,
+        "p50_ms": 0.0,
+        "p95_ms": 0.0,
+        "p99_ms": 0.0,
+        "p999_ms": 0.0,
+        "max_ms": 0.0
+      },
+      "failed": 0,
+      "skipped": 0,
+      "tps": 21959.808372376985,
+      "five_second_blocks": {
+        "0": {
+          "count": 115167,
+          "mean_ms": 5.481651879444633,
+          "p50_ms": 3.384,
+          "p95_ms": 14.451,
+          "p99_ms": 22.429,
+          "p999_ms": 72.05,
+          "max_ms": 81.435
+        },
+        "1": {
+          "count": 104434,
+          "mean_ms": 6.052370492368385,
+          "p50_ms": 2.891,
+          "p95_ms": 17.39,
+          "p99_ms": 30.93,
+          "p999_ms": 101.197,
+          "max_ms": 106.73
+        },
+        "2": {
+          "count": 7,
+          "mean_ms": 1.4412857142857143,
+          "p50_ms": 0.732,
+          "p95_ms": 6.475,
+          "p99_ms": 6.475,
+          "p999_ms": 6.475,
+          "max_ms": 6.475
+        }
+      },
+      "by_script": {
+        "0": {
+          "latency": {
+            "count": 110097,
+            "mean_ms": 0.6307809204610481,
+            "p50_ms": 0.472,
+            "p95_ms": 1.721,
+            "p99_ms": 2.508,
+            "p999_ms": 3.573,
+            "max_ms": 4.806
+          },
+          "execution": {
+            "count": 110097,
+            "mean_ms": 0.6307809204610481,
+            "p50_ms": 0.472,
+            "p95_ms": 1.721,
+            "p99_ms": 2.508,
+            "p999_ms": 3.573,
+            "max_ms": 4.806
+          },
+          "schedule_lag": {
+            "count": 110097,
+            "mean_ms": 0.0,
+            "p50_ms": 0.0,
+            "p95_ms": 0.0,
+            "p99_ms": 0.0,
+            "p999_ms": 0.0,
+            "max_ms": 0.0
+          },
+          "failed": 0,
+          "skipped": 0,
+          "tps": 11009.202863163404
+        },
+        "1": {
+          "latency": {
+            "count": 109511,
+            "mean_ms": 10.90248161371917,
+            "p50_ms": 9.398,
+            "p95_ms": 20.758,
+            "p99_ms": 34.313,
+            "p999_ms": 100.992,
+            "max_ms": 106.73
+          },
+          "execution": {
+            "count": 109511,
+            "mean_ms": 10.90248161371917,
+            "p50_ms": 9.398,
+            "p95_ms": 20.758,
+            "p99_ms": 34.313,
+            "p999_ms": 100.992,
+            "max_ms": 106.73
+          },
+          "schedule_lag": {
+            "count": 109511,
+            "mean_ms": 0.0,
+            "p50_ms": 0.0,
+            "p95_ms": 0.0,
+            "p99_ms": 0.0,
+            "p999_ms": 0.0,
+            "max_ms": 0.0
+          },
+          "failed": 0,
+          "skipped": 0,
+          "tps": 10950.60550921358
+        }
+      },
+      "script_labels": {
+        "0": "read",
+        "1": "write"
+      },
+      "cpu": {
+        "primary:client backend": {
+          "cpu_seconds": 36.91999999999994
+        },
+        "primary:walsender": {
+          "cpu_seconds": 0.8700000000000001
+        },
+        "primary:walwriter": {
+          "cpu_seconds": 0.010000000000000002
+        },
+        "standby:walreceiver": {
+          "cpu_seconds": 0.56
+        },
+        "standby:startup": {
+          "cpu_seconds": 0.83
+        },
+        "client:pgbench": {
+          "cpu_seconds": 14.82
+        }
+      },
+      "system_cpu": {
+        "busy_pct": 70.919014978426,
+        "iowait_pct": 11.208428535162033,
+        "steal_pct": 0.22848438690025585
+      },
+      "wal_bytes": 65862576,
+      "checkpoint_events": {
+        "primary": {
+          "checkpoint complete:": 0,
+          "checkpoint starting:": 0
+        },
+        "standby": {
+          "restartpoint complete:": 0,
+          "restartpoint starting:": 0
+        }
+      },
+      "dataset": "calibrate-plain",
+      "missing_cpu_count": 0
+    },
+    {
+      "case": {
+        "name": "batch10",
+        "workload": "insert",
+        "batch_rows": 10,
+        "payload_bytes": 0,
+        "clients": 128,
+        "family": "batch10",
+        "rate": 0,
+        "commit": "on"
+      },
+      "variant": "base",
+      "repeat": 1,
+      "start_epoch": 1792776262.5131435,
+      "end_epoch": 1792776272.5132434,
+      "elapsed_seconds": 10.000102309000795,
+      "initial_history_rows": 0,
+      "latency": {
+        "count": 170236,
+        "mean_ms": 7.465428916327921,
+        "p50_ms": 6.2,
+        "p95_ms": 14.935,
+        "p99_ms": 25.145,
+        "p999_ms": 47.659,
+        "max_ms": 68.534
+      },
+      "execution": {
+        "count": 170236,
+        "mean_ms": 7.465428916327921,
+        "p50_ms": 6.2,
+        "p95_ms": 14.935,
+        "p99_ms": 25.145,
+        "p999_ms": 47.659,
+        "max_ms": 68.534
+      },
+      "schedule_lag": {
+        "count": 170236,
+        "mean_ms": 0.0,
+        "p50_ms": 0.0,
+        "p95_ms": 0.0,
+        "p99_ms": 0.0,
+        "p999_ms": 0.0,
+        "max_ms": 0.0
+      },
+      "failed": 0,
+      "skipped": 0,
+      "tps": 17023.42994038713,
+      "five_second_blocks": {
+        "0": {
+          "count": 87217,
+          "mean_ms": 7.282469036999668,
+          "p50_ms": 6.238,
+          "p95_ms": 13.708,
+          "p99_ms": 23.506,
+          "p999_ms": 44.83,
+          "max_ms": 49.073
+        },
+        "1": {
+          "count": 83019,
+          "mean_ms": 7.657640479890146,
+          "p50_ms": 6.148,
+          "p95_ms": 15.857,
+          "p99_ms": 25.536,
+          "p999_ms": 63.01,
+          "max_ms": 68.534
+        }
+      },
+      "by_script": {
+        "0": {
+          "latency": {
+            "count": 170236,
+            "mean_ms": 7.465428916327921,
+            "p50_ms": 6.2,
+            "p95_ms": 14.935,
+            "p99_ms": 25.145,
+            "p999_ms": 47.659,
+            "max_ms": 68.534
+          },
+          "execution": {
+            "count": 170236,
+            "mean_ms": 7.465428916327921,
+            "p50_ms": 6.2,
+            "p95_ms": 14.935,
+            "p99_ms": 25.145,
+            "p999_ms": 47.659,
+            "max_ms": 68.534
+          },
+          "schedule_lag": {
+            "count": 170236,
+            "mean_ms": 0.0,
+            "p50_ms": 0.0,
+            "p95_ms": 0.0,
+            "p99_ms": 0.0,
+            "p999_ms": 0.0,
+            "max_ms": 0.0
+          },
+          "failed": 0,
+          "skipped": 0,
+          "tps": 17023.42994038713
+        }
+      },
+      "script_labels": {
+        "0": "write"
+      },
+      "cpu": {
+        "primary:client backend": {
+          "cpu_seconds": 20.220000000000013
+        },
+        "primary:walsender": {
+          "cpu_seconds": 1.29
+        },
+        "primary:walwriter": {
+          "cpu_seconds": 0.02
+        },
+        "standby:walreceiver": {
+          "cpu_seconds": 0.77
+        },
+        "standby:startup": {
+          "cpu_seconds": 1.25
+        },
+        "client:pgbench": {
+          "cpu_seconds": 4.42
+        }
+      },
+      "system_cpu": {
+        "busy_pct": 37.992458717991695,
+        "iowait_pct": 23.93706930178623,
+        "steal_pct": 0.10401768300613107
+      },
+      "wal_bytes": 103226992,
+      "checkpoint_events": {
+        "primary": {
+          "checkpoint complete:": 0,
+          "checkpoint starting:": 0
+        },
+        "standby": {
+          "restartpoint complete:": 0,
+          "restartpoint starting:": 0
+        }
+      },
+      "dataset": "calibrate-plain",
+      "missing_cpu_count": 0
+    },
+    {
+      "case": {
+        "name": "batch100",
+        "workload": "insert",
+        "batch_rows": 100,
+        "payload_bytes": 0,
+        "clients": 128,
+        "family": "batch100",
+        "rate": 0,
+        "commit": "on"
+      },
+      "variant": "base",
+      "repeat": 1,
+      "start_epoch": 1792776292.9439766,
+      "end_epoch": 1792776302.9440668,
+      "elapsed_seconds": 10.000091077999969,
+      "initial_history_rows": 0,
+      "latency": {
+        "count": 63035,
+        "mean_ms": 20.262794066788295,
+        "p50_ms": 15.824,
+        "p95_ms": 47.422,
+        "p99_ms": 104.451,
+        "p999_ms": 157.094,
+        "max_ms": 161.678
+      },
+      "execution": {
+        "count": 63035,
+        "mean_ms": 20.262794066788295,
+        "p50_ms": 15.824,
+        "p95_ms": 47.422,
+        "p99_ms": 104.451,
+        "p999_ms": 157.094,
+        "max_ms": 161.678
+      },
+      "schedule_lag": {
+        "count": 63035,
+        "mean_ms": 0.0,
+        "p50_ms": 0.0,
+        "p95_ms": 0.0,
+        "p99_ms": 0.0,
+        "p999_ms": 0.0,
+        "max_ms": 0.0
+      },
+      "failed": 0,
+      "skipped": 0,
+      "tps": 6303.443191968761,
+      "five_second_blocks": {
+        "0": {
+          "count": 34251,
+          "mean_ms": 18.6425719249073,
+          "p50_ms": 15.045,
+          "p95_ms": 40.449,
+          "p99_ms": 91.021,
+          "p999_ms": 117.204,
+          "max_ms": 120.658
+        },
+        "1": {
+          "count": 28784,
+          "mean_ms": 22.190748089216232,
+          "p50_ms": 17.28,
+          "p95_ms": 55.161,
+          "p99_ms": 109.196,
+          "p999_ms": 159.454,
+          "max_ms": 161.678
+        }
+      },
+      "by_script": {
+        "0": {
+          "latency": {
+            "count": 63035,
+            "mean_ms": 20.262794066788295,
+            "p50_ms": 15.824,
+            "p95_ms": 47.422,
+            "p99_ms": 104.451,
+            "p999_ms": 157.094,
+            "max_ms": 161.678
+          },
+          "execution": {
+            "count": 63035,
+            "mean_ms": 20.262794066788295,
+            "p50_ms": 15.824,
+            "p95_ms": 47.422,
+            "p99_ms": 104.451,
+            "p999_ms": 157.094,
+            "max_ms": 161.678
+          },
+          "schedule_lag": {
+            "count": 63035,
+            "mean_ms": 0.0,
+            "p50_ms": 0.0,
+            "p95_ms": 0.0,
+            "p99_ms": 0.0,
+            "p999_ms": 0.0,
+            "max_ms": 0.0
+          },
+          "failed": 0,
+          "skipped": 0,
+          "tps": 6303.443191968761
+        }
+      },
+      "script_labels": {
+        "0": "write"
+      },
+      "cpu": {
+        "primary:client backend": {
+          "cpu_seconds": 19.630000000000006
+        },
+        "primary:walsender": {
+          "cpu_seconds": 0.6499999999999999
+        },
+        "primary:walwriter": {
+          "cpu_seconds": 0.02
+        },
+        "primary:background writer": {
+          "cpu_seconds": 0.01
+        },
+        "standby:walreceiver": {
+          "cpu_seconds": 0.81
+        },
+        "standby:startup": {
+          "cpu_seconds": 3.4400000000000004
+        },
+        "standby:background writer": {
+          "cpu_seconds": 0.01
+        },
+        "client:pgbench": {
+          "cpu_seconds": 1.81
+        }
+      },
+      "system_cpu": {
+        "busy_pct": 35.65284375402044,
+        "iowait_pct": 23.50751059186558,
+        "steal_pct": 0.10270894851716322
+      },
+      "wal_bytes": 360054184,
+      "checkpoint_events": {
+        "primary": {
+          "checkpoint complete:": 0,
+          "checkpoint starting:": 0
+        },
+        "standby": {
+          "restartpoint complete:": 0,
+          "restartpoint starting:": 0
+        }
+      },
+      "dataset": "calibrate-plain",
+      "missing_cpu_count": 0
+    },
+    {
+      "case": {
+        "name": "batch1000",
+        "workload": "insert",
+        "batch_rows": 1000,
+        "payload_bytes": 0,
+        "clients": 128,
+        "family": "batch1000",
+        "rate": 0,
+        "commit": "on"
+      },
+      "variant": "base",
+      "repeat": 1,
+      "start_epoch": 1792776325.5011075,
+      "end_epoch": 1792776335.501361,
+      "elapsed_seconds": 10.000255023998761,
+      "initial_history_rows": 0,
+      "latency": {
+        "count": 12827,
+        "mean_ms": 100.25587042956263,
+        "p50_ms": 77.05,
+        "p95_ms": 193.873,
+        "p99_ms": 217.096,
+        "p999_ms": 263.27,
+        "max_ms": 274.354
+      },
+      "execution": {
+        "count": 12827,
+        "mean_ms": 100.25587042956263,
+        "p50_ms": 77.05,
+        "p95_ms": 193.873,
+        "p99_ms": 217.096,
+        "p999_ms": 263.27,
+        "max_ms": 274.354
+      },
+      "schedule_lag": {
+        "count": 12827,
+        "mean_ms": 0.0,
+        "p50_ms": 0.0,
+        "p95_ms": 0.0,
+        "p99_ms": 0.0,
+        "p999_ms": 0.0,
+        "max_ms": 0.0
+      },
+      "failed": 0,
+      "skipped": 0,
+      "tps": 1282.6674922098107,
+      "five_second_blocks": {
+        "0": {
+          "count": 6567,
+          "mean_ms": 96.48160012182123,
+          "p50_ms": 78.027,
+          "p95_ms": 190.14,
+          "p99_ms": 210.379,
+          "p999_ms": 240.069,
+          "max_ms": 241.097
+        },
+        "1": {
+          "count": 6260,
+          "mean_ms": 104.21523674121406,
+          "p50_ms": 75.526,
+          "p95_ms": 194.877,
+          "p99_ms": 217.437,
+          "p999_ms": 270.417,
+          "max_ms": 274.354
+        }
+      },
+      "by_script": {
+        "0": {
+          "latency": {
+            "count": 12827,
+            "mean_ms": 100.25587042956263,
+            "p50_ms": 77.05,
+            "p95_ms": 193.873,
+            "p99_ms": 217.096,
+            "p999_ms": 263.27,
+            "max_ms": 274.354
+          },
+          "execution": {
+            "count": 12827,
+            "mean_ms": 100.25587042956263,
+            "p50_ms": 77.05,
+            "p95_ms": 193.873,
+            "p99_ms": 217.096,
+            "p999_ms": 263.27,
+            "max_ms": 274.354
+          },
+          "schedule_lag": {
+            "count": 12827,
+            "mean_ms": 0.0,
+            "p50_ms": 0.0,
+            "p95_ms": 0.0,
+            "p99_ms": 0.0,
+            "p999_ms": 0.0,
+            "max_ms": 0.0
+          },
+          "failed": 0,
+          "skipped": 0,
+          "tps": 1282.6674922098107
+        }
+      },
+      "script_labels": {
+        "0": "write"
+      },
+      "cpu": {
+        "primary:client backend": {
+          "cpu_seconds": 24.049999999999997
+        },
+        "primary:walsender": {
+          "cpu_seconds": 0.4
+        },
+        "primary:walwriter": {
+          "cpu_seconds": 0.03
+        },
+        "primary:background writer": {
+          "cpu_seconds": 0.06
+        },
+        "standby:walreceiver": {
+          "cpu_seconds": 1.23
+        },
+        "standby:startup": {
+          "cpu_seconds": 6.16
+        },
+        "standby:background writer": {
+          "cpu_seconds": 0.04
+        },
+        "client:pgbench": {
+          "cpu_seconds": 0.44
+        }
+      },
+      "system_cpu": {
+        "busy_pct": 43.82209689822702,
+        "iowait_pct": 21.00743399128205,
+        "steal_pct": 0.15380671622658526
+      },
+      "wal_bytes": 722427856,
+      "checkpoint_events": {
+        "primary": {
+          "checkpoint complete:": 0,
+          "checkpoint starting:": 0
+        },
+        "standby": {
+          "restartpoint complete:": 0,
+          "restartpoint starting:": 0
+        }
+      },
+      "dataset": "calibrate-plain",
+      "missing_cpu_count": 0
+    },
+    {
+      "case": {
+        "name": "insert8k-tls",
+        "workload": "insert",
+        "payload_bytes": 8192,
+        "clients": 128,
+        "family": "insert8k-tls",
+        "rate": 0,
+        "commit": "on"
+      },
+      "variant": "base",
+      "repeat": 1,
+      "start_epoch": 1792776373.5085227,
+      "end_epoch": 1792776383.5086164,
+      "elapsed_seconds": 10.000094478000392,
+      "initial_history_rows": null,
+      "latency": {
+        "count": 50518,
+        "mean_ms": 25.28817918365731,
+        "p50_ms": 19.854,
+        "p95_ms": 82.383,
+        "p99_ms": 110.554,
+        "p999_ms": 137.917,
+        "max_ms": 146.041
+      },
+      "execution": {
+        "count": 50518,
+        "mean_ms": 25.28817918365731,
+        "p50_ms": 19.854,
+        "p95_ms": 82.383,
+        "p99_ms": 110.554,
+        "p999_ms": 137.917,
+        "max_ms": 146.041
+      },
+      "schedule_lag": {
+        "count": 50518,
+        "mean_ms": 0.0,
+        "p50_ms": 0.0,
+        "p95_ms": 0.0,
+        "p99_ms": 0.0,
+        "p999_ms": 0.0,
+        "max_ms": 0.0
+      },
+      "failed": 0,
+      "skipped": 0,
+      "tps": 5051.752665834482,
+      "five_second_blocks": {
+        "0": {
+          "count": 24757,
+          "mean_ms": 25.706579189724117,
+          "p50_ms": 20.32,
+          "p95_ms": 81.382,
+          "p99_ms": 108.314,
+          "p999_ms": 139.007,
+          "max_ms": 146.041
+        },
+        "1": {
+          "count": 25761,
+          "mean_ms": 24.886085749776793,
+          "p50_ms": 19.546,
+          "p95_ms": 82.999,
+          "p99_ms": 111.826,
+          "p999_ms": 118.642,
+          "max_ms": 119.873
+        }
+      },
+      "by_script": {
+        "0": {
+          "latency": {
+            "count": 50518,
+            "mean_ms": 25.28817918365731,
+            "p50_ms": 19.854,
+            "p95_ms": 82.383,
+            "p99_ms": 110.554,
+            "p999_ms": 137.917,
+            "max_ms": 146.041
+          },
+          "execution": {
+            "count": 50518,
+            "mean_ms": 25.28817918365731,
+            "p50_ms": 19.854,
+            "p95_ms": 82.383,
+            "p99_ms": 110.554,
+            "p999_ms": 137.917,
+            "max_ms": 146.041
+          },
+          "schedule_lag": {
+            "count": 50518,
+            "mean_ms": 0.0,
+            "p50_ms": 0.0,
+            "p95_ms": 0.0,
+            "p99_ms": 0.0,
+            "p999_ms": 0.0,
+            "max_ms": 0.0
+          },
+          "failed": 0,
+          "skipped": 0,
+          "tps": 5051.752665834482
+        }
+      },
+      "script_labels": {
+        "0": "write"
+      },
+      "cpu": {
+        "primary:client backend": {
+          "cpu_seconds": 16.069999999999986
+        },
+        "primary:walsender": {
+          "cpu_seconds": 1.1
+        },
+        "primary:walwriter": {
+          "cpu_seconds": 0.020000000000000004
+        },
+        "primary:background writer": {
+          "cpu_seconds": 0.07
+        },
+        "standby:walreceiver": {
+          "cpu_seconds": 1.3
+        },
+        "standby:startup": {
+          "cpu_seconds": 1.44
+        },
+        "standby:background writer": {
+          "cpu_seconds": 0.1
+        },
+        "client:pgbench": {
+          "cpu_seconds": 2.08
+        }
+      },
+      "system_cpu": {
+        "busy_pct": 31.046422159526653,
+        "iowait_pct": 25.711720954089802,
+        "steal_pct": 0.07694280584765249
+      },
+      "wal_bytes": 460528888,
+      "checkpoint_events": {
+        "primary": {
+          "checkpoint complete:": 0,
+          "checkpoint starting:": 0
+        },
+        "standby": {
+          "restartpoint complete:": 0,
+          "restartpoint starting:": 0
+        }
+      },
+      "dataset": "calibrate-tls",
+      "missing_cpu_count": 0
+    },
+    {
+      "case": {
+        "name": "insert32k-tls",
+        "workload": "insert",
+        "payload_bytes": 32768,
+        "clients": 128,
+        "family": "insert32k-tls",
+        "rate": 0,
+        "commit": "on"
+      },
+      "variant": "base",
+      "repeat": 1,
+      "start_epoch": 1792776406.8942971,
+      "end_epoch": 1792776416.8943927,
+      "elapsed_seconds": 10.000096919000498,
+      "initial_history_rows": null,
+      "latency": {
+        "count": 18970,
+        "mean_ms": 67.59018207696363,
+        "p50_ms": 41.481,
+        "p95_ms": 169.423,
+        "p99_ms": 204.84,
+        "p999_ms": 420.185,
+        "max_ms": 421.551
+      },
+      "execution": {
+        "count": 18970,
+        "mean_ms": 67.59018207696363,
+        "p50_ms": 41.481,
+        "p95_ms": 169.423,
+        "p99_ms": 204.84,
+        "p999_ms": 420.185,
+        "max_ms": 421.551
+      },
+      "schedule_lag": {
+        "count": 18970,
+        "mean_ms": 0.0,
+        "p50_ms": 0.0,
+        "p95_ms": 0.0,
+        "p99_ms": 0.0,
+        "p999_ms": 0.0,
+        "max_ms": 0.0
+      },
+      "failed": 0,
+      "skipped": 0,
+      "tps": 1896.9818637436065,
+      "five_second_blocks": {
+        "0": {
+          "count": 10466,
+          "mean_ms": 60.51926199120963,
+          "p50_ms": 41.41,
+          "p95_ms": 156.664,
+          "p99_ms": 173.812,
+          "p999_ms": 185.881,
+          "max_ms": 186.975
+        },
+        "1": {
+          "count": 8504,
+          "mean_ms": 76.29246919096896,
+          "p50_ms": 41.648,
+          "p95_ms": 177.381,
+          "p99_ms": 366.745,
+          "p999_ms": 420.595,
+          "max_ms": 421.551
+        }
+      },
+      "by_script": {
+        "0": {
+          "latency": {
+            "count": 18970,
+            "mean_ms": 67.59018207696363,
+            "p50_ms": 41.481,
+            "p95_ms": 169.423,
+            "p99_ms": 204.84,
+            "p999_ms": 420.185,
+            "max_ms": 421.551
+          },
+          "execution": {
+            "count": 18970,
+            "mean_ms": 67.59018207696363,
+            "p50_ms": 41.481,
+            "p95_ms": 169.423,
+            "p99_ms": 204.84,
+            "p999_ms": 420.185,
+            "max_ms": 421.551
+          },
+          "schedule_lag": {
+            "count": 18970,
+            "mean_ms": 0.0,
+            "p50_ms": 0.0,
+            "p95_ms": 0.0,
+            "p99_ms": 0.0,
+            "p999_ms": 0.0,
+            "max_ms": 0.0
+          },
+          "failed": 0,
+          "skipped": 0,
+          "tps": 1896.9818637436065
+        }
+      },
+      "script_labels": {
+        "0": "write"
+      },
+      "cpu": {
+        "primary:client backend": {
+          "cpu_seconds": 14.15999999999998
+        },
+        "primary:walsender": {
+          "cpu_seconds": 0.81
+        },
+        "primary:walwriter": {
+          "cpu_seconds": 0.03
+        },
+        "primary:background writer": {
+          "cpu_seconds": 0.08
+        },
+        "standby:walreceiver": {
+          "cpu_seconds": 1.5699999999999998
+        },
+        "standby:startup": {
+          "cpu_seconds": 1.7799999999999998
+        },
+        "standby:background writer": {
+          "cpu_seconds": 0.12
+        },
+        "client:pgbench": {
+          "cpu_seconds": 0.8600000000000001
+        }
+      },
+      "system_cpu": {
+        "busy_pct": 27.09346991036504,
+        "iowait_pct": 28.873239436614078,
+        "steal_pct": 0.07682458386682468
+      },
+      "wal_bytes": 671911792,
+      "checkpoint_events": {
+        "primary": {
+          "checkpoint complete:": 0,
+          "checkpoint starting:": 0
+        },
+        "standby": {
+          "restartpoint complete:": 0,
+          "restartpoint starting:": 0
+        }
+      },
+      "dataset": "calibrate-tls",
+      "missing_cpu_count": 0
+    }
+  ],
+  "host": {
+    "uname": [
+      "Linux",
+      "pgfuzz",
+      "6.8.0-147-generic",
+      "#147-Ubuntu SMP PREEMPT_DYNAMIC Thu Sep 24 11:33:16 UTC 2026",
+      "x86_64"
+    ],
+    "cpu_affinity": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
+    ],
+    "cpu_model": "AMD EPYC-Genoa Processor",
+    "meminfo": "MemTotal:       16374612 kB\nMemFree:         7595864 kB\nMemAvailable:   13257412 kB\nBuffers:          326756 kB\nCached:          5190132 kB\nSwapCached:            0 kB\nActive:          2943888 kB\nInactive:        4089876 kB\nActive(anon):    1667356 kB\nInactive(anon):   740948 kB\nActive(file):    1276532 kB\nInactive(file):  3348928 kB\nUnevictable:       27292 kB\nMlocked:           27292 kB\nSwapTotal:             0 kB\nSwapFree:              0 kB\nZswap:                 0 kB\nZswapped:              0 kB\nDirty:               168 kB\nWriteback:             0 kB\nAnonPages:       1544236 kB\nMapped:           527108 kB\nShmem:            882764 kB\nKReclaimable:    1377896 kB\nSlab:            1576680 kB\nSReclaimable:    1377896 kB\nSUnreclaim:       198784 kB\nKernelStack:        9184 kB\nPageTables:        30600 kB\nSecPageTables:         0 kB\nNFS_Unstable:          0 kB\nBounce:                0 kB\nWritebackTmp:          0 kB\nCommitLimit:     8187304 kB\nCommitted_AS:    6390544 kB\nVmallocTotal:   13743895347199 kB\nVmallocUsed:       20584 kB\nVmallocChunk:          0 kB\nPercpu:             7456 kB\nHardwareCorrupted:     0 kB\nAnonHugePages:         0 kB\nShmemHugePages:        0 kB\nShmemPmdMapped:        0 kB\nFileHugePages:         0 kB\nFilePmdMapped:         0 kB\nUnaccepted:            0 kB\nHugePages_Total:       0\nHugePages_Free:        0\nHugePages_Rsvd:        0\nHugePages_Surp:        0\nHugepagesize:       2048 kB\nHugetlb:               0 kB\nDirectMap4k:      221044 kB\nDirectMap2M:    10264576 kB\nDirectMap1G:     8388608 kB\n"
+  },
+  "notes": [
+    "Main quantiles describe transactions completed within each timed window.",
+    "Summaries use medians of per-run quantiles, not pooled transaction quantiles.",
+    "The on control has direct limit 0; hybrid8 explicitly selects limit 8.",
+    "Read/write mixed-script statistics are retained separately.",
+    "Process CPU covers both servers and the client; it cannot be assigned to a script class.",
+    "Primary, standby and client share one VM and one persistent storage volume.",
+    "Large INSERT payloads and batch rows are generated by SQL on the server.",
+    "TLS encrypts client protocol and the replication WAL stream.",
+    "Per-transaction gzip logs and original JSON rows remain in the phase output directories."
+  ],
+  "main_measured_transactions": 40460989
+}

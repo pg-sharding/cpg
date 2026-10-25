@@ -108,6 +108,7 @@
 #include "postmaster/walsummarizer.h"
 #include "replication/logicallauncher.h"
 #include "replication/slotsync.h"
+#include "replication/syncrep.h"
 #include "replication/walsender.h"
 #include "storage/aio_subsys.h"
 #include "storage/fd.h"
@@ -261,6 +262,7 @@ static PMChild *StartupPMChild = NULL,
 		   *BgWriterPMChild = NULL,
 		   *CheckpointerPMChild = NULL,
 		   *WalWriterPMChild = NULL,
+		   *SyncRepWakerPMChild = NULL,
 		   *WalReceiverPMChild = NULL,
 		   *WalSummarizerPMChild = NULL,
 		   *AutoVacLauncherPMChild = NULL,
@@ -2406,6 +2408,20 @@ process_pm_child_exit(void)
 		}
 
 		/*
+		 * Was it the synchronous replication waker?  As with the WAL writer,
+		 * restart after a clean exit, and treat any other exit as a crash.
+		 */
+		if (SyncRepWakerPMChild && pid == SyncRepWakerPMChild->pid)
+		{
+			ReleasePostmasterChildSlot(SyncRepWakerPMChild);
+			SyncRepWakerPMChild = NULL;
+			if (!EXIT_STATUS_0(exitstatus))
+				HandleChildCrash(pid, exitstatus,
+								 _("synchronous replication waker process"));
+			continue;
+		}
+
+		/*
 		 * Was it the wal receiver?  If exit status is zero (normal) or one
 		 * (FATAL exit), we assume everything is all right just like normal
 		 * backends.  (If we need a new wal receiver, we'll start one at the
@@ -2904,10 +2920,12 @@ PostmasterStateMachine(void)
 								B_BG_WORKER);
 
 		/*
-		 * No walwriter, bgwriter, slot sync worker, or WAL summarizer either.
+		 * No walwriter, sync rep waker, bgwriter, slot sync worker, or WAL
+		 * summarizer either.
 		 */
 		targetMask = btmask_add(targetMask,
 								B_WAL_WRITER,
+								B_SYNC_REP_WAKER,
 								B_BG_WRITER,
 								B_SLOTSYNC_WORKER,
 								B_WAL_SUMMARIZER);
@@ -3117,6 +3135,7 @@ PostmasterStateMachine(void)
 			Assert(BgWriterPMChild == NULL);
 			Assert(CheckpointerPMChild == NULL);
 			Assert(WalWriterPMChild == NULL);
+			Assert(SyncRepWakerPMChild == NULL);
 			Assert(AutoVacLauncherPMChild == NULL);
 			Assert(SlotSyncWorkerPMChild == NULL);
 			/* syslogger is not considered here */
@@ -3304,6 +3323,11 @@ LaunchMissingBackgroundProcesses(void)
 	 */
 	if (WalWriterPMChild == NULL && pmState == PM_RUN)
 		WalWriterPMChild = StartChildProcess(B_WAL_WRITER);
+
+	/* Synchronous replication wakeups are needed only on the primary. */
+	if (SyncRepWaker && max_wal_senders > 0 &&
+		SyncRepWakerPMChild == NULL && pmState == PM_RUN)
+		SyncRepWakerPMChild = StartChildProcess(B_SYNC_REP_WAKER);
 
 	/*
 	 * We don't want autovacuum to run in binary upgrade mode because

@@ -113,6 +113,7 @@ InitPostmasterChildSlots(void)
 	pmchild_pools[B_BG_WRITER].size = 1;
 	pmchild_pools[B_CHECKPOINTER].size = 1;
 	pmchild_pools[B_STARTUP].size = 1;
+	pmchild_pools[B_SYNC_REP_WAKER].size = 1;
 	pmchild_pools[B_WAL_RECEIVER].size = 1;
 	pmchild_pools[B_WAL_SUMMARIZER].size = 1;
 	pmchild_pools[B_WAL_WRITER].size = 1;

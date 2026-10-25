@@ -186,6 +186,7 @@
      the <glossterm linkend="glossary-checkpointer">checkpointer</glossterm>,
      the <glossterm linkend="glossary-logger">logger</glossterm>,
      the <glossterm linkend="glossary-startup-process">startup process</glossterm>,
+     the <glossterm linkend="glossary-sync-rep-waker">synchronous replication waker</glossterm>,
      the <glossterm linkend="glossary-wal-archiver">WAL archiver</glossterm>,
      the <glossterm linkend="glossary-wal-receiver">WAL receiver</glossterm>
      (but not the <glossterm linkend="glossary-wal-sender">WAL senders</glossterm>),
@@ -1814,6 +1815,18 @@
     <para>
      As used in this documentation, it is a synonym for
      <glossterm linkend="glossary-database-superuser">database superuser</glossterm>.
+    </para>
+   </glossdef>
+  </glossentry>
+
+  <glossentry id="glossary-sync-rep-waker">
+   <glossterm>Synchronous replication waker (process)</glossterm>
+   <glossdef>
+    <para>
+     An <glossterm linkend="glossary-auxiliary-proc">auxiliary process</glossterm>
+     that wakes backends whose synchronous replication requirements have been
+     satisfied, using confirmed positions published by WAL senders.
+     See <xref linkend="guc-sync-rep-waker"/>.
     </para>
    </glossdef>
   </glossentry>
