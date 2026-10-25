@@ -84,6 +84,8 @@
 #include "storage/proc.h"
 #include "tcop/tcopprot.h"
 #include "utils/guc_hooks.h"
+#include "utils/injection_point.h"
+#include "utils/memutils.h"
 #include "utils/ps_status.h"
 
 /* User-settable parameters for sync rep */
@@ -97,8 +99,14 @@ static bool announce_next_takeover = true;
 SyncRepConfigData *SyncRepConfig = NULL;
 static int	SyncRepWaitMode = SYNC_REP_NO_WAIT;
 
+/* Private to each releasing process; never use waiters' intrusive links here. */
+static Latch **SyncRepWakeList;
+static int	SyncRepWakeListCount;
+
 static void SyncRepQueueInsert(int mode);
 static void SyncRepCancelWait(void);
+static void SyncRepInitWakeList(void);
+static void SyncRepWakeFromList(void);
 static int	SyncRepWakeQueue(bool all, int mode);
 
 static bool SyncRepGetSyncRecPtr(XLogRecPtr *writePtr,
@@ -510,6 +518,7 @@ SyncRepReleaseWaiters(void)
 	 * We're a potential sync standby. Release waiters if there are enough
 	 * sync standbys and we are considered as sync.
 	 */
+	SyncRepInitWakeList();
 	LWLockAcquire(SyncRepLock, LW_EXCLUSIVE);
 
 	/*
@@ -572,6 +581,7 @@ SyncRepReleaseWaiters(void)
 	}
 
 	LWLockRelease(SyncRepLock);
+	SyncRepWakeFromList();
 
 	elog(DEBUG3, "released %d procs up to write %X/%X, %d procs up to flush %X/%X, %d procs up to apply %X/%X",
 		 numwrite, LSN_FORMAT_ARGS(writePtr),
@@ -942,13 +952,44 @@ SyncRepGetStandbyPriority(void)
 	return (SyncRepConfig->syncrep_method == SYNC_REP_PRIORITY) ? priority : 1;
 }
 
+/* Allocate once, before taking the queue lock. */
+static void
+SyncRepInitWakeList(void)
+{
+	Assert(SyncRepWakeListCount == 0);
+	if (SyncRepWakeList == NULL)
+		SyncRepWakeList = MemoryContextAlloc(TopMemoryContext,
+											MaxBackends * sizeof(Latch *));
+}
+
+/*
+ * Signal released waiters after dropping SyncRepLock.  Only their latches
+ * may be accessed here: a backend can observe completion from another wakeup,
+ * leave, or start another wait before we reach it.  PGPROC storage persists,
+ * and an extra latch set is harmless even if the slot has been reused.
+ */
+static void
+SyncRepWakeFromList(void)
+{
+	Assert(!LWLockHeldByMe(SyncRepLock));
+	if (SyncRepWakeListCount == 0)
+		return;
+
+	INJECTION_POINT("sync-rep-before-latch-wake", NULL);
+	for (int i = 0; i < SyncRepWakeListCount; i++)
+		SetLatch(SyncRepWakeList[i]);
+	SyncRepWakeListCount = 0;
+}
+
 /*
  * Walk the specified queue from head.  Set the state of any backends that
- * need to be woken, remove them from the queue, and then wake them.
+ * need to be woken, remove them, and collect their latches for the caller.
  * Pass all = true to wake whole queue; otherwise, just wake up to
  * the walsender's LSN.
  *
- * The caller must hold SyncRepLock in exclusive mode.
+ * The caller must initialize the wake list before taking SyncRepLock in
+ * exclusive mode, then drain it after releasing the lock.  Nothing between
+ * collecting a latch and setting it may throw an error.
  */
 static int
 SyncRepWakeQueue(bool all, int mode)
@@ -989,10 +1030,9 @@ SyncRepWakeQueue(bool all, int mode)
 		 */
 		proc->syncRepState = SYNC_REP_WAIT_COMPLETE;
 
-		/*
-		 * Wake only when we have set state and removed from queue.
-		 */
-		SetLatch(&(proc->procLatch));
+		/* The caller sets the latch after releasing SyncRepLock. */
+		Assert(SyncRepWakeListCount < MaxBackends);
+		SyncRepWakeList[SyncRepWakeListCount++] = &proc->procLatch;
 
 		numprocs++;
 	}
@@ -1015,6 +1055,7 @@ SyncRepUpdateSyncStandbysDefined(void)
 	if (sync_standbys_defined !=
 		((WalSndCtl->sync_standbys_status & SYNC_STANDBY_DEFINED) != 0))
 	{
+		SyncRepInitWakeList();
 		LWLockAcquire(SyncRepLock, LW_EXCLUSIVE);
 
 		/*
@@ -1041,6 +1082,7 @@ SyncRepUpdateSyncStandbysDefined(void)
 			(sync_standbys_defined ? SYNC_STANDBY_DEFINED : 0);
 
 		LWLockRelease(SyncRepLock);
+		SyncRepWakeFromList();
 	}
 	else if ((WalSndCtl->sync_standbys_status & SYNC_STANDBY_INIT) == 0)
 	{
