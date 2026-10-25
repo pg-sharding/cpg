@@ -577,6 +577,17 @@ With the detached supervisor recording `bootstrap.json`, run
 an incomplete supervisor, mismatched binary hashes, missing rounds or a failed
 raw-log audit; it does no raw-log work during the timed measurements.
 
+The full rerun completed on 2026-10-25 UTC: all 1550 windows passed collection
+and raw-log audit (448,763,648 measured and 644,155,477 full-run transactions).
+The main gain exists with the process disabled: P1 reaches +30.5% TPS against
+pristine base in the 128-client RAM saturation control. Hybrid8 adds another
+6.4% against the combined direct path there, with p99 +3.9%; it gives no common
+cross-AZ throughput improvement. Local tiny INSERTs retain smaller repeatable
+process gains. Fixed-load backlog and shared-VM CPU limits are documented with
+the results. See the [interpretation](full-rerun-2026-10-24/summary.md),
+[all five-variant tables](full-rerun-2026-10-24/report.md) and
+[median CSV with separate baseline percentages](full-rerun-2026-10-24/medians.csv).
+
 The experiment at `2e1e7821b1c` collects latch pointers in a private array,
 publishing completion and unlinking waiters under SyncRepLock, then setting
 their latches after releasing it. The array is allocated once before taking
