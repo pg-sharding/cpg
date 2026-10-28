@@ -1,0 +1,111 @@
+pg_manage_prepared_xacts: отчёт и материалы патча
+
+Ветка: https://github.com/pg-sharding/cpg/tree/pg-manage-prepared-xacts
+Коммит фичи: 3b2977eb796dac0956087701db669dba2f4a5635
+База upstream master: 4848fd6752ad6b88c5a066442df35ba208dfcec5
+
+Патч добавляет системную роль pg_manage_prepared_xacts. Для SPQR она
+позволяет завершать подготовленные клиентскими пользователями транзакции
+через отдельную aux-роль, которой не нужны superuser или членство в каждой
+клиентской роли:
+
+    GRANT pg_manage_prepared_xacts TO aux_role WITH INHERIT TRUE;
+
+Поведение
+
+Обладатель привилегий pg_manage_prepared_xacts может выполнять COMMIT
+PREPARED и ROLLBACK PREPARED для любого владельца, включая superuser.
+Подключаться необходимо к базе, в которой транзакция была подготовлена.
+
+Проверка использует has_privs_of_role(): работает прямое и косвенное
+наследование. Членство с INHERIT FALSE требует явного SET ROLE при наличии
+права SET. Привилегии проверяются до захвата TwoPhaseStateLock.
+
+Для остальных пользователей сохраняется точная проверка владельца.
+Наследование роли владельца prepared transaction само по себе по-прежнему
+не разрешает завершить транзакцию. Делегирование менеджеру и учёт
+наследуемых прав владельца — два самостоятельных изменения; этот патч
+реализует первое.
+
+Добавлена документация и повышена версия каталога. Новая системная роль
+требует initdb при запуске этой сборки на тестовом кластере.
+
+История проверки владельца
+
+13 октября 2004 года Tom Lane предложил ограничить завершение prepared
+transactions исходным пользователем и superuser, сославшись на обычные
+правила владения, в частности DROP [1]. Эта аналогия соответствовала
+исходникам на тот момент: pg_class_ownercheck() сначала разрешал действие
+superuser, затем возвращал userid == owner_id. Речь шла об идентификаторе
+пользователя БД, pg_shadow.usesysid. DROP также допускал владельца схемы;
+pg_namespace_ownercheck() аналогично сравнивал идентификаторы [2].
+
+Исходный коммит 2PC d0a89683a3a4dd8e76ef0a99101355999e519df5 от 17 июня
+2005 года уже содержал точную проверку user != gxact->owner. Его сообщение
+описывает добавление 2PC и авторство, без обоснования этого ограничения [3].
+
+28 июня 2005 года коммит 7762619e95272974f90a38d8d85aafbe0e94add5 ввёл
+каталоги ролей pg_authid и pg_auth_members и заменил проверку владельца
+таблицы на is_member_of_role(roleid, ownerId) [4]. Проверку prepared
+transactions оставили прежней. В обсуждении ролей Stephen Frost отдельно
+спросил именно про это сравнение, а Tom Lane предложил оставить его без
+дополнительного обоснования [5, 6].
+
+Сейчас обычная проверка владельца использует has_privs_of_role() и
+учитывает наследуемое членство. Поэтому аналогия с DROP объясняет
+исходный дизайн 2004 года, но уже не описывает современную семантику
+владения. Найденные письма не дают дополнительного технического
+обоснования необходимости точного совпадения владельца для 2PC.
+
+Проверка
+
+Сборка выполнена на pgfuzz, 158.160.212.50, в отдельном каталоге:
+/home/reshke/pg-manage-prepared-xacts-2026-10-28
+
+Параметры: --without-icu --with-openssl --enable-debug --enable-cassert
+--enable-depend --enable-tap-tests --enable-injection-points
+CFLAGS='-O0 -g3 -fno-omit-frame-pointer'.
+
+Все 239 тестов полного regression suite прошли. Прошли также 45 TAP-проверок
+в 009_twophase.pl и 061_manage_prepared_xacts.pl. Покрыты прямое и косвенное
+наследование, INHERIT FALSE, SET ROLE, grant/revoke, отсутствие прав на
+затронутую таблицу, прежние права владельца и superuser, обычный рестарт,
+аварийное восстановление и отказ при подключении к другой базе.
+
+Команды из каталога сборки:
+
+    make -j8
+    make -C src/test/regress check
+    make -C src/test/recovery check \
+      'PROVE_TESTS=t/009_twophase.pl t/061_manage_prepared_xacts.pl'
+
+Файлы
+
+email-draft.txt                 Черновик письма в pgsql-hackers.
+pg-manage-prepared-xacts.patch   Патч только коммита фичи 3b2977eb796.
+validation/state.json           Исходный результат сборки и SHA-256 файлов.
+validation/regression.log       Лог полного regression suite.
+validation/recovery.log         Лог двух recovery TAP-тестов.
+sources/messages.json           Ссылки и выдержки из ключевых писем hackorum.
+
+Источники
+
+[1] Предложение политики owner/superuser и аналогия с DROP, 13.10.2004:
+https://www.postgresql.org/message-id/15495.1097685302@sss.pgh.pa.us
+
+[2] Проверки владельца таблицы и схемы на 13.10.2004:
+https://github.com/postgres/postgres/blob/e92b0077154ac72714728c1d4b0405300ba89b20/src/backend/catalog/aclchk.c#L1874-L2008
+Проверка DROP через владельца таблицы или схемы:
+https://github.com/postgres/postgres/blob/e92b0077154ac72714728c1d4b0405300ba89b20/src/backend/tcop/utility.c#L173-L177
+
+[3] Исходный коммит 2PC, 17.06.2005:
+https://github.com/postgres/postgres/commit/d0a89683a3a4dd8e76ef0a99101355999e519df5
+
+[4] Каталоги ролей и изменение проверки владельца таблицы, 28.06.2005:
+https://github.com/postgres/postgres/commit/7762619e95272974f90a38d8d85aafbe0e94add5
+
+[5] Вопрос Stephen Frost про gxact->owner:
+https://www.postgresql.org/message-id/20050628184506.GN24207@ns.snowman.net
+
+[6] Ответ Tom Lane:
+https://www.postgresql.org/message-id/26627.1119985659@sss.pgh.pa.us

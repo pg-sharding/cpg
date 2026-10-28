@@ -1,0 +1,75 @@
+To: pgsql-hackers@postgresql.org
+Subject: [PATCH] Add pg_manage_prepared_xacts for transaction managers
+
+Hi,
+
+I would like to propose a predefined pg_manage_prepared_xacts role that
+allows a transaction manager to resolve prepared transactions belonging
+to other users without superuser privileges.
+
+The use case is SPQR recovery: client transactions are prepared under
+their application roles, while a background task resolves outstanding
+transactions using a dedicated auxiliary role. Currently, COMMIT PREPARED
+and ROLLBACK PREPARED require the exact preparing user or a superuser.
+Making the recovery role a member of each preparing role would require
+broader access and switching roles for transaction completion.
+
+With the patch, an administrator can grant:
+
+    GRANT pg_manage_prepared_xacts TO spqr_aux WITH INHERIT TRUE;
+
+The auxiliary role can then execute COMMIT PREPARED and ROLLBACK PREPARED
+for any owner, including superusers. The existing requirement to connect
+to the database where the transaction was prepared continues to apply.
+Membership follows normal privilege inheritance, including indirect
+grants. An INHERIT FALSE grant requires SET ROLE with the SET option.
+
+There is some relevant history behind the exact-owner check. In October
+2004, the proposed owner/superuser restriction was justified by comparison
+with DROP [1]. That matched the implementation at the time:
+pg_class_ownercheck() allowed superusers and otherwise compared
+userid == owner_id. DROP also accepted ownership of the containing
+schema, using the analogous exact-user check [2].
+
+On 28 June 2005, commit 7762619e95272974f90a38d8d85aafbe0e94add5 changed
+the table-owner check to is_member_of_role(roleid, ownerId) as part of
+introducing the role catalogs [3]. The prepared-transaction owner check
+kept the exact-identity test. Stephen Frost explicitly raised that check
+in the roles discussion [4], and Tom suggested leaving it unchanged [5],
+without giving a further rationale for treating it differently.
+
+Thus, the historical DROP analogy explains the original policy, but no
+longer describes the current object-ownership checks. The proposed role
+addresses delegation to a transaction manager without requiring membership
+in every preparing user's role. This patch leaves the existing
+prepared-transaction ownership semantics intact; allowing inherited owner
+privileges would be a separate change.
+
+The implementation checks has_privs_of_role() before acquiring
+TwoPhaseStateLock. It adds the predefined role, updates the documentation
+for both commands, and bumps the catalog version.
+
+Regression coverage includes direct and indirect inheritance, an
+INHERIT FALSE grant, SET ROLE, revocation and regrant, the existing owner
+and superuser paths, and transactions prepared by superusers. A recovery
+test uses separate owner and manager logins and checks clean restart,
+crash recovery, and rejection from the wrong database.
+
+An assertion-enabled build passed all 239 regression tests and 45 TAP
+assertions in 009_twophase.pl and 061_manage_prepared_xacts.pl.
+
+The patch is based on upstream master at
+4848fd6752ad6b88c5a066442df35ba208dfcec5.
+
+Would this explicit management privilege be a reasonable way to support
+transaction-manager recovery, independently of inherited-owner semantics?
+
+Thanks,
+reshke
+
+[1] https://www.postgresql.org/message-id/15495.1097685302@sss.pgh.pa.us
+[2] https://github.com/postgres/postgres/blob/e92b0077154ac72714728c1d4b0405300ba89b20/src/backend/catalog/aclchk.c#L1874-L2008
+    https://github.com/postgres/postgres/blob/e92b0077154ac72714728c1d4b0405300ba89b20/src/backend/tcop/utility.c#L173-L177
+[3] https://github.com/postgres/postgres/commit/7762619e95272974f90a38d8d85aafbe0e94add5
+[4] https://www.postgresql.org/message-id/20050628184506.GN24207@ns.snowman.net
+[5] https://www.postgresql.org/message-id/26627.1119985659@sss.pgh.pa.us

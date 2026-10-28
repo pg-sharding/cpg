@@ -1,0 +1,596 @@
+From 3b2977eb796dac0956087701db669dba2f4a5635 Mon Sep 17 00:00:00 2001
+From: reshke <reshke@double.cloud>
+Date: Wed, 28 Oct 2026 17:52:32 +0500
+Subject: [PATCH] Add pg_manage_prepared_xacts for transaction managers
+
+An external transaction manager may need to resolve transactions prepared
+by different application users after the original connections disappear.
+Requiring the preparing user or a superuser forces a dedicated recovery
+login to impersonate each application role or obtain superuser privileges.
+
+Add a predefined pg_manage_prepared_xacts role whose privileges allow
+COMMIT PREPARED and ROLLBACK PREPARED for any owner, including superusers.
+Use normal inherited-role privileges, leaving the exact-owner rule intact
+for callers without the management privilege. The existing same-database
+restriction continues to apply. Check role membership before acquiring
+TwoPhaseStateLock so catalog access is outside the shared-memory lock.
+
+The original owner/superuser policy was proposed in the 2004 two-phase
+commit discussion. The exact OID comparison was explicitly left unchanged
+when role membership support was discussed in 2005. An explicit management
+role provides delegation without changing implicit ownership semantics.
+
+Document the role and both commands, bump the catalog version for the new
+initial role, and cover inheritance, non-inherited grants, SET ROLE,
+revocation, owner and superuser behavior in regression tests. Add recovery
+coverage with a separate management login, including clean restart, crash
+recovery, and rejection from the wrong database.
+
+Validation: assertion-enabled build; all 239 regression tests and 45 TAP
+assertions in 009_twophase and 061_manage_prepared_xacts passed.
+
+Discussion: https://www.postgresql.org/message-id/15495.1097685302@sss.pgh.pa.us
+Discussion: https://www.postgresql.org/message-id/26627.1119985659@sss.pgh.pa.us
+---
+ doc/src/sgml/ref/commit_prepared.sgml         |   6 +-
+ doc/src/sgml/ref/rollback_prepared.sgml       |   6 +-
+ doc/src/sgml/user-manag.sgml                  |  16 ++
+ src/backend/access/transam/twophase.c         |  11 +-
+ src/include/catalog/catversion.h              |   2 +-
+ src/include/catalog/pg_authid.dat             |   5 +
+ src/test/recovery/meson.build                 |   1 +
+ .../recovery/t/061_manage_prepared_xacts.pl   |  76 +++++++++
+ src/test/regress/expected/prepared_xacts.out  | 159 ++++++++++++++++++
+ src/test/regress/sql/prepared_xacts.sql       | 135 +++++++++++++++
+ 10 files changed, 410 insertions(+), 7 deletions(-)
+ create mode 100644 src/test/recovery/t/061_manage_prepared_xacts.pl
+
+diff --git a/doc/src/sgml/ref/commit_prepared.sgml b/doc/src/sgml/ref/commit_prepared.sgml
+index 7299f735c95..a52486aba8c 100644
+--- a/doc/src/sgml/ref/commit_prepared.sgml
++++ b/doc/src/sgml/ref/commit_prepared.sgml
+@@ -55,8 +55,10 @@ COMMIT PREPARED <replaceable class="parameter">transaction_id</replaceable>
+ 
+   <para>
+    To commit a prepared transaction, you must be either the same user that
+-   executed the transaction originally, or a superuser.  But you do not
+-   have to be in the same session that executed the transaction.
++   executed the transaction originally, a superuser, or have the privileges of
++   the <link linkend="predefined-role-pg-manage-prepared-xacts"><literal>pg_manage_prepared_xacts</literal></link>
++   role.  You must connect to the database in which the transaction was
++   prepared, but you do not have to use the same session.
+   </para>
+ 
+   <para>
+diff --git a/doc/src/sgml/ref/rollback_prepared.sgml b/doc/src/sgml/ref/rollback_prepared.sgml
+index 175a3e93863..8f98ca9a239 100644
+--- a/doc/src/sgml/ref/rollback_prepared.sgml
++++ b/doc/src/sgml/ref/rollback_prepared.sgml
+@@ -55,8 +55,10 @@ ROLLBACK PREPARED <replaceable class="parameter">transaction_id</replaceable>
+ 
+   <para>
+    To roll back a prepared transaction, you must be either the same user that
+-   executed the transaction originally, or a superuser.  But you do not
+-   have to be in the same session that executed the transaction.
++   executed the transaction originally, a superuser, or have the privileges of
++   the <link linkend="predefined-role-pg-manage-prepared-xacts"><literal>pg_manage_prepared_xacts</literal></link>
++   role.  You must connect to the database in which the transaction was
++   prepared, but you do not have to use the same session.
+   </para>
+ 
+   <para>
+diff --git a/doc/src/sgml/user-manag.sgml b/doc/src/sgml/user-manag.sgml
+index 1663794caec..c4fa9e001cf 100644
+--- a/doc/src/sgml/user-manag.sgml
++++ b/doc/src/sgml/user-manag.sgml
+@@ -672,6 +672,22 @@ GRANT pg_signal_backend TO admin_user;
+      </listitem>
+     </varlistentry>
+ 
++    <varlistentry id="predefined-role-pg-manage-prepared-xacts" xreflabel="pg_manage_prepared_xacts">
++     <term><varname>pg_manage_prepared_xacts</varname></term>
++     <listitem>
++      <para>
++       <literal>pg_manage_prepared_xacts</literal> allows executing
++       <xref linkend="sql-commit-prepared"/> and
++       <xref linkend="sql-rollback-prepared"/> for transactions prepared by
++       any user, including superusers.  This allows an external transaction
++       manager to resolve prepared transactions using a dedicated role
++       without superuser privileges or membership in the preparing users'
++       roles.  The transaction manager must connect to the database in which
++       each transaction was prepared.
++      </para>
++     </listitem>
++    </varlistentry>
++
+     <varlistentry id="predefined-role-pg-monitor" xreflabel="pg_monitor">
+      <term><varname>pg_monitor</varname></term>
+      <term><varname>pg_read_all_settings</varname></term>
+diff --git a/src/backend/access/transam/twophase.c b/src/backend/access/transam/twophase.c
+index 48a83501ee9..99fb6a76740 100644
+--- a/src/backend/access/transam/twophase.c
++++ b/src/backend/access/transam/twophase.c
+@@ -88,6 +88,7 @@
+ #include "access/xlogreader.h"
+ #include "access/xlogrecovery.h"
+ #include "access/xlogutils.h"
++#include "catalog/pg_authid.h"
+ #include "catalog/pg_type.h"
+ #include "catalog/storage.h"
+ #include "common/string.h"
+@@ -104,6 +105,7 @@
+ #include "storage/proc.h"
+ #include "storage/procarray.h"
+ #include "storage/subsystems.h"
++#include "utils/acl.h"
+ #include "utils/builtins.h"
+ #include "utils/injection_point.h"
+ #include "utils/memutils.h"
+@@ -561,6 +563,7 @@ static GlobalTransaction
+ LockGXact(const char *gid, Oid user)
+ {
+ 	int			i;
++	bool		can_manage;
+ 
+ 	/* on first call, register the exit hook */
+ 	if (!twophaseExitRegistered)
+@@ -569,6 +572,9 @@ LockGXact(const char *gid, Oid user)
+ 		twophaseExitRegistered = true;
+ 	}
+ 
++	/* Check role membership before taking the shared-memory lock. */
++	can_manage = has_privs_of_role(user, ROLE_PG_MANAGE_PREPARED_XACTS);
++
+ 	LWLockAcquire(TwoPhaseStateLock, LW_EXCLUSIVE);
+ 
+ 	for (i = 0; i < TwoPhaseState->numPrepXacts; i++)
+@@ -589,11 +595,12 @@ LockGXact(const char *gid, Oid user)
+ 					 errmsg("prepared transaction with identifier \"%s\" is busy",
+ 							gid)));
+ 
+-		if (user != gxact->owner && !superuser_arg(user))
++		if (user != gxact->owner && !can_manage)
+ 			ereport(ERROR,
+ 					(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
+ 					 errmsg("permission denied to finish prepared transaction"),
+-					 errhint("Must be superuser or the user that prepared the transaction.")));
++					 errhint("Must be the user that prepared the transaction or have privileges of the \"%s\" role.",
++							 "pg_manage_prepared_xacts")));
+ 
+ 		/*
+ 		 * Note: it probably would be possible to allow committing from
+diff --git a/src/include/catalog/catversion.h b/src/include/catalog/catversion.h
+index 056d48eb279..bb62622cc92 100644
+--- a/src/include/catalog/catversion.h
++++ b/src/include/catalog/catversion.h
+@@ -57,6 +57,6 @@
+  */
+ 
+ /*							yyyymmddN */
+-#define CATALOG_VERSION_NO	202610201
++#define CATALOG_VERSION_NO	202610280
+ 
+ #endif
+diff --git a/src/include/catalog/pg_authid.dat b/src/include/catalog/pg_authid.dat
+index 2960707c729..b1ca235ad15 100644
+--- a/src/include/catalog/pg_authid.dat
++++ b/src/include/catalog/pg_authid.dat
+@@ -91,6 +91,11 @@
+   rolcreaterole => 'f', rolcreatedb => 'f', rolcanlogin => 'f',
+   rolreplication => 'f', rolbypassrls => 'f', rolconnlimit => '-1',
+   rolpassword => '_null_', rolvaliduntil => '_null_' },
++{ oid => '9159', oid_symbol => 'ROLE_PG_MANAGE_PREPARED_XACTS',
++  rolname => 'pg_manage_prepared_xacts', rolsuper => 'f', rolinherit => 't',
++  rolcreaterole => 'f', rolcreatedb => 'f', rolcanlogin => 'f',
++  rolreplication => 'f', rolbypassrls => 'f', rolconnlimit => '-1',
++  rolpassword => '_null_', rolvaliduntil => '_null_' },
+ { oid => '4550', oid_symbol => 'ROLE_PG_USE_RESERVED_CONNECTIONS',
+   rolname => 'pg_use_reserved_connections', rolsuper => 'f', rolinherit => 't',
+   rolcreaterole => 'f', rolcreatedb => 'f', rolcanlogin => 'f',
+diff --git a/src/test/recovery/meson.build b/src/test/recovery/meson.build
+index b6ac9dd07a7..4b82a55b8bd 100644
+--- a/src/test/recovery/meson.build
++++ b/src/test/recovery/meson.build
+@@ -69,6 +69,7 @@ tests += {
+       't/058_shutdown_crash_restart.pl',
+       't/059_remote_apply_status_interval.pl',
+       't/060_multixact_crashed_updater.pl',
++      't/061_manage_prepared_xacts.pl',
+     ],
+   },
+ }
+diff --git a/src/test/recovery/t/061_manage_prepared_xacts.pl b/src/test/recovery/t/061_manage_prepared_xacts.pl
+new file mode 100644
+index 00000000000..38f50b9b55e
+--- /dev/null
++++ b/src/test/recovery/t/061_manage_prepared_xacts.pl
+@@ -0,0 +1,76 @@
++# Copyright (c) 2026, PostgreSQL Global Development Group
++
++# A dedicated transaction manager can resolve another user's prepared
++# transactions after recovery, but must connect to the preparing database.
++use strict;
++use warnings FATAL => 'all';
++
++use PostgreSQL::Test::Cluster;
++use PostgreSQL::Test::Utils;
++use Test::More;
++
++my $node = PostgreSQL::Test::Cluster->new('node');
++$node->init;
++$node->append_conf('postgresql.conf', 'max_prepared_transactions = 2');
++$node->start;
++$node->safe_psql(
++	'postgres', qq(
++	CREATE ROLE prepare_owner LOGIN;
++	CREATE ROLE prepare_manager LOGIN IN ROLE pg_manage_prepared_xacts;
++	CREATE TABLE prepared_data (a int);
++	GRANT INSERT ON prepared_data TO prepare_owner;
++	CREATE DATABASE otherdb;
++));
++
++for my $mode ('restart', 'crash recovery')
++{
++	$node->safe_psql(
++		'postgres', qq(
++		BEGIN;
++		INSERT INTO prepared_data VALUES (1);
++		PREPARE TRANSACTION 'manage_commit';
++		BEGIN;
++		INSERT INTO prepared_data VALUES (2);
++		PREPARE TRANSACTION 'manage_rollback';
++	),
++		extra_params => [ '-U', 'prepare_owner' ]);
++
++	if ($mode eq 'restart')
++	{
++		# Recover the transactions from the two-phase state files.
++		$node->safe_psql('postgres', 'CHECKPOINT');
++		$node->restart;
++	}
++	else
++	{
++		# Recover the transactions from WAL without a preceding checkpoint.
++		$node->stop('immediate');
++		$node->start;
++	}
++
++	for my $command ('COMMIT', 'ROLLBACK')
++	{
++		my $gid = 'manage_' . lc($command);
++		my ($ret, $stdout, $stderr) = $node->psql(
++			'otherdb', "$command PREPARED '$gid'",
++			extra_params => [ '-U', 'prepare_manager' ]);
++		is($ret, 3, "$mode: manager cannot $command in another database");
++		like(
++			$stderr,
++			qr/prepared transaction belongs to another database/,
++			"$mode: $command reports the database restriction");
++
++		($ret, $stdout, $stderr) = $node->psql(
++			'postgres', "$command PREPARED '$gid'",
++			extra_params => [ '-U', 'prepare_manager' ]);
++		is($ret, 0, "$mode: manager can $command another user's transaction");
++	}
++
++	is($node->safe_psql('postgres', 'SELECT count(*) FROM pg_prepared_xacts'),
++		'0', "$mode: both transactions resolved");
++}
++
++is($node->safe_psql('postgres', 'SELECT a FROM prepared_data ORDER BY a'),
++	"1\n1", 'only committed transactions are visible');
++$node->stop;
++done_testing();
+diff --git a/src/test/regress/expected/prepared_xacts.out b/src/test/regress/expected/prepared_xacts.out
+index ac4ebf6ca36..b3cbbadf468 100644
+--- a/src/test/regress/expected/prepared_xacts.out
++++ b/src/test/regress/expected/prepared_xacts.out
+@@ -301,3 +301,162 @@ DROP TABLE pxtest2;
+ -- pxtest3 was already dropped
+ DROP TABLE pxtest4;
+ DROP TABLE pxtest_rowlock;
++-- Test delegating prepared transaction completion to a transaction manager.
++CREATE ROLE regress_prepare_owner;
++CREATE ROLE regress_prepare_member IN ROLE regress_prepare_owner;
++CREATE ROLE regress_prepare_manager;
++CREATE ROLE regress_prepare_indirect IN ROLE regress_prepare_manager;
++CREATE ROLE regress_prepare_noinherit;
++GRANT pg_manage_prepared_xacts TO regress_prepare_noinherit WITH INHERIT FALSE;
++CREATE TABLE pxtest_manage (a int);
++GRANT INSERT ON pxtest_manage TO regress_prepare_owner;
++-- The original owner can still commit and roll back its own transactions.
++SET ROLE regress_prepare_owner;
++BEGIN;
++INSERT INTO pxtest_manage VALUES (0);
++PREPARE TRANSACTION 'regress_manage_commit';
++COMMIT PREPARED 'regress_manage_commit';
++BEGIN;
++INSERT INTO pxtest_manage VALUES (-1);
++PREPARE TRANSACTION 'regress_manage_rollback';
++ROLLBACK PREPARED 'regress_manage_rollback';
++BEGIN;
++INSERT INTO pxtest_manage VALUES (1);
++PREPARE TRANSACTION 'regress_manage_commit';
++BEGIN;
++INSERT INTO pxtest_manage VALUES (2);
++PREPARE TRANSACTION 'regress_manage_rollback';
++RESET ROLE;
++-- Inheriting the preparing user's privileges does not confer ownership.
++SET ROLE regress_prepare_member;
++COMMIT PREPARED 'regress_manage_commit';  -- fails
++ERROR:  permission denied to finish prepared transaction
++HINT:  Must be the user that prepared the transaction or have privileges of the "pg_manage_prepared_xacts" role.
++ROLLBACK PREPARED 'regress_manage_rollback';  -- fails
++ERROR:  permission denied to finish prepared transaction
++HINT:  Must be the user that prepared the transaction or have privileges of the "pg_manage_prepared_xacts" role.
++RESET ROLE;
++SET ROLE regress_prepare_manager;
++COMMIT PREPARED 'regress_manage_commit';  -- fails before GRANT
++ERROR:  permission denied to finish prepared transaction
++HINT:  Must be the user that prepared the transaction or have privileges of the "pg_manage_prepared_xacts" role.
++ROLLBACK PREPARED 'regress_manage_rollback';  -- fails before GRANT
++ERROR:  permission denied to finish prepared transaction
++HINT:  Must be the user that prepared the transaction or have privileges of the "pg_manage_prepared_xacts" role.
++RESET ROLE;
++-- A non-inherited membership does not confer the privilege automatically.
++SET ROLE regress_prepare_noinherit;
++COMMIT PREPARED 'regress_manage_commit';  -- fails
++ERROR:  permission denied to finish prepared transaction
++HINT:  Must be the user that prepared the transaction or have privileges of the "pg_manage_prepared_xacts" role.
++ROLLBACK PREPARED 'regress_manage_rollback';  -- fails
++ERROR:  permission denied to finish prepared transaction
++HINT:  Must be the user that prepared the transaction or have privileges of the "pg_manage_prepared_xacts" role.
++RESET ROLE;
++-- The manager needs no privileges on the affected table or preparing role.
++GRANT pg_manage_prepared_xacts TO regress_prepare_manager;
++SET ROLE regress_prepare_manager;
++SELECT has_table_privilege('pxtest_manage', 'INSERT');
++ has_table_privilege 
++---------------------
++ f
++(1 row)
++
++COMMIT PREPARED 'regress_manage_commit';
++ROLLBACK PREPARED 'regress_manage_rollback';
++RESET ROLE;
++-- The privilege can be inherited indirectly.
++SET ROLE regress_prepare_owner;
++BEGIN;
++INSERT INTO pxtest_manage VALUES (3);
++PREPARE TRANSACTION 'regress_manage_commit';
++BEGIN;
++INSERT INTO pxtest_manage VALUES (4);
++PREPARE TRANSACTION 'regress_manage_rollback';
++RESET ROLE;
++SET ROLE regress_prepare_indirect;
++COMMIT PREPARED 'regress_manage_commit';
++ROLLBACK PREPARED 'regress_manage_rollback';
++RESET ROLE;
++-- A non-inheriting member can explicitly SET ROLE to exercise the privilege.
++SET ROLE regress_prepare_owner;
++BEGIN;
++INSERT INTO pxtest_manage VALUES (5);
++PREPARE TRANSACTION 'regress_manage_commit';
++BEGIN;
++INSERT INTO pxtest_manage VALUES (6);
++PREPARE TRANSACTION 'regress_manage_rollback';
++RESET ROLE;
++SET ROLE regress_prepare_noinherit;
++SET ROLE pg_manage_prepared_xacts;
++COMMIT PREPARED 'regress_manage_commit';
++ROLLBACK PREPARED 'regress_manage_rollback';
++RESET ROLE;
++-- Revocation and regrant take effect even after the membership was cached.
++SET ROLE regress_prepare_owner;
++BEGIN;
++INSERT INTO pxtest_manage VALUES (7);
++PREPARE TRANSACTION 'regress_manage_commit';
++BEGIN;
++INSERT INTO pxtest_manage VALUES (8);
++PREPARE TRANSACTION 'regress_manage_rollback';
++RESET ROLE;
++REVOKE pg_manage_prepared_xacts FROM regress_prepare_manager;
++SET ROLE regress_prepare_manager;
++COMMIT PREPARED 'regress_manage_commit';  -- fails after REVOKE
++ERROR:  permission denied to finish prepared transaction
++HINT:  Must be the user that prepared the transaction or have privileges of the "pg_manage_prepared_xacts" role.
++ROLLBACK PREPARED 'regress_manage_rollback';  -- fails after REVOKE
++ERROR:  permission denied to finish prepared transaction
++HINT:  Must be the user that prepared the transaction or have privileges of the "pg_manage_prepared_xacts" role.
++RESET ROLE;
++GRANT pg_manage_prepared_xacts TO regress_prepare_manager;
++SET ROLE regress_prepare_manager;
++COMMIT PREPARED 'regress_manage_commit';
++ROLLBACK PREPARED 'regress_manage_rollback';
++RESET ROLE;
++-- The management privilege also covers transactions prepared by superusers.
++BEGIN;
++INSERT INTO pxtest_manage VALUES (9);
++PREPARE TRANSACTION 'regress_manage_commit';
++BEGIN;
++INSERT INTO pxtest_manage VALUES (10);
++PREPARE TRANSACTION 'regress_manage_rollback';
++SET ROLE regress_prepare_manager;
++COMMIT PREPARED 'regress_manage_commit';
++ROLLBACK PREPARED 'regress_manage_rollback';
++RESET ROLE;
++-- Superusers can still finish another user's transactions.
++SET ROLE regress_prepare_owner;
++BEGIN;
++INSERT INTO pxtest_manage VALUES (11);
++PREPARE TRANSACTION 'regress_manage_commit';
++BEGIN;
++INSERT INTO pxtest_manage VALUES (12);
++PREPARE TRANSACTION 'regress_manage_rollback';
++RESET ROLE;
++COMMIT PREPARED 'regress_manage_commit';
++ROLLBACK PREPARED 'regress_manage_rollback';
++SELECT * FROM pxtest_manage ORDER BY a;
++ a  
++----
++  0
++  1
++  3
++  5
++  7
++  9
++ 11
++(7 rows)
++
++SELECT gid FROM pg_prepared_xacts WHERE gid LIKE 'regress_manage_%';
++ gid 
++-----
++(0 rows)
++
++DROP TABLE pxtest_manage;
++DROP ROLE regress_prepare_member;
++DROP ROLE regress_prepare_owner;
++DROP ROLE regress_prepare_indirect;
++DROP ROLE regress_prepare_manager;
++DROP ROLE regress_prepare_noinherit;
+diff --git a/src/test/regress/sql/prepared_xacts.sql b/src/test/regress/sql/prepared_xacts.sql
+index b0712b153e0..356ebaebf16 100644
+--- a/src/test/regress/sql/prepared_xacts.sql
++++ b/src/test/regress/sql/prepared_xacts.sql
+@@ -192,3 +192,138 @@ DROP TABLE pxtest2;
+ -- pxtest3 was already dropped
+ DROP TABLE pxtest4;
+ DROP TABLE pxtest_rowlock;
++
++-- Test delegating prepared transaction completion to a transaction manager.
++CREATE ROLE regress_prepare_owner;
++CREATE ROLE regress_prepare_member IN ROLE regress_prepare_owner;
++CREATE ROLE regress_prepare_manager;
++CREATE ROLE regress_prepare_indirect IN ROLE regress_prepare_manager;
++CREATE ROLE regress_prepare_noinherit;
++GRANT pg_manage_prepared_xacts TO regress_prepare_noinherit WITH INHERIT FALSE;
++CREATE TABLE pxtest_manage (a int);
++GRANT INSERT ON pxtest_manage TO regress_prepare_owner;
++
++-- The original owner can still commit and roll back its own transactions.
++SET ROLE regress_prepare_owner;
++BEGIN;
++INSERT INTO pxtest_manage VALUES (0);
++PREPARE TRANSACTION 'regress_manage_commit';
++COMMIT PREPARED 'regress_manage_commit';
++BEGIN;
++INSERT INTO pxtest_manage VALUES (-1);
++PREPARE TRANSACTION 'regress_manage_rollback';
++ROLLBACK PREPARED 'regress_manage_rollback';
++
++BEGIN;
++INSERT INTO pxtest_manage VALUES (1);
++PREPARE TRANSACTION 'regress_manage_commit';
++BEGIN;
++INSERT INTO pxtest_manage VALUES (2);
++PREPARE TRANSACTION 'regress_manage_rollback';
++RESET ROLE;
++
++-- Inheriting the preparing user's privileges does not confer ownership.
++SET ROLE regress_prepare_member;
++COMMIT PREPARED 'regress_manage_commit';  -- fails
++ROLLBACK PREPARED 'regress_manage_rollback';  -- fails
++RESET ROLE;
++SET ROLE regress_prepare_manager;
++COMMIT PREPARED 'regress_manage_commit';  -- fails before GRANT
++ROLLBACK PREPARED 'regress_manage_rollback';  -- fails before GRANT
++RESET ROLE;
++
++-- A non-inherited membership does not confer the privilege automatically.
++SET ROLE regress_prepare_noinherit;
++COMMIT PREPARED 'regress_manage_commit';  -- fails
++ROLLBACK PREPARED 'regress_manage_rollback';  -- fails
++RESET ROLE;
++
++-- The manager needs no privileges on the affected table or preparing role.
++GRANT pg_manage_prepared_xacts TO regress_prepare_manager;
++SET ROLE regress_prepare_manager;
++SELECT has_table_privilege('pxtest_manage', 'INSERT');
++COMMIT PREPARED 'regress_manage_commit';
++ROLLBACK PREPARED 'regress_manage_rollback';
++RESET ROLE;
++
++-- The privilege can be inherited indirectly.
++SET ROLE regress_prepare_owner;
++BEGIN;
++INSERT INTO pxtest_manage VALUES (3);
++PREPARE TRANSACTION 'regress_manage_commit';
++BEGIN;
++INSERT INTO pxtest_manage VALUES (4);
++PREPARE TRANSACTION 'regress_manage_rollback';
++RESET ROLE;
++SET ROLE regress_prepare_indirect;
++COMMIT PREPARED 'regress_manage_commit';
++ROLLBACK PREPARED 'regress_manage_rollback';
++RESET ROLE;
++
++-- A non-inheriting member can explicitly SET ROLE to exercise the privilege.
++SET ROLE regress_prepare_owner;
++BEGIN;
++INSERT INTO pxtest_manage VALUES (5);
++PREPARE TRANSACTION 'regress_manage_commit';
++BEGIN;
++INSERT INTO pxtest_manage VALUES (6);
++PREPARE TRANSACTION 'regress_manage_rollback';
++RESET ROLE;
++SET ROLE regress_prepare_noinherit;
++SET ROLE pg_manage_prepared_xacts;
++COMMIT PREPARED 'regress_manage_commit';
++ROLLBACK PREPARED 'regress_manage_rollback';
++RESET ROLE;
++
++-- Revocation and regrant take effect even after the membership was cached.
++SET ROLE regress_prepare_owner;
++BEGIN;
++INSERT INTO pxtest_manage VALUES (7);
++PREPARE TRANSACTION 'regress_manage_commit';
++BEGIN;
++INSERT INTO pxtest_manage VALUES (8);
++PREPARE TRANSACTION 'regress_manage_rollback';
++RESET ROLE;
++REVOKE pg_manage_prepared_xacts FROM regress_prepare_manager;
++SET ROLE regress_prepare_manager;
++COMMIT PREPARED 'regress_manage_commit';  -- fails after REVOKE
++ROLLBACK PREPARED 'regress_manage_rollback';  -- fails after REVOKE
++RESET ROLE;
++GRANT pg_manage_prepared_xacts TO regress_prepare_manager;
++SET ROLE regress_prepare_manager;
++COMMIT PREPARED 'regress_manage_commit';
++ROLLBACK PREPARED 'regress_manage_rollback';
++RESET ROLE;
++
++-- The management privilege also covers transactions prepared by superusers.
++BEGIN;
++INSERT INTO pxtest_manage VALUES (9);
++PREPARE TRANSACTION 'regress_manage_commit';
++BEGIN;
++INSERT INTO pxtest_manage VALUES (10);
++PREPARE TRANSACTION 'regress_manage_rollback';
++SET ROLE regress_prepare_manager;
++COMMIT PREPARED 'regress_manage_commit';
++ROLLBACK PREPARED 'regress_manage_rollback';
++RESET ROLE;
++
++-- Superusers can still finish another user's transactions.
++SET ROLE regress_prepare_owner;
++BEGIN;
++INSERT INTO pxtest_manage VALUES (11);
++PREPARE TRANSACTION 'regress_manage_commit';
++BEGIN;
++INSERT INTO pxtest_manage VALUES (12);
++PREPARE TRANSACTION 'regress_manage_rollback';
++RESET ROLE;
++COMMIT PREPARED 'regress_manage_commit';
++ROLLBACK PREPARED 'regress_manage_rollback';
++
++SELECT * FROM pxtest_manage ORDER BY a;
++SELECT gid FROM pg_prepared_xacts WHERE gid LIKE 'regress_manage_%';
++DROP TABLE pxtest_manage;
++DROP ROLE regress_prepare_member;
++DROP ROLE regress_prepare_owner;
++DROP ROLE regress_prepare_indirect;
++DROP ROLE regress_prepare_manager;
++DROP ROLE regress_prepare_noinherit;
+-- 
+2.50.1 (Apple Git-155)
+
