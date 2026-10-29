@@ -68,6 +68,7 @@ tests += {
       't/057_snapshot_commit_race.pl',
       't/059_remote_apply_status_interval.pl',
       't/060_multixact_crashed_updater.pl',
+      't/061_prepared_xact_owner.pl',
       't/057_timeline_switch_archive_divergence.pl',
       't/058_timeline_switch_intermediate_tl.pl',
       't/130_every_sync_rep.pl',
