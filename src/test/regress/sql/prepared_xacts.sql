@@ -167,3 +167,136 @@ SELECT gid FROM pg_prepared_xacts;
 DROP TABLE pxtest2;
 -- pxtest3 was already dropped
 DROP TABLE pxtest4;
+
+-- Prepared transaction ownership follows inherited role privileges.
+CREATE ROLE regress_prepare_owner;
+CREATE ROLE regress_prepare_member;
+CREATE ROLE regress_prepare_indirect;
+CREATE ROLE regress_prepare_noinherit NOINHERIT;
+CREATE ROLE regress_prepare_other;
+GRANT regress_prepare_owner TO regress_prepare_member;
+GRANT regress_prepare_member TO regress_prepare_indirect;
+GRANT regress_prepare_owner TO regress_prepare_noinherit;
+CREATE TABLE pxtest_inherit (a int);
+GRANT INSERT ON pxtest_inherit TO regress_prepare_owner;
+
+-- The preparing role can still finish its own transactions.
+SET ROLE regress_prepare_owner;
+BEGIN;
+INSERT INTO pxtest_inherit VALUES (0);
+PREPARE TRANSACTION 'regress_inherit_commit';
+COMMIT PREPARED 'regress_inherit_commit';
+BEGIN;
+INSERT INTO pxtest_inherit VALUES (1);
+PREPARE TRANSACTION 'regress_inherit_rollback';
+ROLLBACK PREPARED 'regress_inherit_rollback';
+
+BEGIN;
+INSERT INTO pxtest_inherit VALUES (2);
+PREPARE TRANSACTION 'regress_inherit_commit';
+BEGIN;
+INSERT INTO pxtest_inherit VALUES (3);
+PREPARE TRANSACTION 'regress_inherit_rollback';
+RESET ROLE;
+
+-- Unrelated roles and non-inheriting memberships do not confer ownership.
+SET ROLE regress_prepare_other;
+COMMIT PREPARED 'regress_inherit_commit';  -- fails
+ROLLBACK PREPARED 'regress_inherit_rollback';  -- fails
+RESET ROLE;
+SET ROLE regress_prepare_noinherit;
+COMMIT PREPARED 'regress_inherit_commit';  -- fails
+ROLLBACK PREPARED 'regress_inherit_rollback';  -- fails
+RESET ROLE;
+
+-- Inherited privileges suffice without SET ROLE.
+SET ROLE regress_prepare_member;
+SELECT pg_has_role(current_user, 'regress_prepare_owner', 'USAGE') AS inherit;
+COMMIT PREPARED 'regress_inherit_commit';
+ROLLBACK PREPARED 'regress_inherit_rollback';
+RESET ROLE;
+
+-- Indirect inheritance works as well.
+SET ROLE regress_prepare_owner;
+BEGIN;
+INSERT INTO pxtest_inherit VALUES (4);
+PREPARE TRANSACTION 'regress_inherit_commit';
+BEGIN;
+INSERT INTO pxtest_inherit VALUES (5);
+PREPARE TRANSACTION 'regress_inherit_rollback';
+RESET ROLE;
+SET ROLE regress_prepare_indirect;
+COMMIT PREPARED 'regress_inherit_commit';
+ROLLBACK PREPARED 'regress_inherit_rollback';
+RESET ROLE;
+
+-- Revoking and restoring the grant invalidates cached privileges.
+SET ROLE regress_prepare_owner;
+BEGIN;
+INSERT INTO pxtest_inherit VALUES (6);
+PREPARE TRANSACTION 'regress_inherit_commit';
+BEGIN;
+INSERT INTO pxtest_inherit VALUES (7);
+PREPARE TRANSACTION 'regress_inherit_rollback';
+RESET ROLE;
+REVOKE regress_prepare_owner FROM regress_prepare_member;
+SET ROLE regress_prepare_member;
+COMMIT PREPARED 'regress_inherit_commit';  -- fails after REVOKE
+ROLLBACK PREPARED 'regress_inherit_rollback';  -- fails after REVOKE
+RESET ROLE;
+GRANT regress_prepare_owner TO regress_prepare_member;
+SET ROLE regress_prepare_member;
+COMMIT PREPARED 'regress_inherit_commit';
+ROLLBACK PREPARED 'regress_inherit_rollback';
+RESET ROLE;
+
+-- A non-inheriting member can explicitly become the preparing role.
+SET ROLE regress_prepare_owner;
+BEGIN;
+INSERT INTO pxtest_inherit VALUES (8);
+PREPARE TRANSACTION 'regress_inherit_commit';
+BEGIN;
+INSERT INTO pxtest_inherit VALUES (9);
+PREPARE TRANSACTION 'regress_inherit_rollback';
+RESET ROLE;
+SET ROLE regress_prepare_noinherit;
+SET ROLE regress_prepare_owner;
+COMMIT PREPARED 'regress_inherit_commit';
+ROLLBACK PREPARED 'regress_inherit_rollback';
+RESET ROLE;
+
+-- Superusers retain their existing ability to finish any transaction.
+SET ROLE regress_prepare_owner;
+BEGIN;
+INSERT INTO pxtest_inherit VALUES (10);
+PREPARE TRANSACTION 'regress_inherit_commit';
+BEGIN;
+INSERT INTO pxtest_inherit VALUES (11);
+PREPARE TRANSACTION 'regress_inherit_rollback';
+RESET ROLE;
+COMMIT PREPARED 'regress_inherit_commit';
+ROLLBACK PREPARED 'regress_inherit_rollback';
+
+-- Membership in an unrelated ordinary role does not grant superuser powers.
+BEGIN;
+INSERT INTO pxtest_inherit VALUES (12);
+PREPARE TRANSACTION 'regress_inherit_commit';
+BEGIN;
+INSERT INTO pxtest_inherit VALUES (13);
+PREPARE TRANSACTION 'regress_inherit_rollback';
+SET ROLE regress_prepare_member;
+COMMIT PREPARED 'regress_inherit_commit';  -- fails
+ROLLBACK PREPARED 'regress_inherit_rollback';  -- fails
+RESET ROLE;
+COMMIT PREPARED 'regress_inherit_commit';
+ROLLBACK PREPARED 'regress_inherit_rollback';
+
+SELECT * FROM pxtest_inherit ORDER BY a;
+SELECT gid FROM pg_prepared_xacts WHERE gid LIKE 'regress_inherit_%';
+
+DROP TABLE pxtest_inherit;
+DROP ROLE regress_prepare_other;
+DROP ROLE regress_prepare_noinherit;
+DROP ROLE regress_prepare_indirect;
+DROP ROLE regress_prepare_member;
+DROP ROLE regress_prepare_owner;
