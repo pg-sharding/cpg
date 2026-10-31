@@ -494,6 +494,9 @@ pgstat_get_wait_timeout(WaitEventTimeout w)
 		case WAIT_EVENT_VACUUM_DELAY:
 			event_name = "VacuumDelay";
 			break;
+		case WAIT_EVENT_WAL_SENDER_RESTORE_DELAY:
+			event_name = "WALSenderRestoreDelay";
+			break;
 			/* no default case, so that compiler will warn */
 	}
 

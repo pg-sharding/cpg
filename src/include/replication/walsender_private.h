@@ -104,6 +104,10 @@ typedef struct
 	 */
 	bits8		sync_standbys_status;
 
+	/* Time of last archive restore failure, protected by restore_mutex. */
+	slock_t		restore_mutex;
+	TimestampTz lastRestoreFailure;
+
 	WalSnd		walsnds[FLEXIBLE_ARRAY_MEMBER];
 } WalSndCtlData;
 

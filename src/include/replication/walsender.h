@@ -37,7 +37,8 @@ extern bool is_mdb_repl_role;
 /* user-settable parameters */
 extern int	max_wal_senders;
 extern int	wal_sender_timeout;
-extern bool log_replication_commands;
+extern bool	log_replication_commands;
+extern bool	ycmdb_restore_missing_wal;
 
 extern void InitWalSender(void);
 extern bool exec_replication_command(const char *query_string);
