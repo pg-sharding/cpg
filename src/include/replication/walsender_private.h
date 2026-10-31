@@ -113,6 +113,10 @@ typedef struct
 	ConditionVariable wal_flush_cv;
 	ConditionVariable wal_replay_cv;
 
+	/* Time of last archive restore failure, protected by restore_mutex. */
+	slock_t		restore_mutex;
+	TimestampTz lastRestoreFailure;
+
 	WalSnd		walsnds[FLEXIBLE_ARRAY_MEMBER];
 } WalSndCtlData;
 
