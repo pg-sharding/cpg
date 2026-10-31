@@ -47,7 +47,8 @@
  *
  * When 'cleanupEnabled' is false, refrain from deleting any old WAL segments
  * in the archive. This is used when fetching the initial checkpoint record,
- * when we are not yet sure how far back we need the WAL.
+ * when we are not yet sure how far back we need the WAL, and by walsenders.
+ * A walsender must supply a private recovername and clean it up afterwards.
  */
 bool
 RestoreArchivedFile(char *path, const char *xlogfname,
@@ -65,10 +66,12 @@ RestoreArchivedFile(char *path, const char *xlogfname,
 
 	/*
 	 * Ignore restore_command when not in archive recovery (meaning we are in
-	 * crash recovery).
+	 * crash recovery), except when serving archived WAL to a replication
+	 * client.
 	 */
-	if (!ArchiveRecoveryRequested)
+	if (!ArchiveRecoveryRequested && !am_walsender)
 		goto not_available;
+	Assert(!am_walsender || !cleanupEnabled);
 
 	/* In standby mode, restore_command might not be supplied */
 	if (recoveryRestoreCommand == NULL || strcmp(recoveryRestoreCommand, "") == 0)
@@ -163,15 +166,20 @@ RestoreArchivedFile(char *path, const char *xlogfname,
 	/*
 	 * Check signals before restore command and reset afterwards.
 	 */
-	PreRestoreCommand();
+	if (AmStartupProcess())
+		PreRestoreCommand();
 
 	/*
 	 * Copy xlog from archival storage to XLOGDIR
 	 */
 	rc = system(xlogRestoreCmd);
 
-	PostRestoreCommand();
+	if (AmStartupProcess())
+		PostRestoreCommand();
+
 	pfree(xlogRestoreCmd);
+	if (!AmStartupProcess())
+		CHECK_FOR_INTERRUPTS();
 
 	if (rc == 0)
 	{
