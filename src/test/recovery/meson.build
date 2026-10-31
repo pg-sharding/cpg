@@ -76,6 +76,7 @@ tests += {
       't/111_archive_shared_checkpoint.pl',
       't/112_archive_shared_hazards.pl',
       't/113_mdb_repl_walsender_slot_perms.pl',
+      't/061_walsender_archive_ycmdb.pl',
     ],
   },
 }
