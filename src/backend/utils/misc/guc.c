@@ -1473,6 +1473,15 @@ static struct config_bool ConfigureNamesBool[] =
 		NULL, NULL, NULL
 	},
 	{
+		{"ycmdb.restore_missing_wal", PGC_SIGHUP, REPLICATION_SENDING,
+			gettext_noop("Allows physical WAL senders to restore missing WAL from the archive."),
+			NULL
+		},
+		&ycmdb_restore_missing_wal,
+		false,
+		NULL, NULL, NULL
+	},
+	{
 		{"debug_assertions", PGC_INTERNAL, PRESET_OPTIONS,
 			gettext_noop("Shows whether the running server has assertion checks enabled."),
 			NULL,
