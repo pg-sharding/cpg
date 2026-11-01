@@ -1,0 +1,17 @@
+CREATE EXTENSION amcheck;
+-- Test hash_index_check on a bulk-loaded index
+CREATE TABLE hash_check(col1 int4);
+INSERT INTO hash_check SELECT a FROM generate_series(1, 50000) a;
+CREATE INDEX hash_check_idx on hash_check USING hash (col1) WITH (fillfactor=40);
+SELECT hash_index_check('hash_check_idx');
+
+-- Test index inserts: overflow chains from duplicated keys
+INSERT INTO hash_check SELECT 42 FROM generate_series(1, 20000);
+SELECT hash_index_check('hash_check_idx');
+
+-- Split-tolerance: splits relocate homes; garbage stays until cleanup
+INSERT INTO hash_check SELECT (a % 1000) FROM generate_series(1, 10000) a;
+SELECT hash_index_check('hash_check_idx');
+
+-- cleanup
+DROP TABLE hash_check;
