@@ -153,6 +153,5 @@ extern void UpdateDecodingStats(LogicalDecodingContext *ctx);
 
 /* GUCs */
 extern PGDLLIMPORT char *output_plugin_libraries_string;
-extern PGDLLIMPORT bool ycmdb_skip_output_plugin_check;
 
 #endif
