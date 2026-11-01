@@ -23,6 +23,7 @@ install_data(
   'amcheck--1.0--1.1.sql',
   'amcheck--1.1--1.2.sql',
   'amcheck--1.2--1.3.sql',
+  'amcheck--1.3--1.4.sql',
   kwargs: contrib_data_args,
 )
 
@@ -35,6 +36,7 @@ tests += {
       'check',
       'check_btree',
       'check_heap',
+      'check_hash',
     ],
   },
   'tap': {
