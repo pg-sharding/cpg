@@ -66,6 +66,7 @@
 typedef struct HashCheckState
 {
 	Relation	rel;
+	Relation	heaprel;		/* locked/opened by hash_index_check(), PG14-style amcheck */
 	HashMetaPageData metacopy;
 	BufferAccessStrategy strategy;
 } HashCheckState;
@@ -80,7 +81,7 @@ typedef struct HashCheckState
 #define MAX_CHAIN_PAGES		(64 * 1024)
 
 static void hash_index_checkable(Relation rel);
-static void hash_check_index(Relation rel);
+static void hash_check_index(Relation rel, Relation heaprel);
 static void hash_read_meta_copy(HashCheckState *state);
 static void hash_check_metapage(HashCheckState *state);
 static void hash_check_all_buckets(HashCheckState *state);
@@ -88,10 +89,90 @@ static void hash_check_bucket(HashCheckState *state, Bucket bucket);
 static Page hash_read_page_checked(HashCheckState *state, BlockNumber blkno,
 								   Buffer *buffer);
 static bool hash_page_header_valid(Page page);
+static void hash_check_heap_tid(HashCheckState *state, IndexTuple itup,
+							   OffsetNumber itup_off, BlockNumber itup_blk);
 static void hash_check_page_items(HashCheckState *state, Page page,
 								  BlockNumber blkno, Bucket bucket);
 static void hash_check_ovfl_bitmap(HashCheckState *state,
 								   BlockNumber ovflblkno);
+
+/*
+ * Verify that the heap tid referenced by a stored index tuple points to
+ * a real heap line pointer.
+ *
+ * A production report showed hash indexes referencing tids past a heap
+ * page's line pointer array; catch that class explicitly, separate from
+ * the structural checks above.
+ *
+ * Concurrency / false-positive discipline (PoC choices, documented):
+ *
+ * - The heap relation is opened and locked by our caller
+ *   (hash_index_check()) with AccessShareLock, matching what
+ *   bt_index_check's heapallindexed path uses, so the heap cannot be
+ *   truncated underneath us; it can only grow.
+ *
+ * - The heap size is snapshotted here once per index page.  Any index
+ *   tuple visible on that page was written after the heap block it
+ *   references was allocated, and the snapshot is taken before the page
+ *   is read, so the block range check cannot misfire.  The reverse
+ *   direction (a concurrently extended heap letting genuinely corrupt
+ *   tids pass transiently) is accepted for the PoC: they would be
+ *   caught by the next run, and re-reading the heap size per tuple
+ *   would buy almost nothing under the same race.
+ *
+ * - Only the boundary is checked (tid offnum <= MaxOffsetNumber of the
+ *   heap page).  The line pointer's lp_state (unused/dead) is
+ *   deliberately NOT treated as an error: concurrent vacuum can
+ *   legitimately mark line pointers dead/unused, which would make any
+ *   state check false-positive under ordinary churn.
+ *
+ * - The heap buffer is pinned, read and released immediately; nothing
+ *   is cached across buckets and memory stays bounded.
+ */
+static void
+hash_check_heap_tid(HashCheckState *state, IndexTuple itup,
+				   OffsetNumber itup_off, BlockNumber itup_blk)
+{
+	Relation	heaprel = state->heaprel;
+	ItemPointer	tid = &itup->t_tid;
+	BlockNumber	tid_blk = ItemPointerGetBlockNumber(tid);
+	OffsetNumber tid_off = ItemPointerGetOffsetNumber(tid);
+	BlockNumber	heapnblocks;
+	Buffer		buffer;
+	Page		page;
+	OffsetNumber maxoff;
+
+	/* no heap relation: e.g. hash index on a foreign/nonheap? cannot happen, play safe */
+	if (heaprel == NULL)
+		return;
+
+	heapnblocks = RelationGetNumberOfBlocks(heaprel);
+
+	if (tid_blk >= heapnblocks)
+		ereport(ERROR,
+				(errcode(ERRCODE_INDEX_CORRUPTED),
+				 errmsg("heap tid from index tuple (%u,%u) points past end of heap at offset %u of block %u in index \"%s\"",
+						tid_blk, tid_off, itup_off, itup_blk,
+						RelationGetRelationName(state->rel)),
+				 errdetail_internal("Heap size is %u blocks.", heapnblocks)));
+
+	buffer = ReadBufferExtended(heaprel, MAIN_FORKNUM, tid_blk,
+								RBM_NORMAL, state->strategy);
+	LockBuffer(buffer, BUFFER_LOCK_SHARE);
+	page = BufferGetPage(buffer);
+	maxoff = PageGetMaxOffsetNumber(page);
+	UnlockReleaseBuffer(buffer);
+
+	/* first offset is 1; a zero offnum is never a valid line pointer */
+	if (tid_off == 0 || tid_off > maxoff)
+		ereport(ERROR,
+				(errcode(ERRCODE_INDEX_CORRUPTED),
+				 errmsg("heap tid from index tuple (%u,%u) points past end of heap page line pointer array at offset %u of block %u in index \"%s\"",
+						tid_blk, tid_off, itup_off, itup_blk,
+						RelationGetRelationName(state->rel)),
+				 errdetail_internal("Heap page has %u line pointers.",
+									maxoff)));
+}
 
 /*
  * hash_index_check(index regclass)
@@ -165,7 +246,7 @@ hash_index_check(PG_FUNCTION_ARGS)
 	/* Relation suitable for checking as a hash index? */
 	hash_index_checkable(indrel);
 
-	hash_check_index(indrel);
+	hash_check_index(indrel, heaprel);
 
 	/* Roll back any GUC changes executed by index functions */
 	AtEOXact_GUC(false, save_nestlevel);
@@ -221,11 +302,12 @@ hash_index_checkable(Relation rel)
  * Main entry point for the actual verification.
  */
 static void
-hash_check_index(Relation rel)
+hash_check_index(Relation rel, Relation heaprel)
 {
 	HashCheckState state;
 
 	state.rel = rel;
+	state.heaprel = heaprel;
 	state.strategy = GetAccessStrategy(BAS_BULKREAD);
 
 	hash_read_meta_copy(&state);
@@ -608,6 +690,9 @@ hash_check_page_items(HashCheckState *state, Page page, BlockNumber blkno,
 								RelationGetRelationName(rel),
 								(uint32) IndexTupleSize(itup),
 								ItemIdGetLength(iid), blkno)));
+
+			/* cross-check the referenced heap tid, separate from structural checks */
+			hash_check_heap_tid(state, itup, off, blkno);
 
 			hashkey = _hash_get_indextuple_hashkey(itup);
 
