@@ -12,7 +12,7 @@ DATA = amcheck--1.2--1.3.sql amcheck--1.1--1.2.sql amcheck--1.0--1.1.sql amcheck
 		amcheck--1.3--1.4.sql amcheck--1.3--1.4.sql
 PGFILEDESC = "amcheck - function for verifying relation integrity"
 
-REGRESS = check check_btree check_heap check_hash check_hash
+REGRESS = check check_btree check_heap check_hash
 
 EXTRA_INSTALL = contrib/pg_walinspect
 TAP_TESTS = 1
