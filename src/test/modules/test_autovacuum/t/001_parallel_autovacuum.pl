@@ -256,8 +256,10 @@ $node->safe_psql('postgres',
 	"SELECT injection_points_detach('autovacuum-worker-cost-balanced')");
 
 # Test 4:
-# Check that DROP DATABASE FORCE run by a non-superuser terminates both an
-# autovacuum worker and its parallel workers.
+# Check that DROP DATABASE FORCE terminates both an autovacuum worker and
+# its parallel workers.  Upstream runs the DROP as the database owner; in
+# MDB builds DROP DATABASE is restricted to superusers ("Restrict DROP
+# DATABASE to superuser only"), so run it as the bootstrap superuser.
 $node->safe_psql(
 	'postgres', qq{
 	DROP TABLE test_autovac;
@@ -284,7 +286,7 @@ my $psql_err = '';
 $node->psql(
 	'postgres',
 	'DROP DATABASE regress_db2 WITH (FORCE)',
-	connstr => $node->connstr('postgres') . ' user=regress_dbowner',
+	connstr => $node->connstr('postgres'),
 	stderr => \$psql_err);
 is($psql_err, '', 'no error from DROP DATABASE FORCE');
 
