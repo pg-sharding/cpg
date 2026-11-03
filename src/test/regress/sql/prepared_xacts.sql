@@ -192,3 +192,138 @@ DROP TABLE pxtest2;
 -- pxtest3 was already dropped
 DROP TABLE pxtest4;
 DROP TABLE pxtest_rowlock;
+
+-- Test delegating prepared transaction completion to a transaction manager.
+CREATE ROLE regress_prepare_owner;
+CREATE ROLE regress_prepare_member IN ROLE regress_prepare_owner;
+CREATE ROLE regress_prepare_manager;
+CREATE ROLE regress_prepare_indirect IN ROLE regress_prepare_manager;
+CREATE ROLE regress_prepare_noinherit;
+GRANT pg_manage_prepared_xacts TO regress_prepare_noinherit WITH INHERIT FALSE;
+CREATE TABLE pxtest_manage (a int);
+GRANT INSERT ON pxtest_manage TO regress_prepare_owner;
+
+-- The original owner can still commit and roll back its own transactions.
+SET ROLE regress_prepare_owner;
+BEGIN;
+INSERT INTO pxtest_manage VALUES (0);
+PREPARE TRANSACTION 'regress_manage_commit';
+COMMIT PREPARED 'regress_manage_commit';
+BEGIN;
+INSERT INTO pxtest_manage VALUES (-1);
+PREPARE TRANSACTION 'regress_manage_rollback';
+ROLLBACK PREPARED 'regress_manage_rollback';
+
+BEGIN;
+INSERT INTO pxtest_manage VALUES (1);
+PREPARE TRANSACTION 'regress_manage_commit';
+BEGIN;
+INSERT INTO pxtest_manage VALUES (2);
+PREPARE TRANSACTION 'regress_manage_rollback';
+RESET ROLE;
+
+-- Inheriting the preparing user's privileges does not confer ownership.
+SET ROLE regress_prepare_member;
+COMMIT PREPARED 'regress_manage_commit';  -- fails
+ROLLBACK PREPARED 'regress_manage_rollback';  -- fails
+RESET ROLE;
+SET ROLE regress_prepare_manager;
+COMMIT PREPARED 'regress_manage_commit';  -- fails before GRANT
+ROLLBACK PREPARED 'regress_manage_rollback';  -- fails before GRANT
+RESET ROLE;
+
+-- A non-inherited membership does not confer the privilege automatically.
+SET ROLE regress_prepare_noinherit;
+COMMIT PREPARED 'regress_manage_commit';  -- fails
+ROLLBACK PREPARED 'regress_manage_rollback';  -- fails
+RESET ROLE;
+
+-- The manager needs no privileges on the affected table or preparing role.
+GRANT pg_manage_prepared_xacts TO regress_prepare_manager;
+SET ROLE regress_prepare_manager;
+SELECT has_table_privilege('pxtest_manage', 'INSERT');
+COMMIT PREPARED 'regress_manage_commit';
+ROLLBACK PREPARED 'regress_manage_rollback';
+RESET ROLE;
+
+-- The privilege can be inherited indirectly.
+SET ROLE regress_prepare_owner;
+BEGIN;
+INSERT INTO pxtest_manage VALUES (3);
+PREPARE TRANSACTION 'regress_manage_commit';
+BEGIN;
+INSERT INTO pxtest_manage VALUES (4);
+PREPARE TRANSACTION 'regress_manage_rollback';
+RESET ROLE;
+SET ROLE regress_prepare_indirect;
+COMMIT PREPARED 'regress_manage_commit';
+ROLLBACK PREPARED 'regress_manage_rollback';
+RESET ROLE;
+
+-- A non-inheriting member can explicitly SET ROLE to exercise the privilege.
+SET ROLE regress_prepare_owner;
+BEGIN;
+INSERT INTO pxtest_manage VALUES (5);
+PREPARE TRANSACTION 'regress_manage_commit';
+BEGIN;
+INSERT INTO pxtest_manage VALUES (6);
+PREPARE TRANSACTION 'regress_manage_rollback';
+RESET ROLE;
+SET ROLE regress_prepare_noinherit;
+SET ROLE pg_manage_prepared_xacts;
+COMMIT PREPARED 'regress_manage_commit';
+ROLLBACK PREPARED 'regress_manage_rollback';
+RESET ROLE;
+
+-- Revocation and regrant take effect even after the membership was cached.
+SET ROLE regress_prepare_owner;
+BEGIN;
+INSERT INTO pxtest_manage VALUES (7);
+PREPARE TRANSACTION 'regress_manage_commit';
+BEGIN;
+INSERT INTO pxtest_manage VALUES (8);
+PREPARE TRANSACTION 'regress_manage_rollback';
+RESET ROLE;
+REVOKE pg_manage_prepared_xacts FROM regress_prepare_manager;
+SET ROLE regress_prepare_manager;
+COMMIT PREPARED 'regress_manage_commit';  -- fails after REVOKE
+ROLLBACK PREPARED 'regress_manage_rollback';  -- fails after REVOKE
+RESET ROLE;
+GRANT pg_manage_prepared_xacts TO regress_prepare_manager;
+SET ROLE regress_prepare_manager;
+COMMIT PREPARED 'regress_manage_commit';
+ROLLBACK PREPARED 'regress_manage_rollback';
+RESET ROLE;
+
+-- The management privilege also covers transactions prepared by superusers.
+BEGIN;
+INSERT INTO pxtest_manage VALUES (9);
+PREPARE TRANSACTION 'regress_manage_commit';
+BEGIN;
+INSERT INTO pxtest_manage VALUES (10);
+PREPARE TRANSACTION 'regress_manage_rollback';
+SET ROLE regress_prepare_manager;
+COMMIT PREPARED 'regress_manage_commit';
+ROLLBACK PREPARED 'regress_manage_rollback';
+RESET ROLE;
+
+-- Superusers can still finish another user's transactions.
+SET ROLE regress_prepare_owner;
+BEGIN;
+INSERT INTO pxtest_manage VALUES (11);
+PREPARE TRANSACTION 'regress_manage_commit';
+BEGIN;
+INSERT INTO pxtest_manage VALUES (12);
+PREPARE TRANSACTION 'regress_manage_rollback';
+RESET ROLE;
+COMMIT PREPARED 'regress_manage_commit';
+ROLLBACK PREPARED 'regress_manage_rollback';
+
+SELECT * FROM pxtest_manage ORDER BY a;
+SELECT gid FROM pg_prepared_xacts WHERE gid LIKE 'regress_manage_%';
+DROP TABLE pxtest_manage;
+DROP ROLE regress_prepare_member;
+DROP ROLE regress_prepare_owner;
+DROP ROLE regress_prepare_indirect;
+DROP ROLE regress_prepare_manager;
+DROP ROLE regress_prepare_noinherit;

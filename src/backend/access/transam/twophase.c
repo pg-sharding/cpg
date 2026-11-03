@@ -88,6 +88,7 @@
 #include "access/xlogreader.h"
 #include "access/xlogrecovery.h"
 #include "access/xlogutils.h"
+#include "catalog/pg_authid.h"
 #include "catalog/pg_type.h"
 #include "catalog/storage.h"
 #include "common/string.h"
@@ -104,6 +105,7 @@
 #include "storage/proc.h"
 #include "storage/procarray.h"
 #include "storage/subsystems.h"
+#include "utils/acl.h"
 #include "utils/builtins.h"
 #include "utils/injection_point.h"
 #include "utils/memutils.h"
@@ -561,6 +563,7 @@ static GlobalTransaction
 LockGXact(const char *gid, Oid user)
 {
 	int			i;
+	bool		can_manage;
 
 	/* on first call, register the exit hook */
 	if (!twophaseExitRegistered)
@@ -568,6 +571,9 @@ LockGXact(const char *gid, Oid user)
 		before_shmem_exit(AtProcExit_Twophase, 0);
 		twophaseExitRegistered = true;
 	}
+
+	/* Check role membership before taking the shared-memory lock. */
+	can_manage = has_privs_of_role(user, ROLE_PG_MANAGE_PREPARED_XACTS);
 
 	LWLockAcquire(TwoPhaseStateLock, LW_EXCLUSIVE);
 
@@ -589,11 +595,12 @@ LockGXact(const char *gid, Oid user)
 					 errmsg("prepared transaction with identifier \"%s\" is busy",
 							gid)));
 
-		if (user != gxact->owner && !superuser_arg(user))
+		if (user != gxact->owner && !can_manage)
 			ereport(ERROR,
 					(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
 					 errmsg("permission denied to finish prepared transaction"),
-					 errhint("Must be superuser or the user that prepared the transaction.")));
+					 errhint("Must be the user that prepared the transaction or have privileges of the \"%s\" role.",
+							 "pg_manage_prepared_xacts")));
 
 		/*
 		 * Note: it probably would be possible to allow committing from

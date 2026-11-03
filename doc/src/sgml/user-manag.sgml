@@ -672,6 +672,22 @@ GRANT pg_signal_backend TO admin_user;
      </listitem>
     </varlistentry>
 
+    <varlistentry id="predefined-role-pg-manage-prepared-xacts" xreflabel="pg_manage_prepared_xacts">
+     <term><varname>pg_manage_prepared_xacts</varname></term>
+     <listitem>
+      <para>
+       <literal>pg_manage_prepared_xacts</literal> allows executing
+       <xref linkend="sql-commit-prepared"/> and
+       <xref linkend="sql-rollback-prepared"/> for transactions prepared by
+       any user, including superusers.  This allows an external transaction
+       manager to resolve prepared transactions using a dedicated role
+       without superuser privileges or membership in the preparing users'
+       roles.  The transaction manager must connect to the database in which
+       each transaction was prepared.
+      </para>
+     </listitem>
+    </varlistentry>
+
     <varlistentry id="predefined-role-pg-monitor" xreflabel="pg_monitor">
      <term><varname>pg_monitor</varname></term>
      <term><varname>pg_read_all_settings</varname></term>

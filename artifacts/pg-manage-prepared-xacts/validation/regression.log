@@ -1,0 +1,297 @@
+make: Entering directory '/home/reshke/pg-manage-prepared-xacts-2026-10-28/build/src/test/regress'
+make -C ../../../src/backend generated-headers
+make[1]: Entering directory '/home/reshke/pg-manage-prepared-xacts-2026-10-28/build/src/backend'
+make -C ../include/catalog generated-headers
+make[2]: Entering directory '/home/reshke/pg-manage-prepared-xacts-2026-10-28/build/src/include/catalog'
+make[2]: Nothing to be done for 'generated-headers'.
+make[2]: Leaving directory '/home/reshke/pg-manage-prepared-xacts-2026-10-28/build/src/include/catalog'
+make -C nodes generated-header-symlinks
+make[2]: Entering directory '/home/reshke/pg-manage-prepared-xacts-2026-10-28/build/src/backend/nodes'
+make[2]: Nothing to be done for 'generated-header-symlinks'.
+make[2]: Leaving directory '/home/reshke/pg-manage-prepared-xacts-2026-10-28/build/src/backend/nodes'
+make -C utils generated-header-symlinks
+make[2]: Entering directory '/home/reshke/pg-manage-prepared-xacts-2026-10-28/build/src/backend/utils'
+make -C adt jsonpath_gram.h
+make[3]: Entering directory '/home/reshke/pg-manage-prepared-xacts-2026-10-28/build/src/backend/utils/adt'
+make[3]: 'jsonpath_gram.h' is up to date.
+make[3]: Leaving directory '/home/reshke/pg-manage-prepared-xacts-2026-10-28/build/src/backend/utils/adt'
+make[2]: Leaving directory '/home/reshke/pg-manage-prepared-xacts-2026-10-28/build/src/backend/utils'
+make[1]: Leaving directory '/home/reshke/pg-manage-prepared-xacts-2026-10-28/build/src/backend'
+make -C ../../../src/port all
+make[1]: Entering directory '/home/reshke/pg-manage-prepared-xacts-2026-10-28/build/src/port'
+make[1]: Nothing to be done for 'all'.
+make[1]: Leaving directory '/home/reshke/pg-manage-prepared-xacts-2026-10-28/build/src/port'
+make -C ../../../src/common all
+make[1]: Entering directory '/home/reshke/pg-manage-prepared-xacts-2026-10-28/build/src/common'
+make[1]: Nothing to be done for 'all'.
+make[1]: Leaving directory '/home/reshke/pg-manage-prepared-xacts-2026-10-28/build/src/common'
+rm -rf '/home/reshke/pg-manage-prepared-xacts-2026-10-28/build'/tmp_install
+/usr/bin/mkdir -p '/home/reshke/pg-manage-prepared-xacts-2026-10-28/build'/tmp_install/log
+make -C '../../..' DESTDIR='/home/reshke/pg-manage-prepared-xacts-2026-10-28/build'/tmp_install install >'/home/reshke/pg-manage-prepared-xacts-2026-10-28/build'/tmp_install/log/install.log 2>&1
+make -j1  checkprep >>'/home/reshke/pg-manage-prepared-xacts-2026-10-28/build'/tmp_install/log/install.log 2>&1
+PATH="/home/reshke/pg-manage-prepared-xacts-2026-10-28/build/tmp_install/home/reshke/pg-manage-prepared-xacts-2026-10-28/install/bin:/home/reshke/pg-manage-prepared-xacts-2026-10-28/build/src/test/regress:$PATH" LD_LIBRARY_PATH="/home/reshke/pg-manage-prepared-xacts-2026-10-28/build/tmp_install/home/reshke/pg-manage-prepared-xacts-2026-10-28/install/lib/postgresql" INITDB_TEMPLATE='/home/reshke/pg-manage-prepared-xacts-2026-10-28/build'/tmp_install/initdb-template  initdb --auth trust --no-sync --no-instructions --lc-messages=C --no-clean '/home/reshke/pg-manage-prepared-xacts-2026-10-28/build'/tmp_install/initdb-template >>'/home/reshke/pg-manage-prepared-xacts-2026-10-28/build'/tmp_install/log/initdb-template.log 2>&1
+echo "# +++ regress check in src/test/regress +++" && PATH="/home/reshke/pg-manage-prepared-xacts-2026-10-28/build/tmp_install/home/reshke/pg-manage-prepared-xacts-2026-10-28/install/bin:/home/reshke/pg-manage-prepared-xacts-2026-10-28/build/src/test/regress:$PATH" LD_LIBRARY_PATH="/home/reshke/pg-manage-prepared-xacts-2026-10-28/build/tmp_install/home/reshke/pg-manage-prepared-xacts-2026-10-28/install/lib/postgresql" INITDB_TEMPLATE='/home/reshke/pg-manage-prepared-xacts-2026-10-28/build'/tmp_install/initdb-template  ../../../src/test/regress/pg_regress --temp-instance=./tmp_check --inputdir=/home/reshke/pg-manage-prepared-xacts-2026-10-28/source/src/test/regress --bindir=     --dlpath=. --max-concurrent-tests=20  --schedule=/home/reshke/pg-manage-prepared-xacts-2026-10-28/source/src/test/regress/parallel_schedule  
+# +++ regress check in src/test/regress +++
+# initializing database system by copying initdb template
+# using temp instance on port 52544 with PID 794112
+ok 1         - test_setup                                378 ms
+# parallel group (20 tests):  char name varchar int2 text oid int4 txid pg_lsn regproc float4 float8 money boolean int8 bit enum uuid numeric rangetypes
+ok 2         + boolean                                    91 ms
+ok 3         + char                                       34 ms
+ok 4         + name                                       39 ms
+ok 5         + varchar                                    39 ms
+ok 6         + text                                       48 ms
+ok 7         + int2                                       46 ms
+ok 8         + int4                                       66 ms
+ok 9         + int8                                       98 ms
+ok 10        + oid                                        54 ms
+ok 11        + float4                                     83 ms
+ok 12        + float8                                     83 ms
+ok 13        + bit                                       113 ms
+ok 14        + numeric                                   479 ms
+ok 15        + txid                                       61 ms
+ok 16        + uuid                                      163 ms
+ok 17        + enum                                      119 ms
+ok 18        + money                                      79 ms
+ok 19        + rangetypes                                631 ms
+ok 20        + pg_lsn                                     63 ms
+ok 21        + regproc                                    71 ms
+# parallel group (20 tests):  lseg md5 line point path circle numerology macaddr8 time macaddr timetz date inet interval strings timestamp polygon box timestamptz multirangetypes
+ok 22        + strings                                   364 ms
+ok 23        + md5                                        29 ms
+ok 24        + numerology                                 59 ms
+ok 25        + point                                      44 ms
+ok 26        + lseg                                       27 ms
+ok 27        + line                                       41 ms
+ok 28        + box                                       452 ms
+ok 29        + path                                       51 ms
+ok 30        + polygon                                   442 ms
+ok 31        + circle                                     55 ms
+ok 32        + date                                       93 ms
+ok 33        + time                                       67 ms
+ok 34        + timetz                                     73 ms
+ok 35        + timestamp                                 382 ms
+ok 36        + timestamptz                               453 ms
+ok 37        + interval                                  127 ms
+ok 38        + inet                                       92 ms
+ok 39        + macaddr                                    67 ms
+ok 40        + macaddr8                                   62 ms
+ok 41        + multirangetypes                           457 ms
+# parallel group (19 tests):  comments euc_kr misc_sanity unicode pg_ndistinct pg_dependencies xid oid8 tstypes encoding expressions horology geometry mvcc type_sanity database regex stats_import opr_sanity
+ok 42        + geometry                                  172 ms
+ok 43        + horology                                  152 ms
+ok 44        + tstypes                                    93 ms
+ok 45        + regex                                     456 ms
+ok 46        + type_sanity                               217 ms
+ok 47        + opr_sanity                                573 ms
+ok 48        + misc_sanity                                44 ms
+ok 49        + comments                                   31 ms
+ok 50        + expressions                               117 ms
+ok 51        + unicode                                    58 ms
+ok 52        + xid                                        80 ms
+ok 53        + mvcc                                      172 ms
+ok 54        + database                                  353 ms
+ok 55        + stats_import                              547 ms
+ok 56        + pg_ndistinct                               61 ms
+ok 57        + pg_dependencies                            68 ms
+ok 58        + oid8                                       77 ms
+ok 59        + encoding                                   99 ms
+ok 60        + euc_kr                                     40 ms
+# parallel group (6 tests):  copyencoding copyselect copydml copy insert_conflict insert
+ok 61        + copy                                      185 ms
+ok 62        + copyselect                                 35 ms
+ok 63        + copydml                                    41 ms
+ok 64        + copyencoding                               24 ms
+ok 65        + insert                                    481 ms
+ok 66        + insert_conflict                           231 ms
+# parallel group (7 tests):  create_function_c create_operator create_type create_misc create_procedure create_schema create_table
+ok 67        + create_function_c                          12 ms
+ok 68        + create_misc                                66 ms
+ok 69        + create_operator                            31 ms
+ok 70        + create_procedure                           71 ms
+ok 71        + create_table                              533 ms
+ok 72        + create_type                                53 ms
+ok 73        + create_schema                              94 ms
+# parallel group (5 tests):  index_including create_view index_including_gist create_index_spgist create_index
+ok 74        + create_index                             1292 ms
+ok 75        + create_index_spgist                       757 ms
+ok 76        + create_view                               401 ms
+ok 77        + index_including                           292 ms
+ok 78        + index_including_gist                      566 ms
+# parallel group (16 tests):  create_cast errors roleattributes create_aggregate hash_func infinite_recurse drop_if_exists select typed_table create_function_sql create_am vacuum constraints updatable_views inherit triggers
+ok 79        + create_aggregate                           75 ms
+ok 80        + create_function_sql                       196 ms
+ok 81        + create_cast                                41 ms
+ok 82        + constraints                               926 ms
+ok 83        + triggers                                 1658 ms
+ok 84        + select                                    117 ms
+ok 85        + inherit                                  1533 ms
+ok 86        + typed_table                               142 ms
+ok 87        + vacuum                                    605 ms
+ok 88        + drop_if_exists                             95 ms
+ok 89        + updatable_views                           941 ms
+ok 90        + roleattributes                             61 ms
+ok 91        + create_am                                 222 ms
+ok 92        + hash_func                                  71 ms
+ok 93        + errors                                     37 ms
+ok 94        + infinite_recurse                           81 ms
+ok 95        - sanity_check                              133 ms
+# parallel group (20 tests):  select_having delete select_implicit select_distinct_on random case namespace select_into prepared_xacts portals transactions select_distinct union arrays subselect update hash_index aggregates join btree_index
+ok 96        + select_into                               230 ms
+ok 97        + select_distinct                           335 ms
+ok 98        + select_distinct_on                        139 ms
+ok 99        + select_implicit                           120 ms
+ok 100       + select_having                              98 ms
+ok 101       + subselect                                 674 ms
+ok 102       + union                                     350 ms
+ok 103       + case                                      168 ms
+ok 104       + join                                     1447 ms
+ok 105       + aggregates                               1174 ms
+ok 106       + transactions                              332 ms
+ok 107       + random                                    160 ms
+ok 108       + portals                                   301 ms
+ok 109       + arrays                                    446 ms
+ok 110       + btree_index                              2420 ms
+ok 111       + hash_index                               1071 ms
+ok 112       + update                                    665 ms
+ok 113       + delete                                     91 ms
+ok 114       + namespace                                 175 ms
+ok 115       + prepared_xacts                            251 ms
+# parallel group (20 tests):  init_privs drop_operator security_label password tablesample object_address lock collate replica_identity groupingsets matview identity rowsecurity spgist generated_stored gin gist join_hash brin privileges
+ok 116       + brin                                     2225 ms
+ok 117       + gin                                      1741 ms
+ok 118       + gist                                     2215 ms
+ok 119       + spgist                                   1328 ms
+ok 120       + privileges                               2759 ms
+ok 121       + init_privs                                 20 ms
+ok 122       + security_label                             78 ms
+ok 123       + collate                                   321 ms
+ok 124       + matview                                   813 ms
+ok 125       + lock                                      260 ms
+ok 126       + replica_identity                          467 ms
+ok 127       + rowsecurity                              1279 ms
+ok 128       + object_address                            232 ms
+ok 129       + tablesample                               172 ms
+ok 130       + groupingsets                              562 ms
+ok 131       + drop_operator                              69 ms
+ok 132       + password                                  116 ms
+ok 133       + identity                                  901 ms
+ok 134       + generated_stored                         1420 ms
+ok 135       + join_hash                                2215 ms
+# parallel group (2 tests):  brin_bloom brin_multi
+ok 136       + brin_bloom                                129 ms
+ok 137       + brin_multi                                931 ms
+# parallel group (20 tests):  async dbsize nls collate.icu.utf8 tidscan tid alter_operator collate.utf8 tsrf sysviews misc_functions alter_generic create_role tidrangescan misc incremental_sort merge create_table_like generated_virtual without_overlaps
+ok 138       + create_table_like                         603 ms
+ok 139       + alter_generic                             169 ms
+ok 140       + alter_operator                             84 ms
+ok 141       + misc                                      301 ms
+ok 142       + async                                      16 ms
+ok 143       + dbsize                                     16 ms
+ok 144       + merge                                     515 ms
+ok 145       + misc_functions                            150 ms
+ok 146       + nls                                        29 ms
+ok 147       + sysviews                                  141 ms
+ok 148       + tsrf                                      120 ms
+ok 149       + tid                                        75 ms
+ok 150       + tidscan                                    54 ms
+ok 151       + tidrangescan                              216 ms
+ok 152       + collate.utf8                               76 ms
+ok 153       + collate.icu.utf8                           31 ms
+ok 154       + incremental_sort                          312 ms
+ok 155       + create_role                               173 ms
+ok 156       + without_overlaps                          977 ms
+ok 157       + generated_virtual                         791 ms
+# parallel group (8 tests):  collate.linux.utf8 collate.windows.win1252 amutils psql_crosstab psql_pipeline rules psql stats_ext
+ok 158       + rules                                     605 ms
+ok 159       + psql                                      616 ms
+ok 160       + psql_crosstab                              39 ms
+ok 161       + psql_pipeline                              51 ms
+ok 162       + amutils                                    23 ms
+ok 163       + stats_ext                                2945 ms
+ok 164       + collate.linux.utf8                         12 ms
+ok 165       + collate.windows.win1252                    12 ms
+ok 166       - select_parallel                           986 ms
+ok 167       - write_parallel                             89 ms
+ok 168       - vacuum_parallel                           234 ms
+ok 169       - maintain_every                             62 ms
+# parallel group (2 tests):  subscription publication
+ok 170       + publication                               824 ms
+ok 171       + subscription                              146 ms
+# parallel group (17 tests):  advisory_lock portals_p2 tsdicts combocid xmlmap equivclass guc functional_deps dependency stats_rewrite select_views indirect_toast window tsearch bitmapops foreign_data foreign_key
+ok 172       + select_views                              256 ms
+ok 173       + portals_p2                                 92 ms
+ok 174       + foreign_key                              2275 ms
+ok 175       + dependency                                176 ms
+ok 176       + guc                                       150 ms
+ok 177       + bitmapops                                 585 ms
+ok 178       + combocid                                  114 ms
+ok 179       + tsearch                                   536 ms
+ok 180       + tsdicts                                   104 ms
+ok 181       + foreign_data                              900 ms
+ok 182       + window                                    527 ms
+ok 183       + xmlmap                                    118 ms
+ok 184       + functional_deps                           153 ms
+ok 185       + advisory_lock                              71 ms
+ok 186       + indirect_toast                            329 ms
+ok 187       + equivclass                                137 ms
+ok 188       + stats_rewrite                             231 ms
+# parallel group (9 tests):  jsonpath_encoding json_encoding jsonpath sqljson_jsontable sqljson json sqljson_queryfuncs jsonb_jsonpath jsonb
+ok 189       + json                                      177 ms
+ok 190       + jsonb                                     467 ms
+ok 191       + json_encoding                              18 ms
+ok 192       + jsonpath                                   52 ms
+ok 193       + jsonpath_encoding                          14 ms
+ok 194       + jsonb_jsonpath                            202 ms
+ok 195       + sqljson                                   171 ms
+ok 196       + sqljson_queryfuncs                        177 ms
+ok 197       + sqljson_jsontable                         130 ms
+# parallel group (18 tests):  xml prepare conversion limit plancache polymorphism returning largeobject rowtypes copy2 sequence with truncate rangefuncs temp domain plpgsql alter_table
+ok 198       + plancache                                 221 ms
+ok 199       + limit                                     183 ms
+ok 200       + plpgsql                                  1233 ms
+ok 201       + copy2                                     416 ms
+ok 202       + temp                                      512 ms
+ok 203       + domain                                    582 ms
+ok 204       + rangefuncs                                502 ms
+ok 205       + prepare                                    70 ms
+ok 206       + conversion                                176 ms
+ok 207       + truncate                                  474 ms
+ok 208       + alter_table                              2379 ms
+ok 209       + sequence                                  416 ms
+ok 210       + polymorphism                              267 ms
+ok 211       + rowtypes                                  391 ms
+ok 212       + returning                                 316 ms
+ok 213       + largeobject                               357 ms
+ok 214       + with                                      449 ms
+ok 215       + xml                                        51 ms
+# parallel group (15 tests):  numa planner_est hash_part reloptions partition_info predicate explain memoize eager_aggregate partition_prune partition_aggregate stats partition_join tuplesort indexing
+ok 216       + partition_join                           1472 ms
+ok 217       + partition_prune                          1260 ms
+ok 218       + reloptions                                117 ms
+ok 219       + hash_part                                  70 ms
+ok 220       + indexing                                 1746 ms
+ok 221       + partition_aggregate                      1328 ms
+ok 222       + partition_info                            150 ms
+ok 223       + tuplesort                                1655 ms
+ok 224       + explain                                   173 ms
+ok 225       + memoize                                   348 ms
+ok 226       + stats                                    1469 ms
+ok 227       + predicate                                 163 ms
+ok 228       + numa                                       19 ms
+ok 229       + eager_aggregate                           627 ms
+ok 230       + planner_est                                44 ms
+# parallel group (4 tests):  compression_lz4 compression_pglz compression cluster
+ok 231       + compression                               145 ms
+ok 232       + compression_lz4                            11 ms
+ok 233       + compression_pglz                           13 ms
+ok 234       + cluster                                   465 ms
+# parallel group (2 tests):  oidjoins event_trigger
+ok 235       + oidjoins                                  382 ms
+ok 236       + event_trigger                             428 ms
+ok 237       - event_trigger_login                        31 ms
+ok 238       - fast_default                              254 ms
+ok 239       - tablespace                                483 ms
+1..239
+# All 239 tests passed.
+make: Leaving directory '/home/reshke/pg-manage-prepared-xacts-2026-10-28/build/src/test/regress'

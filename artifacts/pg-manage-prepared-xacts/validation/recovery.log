@@ -1,0 +1,32 @@
+make: Entering directory '/home/reshke/pg-manage-prepared-xacts-2026-10-28/build/src/test/recovery'
+make -C ../../../src/backend generated-headers
+make[1]: Entering directory '/home/reshke/pg-manage-prepared-xacts-2026-10-28/build/src/backend'
+make -C ../include/catalog generated-headers
+make[2]: Entering directory '/home/reshke/pg-manage-prepared-xacts-2026-10-28/build/src/include/catalog'
+make[2]: Nothing to be done for 'generated-headers'.
+make[2]: Leaving directory '/home/reshke/pg-manage-prepared-xacts-2026-10-28/build/src/include/catalog'
+make -C nodes generated-header-symlinks
+make[2]: Entering directory '/home/reshke/pg-manage-prepared-xacts-2026-10-28/build/src/backend/nodes'
+make[2]: Nothing to be done for 'generated-header-symlinks'.
+make[2]: Leaving directory '/home/reshke/pg-manage-prepared-xacts-2026-10-28/build/src/backend/nodes'
+make -C utils generated-header-symlinks
+make[2]: Entering directory '/home/reshke/pg-manage-prepared-xacts-2026-10-28/build/src/backend/utils'
+make -C adt jsonpath_gram.h
+make[3]: Entering directory '/home/reshke/pg-manage-prepared-xacts-2026-10-28/build/src/backend/utils/adt'
+make[3]: 'jsonpath_gram.h' is up to date.
+make[3]: Leaving directory '/home/reshke/pg-manage-prepared-xacts-2026-10-28/build/src/backend/utils/adt'
+make[2]: Leaving directory '/home/reshke/pg-manage-prepared-xacts-2026-10-28/build/src/backend/utils'
+make[1]: Leaving directory '/home/reshke/pg-manage-prepared-xacts-2026-10-28/build/src/backend'
+rm -rf '/home/reshke/pg-manage-prepared-xacts-2026-10-28/build'/tmp_install
+/usr/bin/mkdir -p '/home/reshke/pg-manage-prepared-xacts-2026-10-28/build'/tmp_install/log
+make -C '../../..' DESTDIR='/home/reshke/pg-manage-prepared-xacts-2026-10-28/build'/tmp_install install >'/home/reshke/pg-manage-prepared-xacts-2026-10-28/build'/tmp_install/log/install.log 2>&1
+make -j1  checkprep >>'/home/reshke/pg-manage-prepared-xacts-2026-10-28/build'/tmp_install/log/install.log 2>&1
+PATH="/home/reshke/pg-manage-prepared-xacts-2026-10-28/build/tmp_install/home/reshke/pg-manage-prepared-xacts-2026-10-28/install/bin:/home/reshke/pg-manage-prepared-xacts-2026-10-28/build/src/test/recovery:$PATH" LD_LIBRARY_PATH="/home/reshke/pg-manage-prepared-xacts-2026-10-28/build/tmp_install/home/reshke/pg-manage-prepared-xacts-2026-10-28/install/lib/postgresql" INITDB_TEMPLATE='/home/reshke/pg-manage-prepared-xacts-2026-10-28/build'/tmp_install/initdb-template  initdb --auth trust --no-sync --no-instructions --lc-messages=C --no-clean '/home/reshke/pg-manage-prepared-xacts-2026-10-28/build'/tmp_install/initdb-template >>'/home/reshke/pg-manage-prepared-xacts-2026-10-28/build'/tmp_install/log/initdb-template.log 2>&1
+echo "# +++ tap check in src/test/recovery +++" && rm -rf '/home/reshke/pg-manage-prepared-xacts-2026-10-28/build/src/test/recovery'/tmp_check && /usr/bin/mkdir -p '/home/reshke/pg-manage-prepared-xacts-2026-10-28/build/src/test/recovery'/tmp_check && cd /home/reshke/pg-manage-prepared-xacts-2026-10-28/source/src/test/recovery && TESTLOGDIR='/home/reshke/pg-manage-prepared-xacts-2026-10-28/build/src/test/recovery/tmp_check/log' TESTDATADIR='/home/reshke/pg-manage-prepared-xacts-2026-10-28/build/src/test/recovery/tmp_check' PATH="/home/reshke/pg-manage-prepared-xacts-2026-10-28/build/tmp_install/home/reshke/pg-manage-prepared-xacts-2026-10-28/install/bin:/home/reshke/pg-manage-prepared-xacts-2026-10-28/build/src/test/recovery:$PATH" LD_LIBRARY_PATH="/home/reshke/pg-manage-prepared-xacts-2026-10-28/build/tmp_install/home/reshke/pg-manage-prepared-xacts-2026-10-28/install/lib/postgresql" INITDB_TEMPLATE='/home/reshke/pg-manage-prepared-xacts-2026-10-28/build'/tmp_install/initdb-template  PGPORT='65432' top_builddir='/home/reshke/pg-manage-prepared-xacts-2026-10-28/build/src/test/recovery/../../..' PG_REGRESS='/home/reshke/pg-manage-prepared-xacts-2026-10-28/build/src/test/recovery/../../../src/test/regress/pg_regress' share_contrib_dir='/home/reshke/pg-manage-prepared-xacts-2026-10-28/build/tmp_install/home/reshke/pg-manage-prepared-xacts-2026-10-28/install/share/postgresql/' /usr/bin/prove -I /home/reshke/pg-manage-prepared-xacts-2026-10-28/source/src/test/perl/ -I /home/reshke/pg-manage-prepared-xacts-2026-10-28/source/src/test/recovery  t/009_twophase.pl t/061_manage_prepared_xacts.pl
+# +++ tap check in src/test/recovery +++
+t/009_twophase.pl ............... ok
+t/061_manage_prepared_xacts.pl .. ok
+All tests successful.
+Files=2, Tests=45,  8 wallclock secs ( 0.02 usr  0.01 sys +  0.40 cusr  0.97 csys =  1.40 CPU)
+Result: PASS
+make: Leaving directory '/home/reshke/pg-manage-prepared-xacts-2026-10-28/build/src/test/recovery'
