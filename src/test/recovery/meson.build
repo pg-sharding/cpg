@@ -65,6 +65,7 @@ tests += {
       't/057_timeline_switch_archive_divergence.pl',
       't/058_timeline_switch_intermediate_tl.pl',
       't/060_multixact_crashed_updater.pl',
+      't/061_prepared_xact_owner.pl',
       't/130_every_sync_rep.pl',
       't/102_mdb_replication_reserved_slots.pl',
       't/103_mdb_repl_walsender_slot_perms.pl',
