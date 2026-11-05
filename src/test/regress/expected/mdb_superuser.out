@@ -110,6 +110,73 @@ where grantee='regress_mdb_su_role_o1' AND table_name = 'role_o2_t';
 
 \c regression
 DROP DATABASE regress_check_owner;
+-- mdb_superuser member must not gain privileges of roles with
+-- REPLICATION or BYPASSRLS attributes
+RESET SESSION AUTHORIZATION;
+CREATE ROLE regress_repl_su WITH REPLICATION;
+CREATE ROLE regress_bypassrls_su WITH BYPASSRLS;
+CREATE ROLE regress_set_member_su;
+CREATE ROLE regress_noset_member_su;
+GRANT regress_repl_su TO regress_set_member_su WITH INHERIT FALSE, SET TRUE;
+GRANT regress_repl_su TO regress_noset_member_su WITH INHERIT TRUE, SET FALSE;
+SET ROLE regress_mdb_superuser_user1;
+SELECT pg_has_role('regress_repl_su', 'USAGE');
+ pg_has_role 
+-------------
+ f
+(1 row)
+
+SELECT pg_has_role('regress_bypassrls_su', 'USAGE');
+ pg_has_role 
+-------------
+ f
+(1 row)
+
+SELECT pg_has_role('regress_mdb_su_role_o2', 'USAGE');
+ pg_has_role 
+-------------
+ t
+(1 row)
+
+-- membership options: every membership edge counts as reachability
+-- for the REPLICATION/BYPASSRLS attributes
+SELECT pg_has_role('regress_set_member_su', 'regress_repl_su', 'SET');
+ pg_has_role 
+-------------
+ t
+(1 row)
+
+SELECT pg_has_role('regress_set_member_su', 'regress_repl_su', 'USAGE');
+ pg_has_role 
+-------------
+ f
+(1 row)
+
+SELECT pg_has_role('regress_noset_member_su', 'regress_repl_su', 'SET');
+ pg_has_role 
+-------------
+ f
+(1 row)
+
+SELECT pg_has_role('regress_noset_member_su', 'regress_repl_su', 'USAGE');
+ pg_has_role 
+-------------
+ t
+(1 row)
+
+SELECT pg_has_role('regress_set_member_su', 'USAGE');
+ pg_has_role 
+-------------
+ f
+(1 row)
+
+SELECT pg_has_role('regress_noset_member_su', 'USAGE');
+ pg_has_role 
+-------------
+ f
+(1 row)
+
+RESET ROLE;
 -- end tests
 RESET SESSION AUTHORIZATION;
 --
@@ -128,3 +195,7 @@ DROP ROLE regress_mdb_superuser_user1;
 DROP ROLE regress_mdb_superuser_user2;
 DROP ROLE regress_mdb_superuser_user3;
 DROP ROLE regress_superuser;
+DROP ROLE regress_repl_su;
+DROP ROLE regress_set_member_su;
+DROP ROLE regress_noset_member_su;
+DROP ROLE regress_bypassrls_su;
