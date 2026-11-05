@@ -4334,6 +4334,8 @@ typedef struct DropSubscriptionStmt
 
 typedef struct WaitStmt
 {
+	pg_node_attr(nodetag_number(480))
+
 	NodeTag		type;
 	/* LSN string from grammar */
 	char	   *lsn_literal pg_node_attr(query_jumble_ignore);
