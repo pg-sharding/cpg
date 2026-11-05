@@ -15,6 +15,7 @@
 #include "access/xlogdefs.h"
 #include "lib/pairingheap.h"
 #include "port/atomics.h"
+#include "storage/lwlock.h"
 #include "storage/procnumber.h"
 #include "storage/spin.h"
 #include "tcop/dest.h"
@@ -77,6 +78,9 @@ typedef struct WaitLSNProcInfo
  */
 typedef struct WaitLSNState
 {
+	/* Keep this lock outside MainLWLockArray to preserve PG18's lock IDs. */
+	LWLockPadded lock;
+
 	/*
 	 * The minimum LSN values some process is waiting for.  Used for the
 	 * fast-path checking if we need to wake up any waiters after replaying a
@@ -99,6 +103,8 @@ typedef struct WaitLSNState
 
 
 extern PGDLLIMPORT WaitLSNState *waitLSNState;
+
+#define WaitLSNLock (&waitLSNState->lock.lock)
 
 extern Size WaitLSNShmemSize(void);
 extern void WaitLSNShmemInit(void);

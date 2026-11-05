@@ -163,6 +163,8 @@ WaitLSNShmemInit(void)
 	{
 		int			i;
 
+		LWLockInitialize(WaitLSNLock, LWLockNewTrancheId());
+
 		/* Initialize heaps and tracking */
 		for (i = 0; i < WAIT_LSN_TYPE_COUNT; i++)
 		{
@@ -174,6 +176,9 @@ WaitLSNShmemInit(void)
 		memset(&waitLSNState->procInfos, 0,
 			   (MaxBackends + NUM_AUXILIARY_PROCS) * sizeof(WaitLSNProcInfo));
 	}
+
+	/* Also register the name when attaching under EXEC_BACKEND. */
+	LWLockRegisterTranche(WaitLSNLock->tranche, "WaitLSN");
 }
 
 /*
