@@ -3383,7 +3383,7 @@ pg_class_aclmask_ext(Oid table_oid, Oid roleid, AclMode mask,
 	 */
 	if (mask & ACL_SELECT && !(result & ACL_SELECT) &&
 		has_privs_of_role(roleid, mdb_read_all_data_oid) && 
-		!has_privs_of_unwanted_system_role(ownerId, true))
+		!has_privs_of_hazard_system_role(ownerId, true))
 		result |= ACL_SELECT;
 
 	/*
@@ -3408,7 +3408,7 @@ pg_class_aclmask_ext(Oid table_oid, Oid roleid, AclMode mask,
 	if (mask & (ACL_INSERT | ACL_UPDATE | ACL_DELETE) &&
 		!(result & (ACL_INSERT | ACL_UPDATE | ACL_DELETE)) &&
 		has_privs_of_role(roleid, mdb_write_all_data_oid) &&
-		!has_privs_of_unwanted_system_role(ownerId, true))
+		!has_privs_of_hazard_system_role(ownerId, true))
 		result |= (mask & (ACL_INSERT | ACL_UPDATE | ACL_DELETE));
 
 	/*
@@ -3746,7 +3746,7 @@ pg_namespace_aclmask_ext(Oid nsp_oid, Oid roleid,
 
 	if (mask & ACL_USAGE && !(result & ACL_USAGE) &&
 		has_privs_of_role(roleid, mdb_read_all_data_oid) && 
-		!has_privs_of_unwanted_system_role(ownerId, true))
+		!has_privs_of_hazard_system_role(ownerId, true))
 		result |= ACL_USAGE;
 
 	return result;

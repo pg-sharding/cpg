@@ -855,7 +855,7 @@ CheckPWChallengeAuth(Port *port, const char **logdetail)
 		useroid = get_role_oid(port->user_name, true);
 
 		/* MDB-23247: check that given role name has priviledge for auth - passthrough*/
-		if (!is_member_of_role(service_auth_roleoid, mdb_service_authoid) || has_privs_of_unwanted_system_role_prestartup(useroid))
+		if (!is_member_of_role(service_auth_roleoid, mdb_service_authoid) || has_privs_of_hazard_system_role_prestartup(useroid))
 			ereport(FATAL,
 					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 					errmsg("invalid auth request for role %s",

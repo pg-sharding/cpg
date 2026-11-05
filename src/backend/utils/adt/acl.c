@@ -5356,13 +5356,56 @@ has_privs_of_role_strict_no_cache(Oid member, Oid role)
 
 
 /*
+ * Does the role, or any role it is connected to through any "strict"
+ * (not through mdb_admin or mdb_superuser) membership edge, carry the
+ * REPLICATION or BYPASSRLS attribute?  Be strict here and count every
+ * membership edge regardless of its INHERIT/SET options
+ * (ROLERECURSE_MEMBERS): role attributes are neither inherited nor
+ * automatically assumed, but membership grants are often re-issued
+ * with different options, and SET ROLE into such a role grants the
+ * attribute.
+ */
+static bool
+role_has_replication_or_bypassrls(Oid role, bool no_cache)
+{
+	List	   *closure;
+	ListCell   *lc;
+
+	/*
+	 * Find all the roles that role has the privileges of, including
+	 * multi-level recursion, and check their role attributes.
+	 */
+	closure = roles_is_member_of(role, ROLERECURSE_MEMBERS,
+								 InvalidOid, NULL, no_cache);
+	foreach(lc, closure)
+	{
+		HeapTuple	tup;
+
+		tup = SearchSysCache1(AUTHOID, ObjectIdGetDatum(lfirst_oid(lc)));
+		if (!HeapTupleIsValid(tup))
+			continue;
+
+		if (DatumGetBool(SysCacheGetAttrNotNull(AUTHOID, tup,
+												Anum_pg_authid_rolreplication)) ||
+			DatumGetBool(SysCacheGetAttrNotNull(AUTHOID, tup,
+												Anum_pg_authid_rolbypassrls)))
+		{
+			ReleaseSysCache(tup);
+			return true;
+		}
+		ReleaseSysCache(tup);
+	}
+	return false;
+}
+
+/*
 * Check that role is either one of "dangerous" system role
 * or has "strict" (not through mdb_admin or mdb_superuser) 
 * privs of this role
 */
 
 bool
-has_privs_of_unwanted_system_role(Oid role, bool check_mdb_service_auth) {
+has_privs_of_hazard_system_role(Oid role, bool check_mdb_service_auth) {
 	Oid mdb_service_authoid;
 
 	if (has_privs_of_role_strict(role, ROLE_PG_READ_SERVER_FILES)) {
@@ -5380,6 +5423,9 @@ has_privs_of_unwanted_system_role(Oid role, bool check_mdb_service_auth) {
 	if (has_privs_of_role_strict(role, ROLE_PG_WRITE_ALL_DATA)) {
 		return true;
 	}
+	if (role_has_replication_or_bypassrls(role, false)) {
+		return true;
+	}
 
 	if (check_mdb_service_auth) {
 		mdb_service_authoid = get_role_oid("mdb_service_auth", true);
@@ -5392,7 +5438,7 @@ has_privs_of_unwanted_system_role(Oid role, bool check_mdb_service_auth) {
 	return false;
 }
 
-bool has_privs_of_unwanted_system_role_prestartup(Oid role) {
+bool has_privs_of_hazard_system_role_prestartup(Oid role) {
 	if (has_privs_of_role_strict_no_cache(role, ROLE_PG_READ_SERVER_FILES)) {
 		return true;
 	}
@@ -5406,6 +5452,9 @@ bool has_privs_of_unwanted_system_role_prestartup(Oid role) {
 		return true;
 	}
 	if (has_privs_of_role_strict_no_cache(role, ROLE_PG_WRITE_ALL_DATA)) {
+		return true;
+	}
+	if (role_has_replication_or_bypassrls(role, true)) {
 		return true;
 	}
 
@@ -5435,7 +5484,7 @@ has_privs_of_role(Oid member, Oid role)
 			* if target role is neither superuser nor
 			* some dangerous system role
 			*/
-			if (!has_privs_of_unwanted_system_role(role, true)) {
+			if (!has_privs_of_hazard_system_role(role, true)) {
 				return true;
 			}
 		}
@@ -5490,7 +5539,7 @@ mdb_admin_allow_bypass_owner_checks(Oid userId,  Oid ownerId)
 	*/
 
 	/* All checks passed, hope will not be hacked here (again) */
-	return !has_privs_of_unwanted_system_role(ownerId, true);
+	return !has_privs_of_hazard_system_role(ownerId, true);
 }
 
 // -- non-upstream patch end
@@ -5569,7 +5618,7 @@ check_mdb_admin_is_member_of_role(Oid member, Oid role)
 							GetUserNameFromId(role, false))));
 		}
 
-		if (has_privs_of_unwanted_system_role(role, true)) {			
+		if (has_privs_of_hazard_system_role(role, true)) {			
 			ereport(ERROR,
 					(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
 					errmsg("forbidden to transfer ownership to this system role in Cloud")));
@@ -5603,7 +5652,7 @@ bool mdb_admin_is_member_of_role(Oid member, Oid role) {
 		return false;
 	}
 
-	return !has_privs_of_unwanted_system_role(role, true);
+	return !has_privs_of_hazard_system_role(role, true);
 }
 
 // -- mdb admin patch 

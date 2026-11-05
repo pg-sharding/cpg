@@ -3,6 +3,14 @@ CREATE ROLE regress_mdb_admin_user2;
 CREATE ROLE regress_mdb_admin_user3;
 
 CREATE ROLE regress_superuser WITH SUPERUSER;
+CREATE ROLE regress_repl_admin WITH REPLICATION;
+CREATE ROLE regress_bypassrls_admin WITH BYPASSRLS;
+CREATE ROLE regress_member_of_repl_admin;
+GRANT regress_repl_admin TO regress_member_of_repl_admin;
+CREATE ROLE regress_set_member_of_repl_admin;
+CREATE ROLE regress_noset_member_of_repl_admin;
+GRANT regress_repl_admin TO regress_set_member_of_repl_admin WITH INHERIT FALSE, SET TRUE;
+GRANT regress_repl_admin TO regress_noset_member_of_repl_admin WITH INHERIT TRUE, SET FALSE;
 
 GRANT mdb_admin TO regress_mdb_admin_user1;
 GRANT CREATE ON DATABASE regression TO regress_mdb_admin_user2;
@@ -69,6 +77,42 @@ ALTER TABLE regress_mdb_admin_schema.regress_mdb_admin_table OWNER TO pg_read_al
 ALTER TABLE regress_mdb_admin_table OWNER TO pg_read_all_data;
 ALTER SCHEMA regress_mdb_admin_schema OWNER TO pg_read_all_data;
 
+-- mdb admin fails to transfer ownership to roles with REPLICATION or
+-- BYPASSRLS attributes, and to members of such roles
+
+ALTER FUNCTION regress_mdb_admin_add (integer, integer) OWNER TO regress_repl_admin;
+ALTER VIEW regress_mdb_admin_view OWNER TO regress_repl_admin;
+ALTER TABLE regress_mdb_admin_schema.regress_mdb_admin_table OWNER TO regress_repl_admin;
+ALTER TABLE regress_mdb_admin_table OWNER TO regress_repl_admin;
+ALTER SCHEMA regress_mdb_admin_schema OWNER TO regress_repl_admin;
+
+ALTER FUNCTION regress_mdb_admin_add (integer, integer) OWNER TO regress_bypassrls_admin;
+ALTER VIEW regress_mdb_admin_view OWNER TO regress_bypassrls_admin;
+ALTER TABLE regress_mdb_admin_schema.regress_mdb_admin_table OWNER TO regress_bypassrls_admin;
+ALTER TABLE regress_mdb_admin_table OWNER TO regress_bypassrls_admin;
+ALTER SCHEMA regress_mdb_admin_schema OWNER TO regress_bypassrls_admin;
+
+ALTER FUNCTION regress_mdb_admin_add (integer, integer) OWNER TO regress_member_of_repl_admin;
+ALTER VIEW regress_mdb_admin_view OWNER TO regress_member_of_repl_admin;
+ALTER TABLE regress_mdb_admin_schema.regress_mdb_admin_table OWNER TO regress_member_of_repl_admin;
+ALTER TABLE regress_mdb_admin_table OWNER TO regress_member_of_repl_admin;
+ALTER SCHEMA regress_mdb_admin_schema OWNER TO regress_member_of_repl_admin;
+
+-- any membership edge counts, even with INHERIT FALSE or SET FALSE:
+-- the transfer must fail as well
+
+ALTER FUNCTION regress_mdb_admin_add (integer, integer) OWNER TO regress_set_member_of_repl_admin;
+ALTER VIEW regress_mdb_admin_view OWNER TO regress_set_member_of_repl_admin;
+ALTER TABLE regress_mdb_admin_schema.regress_mdb_admin_table OWNER TO regress_set_member_of_repl_admin;
+ALTER TABLE regress_mdb_admin_table OWNER TO regress_set_member_of_repl_admin;
+ALTER SCHEMA regress_mdb_admin_schema OWNER TO regress_set_member_of_repl_admin;
+
+ALTER FUNCTION regress_mdb_admin_add (integer, integer) OWNER TO regress_noset_member_of_repl_admin;
+ALTER VIEW regress_mdb_admin_view OWNER TO regress_noset_member_of_repl_admin;
+ALTER TABLE regress_mdb_admin_schema.regress_mdb_admin_table OWNER TO regress_noset_member_of_repl_admin;
+ALTER TABLE regress_mdb_admin_table OWNER TO regress_noset_member_of_repl_admin;
+ALTER SCHEMA regress_mdb_admin_schema OWNER TO regress_noset_member_of_repl_admin;
+
 -- end tests
 
 RESET SESSION AUTHORIZATION;
@@ -85,3 +129,8 @@ DROP ROLE regress_mdb_admin_user1;
 DROP ROLE regress_mdb_admin_user2;
 DROP ROLE regress_mdb_admin_user3;
 DROP ROLE regress_superuser;
+DROP ROLE regress_member_of_repl_admin;
+DROP ROLE regress_set_member_of_repl_admin;
+DROP ROLE regress_noset_member_of_repl_admin;
+DROP ROLE regress_repl_admin;
+DROP ROLE regress_bypassrls_admin;
