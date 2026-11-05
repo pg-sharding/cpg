@@ -31,6 +31,7 @@
 #include "access/xloginsert.h"
 #include "access/xlogrecovery.h"
 #include "access/xlogutils.h"
+#include "access/xlogwait.h"
 #include "catalog/index.h"
 #include "catalog/namespace.h"
 #include "catalog/pg_enum.h"
@@ -2848,6 +2849,11 @@ AbortTransaction(void)
 	 */
 	LWLockReleaseAll();
 
+	/*
+	 * Cleanup waiting for LSN if any.
+	 */
+	WaitLSNCleanup();
+
 	/* Clear wait information and command progress indicator */
 	pgstat_report_wait_end();
 	pgstat_progress_end_command();
@@ -3691,7 +3697,8 @@ PreventInTransactionBlock(bool isTopLevel, const char *stmtType)
 		ereport(ERROR,
 				(errcode(ERRCODE_ACTIVE_SQL_TRANSACTION),
 		/* translator: %s represents an SQL statement name */
-				 errmsg("%s cannot be executed from a function", stmtType)));
+				 errmsg("%s cannot be executed from a function or procedure",
+						stmtType)));
 
 	/* If we got past IsTransactionBlock test, should be in default state */
 	if (CurrentTransactionState->blockState != TBLOCK_DEFAULT &&
@@ -5256,6 +5263,11 @@ AbortSubTransaction(void)
 	 * Buffer locks, for example?  I don't think so but I'm not sure.
 	 */
 	LWLockReleaseAll();
+
+	/*
+	 * Cleanup waiting for LSN if any.
+	 */
+	WaitLSNCleanup();
 
 	pgstat_report_wait_end();
 	pgstat_progress_end_command();

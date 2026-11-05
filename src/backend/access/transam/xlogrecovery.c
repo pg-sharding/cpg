@@ -40,6 +40,7 @@
 #include "access/xlogreader.h"
 #include "access/xlogrecovery.h"
 #include "access/xlogutils.h"
+#include "access/xlogwait.h"
 #include "backup/basebackup.h"
 #include "catalog/pg_control.h"
 #include "commands/tablespace.h"
@@ -1854,6 +1855,19 @@ PerformWalRecovery(void)
 			 * Apply the record
 			 */
 			ApplyWalRecord(xlogreader, record, &replayTLI);
+
+			/*
+			 * Wake up processes waiting for standby replay, write, or flush
+			 * LSN to reach current replay position.  Replay implies that the
+			 * WAL was already written and flushed to disk, so write and flush
+			 * waiters can be woken at the replay position too.
+			 */
+			WaitLSNWakeup(WAIT_LSN_TYPE_STANDBY_REPLAY,
+						  XLogRecoveryCtl->lastReplayedEndRecPtr);
+			WaitLSNWakeup(WAIT_LSN_TYPE_STANDBY_WRITE,
+						  XLogRecoveryCtl->lastReplayedEndRecPtr);
+			WaitLSNWakeup(WAIT_LSN_TYPE_STANDBY_FLUSH,
+						  XLogRecoveryCtl->lastReplayedEndRecPtr);
 
 			/* Exit loop if we reached inclusive recovery target */
 			if (recoveryStopsAfter(xlogreader))

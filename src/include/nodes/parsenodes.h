@@ -4332,4 +4332,18 @@ typedef struct DropSubscriptionStmt
 	DropBehavior behavior;		/* RESTRICT or CASCADE behavior */
 } DropSubscriptionStmt;
 
+typedef struct WaitStmt
+{
+	pg_node_attr(nodetag_number(480))
+
+	NodeTag		type;
+	/* LSN string from grammar */
+	char	   *lsn_literal pg_node_attr(query_jumble_ignore);
+	/* List of DefElem nodes */
+	List	   *options;
+	/* token location, or -1 if unknown */
+	ParseLoc	lsn_location pg_node_attr(query_jumble_location);
+} WaitStmt;
+
+
 #endif							/* PARSENODES_H */

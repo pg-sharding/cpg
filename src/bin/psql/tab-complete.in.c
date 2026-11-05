@@ -1243,7 +1243,8 @@ static const char *const sql_commands[] = {
 	"REASSIGN", "REFRESH MATERIALIZED VIEW", "REINDEX", "RELEASE",
 	"RESET", "REVOKE", "ROLLBACK",
 	"SAVEPOINT", "SECURITY LABEL", "SELECT", "SET", "SHOW", "START",
-	"TABLE", "TRUNCATE", "UNLISTEN", "UPDATE", "VACUUM", "VALUES", "WITH",
+	"TABLE", "TRUNCATE", "UNLISTEN", "UPDATE", "VACUUM", "VALUES",
+	"WAIT FOR", "WITH",
 	NULL
 };
 
@@ -5264,6 +5265,46 @@ match_previous_words(int pattern_id,
 		COMPLETE_WITH_ATTR(prev2_wd);
 	else if (HeadMatches("VACUUM"))
 		COMPLETE_WITH_SCHEMA_QUERY(Query_for_list_of_vacuumables);
+
+/*
+ * WAIT FOR LSN '<lsn>' [ WITH ( option [, ...] ) ]
+ * where option can be:
+ *   MODE '<mode>'
+ *   TIMEOUT '<timeout>'
+ *   NO_THROW
+ * and mode can be:
+ *   standby_replay | standby_write | standby_flush | primary_flush
+ */
+	else if (Matches("WAIT"))
+		COMPLETE_WITH("FOR");
+	else if (Matches("WAIT", "FOR"))
+		COMPLETE_WITH("LSN");
+	else if (Matches("WAIT", "FOR", "LSN"))
+		/* No completion for LSN value - user must provide manually */
+		;
+	else if (Matches("WAIT", "FOR", "LSN", MatchAny))
+		COMPLETE_WITH("WITH");
+	else if (Matches("WAIT", "FOR", "LSN", MatchAny, "WITH"))
+		COMPLETE_WITH("(");
+
+	/*
+	 * Handle parenthesized option list.  This fires when we're in an
+	 * unfinished parenthesized option list.  get_previous_words treats a
+	 * completed parenthesized option list as one word, so the above test is
+	 * correct.
+	 *
+	 * 'mode' takes a string value (one of the listed above), 'timeout' takes
+	 * a string value, and 'no_throw' takes no value.  We do not offer
+	 * completions for the *values* of 'timeout' or 'no_throw'.
+	 */
+	else if (HeadMatches("WAIT", "FOR", "LSN", MatchAny, "WITH", "(*") &&
+			 !HeadMatches("WAIT", "FOR", "LSN", MatchAny, "WITH", "(*)"))
+	{
+		if (ends_with(prev_wd, '(') || ends_with(prev_wd, ','))
+			COMPLETE_WITH("mode", "timeout", "no_throw");
+		else if (TailMatches("mode"))
+			COMPLETE_WITH("'standby_replay'", "'standby_write'", "'standby_flush'", "'primary_flush'");
+	}
 
 /* WITH [RECURSIVE] */
 

@@ -58,6 +58,7 @@
 #include "access/xlog_internal.h"
 #include "access/xlogarchive.h"
 #include "access/xlogrecovery.h"
+#include "access/xlogwait.h"
 #include "catalog/pg_authid.h"
 #include "funcapi.h"
 #include "libpq/pqformat.h"
@@ -1098,6 +1099,12 @@ XLogWalRcvWrite(char *buf, Size nbytes, XLogRecPtr recptr, TimeLineID tli)
 	pg_atomic_write_u64(&WalRcv->writtenUpto, LogstreamResult.Write);
 
 	/*
+	 * Wake up processes waiting for standby write LSN to reach current write
+	 * position.
+	 */
+	WaitLSNWakeup(WAIT_LSN_TYPE_STANDBY_WRITE, LogstreamResult.Write);
+
+	/*
 	 * Close the current segment if it's fully written up in the last cycle of
 	 * the loop, to create its archive notification file soon. Otherwise WAL
 	 * archiving of the segment will be delayed until any data in the next
@@ -1135,6 +1142,12 @@ XLogWalRcvFlush(bool dying, TimeLineID tli)
 			walrcv->receivedTLI = tli;
 		}
 		SpinLockRelease(&walrcv->mutex);
+
+		/*
+		 * Wake up processes waiting for standby flush LSN to reach current
+		 * flush position.
+		 */
+		WaitLSNWakeup(WAIT_LSN_TYPE_STANDBY_FLUSH, LogstreamResult.Flush);
 
 		/* Signal the startup process and walsender that new WAL has arrived */
 		WakeupRecovery();

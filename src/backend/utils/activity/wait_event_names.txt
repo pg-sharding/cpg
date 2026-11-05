@@ -94,6 +94,10 @@ WAL_SENDER_WRITE_DATA	"Waiting for any activity when processing replies from WAL
 
 ABI_compatibility:
 
+WAIT_FOR_WAL_FLUSH	"Waiting for WAL flush to reach a target LSN on a primary or standby."
+WAIT_FOR_WAL_REPLAY	"Waiting for WAL replay to reach a target LSN on a standby."
+WAIT_FOR_WAL_WRITE	"Waiting for WAL write to reach a target LSN on a standby."
+
 #
 # Wait Events - IPC
 #
@@ -405,6 +409,7 @@ SubtransSLRU	"Waiting to access the sub-transaction SLRU cache."
 XactSLRU	"Waiting to access the transaction status SLRU cache."
 ParallelVacuumDSA	"Waiting for parallel vacuum dynamic shared memory allocation."
 AioUringCompletion	"Waiting for another process to complete IO via io_uring."
+WaitLSN	"Waiting to read or update shared Wait-for-LSN state."
 
 # No "ABI_compatibility" region here as WaitEventLWLock has its own C code.
 
