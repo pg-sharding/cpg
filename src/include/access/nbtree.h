@@ -1082,7 +1082,7 @@ typedef struct BTScanOpaqueData
 	char	   *currTuples;		/* tuple storage for currPos */
 	char	   *markTuples;		/* tuple storage for markPos */
 	IndexTupleDeformCache iosCache; /* lazily deformed posting tuple */
-	int			iosTupleOffset;	/* -1 if no valid deformation */
+	int			iosTupleOffset;	/* tupleOffset for iosCache, or -1 if none */
 
 	/*
 	 * If the marked position is on the same page as current position, we
