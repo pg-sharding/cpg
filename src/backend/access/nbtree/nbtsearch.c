@@ -1643,7 +1643,7 @@ _bt_returnitem(IndexScanDesc scan, BTScanOpaque so)
 
 		scan->xs_itup = (IndexTuple) (so->currTuples + currItem->tupleOffset);
 
-		/* _bt_readpage already cleared xs_itupcache on singleton pages. */
+		/* _bt_readpage cleared xs_itupcache when no cacheable postings exist. */
 		if (so->currPos.hasPosting)
 		{
 			scan->xs_itupcache = NULL;

@@ -444,12 +444,21 @@ btrescan(IndexScanDesc scan, ScanKey scankey, int nscankeys,
 	if (scan->xs_want_itup && so->currTuples == NULL)
 	{
 		int			natts = scan->xs_itupdesc->natts;
+		Size		cachesz = 0;
 
-		so->currTuples = palloc(BLCKSZ * 2 +
-							   natts * (sizeof(Datum) + sizeof(bool)));
+		/*
+		 * A one-attribute tuple has no attribute-prefix walk to reuse.  Cache
+		 * setup and copying can cost more than deformation for short postings.
+		 */
+		if (natts > 1)
+			cachesz = natts * (sizeof(Datum) + sizeof(bool));
+		so->currTuples = palloc(BLCKSZ * 2 + cachesz);
 		so->markTuples = so->currTuples + BLCKSZ;
-		so->iosCache.values = (Datum *) (so->currTuples + BLCKSZ * 2);
-		so->iosCache.isnull = (bool *) (so->iosCache.values + natts);
+		if (cachesz > 0)
+		{
+			so->iosCache.values = (Datum *) (so->currTuples + BLCKSZ * 2);
+			so->iosCache.isnull = (bool *) (so->iosCache.values + natts);
+		}
 	}
 
 	/*

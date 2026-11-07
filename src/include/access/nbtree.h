@@ -985,7 +985,7 @@ typedef struct BTScanPosData
 	 */
 	bool		moreLeft;
 	bool		moreRight;
-	bool		hasPosting;		/* saved IOS items include posting tuples */
+	bool		hasPosting;		/* saved IOS items include cacheable postings */
 
 	/*
 	 * The items array is always ordered in index order (ie, increasing

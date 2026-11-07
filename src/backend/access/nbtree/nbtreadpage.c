@@ -1089,7 +1089,9 @@ _bt_setuppostingitems(BTScanOpaque so, int itemIndex, OffsetNumber offnum,
 		base->t_info |= itupsz;
 		so->currPos.nextTupleOffset += itupsz;
 
-		so->currPos.hasPosting = true;
+		/* Ineligible tuple descriptors leave the deformation cache disabled. */
+		if (so->iosCache.values != NULL)
+			so->currPos.hasPosting = true;
 		return currItem->tupleOffset;
 	}
 
