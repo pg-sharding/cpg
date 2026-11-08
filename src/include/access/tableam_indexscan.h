@@ -90,8 +90,41 @@ tableam_index_fill_ios_slot(IndexScanDesc scan, TupleTableSlot *slot)
 	{
 		Assert(slot->tts_tupleDescriptor->natts == scan->xs_itupdesc->natts);
 
-		index_deform_tuple(scan->xs_itup, scan->xs_itupdesc,
-						   slot->tts_values, slot->tts_isnull);
+		if (scan->xs_itupcache != NULL)
+		{
+			IndexTupleDeformCache *cache = scan->xs_itupcache;
+			int			natts = scan->xs_itupdesc->natts;
+			Datum	   *values;
+			Datum	   *cachedvalues;
+			bool	   *isnull;
+			bool	   *cachedisnull;
+			int			i;
+
+			if (!cache->valid)
+			{
+				index_deform_tuple(scan->xs_itup, scan->xs_itupdesc,
+								   cache->values, cache->isnull);
+				cache->valid = true;
+			}
+			/* Inline fixed-size blocks and keep short tuples in the tail. */
+			values = slot->tts_values;
+			isnull = slot->tts_isnull;
+			cachedvalues = cache->values;
+			cachedisnull = cache->isnull;
+			for (i = 0; i <= natts - 8; i += 8)
+			{
+				memcpy(&values[i], &cachedvalues[i], sizeof(Datum) * 8);
+				memcpy(&isnull[i], &cachedisnull[i], sizeof(bool) * 8);
+			}
+			for (; i < natts; i++)
+			{
+				memcpy(&values[i], &cachedvalues[i], sizeof(Datum));
+				isnull[i] = cachedisnull[i];
+			}
+		}
+		else
+			index_deform_tuple(scan->xs_itup, scan->xs_itupdesc,
+							   slot->tts_values, slot->tts_isnull);
 
 		/*
 		 * Copy all name columns stored as cstrings back into NAMEDATALEN
