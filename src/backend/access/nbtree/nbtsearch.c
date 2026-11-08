@@ -18,12 +18,16 @@
 #include "access/nbtree.h"
 #include "access/relscan.h"
 #include "access/xact.h"
+#include "access/xlog.h"
 #include "catalog/catalog.h"
+#include "catalog/pg_type_d.h"
 #include "executor/instrument_node.h"
 #include "miscadmin.h"
 #include "pgstat.h"
 #include "storage/predicate.h"
 #include "utils/injection_point.h"
+#include "utils/fmgroids.h"
+#include "utils/fmgrprotos.h"
 #include "utils/lsyscache.h"
 #include "utils/rel.h"
 
@@ -46,6 +50,45 @@ static Buffer _bt_lock_and_validate_left(Relation rel, BlockNumber *blkno,
 										 BlockNumber lastcurrblkno);
 static bool _bt_endpoint(IndexScanDesc scan, ScanDirection dir);
 
+
+/* Typed-only control: the cache prototype uses identical eligibility. */
+static OffsetNumber
+_bt_binsrch_int8(Relation rel, BTScanInsert key, Buffer buf, Page page,
+                 OffsetNumber first, OffsetNumber last)
+{
+    OffsetNumber low = OffsetNumberNext(first);
+    OffsetNumber high = OffsetNumberNext(last);
+    int64 argument = DatumGetInt64(key->scankeys->sk_argument);
+    int32 cmpval = key->nextkey ? 0 : 1;
+
+    while (low < high)
+    {
+        OffsetNumber mid = low + (high - low) / 2;
+        IndexTuple itup = (IndexTuple) PageGetItem(page, PageGetItemId(page, mid));
+        bool isnull;
+        int32 result;
+        int64 value;
+        Datum datum;
+
+        if (BTreeTupleGetNAtts(itup, rel) != 1)
+        {
+            result = _bt_compare(rel, key, page, mid);
+            goto compared;
+        }
+        datum = index_getattr(itup, 1, RelationGetDescr(rel), &isnull);
+        value = isnull ? 0 : DatumGetInt64(datum);
+        if (isnull || value == argument)
+            result = _bt_compare(rel, key, page, mid);
+        else
+            result = argument > value ? 1 : -1;
+compared:
+        if (result >= cmpval)
+            low = OffsetNumberNext(mid);
+        else
+            high = mid;
+    }
+    return OffsetNumberPrev(low);
+}
 
 /*
  *	_bt_drop_lock_and_maybe_pin()
@@ -374,6 +417,19 @@ _bt_binsrch(Relation rel,
 	 */
 	if (unlikely(high < low))
 		return low;
+
+	/* Keep the prototype's eligibility deliberately narrower than _bt_compare. */
+	if (!P_ISLEAF(opaque) && key->heapkeyspace && key->keysz == 1 &&
+		key->scantid == NULL &&
+		!(key->scankeys->sk_flags & (SK_ISNULL | SK_BT_DESC)) &&
+		key->scankeys->sk_attno == 1 &&
+		key->scankeys->sk_func.fn_oid == F_BTINT8CMP &&
+		key->scankeys->sk_func.fn_addr == btint8cmp &&
+		IndexRelationGetNumberOfAttributes(rel) == 1 &&
+		TupleDescAttr(RelationGetDescr(rel), 0)->atttypid == INT8OID &&
+		RelationIsPermanent(rel) && RelationNeedsWAL(rel) &&
+		!RecoveryInProgress())
+		return _bt_binsrch_int8(rel, key, buf, page, low, high);
 
 	/*
 	 * Binary search to find the first key on the page >= scan key, or first
