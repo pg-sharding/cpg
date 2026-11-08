@@ -655,21 +655,46 @@ make_positional_trgm(trgm *trg1, int len1, trgm *trg2, int len2)
 	return result;
 }
 
-/*
- * Compare position trigrams: compare trigrams first and position second.
- */
-static int
-comp_ptrgm(const void *v1, const void *v2)
+/* Compare positional trigrams without the CMPTRGM function pointer. */
+static inline int
+comp_ptrgm_signed(const pos_trgm *a, const pos_trgm *b)
 {
-	const pos_trgm *p1 = (const pos_trgm *) v1;
-	const pos_trgm *p2 = (const pos_trgm *) v2;
-	int			cmp;
+	int cmp = CMPTRGM_SIGNED(a->trg, b->trg);
 
-	cmp = CMPTRGM(p1->trg, p2->trg);
-	if (cmp != 0)
-		return cmp;
+	return cmp ? cmp : pg_cmp_s32(a->index, b->index);
+}
 
-	return pg_cmp_s32(p1->index, p2->index);
+static inline int
+comp_ptrgm_unsigned(const pos_trgm *a, const pos_trgm *b)
+{
+	int cmp = CMPTRGM_UNSIGNED(a->trg, b->trg);
+
+	return cmp ? cmp : pg_cmp_s32(a->index, b->index);
+}
+
+#define ST_SORT positional_qsort_signed
+#define ST_ELEMENT_TYPE pos_trgm
+#define ST_COMPARE(a, b) comp_ptrgm_signed(a, b)
+#define ST_SCOPE static
+#define ST_DEFINE
+#define ST_DECLARE
+#include "lib/sort_template.h"
+
+#define ST_SORT positional_qsort_unsigned
+#define ST_ELEMENT_TYPE pos_trgm
+#define ST_COMPARE(a, b) comp_ptrgm_unsigned(a, b)
+#define ST_SCOPE static
+#define ST_DEFINE
+#define ST_DECLARE
+#include "lib/sort_template.h"
+
+static void
+sort_positional_trgm(pos_trgm *array, size_t n)
+{
+	if (GetDefaultCharSignedness())
+		positional_qsort_signed(array, n);
+	else
+		positional_qsort_unsigned(array, n);
 }
 
 /*
@@ -882,7 +907,7 @@ calc_word_similarity(char *str1, int slen1, char *str2, int slen2,
 
 	ptrg = make_positional_trgm(GETARR(trg1.datum), len1, GETARR(trg2.datum), len2);
 	len = len1 + len2;
-	qsort(ptrg, len, sizeof(pos_trgm), comp_ptrgm);
+	sort_positional_trgm(ptrg, len);
 
 	pfree(trg1.datum);
 	pfree(trg2.datum);
