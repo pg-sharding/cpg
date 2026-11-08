@@ -1638,7 +1638,31 @@ _bt_returnitem(IndexScanDesc scan, BTScanOpaque so)
 	/* Return next item, per amgettuple contract */
 	scan->xs_heaptid = currItem->heapTid;
 	if (so->currTuples)
+	{
+		int			i = so->currPos.itemIndex;
+
 		scan->xs_itup = (IndexTuple) (so->currTuples + currItem->tupleOffset);
+
+		/* _bt_readpage cleared xs_itupcache when no cacheable postings exist. */
+		if (so->currPos.hasPosting)
+		{
+			scan->xs_itupcache = NULL;
+
+			/* Posting tuples share tupleOffset between adjacent items. */
+			if ((i < so->currPos.lastItem &&
+				 so->currPos.items[i + 1].tupleOffset == currItem->tupleOffset) ||
+				(i > so->currPos.firstItem &&
+				 so->currPos.items[i - 1].tupleOffset == currItem->tupleOffset))
+			{
+				if (so->iosTupleOffset != currItem->tupleOffset)
+				{
+					so->iosCache.valid = false;
+					so->iosTupleOffset = currItem->tupleOffset;
+				}
+				scan->xs_itupcache = &so->iosCache;
+			}
+		}
+	}
 }
 
 /*
