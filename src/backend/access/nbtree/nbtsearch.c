@@ -604,12 +604,13 @@ _bt_binsrch_insert(Relation rel, BTInsertState insertstate)
 static int
 _bt_binsrch_posting(BTScanInsert key, Page page, OffsetNumber offnum)
 {
+	BlockNumber scanblock;
+	OffsetNumber scanoffset;
 	IndexTuple	itup;
 	ItemId		itemid;
 	int			low,
 				high,
-				mid,
-				res;
+				mid;
 
 	/*
 	 * If this isn't a posting tuple, then the index must be corrupt (if it is
@@ -637,6 +638,9 @@ _bt_binsrch_posting(BTScanInsert key, Page page, OffsetNumber offnum)
 	if (ItemIdIsDead(itemid))
 		return -1;
 
+	scanblock = ItemPointerGetBlockNumberNoCheck(key->scantid);
+	scanoffset = ItemPointerGetOffsetNumberNoCheck(key->scantid);
+
 	/* "high" is past end of posting list for loop invariant */
 	low = 0;
 	high = BTreeTupleGetNPosting(itup);
@@ -644,19 +648,21 @@ _bt_binsrch_posting(BTScanInsert key, Page page, OffsetNumber offnum)
 
 	while (high > low)
 	{
-		mid = low + ((high - low) / 2);
-		res = ItemPointerCompare(key->scantid,
-								 BTreeTupleGetPostingN(itup, mid));
+		ItemPointer posting;
+		BlockNumber block;
 
-		if (res > 0)
+		mid = low + ((high - low) / 2);
+		posting = BTreeTupleGetPostingN(itup, mid);
+		block = ItemPointerGetBlockNumberNoCheck(posting);
+		if (block < scanblock ||
+			(block == scanblock &&
+			 ItemPointerGetOffsetNumberNoCheck(posting) < scanoffset))
 			low = mid + 1;
-		else if (res < 0)
-			high = mid;
 		else
-			return mid;
+			high = mid;
 	}
 
-	/* Exact match not found */
+	/* Return the lower bound, possibly an exact match. */
 	return low;
 }
 
