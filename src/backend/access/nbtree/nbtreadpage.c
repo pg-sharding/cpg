@@ -155,6 +155,11 @@ _bt_readpage(IndexScanDesc scan, ScanDirection dir, OffsetNumber offnum,
 	/* delay setting so->currPos.lsn until _bt_drop_lock_and_maybe_pin */
 	pstate.dir = so->currPos.dir = dir;
 	so->currPos.nextTupleOffset = 0;
+	so->currPos.hasPosting = false;
+	/* currTuples is about to be overwritten with a new page's tuples. */
+	so->iosTupleOffset = -1;
+	so->iosCache.valid = false;
+	scan->xs_itupcache = NULL;
 
 	/* either moreRight or moreLeft should be set now (may be unset later) */
 	Assert(ScanDirectionIsForward(dir) ? so->currPos.moreRight :
@@ -1084,6 +1089,9 @@ _bt_setuppostingitems(BTScanOpaque so, int itemIndex, OffsetNumber offnum,
 		base->t_info |= itupsz;
 		so->currPos.nextTupleOffset += itupsz;
 
+		/* Ineligible tuple descriptors leave the deformation cache disabled. */
+		if (so->iosCache.values != NULL)
+			so->currPos.hasPosting = true;
 		return currItem->tupleOffset;
 	}
 

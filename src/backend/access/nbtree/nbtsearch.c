@@ -1638,7 +1638,34 @@ _bt_returnitem(IndexScanDesc scan, BTScanOpaque so)
 	/* Return next item, per amgettuple contract */
 	scan->xs_heaptid = currItem->heapTid;
 	if (so->currTuples)
+	{
+		int			i = so->currPos.itemIndex;
+
 		scan->xs_itup = (IndexTuple) (so->currTuples + currItem->tupleOffset);
+
+		/*
+		 * Items from one posting tuple share tupleOffset and cache eligibility.
+		 * Reconsider the attachment only when moving to a different tuple.
+		 * Remember non-posting offsets too, so returning to a previous posting
+		 * tuple cannot leave its cache detached or reuse another tuple's data.
+		 */
+		if (so->currPos.hasPosting &&
+			so->iosTupleOffset != currItem->tupleOffset)
+		{
+			so->iosTupleOffset = currItem->tupleOffset;
+			so->iosCache.valid = false;
+			scan->xs_itupcache = NULL;
+
+			/* Posting tuples share tupleOffset between adjacent items. */
+			if ((i < so->currPos.lastItem &&
+				 so->currPos.items[i + 1].tupleOffset == currItem->tupleOffset) ||
+				(i > so->currPos.firstItem &&
+				 so->currPos.items[i - 1].tupleOffset == currItem->tupleOffset))
+			{
+				scan->xs_itupcache = &so->iosCache;
+			}
+		}
+	}
 }
 
 /*

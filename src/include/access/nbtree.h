@@ -16,6 +16,7 @@
 
 #include "access/amapi.h"
 #include "access/itup.h"
+#include "access/relscan.h"
 #include "access/sdir.h"
 #include "catalog/pg_am_d.h"
 #include "catalog/pg_class.h"
@@ -984,6 +985,7 @@ typedef struct BTScanPosData
 	 */
 	bool		moreLeft;
 	bool		moreRight;
+	bool		hasPosting;		/* saved IOS items include cacheable postings */
 
 	/*
 	 * The items array is always ordered in index order (ie, increasing
@@ -1079,6 +1081,8 @@ typedef struct BTScanOpaqueData
 	 */
 	char	   *currTuples;		/* tuple storage for currPos */
 	char	   *markTuples;		/* tuple storage for markPos */
+	IndexTupleDeformCache iosCache; /* lazily deformed posting tuple */
+	int			iosTupleOffset;	/* last tupleOffset checked for cache reuse */
 
 	/*
 	 * If the marked position is on the same page as current position, we
