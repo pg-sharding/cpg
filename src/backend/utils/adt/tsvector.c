@@ -95,6 +95,15 @@ compareentry(const void *va, const void *vb, void *arg)
 						   false);
 }
 
+#define ST_SORT sort_tsvector_entries
+#define ST_ELEMENT_TYPE WordEntryIN
+#define ST_COMPARE_ARG_TYPE char
+#define ST_COMPARE(a, b, arg) compareentry(a, b, arg)
+#define ST_SCOPE static
+#define ST_DECLARE
+#define ST_DEFINE
+#include "lib/sort_template.h"
+
 /*
  * Sort an array of WordEntryIN, remove duplicates.
  * *outbuflen receives the amount of space needed for strings and positions.
@@ -109,7 +118,7 @@ uniqueentry(WordEntryIN *a, int l, char *buf, int *outbuflen)
 	Assert(l >= 1);
 
 	if (l > 1)
-		qsort_arg(a, l, sizeof(WordEntryIN), compareentry, buf);
+		sort_tsvector_entries(a, l, buf);
 
 	buflen = 0;
 	res = a;

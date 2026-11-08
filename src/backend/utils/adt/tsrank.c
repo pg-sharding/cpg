@@ -144,6 +144,17 @@ compareQueryOperand(const void *a, const void *b, void *arg)
 						   false);
 }
 
+typedef QueryOperand *RankOperand;
+
+#define ST_SORT sort_rank_operands
+#define ST_ELEMENT_TYPE RankOperand
+#define ST_COMPARE_ARG_TYPE char
+#define ST_COMPARE(a, b, arg) compareQueryOperand(a, b, arg)
+#define ST_SCOPE static
+#define ST_DECLARE
+#define ST_DEFINE
+#include "lib/sort_template.h"
+
 /*
  * Returns a sorted, de-duplicated array of QueryOperands in a query.
  * The returned QueryOperands are pointers to the original QueryOperands
@@ -177,7 +188,7 @@ SortAndUniqItems(TSQuery q, int *size)
 	if (*size < 2)
 		return res;
 
-	qsort_arg(res, *size, sizeof(QueryOperand *), compareQueryOperand, operand);
+	sort_rank_operands(res, *size, operand);
 
 	ptr = res + 1;
 	prevptr = res;
@@ -565,6 +576,14 @@ compareDocR(const void *va, const void *vb)
 	return (WEP_GETPOS(a->pos) > WEP_GETPOS(b->pos)) ? 1 : -1;
 }
 
+#define ST_SORT sort_rank_doc
+#define ST_ELEMENT_TYPE DocRepresentation
+#define ST_COMPARE(a, b) compareDocR(a, b)
+#define ST_SCOPE static
+#define ST_DECLARE
+#define ST_DEFINE
+#include "lib/sort_template.h"
+
 #define MAXQROPOS	MAXENTRYPOS
 typedef struct
 {
@@ -832,7 +851,7 @@ get_docrep(TSVector txt, QueryRepresentation *qr, int *doclen)
 		/*
 		 * Sort representation in ascending order by pos and entry
 		 */
-		qsort(doc, cur, sizeof(DocRepresentation), compareDocR);
+		sort_rank_doc(doc, cur);
 
 		/*
 		 * Join QueryItem per WordEntry and its position

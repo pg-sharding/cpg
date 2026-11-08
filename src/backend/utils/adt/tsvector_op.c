@@ -739,6 +739,14 @@ tsvector_to_array(PG_FUNCTION_ARGS)
 	PG_RETURN_POINTER(array);
 }
 
+#define ST_SORT sort_text_lexemes
+#define ST_ELEMENT_TYPE Datum
+#define ST_COMPARE(a, b) compare_text_lexemes(a, b)
+#define ST_SCOPE static
+#define ST_DECLARE
+#define ST_DEFINE
+#include "lib/sort_template.h"
+
 /*
  * Build tsvector from array of lexemes.
  */
@@ -787,7 +795,7 @@ array_to_tsvector(PG_FUNCTION_ARGS)
 	/* Sort and de-dup, because this is required for a valid tsvector. */
 	if (nitems > 1)
 	{
-		qsort(dlexemes, nitems, sizeof(Datum), compare_text_lexemes);
+		sort_text_lexemes(dlexemes, nitems);
 		nitems = qunique(dlexemes, nitems, sizeof(Datum),
 						 compare_text_lexemes);
 	}
@@ -1338,6 +1346,8 @@ checkcondition_str(void *checkval, QueryOperand *val, ExecPhraseData *data)
 	if (val->prefix && (res != TS_YES || data))
 	{
 		WordEntryPos *allpos = NULL;
+		bool		allpos_sorted = true,
+					allpos_unique = true;
 		int			npos = 0,
 					totalpos = 0;
 
@@ -1404,6 +1414,18 @@ checkcondition_str(void *checkval, QueryOperand *val, ExecPhraseData *data)
 						}
 					}
 
+					/* Each input list is sorted and unique already. */
+					if (npos > 0 && data->npos > 0)
+					{
+						int		last = WEP_GETPOS(allpos[npos - 1]);
+						int		first = WEP_GETPOS(data->pos[0]);
+
+						if (last > first)
+							allpos_sorted = false;
+						if (last >= first)
+							allpos_unique = false;
+					}
+
 					memcpy(allpos + npos, data->pos, sizeof(WordEntryPos) * data->npos);
 					npos += data->npos;
 
@@ -1430,9 +1452,13 @@ checkcondition_str(void *checkval, QueryOperand *val, ExecPhraseData *data)
 		{
 			/* Sort and make unique array of found positions */
 			data->pos = allpos;
-			qsort(data->pos, npos, sizeof(WordEntryPos), compareWordEntryPos);
-			data->npos = qunique(data->pos, npos, sizeof(WordEntryPos),
-								 compareWordEntryPos);
+			if (!allpos_sorted)
+				qsort(data->pos, npos, sizeof(WordEntryPos), compareWordEntryPos);
+			if (allpos_sorted && allpos_unique)
+				data->npos = npos;
+			else
+				data->npos = qunique(data->pos, npos, sizeof(WordEntryPos),
+									 compareWordEntryPos);
 			data->allocated = true;
 			res = TS_YES;
 		}
