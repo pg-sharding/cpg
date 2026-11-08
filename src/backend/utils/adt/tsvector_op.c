@@ -26,6 +26,7 @@
 #include "mb/pg_wchar.h"
 #include "miscadmin.h"
 #include "parser/parse_coerce.h"
+#include "port/pg_bitutils.h"
 #include "tsearch/ts_utils.h"
 #include "utils/array.h"
 #include "utils/builtins.h"
@@ -1292,6 +1293,36 @@ checkclass_str(CHKVAL *chkval, WordEntry *entry, QueryOperand *val,
 	return result;
 }
 
+/* Phrase execution needs positions only; weight filtering is already done. */
+static int
+unique_phrase_positions(WordEntryPos *positions, int npositions)
+{
+	uint64		seen[MAXENTRYPOS / 64] = {0};
+	int			lastword = 0;
+	int			nunique = 0;
+
+	for (int i = 0; i < npositions; i++)
+	{
+		unsigned	pos = WEP_GETPOS(positions[i]);
+		int			word = pos >> 6;
+
+		seen[word] |= UINT64CONST(1) << (pos & 63);
+		lastword = Max(lastword, word);
+	}
+
+	for (int word = 0; word <= lastword; word++)
+	{
+		uint64		bits = seen[word];
+
+		while (bits)
+		{
+			positions[nunique++] = word * 64 + pg_rightmost_one_pos64(bits);
+			bits &= bits - 1;
+		}
+	}
+	return nunique;
+}
+
 /*
  * TS_execute callback for matching a tsquery operand to plain tsvector data
  */
@@ -1338,6 +1369,8 @@ checkcondition_str(void *checkval, QueryOperand *val, ExecPhraseData *data)
 	if (val->prefix && (res != TS_YES || data))
 	{
 		WordEntryPos *allpos = NULL;
+		bool		allpos_sorted = true,
+					allpos_unique = true;
 		int			npos = 0,
 					totalpos = 0;
 
@@ -1404,6 +1437,18 @@ checkcondition_str(void *checkval, QueryOperand *val, ExecPhraseData *data)
 						}
 					}
 
+					/* Each input list is sorted and unique already. */
+					if (npos > 0 && data->npos > 0)
+					{
+						int		last = WEP_GETPOS(allpos[npos - 1]);
+						int		first = WEP_GETPOS(data->pos[0]);
+
+						if (last > first)
+							allpos_sorted = false;
+						if (last >= first)
+							allpos_unique = false;
+					}
+
 					memcpy(allpos + npos, data->pos, sizeof(WordEntryPos) * data->npos);
 					npos += data->npos;
 
@@ -1430,9 +1475,17 @@ checkcondition_str(void *checkval, QueryOperand *val, ExecPhraseData *data)
 		{
 			/* Sort and make unique array of found positions */
 			data->pos = allpos;
-			qsort(data->pos, npos, sizeof(WordEntryPos), compareWordEntryPos);
-			data->npos = qunique(data->pos, npos, sizeof(WordEntryPos),
-								 compareWordEntryPos);
+			if (allpos_sorted && allpos_unique)
+				data->npos = npos;
+			else if (allpos_sorted || npos <= 32)
+			{
+				if (!allpos_sorted)
+					qsort(data->pos, npos, sizeof(WordEntryPos), compareWordEntryPos);
+				data->npos = qunique(data->pos, npos, sizeof(WordEntryPos),
+									 compareWordEntryPos);
+			}
+			else
+				data->npos = unique_phrase_positions(data->pos, npos);
 			data->allocated = true;
 			res = TS_YES;
 		}
