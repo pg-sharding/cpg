@@ -211,13 +211,192 @@ isort_cmp(const void *a, const void *b, void *arg)
 	return 0;
 }
 
-#define ST_SORT isort
+#define ST_SORT intarray_qsort
 #define ST_ELEMENT_TYPE int32
 #define ST_COMPARE(a, b, ascending) isort_cmp(a, b, ascending)
 #define ST_COMPARE_ARG_TYPE void
-#define ST_SCOPE
+#define ST_SCOPE static
+#define ST_DEFINE
+#define ST_DECLARE
+#include "lib/sort_template.h"
+
+/* Keep duplicates for isort callers; PREPAREARR requests compaction. */
+/* A bounded exact dictionary; abandon without modifying the input. */
+typedef struct IntarrayCount
+{
+	int32		value;
+	uint32		count;
+} IntarrayCount;
+
+#define ST_SORT intarray_count_sort
+#define ST_ELEMENT_TYPE IntarrayCount
+#define ST_COMPARE(a, b, ascending) \
+	(*(ascending) ? pg_cmp_s32((a)->value, (b)->value) : \
+	 pg_cmp_s32((b)->value, (a)->value))
+#define ST_COMPARE_ARG_TYPE bool
+#define ST_SCOPE static
+#define ST_DECLARE
 #define ST_DEFINE
 #include "lib/sort_template.h"
+
+static size_t
+intarray_sort_dictionary(int32 *array, size_t n, bool ascending, bool unique)
+{
+	IntarrayCount values[16];
+	uint8		slots[64] = {0};
+	unsigned	used = 0,
+				collisions = 0;
+	size_t		output = 0;
+
+	for (size_t j = 0; j < n; j++)
+	{
+		uint32		key = (uint32) array[j];
+		unsigned	slot = ((key ^ (key >> 16)) * 0x9e3779b9U) >> 26;
+		unsigned	probe;
+
+		for (probe = 0; probe < 8; probe++, slot = (slot + 1) & 63)
+		{
+			unsigned	entry = slots[slot];
+
+			if (entry == 0)
+			{
+				if (used == lengthof(values))
+					return 0;
+				values[used].value = array[j];
+				values[used].count = 1;
+				slots[slot] = ++used;
+				break;
+			}
+			if (values[entry - 1].value == array[j])
+			{
+				values[entry - 1].count++;
+				break;
+			}
+			if (++collisions > j / 4 + 8)
+				return 0;
+		}
+		if (probe == 8)
+			return 0;
+	}
+
+	intarray_count_sort(values, used, &ascending);
+	for (unsigned j = 0; j < used; j++)
+	{
+		uint32		count = unique ? 1 : values[j].count;
+
+		while (count-- > 0)
+			array[output++] = values[j].value;
+	}
+	return output;
+}
+
+static size_t
+intarray_sort(int32 *array, size_t n, bool ascending, bool unique)
+{
+	uint32		freqs[4][256];
+	uint32		first,
+				different = 0;
+	uint32		order_mask = ascending ? 0x80000000U : 0x7fffffffU;
+	int32	   *buffer,
+			   *from = array,
+			   *to;
+
+	if (n <= 256)
+	{
+		intarray_qsort(array, n, &ascending);
+		return unique ? qunique_arg(array, n, sizeof(int32), isort_cmp,
+									   &ascending) : n;
+	}
+
+	/* Preserve the existing comparison sort's fast path for ordered input. */
+	{
+		size_t		j;
+
+		for (j = 1; j < n; j++)
+			if (ascending ? array[j - 1] > array[j] : array[j - 1] < array[j])
+				break;
+		if (j == n)
+			return unique ? qunique_arg(array, n, sizeof(int32), isort_cmp,
+										   &ascending) : n;
+	}
+
+	/* Limit the speculative work to the small radix crossover. */
+	if (n <= 512)
+	{
+		size_t		count = intarray_sort_dictionary(array, n, ascending, unique);
+
+		if (count != 0)
+			return count;
+	}
+
+	memset(freqs, 0, sizeof(freqs));
+	first = (uint32) array[0];
+	for (size_t j = 0; j < n; j++)
+	{
+		uint32		key = (uint32) array[j];
+
+		different |= key ^ first;
+		/* Array allocations cannot contain UINT32_MAX int4 elements. */
+		freqs[0][key & 255]++;
+		freqs[1][(key >> 8) & 255]++;
+		freqs[2][(key >> 16) & 255]++;
+		freqs[3][key >> 24]++;
+	}
+	if (different == 0)
+		return unique ? 1 : n;
+
+	buffer = palloc_array(int32, n);
+	to = buffer;
+	for (unsigned int byte = 0; byte < 4; byte++)
+	{
+		int32	   *starts[256],
+				   *next = to,
+				   *swap;
+		unsigned int shift = byte * 8;
+		unsigned int mask = (order_mask >> shift) & 255;
+
+		if ((different & ((uint32) 255 << shift)) == 0)
+			continue;
+		for (unsigned int k = 0; k < 256; k++)
+		{
+			starts[k ^ mask] = next;
+			next += freqs[byte][k ^ mask];
+		}
+		for (size_t j = 0; j < n; j++)
+			*starts[((uint32) from[j] >> shift) & 255]++ = from[j];
+		swap = from;
+		from = to;
+		to = swap;
+	}
+
+	if (unique)
+	{
+		size_t		count = 1;
+
+		array[0] = from[0];
+		for (size_t j = 1; j < n; j++)
+			if (from[j] != array[count - 1])
+				array[count++] = from[j];
+		n = count;
+	}
+	else if (from != array)
+		memcpy(array, from, n * sizeof(int32));
+	pfree(buffer);
+	return n;
+}
+
+void
+isort(int32 *a, size_t len, void *arg)
+{
+	(void) intarray_sort(a, len, *((bool *) arg), false);
+}
+
+ArrayType *
+intarray_sort_and_unique(ArrayType *a)
+{
+	return resize_intArrayType(a,
+							   intarray_sort(ARRPTR(a), ARRNELEMS(a), true, true));
+}
 
 /* Create a new int array with room for "num" elements */
 ArrayType *

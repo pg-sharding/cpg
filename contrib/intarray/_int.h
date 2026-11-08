@@ -48,10 +48,7 @@ typedef struct
 /* sort the elements of the array and remove duplicates */
 #define PREPAREARR(x) \
 	do { \
-		int		_nelems_ = ARRNELEMS(x); \
-		bool _ascending = true; \
-		isort(ARRPTR(x), _nelems_, &_ascending); \
-		(x) = _int_unique(x); \
+		(x) = intarray_sort_and_unique(x); \
 	} while(0)
 
 /* "wish" function */
@@ -115,6 +112,7 @@ ArrayType  *copy_intArrayType(ArrayType *a);
 ArrayType  *resize_intArrayType(ArrayType *a, int num);
 int			internal_size(int *a, int len);
 ArrayType  *_int_unique(ArrayType *r);
+ArrayType  *intarray_sort_and_unique(ArrayType *a);
 int32		intarray_match_first(ArrayType *a, int32 elem);
 ArrayType  *intarray_add_elem(ArrayType *a, int32 elem);
 ArrayType  *intarray_concat_arrays(ArrayType *a, ArrayType *b);
