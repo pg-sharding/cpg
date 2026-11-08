@@ -88,10 +88,49 @@ tableam_index_fill_ios_slot(IndexScanDesc scan, TupleTableSlot *slot)
 	}
 	else if (scan->xs_itup)
 	{
+		IndexTupleDeformCache *cache = scan->xs_itupcache;
+
 		Assert(slot->tts_tupleDescriptor->natts == scan->xs_itupdesc->natts);
 
-		index_deform_tuple(scan->xs_itup, scan->xs_itupdesc,
-						   slot->tts_values, slot->tts_isnull);
+		/* A cached identity was qualified before and remains immutable. */
+		if (cache != NULL &&
+			(likely(cache->itup == scan->xs_itup) ||
+			 (scan->xs_itup->t_info & cache->required_flags) == cache->required_flags))
+		{
+			int			natts = cache->natts;
+
+			Assert(natts == scan->xs_itupdesc->natts);
+
+			if (cache->itup != scan->xs_itup)
+			{
+				index_deform_tuple(scan->xs_itup, scan->xs_itupdesc,
+								   cache->values, cache->isnull);
+				cache->itup = scan->xs_itup;
+			}
+			/* Use constant sizes for common short tuple descriptors. */
+			switch (natts)
+			{
+				case 2:
+					memcpy(slot->tts_values, cache->values, sizeof(Datum) * 2);
+					memcpy(slot->tts_isnull, cache->isnull, sizeof(bool) * 2);
+					break;
+				case 3:
+					memcpy(slot->tts_values, cache->values, sizeof(Datum) * 3);
+					memcpy(slot->tts_isnull, cache->isnull, sizeof(bool) * 3);
+					break;
+				case 4:
+					memcpy(slot->tts_values, cache->values, sizeof(Datum) * 4);
+					memcpy(slot->tts_isnull, cache->isnull, sizeof(bool) * 4);
+					break;
+				default:
+					memcpy(slot->tts_values, cache->values, sizeof(Datum) * natts);
+					memcpy(slot->tts_isnull, cache->isnull, sizeof(bool) * natts);
+					break;
+			}
+		}
+		else
+			index_deform_tuple(scan->xs_itup, scan->xs_itupdesc,
+							   slot->tts_values, slot->tts_isnull);
 
 		/*
 		 * Copy all name columns stored as cstrings back into NAMEDATALEN
