@@ -242,17 +242,6 @@ CMPTRGM_CHOOSE(const void *a, const void *b)
 #define ST_DECLARE
 #include "lib/sort_template.h"
 
-/* Sort an array of trigrams, handling signedness correctly */
-static void
-trigram_qsort(trgm *array, size_t n)
-{
-	if (GetDefaultCharSignedness())
-		trigram_qsort_signed(array, n, sizeof(trgm));
-	else
-		trigram_qsort_unsigned(array, n, sizeof(trgm));
-}
-
-
 /*
  * Compare two trigrams for equality.  This has the same signature as
  * comparison functions used for sorting, so that this can be used with
@@ -268,11 +257,91 @@ CMPTRGM_EQ(const void *a, const void *b)
 	return aa[0] != bb[0] || aa[1] != bb[1] || aa[2] != bb[2] ? 1 : 0;
 }
 
-/* Deduplicate an array of trigrams */
+/*
+ * Three-way MSD radix quicksort.  Partition on one byte at a time, advancing
+ * equal groups to the next byte.  Equal third-byte groups can be reduced
+ * directly to one trigram.  Small groups use the existing comparison sort.
+ *
+ * Recursion is bounded by the three-byte key width and 256 byte values at
+ * each position, independently of the input length.
+ */
 static size_t
-trigram_qunique(trgm *array, size_t n)
+trigram_msd_sort_and_unique(trgm *array, size_t n, int depth,
+							unsigned char signmask)
 {
-	return qunique(array, n, sizeof(trgm), CMPTRGM_EQ);
+	size_t		less = 0,
+				scan = 0,
+				greater = n;
+	size_t		nleft,
+				nequal,
+				nright;
+	unsigned char first,
+				middle,
+				last,
+				pivot;
+
+	if (n < 2)
+		return n;
+
+	if (n <= 32)
+	{
+		if (signmask)
+			trigram_qsort_signed(array, n, sizeof(trgm));
+		else
+			trigram_qsort_unsigned(array, n, sizeof(trgm));
+		return qunique(array, n, sizeof(trgm), CMPTRGM_EQ);
+	}
+
+	/* Choose the median of three bytes to avoid bad pivots on ordered input. */
+	first = (unsigned char) array[0][depth] ^ signmask;
+	middle = (unsigned char) array[n / 2][depth] ^ signmask;
+	last = (unsigned char) array[n - 1][depth] ^ signmask;
+	pivot = first < middle
+		? (middle < last ? middle : (first < last ? last : first))
+		: (first < last ? first : (middle < last ? last : middle));
+
+	while (scan < greater)
+	{
+		unsigned char key = (unsigned char) array[scan][depth] ^ signmask;
+		trgm		tmp;
+
+		if (key < pivot)
+		{
+			memcpy(tmp, array[less], sizeof(trgm));
+			CPTRGM(array[less], array[scan]);
+			less++;
+			memcpy(array[scan++], tmp, sizeof(trgm));
+		}
+		else if (key > pivot)
+		{
+			memcpy(tmp, array[--greater], sizeof(trgm));
+			CPTRGM(array[greater], array[scan]);
+			memcpy(array[scan], tmp, sizeof(trgm));
+		}
+		else
+			scan++;
+	}
+
+	nleft = trigram_msd_sort_and_unique(array, less, depth, signmask);
+	if (depth == 2)
+		nequal = 1;
+	else
+		nequal = trigram_msd_sort_and_unique(array + less, greater - less,
+										   depth + 1, signmask);
+
+	/* Compaction cannot reach the unprocessed right group at greater. */
+	memmove(array + nleft, array + less, nequal * sizeof(trgm));
+	nright = trigram_msd_sort_and_unique(array + greater, n - greater,
+									   depth, signmask);
+	memmove(array + nleft + nequal, array + greater, nright * sizeof(trgm));
+	return nleft + nequal + nright;
+}
+
+static size_t
+trigram_sort_and_unique(trgm *array, size_t n)
+{
+	return trigram_msd_sort_and_unique(array, n, 0,
+									 GetDefaultCharSignedness() ? 0x80 : 0);
 }
 
 /*
@@ -611,10 +680,7 @@ generate_trgm(char *str, int slen)
 	 * Make trigrams unique.
 	 */
 	if (len > 1)
-	{
-		trigram_qsort(GETARR(trg), len);
-		len = trigram_qunique(GETARR(trg), len);
-	}
+		len = trigram_sort_and_unique(GETARR(trg), len);
 
 	SET_VARSIZE(trg, CALCGTSIZE(ARRKEY, len));
 
@@ -1142,10 +1208,7 @@ generate_wildcard_trgm(const char *str, int slen)
 	trg = arr.datum;
 	len = arr.length;
 	if (len > 1)
-	{
-		trigram_qsort(GETARR(trg), len);
-		len = trigram_qunique(GETARR(trg), len);
-	}
+		len = trigram_sort_and_unique(GETARR(trg), len);
 
 	trg->flag = ARRKEY;
 	SET_VARSIZE(trg, CALCGTSIZE(ARRKEY, len));
