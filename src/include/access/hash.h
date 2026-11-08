@@ -471,6 +471,7 @@ extern bool _hash_convert_tuple(Relation index,
 								const Datum *user_values, const bool *user_isnull,
 								Datum *index_values, bool *index_isnull);
 extern OffsetNumber _hash_binsearch(Page page, uint32 hash_value);
+extern OffsetNumber _hash_search_rank(Page page, uint32 hash_value);
 extern OffsetNumber _hash_binsearch_last(Page page, uint32 hash_value);
 extern BlockNumber _hash_get_oldblock_from_newbucket(Relation rel, Bucket new_bucket);
 extern BlockNumber _hash_get_newblock_from_oldbucket(Relation rel, Bucket old_bucket);

@@ -533,8 +533,8 @@ _hash_readpage(IndexScanDesc scan, Buffer *bufP, ScanDirection dir)
 
 		for (;;)
 		{
-			/* new page, locate starting position by binary search */
-			offnum = _hash_binsearch(page, so->hashso_sk_hash);
+			/* new page, locate starting position */
+			offnum = _hash_search_rank(page, so->hashso_sk_hash);
 
 			itemIndex = _hash_load_qualified_items(scan, page, offnum, dir);
 
