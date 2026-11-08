@@ -41,7 +41,7 @@
 
 #include "access/spgist.h"
 #include "catalog/pg_type.h"
-#include "common/int.h"
+#include "port/pg_bitutils.h"
 #include "mb/pg_wchar.h"
 #include "utils/datum.h"
 #include "utils/fmgrprotos.h"
@@ -83,13 +83,6 @@
 #define SPG_IS_COLLATION_AWARE_STRATEGY(s) ((s) > SPG_STRATEGY_ADDITION \
 										 && (s) != RTPrefixStrategyNumber)
 
-/* Struct for sorting values in picksplit */
-typedef struct spgNodePtr
-{
-	Datum		d;
-	int			i;
-	int16		c;
-} spgNodePtr;
 
 
 Datum
@@ -320,16 +313,6 @@ spg_text_choose(PG_FUNCTION_ARGS)
 	PG_RETURN_VOID();
 }
 
-/* qsort comparator to sort spgNodePtr structs by "c" */
-static int
-cmpNodePtr(const void *a, const void *b)
-{
-	const spgNodePtr *aa = (const spgNodePtr *) a;
-	const spgNodePtr *bb = (const spgNodePtr *) b;
-
-	return pg_cmp_s16(aa->c, bb->c);
-}
-
 Datum
 spg_text_picksplit(PG_FUNCTION_ARGS)
 {
@@ -338,7 +321,8 @@ spg_text_picksplit(PG_FUNCTION_ARGS)
 	text	   *text0 = DatumGetTextPP(in->datums[0]);
 	int			i,
 				commonLen;
-	spgNodePtr *nodes;
+	uint64		active[5] = {0};
+	int			labelToNode[257];
 
 	/* Identify longest common prefix, if any */
 	commonLen = VARSIZE_ANY_EXHDR(text0);
@@ -371,54 +355,49 @@ spg_text_picksplit(PG_FUNCTION_ARGS)
 		out->prefixDatum = formTextDatum(VARDATA_ANY(text0), commonLen);
 	}
 
-	/* Extract the node label (first non-common byte) from each value */
-	nodes = palloc_array(spgNodePtr, in->nTuples);
-
-	for (i = 0; i < in->nTuples; i++)
-	{
-		text	   *texti = DatumGetTextPP(in->datums[i]);
-
-		if (commonLen < VARSIZE_ANY_EXHDR(texti))
-			nodes[i].c = *(unsigned char *) (VARDATA_ANY(texti) + commonLen);
-		else
-			nodes[i].c = -1;	/* use -1 if string is all common */
-		nodes[i].i = i;
-		nodes[i].d = in->datums[i];
-	}
-
-	/*
-	 * Sort by label values so that we can group the values into nodes.  This
-	 * also ensures that the nodes are ordered by label value, allowing the
-	 * use of binary search in searchChar.
-	 */
-	qsort(nodes, in->nTuples, sizeof(*nodes), cmpNodePtr);
-
-	/* And emit results */
-	out->nNodes = 0;
-	out->nodeLabels = palloc_array(Datum, in->nTuples);
+	/* Use the output map as temporary storage for labels shifted by one. */
 	out->mapTuplesToNodes = palloc_array(int, in->nTuples);
 	out->leafTupleDatums = palloc_array(Datum, in->nTuples);
 
 	for (i = 0; i < in->nTuples; i++)
 	{
-		text	   *texti = DatumGetTextPP(nodes[i].d);
-		Datum		leafD;
-
-		if (i == 0 || nodes[i].c != nodes[i - 1].c)
-		{
-			out->nodeLabels[out->nNodes] = Int16GetDatum(nodes[i].c);
-			out->nNodes++;
-		}
+		text	   *texti = DatumGetTextPP(in->datums[i]);
+		unsigned	label;
 
 		if (commonLen < VARSIZE_ANY_EXHDR(texti))
-			leafD = formTextDatum(VARDATA_ANY(texti) + commonLen + 1,
-								  VARSIZE_ANY_EXHDR(texti) - commonLen - 1);
+		{
+			label = 1 + *(unsigned char *) (VARDATA_ANY(texti) + commonLen);
+			out->leafTupleDatums[i] =
+				formTextDatum(VARDATA_ANY(texti) + commonLen + 1,
+							  VARSIZE_ANY_EXHDR(texti) - commonLen - 1);
+		}
 		else
-			leafD = formTextDatum(NULL, 0);
-
-		out->leafTupleDatums[nodes[i].i] = leafD;
-		out->mapTuplesToNodes[nodes[i].i] = out->nNodes - 1;
+		{
+			label = 0;			/* -1 means the string is all common */
+			out->leafTupleDatums[i] = formTextDatum(NULL, 0);
+		}
+		out->mapTuplesToNodes[i] = label;
+		active[label >> 6] |= UINT64CONST(1) << (label & 63);
 	}
+
+	/* Enumerate exactly the labels present, in the order searchChar needs. */
+	out->nNodes = 0;
+	out->nodeLabels = palloc_array(Datum, Min(in->nTuples, 257));
+	for (unsigned word = 0; word < lengthof(active); word++)
+	{
+		uint64		bits = active[word];
+
+		while (bits)
+		{
+			unsigned	label = word * 64 + pg_rightmost_one_pos64(bits);
+
+			labelToNode[label] = out->nNodes;
+			out->nodeLabels[out->nNodes++] = Int16GetDatum((int) label - 1);
+			bits &= bits - 1;
+		}
+	}
+	for (i = 0; i < in->nTuples; i++)
+		out->mapTuplesToNodes[i] = labelToNode[out->mapTuplesToNodes[i]];
 
 	PG_RETURN_VOID();
 }

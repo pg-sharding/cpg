@@ -19,7 +19,6 @@
 #include "access/spgist_private.h"
 #include "access/spgxlog.h"
 #include "access/xloginsert.h"
-#include "common/int.h"
 #include "common/pg_prng.h"
 #include "miscadmin.h"
 #include "storage/bufmgr.h"
@@ -107,12 +106,13 @@ addNode(SpGistState *state, SpGistInnerTuple tuple, Datum label, int offset)
 							 nodes);
 }
 
-/* qsort comparator for sorting OffsetNumbers */
-static int
-cmpOffsetNumbers(const void *a, const void *b)
-{
-	return pg_cmp_u16(*(const OffsetNumber *) a, *(const OffsetNumber *) b);
-}
+#define ST_SORT spg_sort_offsets
+#define ST_ELEMENT_TYPE OffsetNumber
+#define ST_COMPARE(a, b) ((*(a) > *(b)) - (*(a) < *(b)))
+#define ST_SCOPE static
+#define ST_DEFINE
+#define ST_DECLARE
+#include "lib/sort_template.h"
 
 /*
  * Delete multiple tuples from an index page, preserving tuple offset numbers.
@@ -150,7 +150,7 @@ spgPageIndexMultiDelete(SpGistState *state, Page page,
 	 */
 	memcpy(sortednos, itemnos, sizeof(OffsetNumber) * nitems);
 	if (nitems > 1)
-		qsort(sortednos, nitems, sizeof(OffsetNumber), cmpOffsetNumbers);
+		spg_sort_offsets(sortednos, nitems);
 
 	PageIndexMultiDelete(page, sortednos, nitems);
 

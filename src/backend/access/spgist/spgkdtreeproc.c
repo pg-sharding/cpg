@@ -105,6 +105,58 @@ y_cmp(const void *a, const void *b)
 	return (pa->p->y > pb->p->y) ? 1 : -1;
 }
 
+/* Partition around the upper median, splitting equal coordinates evenly. */
+static void
+spg_kd_select(SortedPoint *values, int n, bool isX)
+{
+	int			lo = 0,
+				hi = n,
+				nth = n / 2,
+				budget = 32;
+
+#define KD_COORD(v) (isX ? (v).p->x : (v).p->y)
+	while (hi - lo > 16 && budget-- > 0)
+	{
+		double		a = KD_COORD(values[lo]),
+					b = KD_COORD(values[lo + (hi - lo) / 2]),
+					c = KD_COORD(values[hi - 1]);
+		double		pivot = a < b ? (b < c ? b : (a < c ? c : a))
+			: (a < c ? a : (b < c ? c : b));
+		int			less = lo,
+					scan = lo,
+					greater = hi;
+
+		while (scan < greater)
+		{
+			double		value = KD_COORD(values[scan]);
+			SortedPoint tmp;
+
+			if (value < pivot)
+			{
+				tmp = values[less];
+				values[less++] = values[scan];
+				values[scan++] = tmp;
+			}
+			else if (value > pivot)
+			{
+				tmp = values[--greater];
+				values[greater] = values[scan];
+				values[scan] = tmp;
+			}
+			else
+				scan++;
+		}
+		if (nth < less)
+			hi = less;
+		else if (nth >= greater)
+			lo = greater;
+		else
+			return;
+	}
+	qsort(values + lo, hi - lo, sizeof(*values), isX ? x_cmp : y_cmp);
+#undef KD_COORD
+}
+
 
 Datum
 spg_kd_picksplit(PG_FUNCTION_ARGS)
@@ -115,16 +167,27 @@ spg_kd_picksplit(PG_FUNCTION_ARGS)
 	int			middle;
 	SortedPoint *sorted;
 	double		coord;
+	bool		use_qsort = false;
+	unsigned	zeros = 0;
 
 	sorted = palloc_array(SortedPoint, in->nTuples);
 	for (i = 0; i < in->nTuples; i++)
 	{
 		sorted[i].p = DatumGetPointP(in->datums[i]);
 		sorted[i].i = i;
+		coord = (in->level % 2) ? sorted[i].p->x : sorted[i].p->y;
+		/* Retain the old path for NaNs and mixed signs of zero. */
+		if (isnan(coord))
+			use_qsort = true;
+		if (coord == 0)
+			zeros |= signbit(coord) ? 1 : 2;
 	}
 
-	qsort(sorted, in->nTuples, sizeof(*sorted),
-		  (in->level % 2) ? x_cmp : y_cmp);
+	if (use_qsort || zeros == 3)
+		qsort(sorted, in->nTuples, sizeof(*sorted),
+			  (in->level % 2) ? x_cmp : y_cmp);
+	else
+		spg_kd_select(sorted, in->nTuples, in->level % 2);
 	middle = in->nTuples >> 1;
 	coord = (in->level % 2) ? sorted[middle].p->x : sorted[middle].p->y;
 
