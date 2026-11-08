@@ -373,6 +373,9 @@ btbeginscan(Relation rel, int nkeys, int norderbys)
 	 * scan->xs_itupdesc whether we'll need it or not, since that's so cheap.
 	 */
 	so->currTuples = so->markTuples = NULL;
+	so->iosValues = NULL;
+	so->iosIsnull = NULL;
+	so->iosTupleOffset = -1;
 
 	scan->xs_itupdesc = RelationGetDescr(rel);
 
@@ -389,6 +392,9 @@ btrescan(IndexScanDesc scan, ScanKey scankey, int nscankeys,
 		 ScanKey orderbys, int norderbys)
 {
 	BTScanOpaque so = (BTScanOpaque) scan->opaque;
+
+	so->iosTupleOffset = -1;
+	scan->xs_itupvalues = NULL;
 
 	/* we aren't holding any read locks, but gotta drop the pins */
 	if (BTScanPosIsValid(so->currPos))
@@ -435,8 +441,13 @@ btrescan(IndexScanDesc scan, ScanKey scankey, int nscankeys,
 	 */
 	if (scan->xs_want_itup && so->currTuples == NULL)
 	{
-		so->currTuples = (char *) palloc(BLCKSZ * 2);
+		int			natts = scan->xs_itupdesc->natts;
+
+		so->currTuples = palloc(BLCKSZ * 2 +
+							   natts * (sizeof(Datum) + sizeof(bool)));
 		so->markTuples = so->currTuples + BLCKSZ;
+		so->iosValues = (Datum *) (so->currTuples + BLCKSZ * 2);
+		so->iosIsnull = (bool *) (so->iosValues + natts);
 	}
 
 	/*
@@ -517,6 +528,10 @@ void
 btrestrpos(IndexScanDesc scan)
 {
 	BTScanOpaque so = (BTScanOpaque) scan->opaque;
+
+	/* Restore may overwrite currTuples, including its by-reference datums. */
+	so->iosTupleOffset = -1;
+	scan->xs_itupvalues = NULL;
 
 	if (so->markItemIndex >= 0)
 	{

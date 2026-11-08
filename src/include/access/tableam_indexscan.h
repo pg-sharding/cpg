@@ -90,8 +90,16 @@ tableam_index_fill_ios_slot(IndexScanDesc scan, TupleTableSlot *slot)
 	{
 		Assert(slot->tts_tupleDescriptor->natts == scan->xs_itupdesc->natts);
 
-		index_deform_tuple(scan->xs_itup, scan->xs_itupdesc,
-						   slot->tts_values, slot->tts_isnull);
+		if (scan->xs_itupvalues != NULL)
+		{
+			int			natts = scan->xs_itupdesc->natts;
+
+			memcpy(slot->tts_values, scan->xs_itupvalues, sizeof(Datum) * natts);
+			memcpy(slot->tts_isnull, scan->xs_itupisnull, sizeof(bool) * natts);
+		}
+		else
+			index_deform_tuple(scan->xs_itup, scan->xs_itupdesc,
+							   slot->tts_values, slot->tts_isnull);
 
 		/*
 		 * Copy all name columns stored as cstrings back into NAMEDATALEN

@@ -163,6 +163,14 @@ typedef struct IndexScanDescData
 	 */
 	IndexTuple	xs_itup;		/* index tuple returned by AM */
 	struct TupleDescData *xs_itupdesc;	/* rowtype descriptor of xs_itup */
+	/*
+	 * Optional deformation of xs_itup, using xs_itupdesc.  These arrays and
+	 * their by-reference datums have the same lifetime as xs_itup.  An AM
+	 * that does not provide them must leave xs_itupvalues NULL.  The table
+	 * AM copies these into its caller's slot, whose contents it cannot reuse.
+	 */
+	Datum	   *xs_itupvalues;
+	bool	   *xs_itupisnull;
 	HeapTuple	xs_hitup;		/* index data returned by AM, as HeapTuple */
 	struct TupleDescData *xs_hitupdesc; /* rowtype descriptor of xs_hitup */
 

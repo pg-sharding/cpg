@@ -123,6 +123,8 @@ RelationGetIndexScan(Relation indexRelation, int nkeys, int norderbys)
 
 	scan->xs_itup = NULL;
 	scan->xs_itupdesc = NULL;
+	scan->xs_itupvalues = NULL;
+	scan->xs_itupisnull = NULL;
 	scan->xs_hitup = NULL;
 	scan->xs_hitupdesc = NULL;
 

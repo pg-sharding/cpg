@@ -1638,7 +1638,32 @@ _bt_returnitem(IndexScanDesc scan, BTScanOpaque so)
 	/* Return next item, per amgettuple contract */
 	scan->xs_heaptid = currItem->heapTid;
 	if (so->currTuples)
+	{
+		int			i = so->currPos.itemIndex;
+
 		scan->xs_itup = (IndexTuple) (so->currTuples + currItem->tupleOffset);
+		scan->xs_itupvalues = NULL;
+
+		/*
+		 * Only posting tuples share tupleOffset between adjacent items.  For
+		 * ordinary tuples leave deformation to the caller, avoiding copying
+		 * a second set of Datums when there is no reuse to exploit.
+		 */
+		if ((i < so->currPos.lastItem &&
+			 so->currPos.items[i + 1].tupleOffset == currItem->tupleOffset) ||
+			(i > so->currPos.firstItem &&
+			 so->currPos.items[i - 1].tupleOffset == currItem->tupleOffset))
+		{
+			if (so->iosTupleOffset != currItem->tupleOffset)
+			{
+				index_deform_tuple(scan->xs_itup, scan->xs_itupdesc,
+								   so->iosValues, so->iosIsnull);
+				so->iosTupleOffset = currItem->tupleOffset;
+			}
+			scan->xs_itupvalues = so->iosValues;
+			scan->xs_itupisnull = so->iosIsnull;
+		}
+	}
 }
 
 /*

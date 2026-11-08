@@ -155,6 +155,9 @@ _bt_readpage(IndexScanDesc scan, ScanDirection dir, OffsetNumber offnum,
 	/* delay setting so->currPos.lsn until _bt_drop_lock_and_maybe_pin */
 	pstate.dir = so->currPos.dir = dir;
 	so->currPos.nextTupleOffset = 0;
+	/* currTuples is about to be overwritten with a new page's tuples. */
+	so->iosTupleOffset = -1;
+	scan->xs_itupvalues = NULL;
 
 	/* either moreRight or moreLeft should be set now (may be unset later) */
 	Assert(ScanDirectionIsForward(dir) ? so->currPos.moreRight :
