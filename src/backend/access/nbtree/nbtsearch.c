@@ -18,12 +18,16 @@
 #include "access/nbtree.h"
 #include "access/relscan.h"
 #include "access/xact.h"
+#include "access/xlog.h"
 #include "catalog/catalog.h"
+#include "catalog/pg_type_d.h"
 #include "executor/instrument_node.h"
 #include "miscadmin.h"
 #include "pgstat.h"
 #include "storage/predicate.h"
 #include "utils/injection_point.h"
+#include "utils/fmgroids.h"
+#include "utils/fmgrprotos.h"
 #include "utils/lsyscache.h"
 #include "utils/rel.h"
 
@@ -46,6 +50,55 @@ static Buffer _bt_lock_and_validate_left(Relation rel, BlockNumber *blkno,
 										 BlockNumber lastcurrblkno);
 static bool _bt_endpoint(IndexScanDesc scan, ScanDirection dir);
 
+
+/*
+ * Search with one ordinary ascending int8 key.  Internal equality and all
+ * NULL tuples still use _bt_compare(), preserving heap-TID truncation and
+ * backward-scan rules.  A leaf equality has no omitted user key or search TID
+ * and can compare equal directly.
+ */
+static OffsetNumber
+_bt_binsrch_int8(Relation rel, BTScanInsert key, Buffer buf, Page page,
+				 OffsetNumber first, OffsetNumber last)
+{
+	BTPageOpaque opaque = BTPageGetOpaque(page);
+	bool leaf = P_ISLEAF(opaque);
+	OffsetNumber low = leaf ? first : OffsetNumberNext(first);
+	OffsetNumber high = OffsetNumberNext(last);
+	int64 argument = DatumGetInt64(key->scankeys->sk_argument);
+	int32 cmpval = key->nextkey ? 0 : 1;
+
+	while (low < high)
+	{
+		OffsetNumber mid = low + (high - low) / 2;
+		int64 value = 0;
+		bool isnull;
+		int32 result;
+
+		{
+			IndexTuple itup = (IndexTuple) PageGetItem(page,
+												PageGetItemId(page, mid));
+			Datum datum;
+
+			if (BTreeTupleGetNAtts(itup, rel) != 1)
+			{
+				result = _bt_compare(rel, key, page, mid);
+				goto compared;
+			}
+			datum = index_getattr(itup, 1, RelationGetDescr(rel), &isnull);
+			if (!isnull)
+				value = DatumGetInt64(datum);
+		}
+		if (isnull || (!leaf && value == argument))
+			result = _bt_compare(rel, key, page, mid);
+		else
+			result = argument > value ? 1 : (argument < value ? -1 : 0);
+compared:
+		low = result >= cmpval ? OffsetNumberNext(mid) : low;
+		high = result >= cmpval ? high : mid;
+	}
+	return leaf && !key->backward ? low : OffsetNumberPrev(low);
+}
 
 /*
  *	_bt_drop_lock_and_maybe_pin()
@@ -108,6 +161,18 @@ _bt_search(Relation rel, Relation heaprel, BTScanInsert key, Buffer *bufP,
 	/* heaprel must be set whenever _bt_allocbuf is reachable */
 	Assert(access == BT_READ || access == BT_WRITE);
 	Assert(access == BT_READ || heaprel != NULL);
+
+	/* Recompute once per descent; scankeys can change between rescans. */
+	key->int8search = key->heapkeyspace && key->keysz == 1 &&
+		key->scantid == NULL &&
+		!(key->scankeys->sk_flags & (SK_ISNULL | SK_BT_DESC)) &&
+		key->scankeys->sk_attno == 1 &&
+		key->scankeys->sk_func.fn_oid == F_BTINT8CMP &&
+		key->scankeys->sk_func.fn_addr == btint8cmp &&
+		IndexRelationGetNumberOfAttributes(rel) == 1 &&
+		TupleDescAttr(RelationGetDescr(rel), 0)->atttypid == INT8OID &&
+		RelationIsPermanent(rel) && RelationNeedsWAL(rel) &&
+		!RecoveryInProgress();
 
 	/* Get the root page to start with */
 	*bufP = _bt_getroot(rel, heaprel, access);
@@ -354,6 +419,10 @@ _bt_binsrch(Relation rel,
 	int32		result,
 				cmpval;
 
+#ifdef USE_ASSERT_CHECKING
+	OffsetNumber int8_result = InvalidOffsetNumber;
+#endif
+
 	page = BufferGetPage(buf);
 	opaque = BTPageGetOpaque(page);
 
@@ -374,6 +443,16 @@ _bt_binsrch(Relation rel,
 	 */
 	if (unlikely(high < low))
 		return low;
+
+	if (key->int8search)
+	{
+#ifdef USE_ASSERT_CHECKING
+		/* Check the optimization against the original loop on this locked page. */
+		int8_result = _bt_binsrch_int8(rel, key, buf, page, low, high);
+#else
+		return _bt_binsrch_int8(rel, key, buf, page, low, high);
+#endif
+	}
 
 	/*
 	 * Binary search to find the first key on the page >= scan key, or first
@@ -423,6 +502,10 @@ _bt_binsrch(Relation rel,
 		 * after the last matching tuple (which might just be maxoff + 1).
 		 * Compensate by stepping back.
 		 */
+#ifdef USE_ASSERT_CHECKING
+		Assert(int8_result == InvalidOffsetNumber ||
+			   int8_result == (key->backward ? OffsetNumberPrev(low) : low));
+#endif
 		if (key->backward)
 			return OffsetNumberPrev(low);
 
@@ -447,6 +530,11 @@ _bt_binsrch(Relation rel,
 	 * it uses a leaf page high key to "re-find" a page undergoing deletion.
 	 */
 	Assert(low > P_FIRSTDATAKEY(opaque));
+
+#ifdef USE_ASSERT_CHECKING
+	Assert(int8_result == InvalidOffsetNumber ||
+		   int8_result == OffsetNumberPrev(low));
+#endif
 
 	return OffsetNumberPrev(low);
 }
