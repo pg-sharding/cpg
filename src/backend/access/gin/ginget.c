@@ -793,6 +793,52 @@ entryLoadMoreItems(GinState *ginstate, GinScanEntry entry,
 	}
 }
 
+/*
+ * Find the first item > advancePast in the remaining decoded posting list.
+ * Small advances are handled by the caller.  Exponentially probe larger
+ * advances before using binary search within the resulting bounds.
+ */
+static int
+ginAdvanceDecoded(const ItemPointerData *list, int offset, int nlist,
+				const ItemPointerData *advancePast)
+{
+	int lower;
+	int upper = nlist;
+	int step = 1;
+	int remaining = nlist - offset;
+
+	if (offset >= nlist ||
+		ginCompareItemPointers(&list[offset], advancePast) > 0)
+		return offset;
+
+	lower = offset + 1;
+	while (step < remaining)
+	{
+		int probe = offset + step;
+
+		if (ginCompareItemPointers(&list[probe], advancePast) > 0)
+		{
+			upper = probe;
+			break;
+		}
+		lower = probe + 1;
+		if (step > remaining / 2)
+			break;
+		step *= 2;
+	}
+
+	while (lower < upper)
+	{
+		int middle = lower + (upper - lower) / 2;
+
+		if (ginCompareItemPointers(&list[middle], advancePast) <= 0)
+			lower = middle + 1;
+		else
+			upper = middle;
+	}
+	return lower;
+}
+
 #define gin_rand() pg_prng_double(&pg_global_prng_state)
 #define dropItem(e) ( gin_rand() > ((double)GinFuzzySearchLimit)/((double)((e)->predictNumberResult)) )
 
@@ -936,9 +982,22 @@ entryGetItem(GinState *ginstate, GinScanEntry entry,
 
 			entry->curItem = entry->list[entry->offset++];
 
-			/* If we're not past advancePast, keep scanning */
+			/* Keep the common zero- and one-item advances inexpensive. */
 			if (ginCompareItemPointers(&entry->curItem, &advancePast) <= 0)
-				continue;
+			{
+				if (entry->offset >= entry->nlist)
+					continue;
+
+				entry->curItem = entry->list[entry->offset++];
+				if (ginCompareItemPointers(&entry->curItem, &advancePast) <= 0)
+				{
+					entry->offset = ginAdvanceDecoded(entry->list,
+													entry->offset,
+													entry->nlist,
+													&advancePast);
+					continue;
+				}
+			}
 
 			/* Done unless we need to reduce the result */
 			if (!entry->reduceResult || !dropItem(entry))
@@ -964,9 +1023,22 @@ entryGetItem(GinState *ginstate, GinScanEntry entry,
 
 			entry->curItem = entry->list[entry->offset++];
 
-			/* If we're not past advancePast, keep scanning */
+			/* Keep the common zero- and one-item advances inexpensive. */
 			if (ginCompareItemPointers(&entry->curItem, &advancePast) <= 0)
-				continue;
+			{
+				if (entry->offset >= entry->nlist)
+					continue;
+
+				entry->curItem = entry->list[entry->offset++];
+				if (ginCompareItemPointers(&entry->curItem, &advancePast) <= 0)
+				{
+					entry->offset = ginAdvanceDecoded(entry->list,
+													entry->offset,
+													entry->nlist,
+													&advancePast);
+					continue;
+				}
+			}
 
 			/* Done unless we need to reduce the result */
 			if (!entry->reduceResult || !dropItem(entry))
