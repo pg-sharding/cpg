@@ -364,6 +364,11 @@ typedef struct GinScanEntryData
 	int			nlist;
 	OffsetNumber offset;
 
+	/* Private compressed suffix of a posting-tree page, if loaded lazily. */
+	char	   *postingData;
+	GinPostingList *nextSegment;
+	char	   *postingEnd;
+
 	bool		isFinished;
 	bool		reduceResult;
 	uint32		predictNumberResult;
