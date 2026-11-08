@@ -35,3 +35,5 @@ All 31 branches below are independent alternatives on `72b9498df9a369e747f8d96ef
 | gist-box v2 | [review/index-opt-20261107/gist-box-v2](https://github.com/pg-sharding/cpg/tree/review/index-opt-20261107/gist-box-v2) | `d178daef578266eababe394dd50d6f358a5a64f3` | EXPERIMENTAL; performance negatives retained; no unconditional merge recommendation |
 | gist-box v2r2 | [review/index-opt-20261107/gist-box-v2r2](https://github.com/pg-sharding/cpg/tree/review/index-opt-20261107/gist-box-v2r2) | `ebd53d036faaece35a56139abe24641496affbe6` | EXPERIMENTAL; performance negatives retained; no unconditional merge recommendation |
 | gist-box v3 | [review/index-opt-20261107/gist-box-v3](https://github.com/pg-sharding/cpg/tree/review/index-opt-20261107/gist-box-v3) | `b72e8ca238b111a9be947ae1a7167b6610c070c6` | Source/correctness preparation accepted; actual timing PENDING; no merge recommendation |
+
+[Historical B-tree addendum (8 November 2026)](legacy-addendum-20261108.md): 17 additional source branches, 7 exact-tree existing equivalents, including rejected and negative alternatives.
