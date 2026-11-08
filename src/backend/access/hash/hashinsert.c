@@ -88,7 +88,7 @@ restart_insert:
 
 	/* Lock the primary bucket page for the target bucket. */
 	buf = _hash_getbucketbuf_from_hashkey(rel, hashkey, HASH_WRITE,
-										  &usedmetap);
+										  &usedmetap, NULL);
 	Assert(usedmetap != NULL);
 
 	CheckForSerializableConflictIn(rel, NULL, BufferGetBlockNumber(buf));

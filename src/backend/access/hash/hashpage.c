@@ -1570,7 +1570,7 @@ _hash_getcachedmetap(Relation rel, Buffer *metabuf, bool force_refresh)
  */
 Buffer
 _hash_getbucketbuf_from_hashkey(Relation rel, uint32 hashkey, int access,
-								HashMetaPage *cachedmetap)
+								HashMetaPage *cachedmetap, HashBufferHint *hint)
 {
 	HashMetaPage metap;
 	Buffer		buf;
@@ -1602,7 +1602,17 @@ _hash_getbucketbuf_from_hashkey(Relation rel, uint32 hashkey, int access,
 		blkno = BUCKET_TO_BLKNO(metap, bucket);
 
 		/* Fetch the primary bucket page for the bucket */
-		buf = _hash_getbuf(rel, blkno, access, LH_BUCKET_PAGE);
+		if (hint != NULL && hint->block == blkno &&
+			BufferIsValid(hint->buffer) &&
+			ReadRecentBuffer(rel->rd_locator, MAIN_FORKNUM, blkno,
+							 hint->buffer))
+		{
+			buf = hint->buffer;
+			LockBuffer(buf, access);
+			_hash_checkpage(rel, buf, LH_BUCKET_PAGE);
+		}
+		else
+			buf = _hash_getbuf(rel, blkno, access, LH_BUCKET_PAGE);
 		page = BufferGetPage(buf);
 		opaque = HashPageGetOpaque(page);
 		Assert(opaque->hasho_bucket == bucket);
@@ -1625,6 +1635,12 @@ _hash_getbucketbuf_from_hashkey(Relation rel, uint32 hashkey, int access,
 
 	if (cachedmetap)
 		*cachedmetap = metap;
+
+	if (hint != NULL)
+	{
+		hint->buffer = buf;
+		hint->block = blkno;
+	}
 
 	return buf;
 }

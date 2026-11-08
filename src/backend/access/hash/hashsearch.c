@@ -409,7 +409,8 @@ _hash_first(IndexScanDesc scan, ScanDirection dir)
 
 	so->hashso_sk_hash = hashkey;
 
-	buf = _hash_getbucketbuf_from_hashkey(rel, hashkey, HASH_READ, NULL);
+	buf = _hash_getbucketbuf_from_hashkey(rel, hashkey, HASH_READ, NULL,
+												&so->bucket_hint);
 	PredicateLockPage(rel, BufferGetBlockNumber(buf), scan->xs_snapshot);
 	page = BufferGetPage(buf);
 	opaque = HashPageGetOpaque(page);

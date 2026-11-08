@@ -396,6 +396,8 @@ hashbeginscan(Relation rel, int nkeys, int norderbys)
 	so = (HashScanOpaque) palloc_object(HashScanOpaqueData);
 	HashScanPosInvalidate(so->currPos);
 	so->hashso_bucket_buf = InvalidBuffer;
+	so->bucket_hint.buffer = InvalidBuffer;
+	so->bucket_hint.block = InvalidBlockNumber;
 	so->hashso_split_bucket_buf = InvalidBuffer;
 
 	so->hashso_buc_populated = false;

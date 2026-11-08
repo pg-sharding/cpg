@@ -152,6 +152,13 @@ typedef struct HashScanPosData
 		(scanpos).itemIndex = 0; \
 	} while (0)
 
+/* An unpinned primary-bucket buffer remembered across rescans. */
+typedef struct HashBufferHint
+{
+	Buffer		buffer;
+	BlockNumber block;
+} HashBufferHint;
+
 /*
  *	HashScanOpaqueData is private state for a hash index scan.
  */
@@ -162,6 +169,9 @@ typedef struct HashScanOpaqueData
 
 	/* remember the buffer associated with primary bucket */
 	Buffer		hashso_bucket_buf;
+
+	/* Does not own a pin; ReadRecentBuffer must validate it before use. */
+	HashBufferHint bucket_hint;
 
 	/*
 	 * remember the buffer associated with primary bucket page of bucket being
@@ -422,7 +432,8 @@ extern HashMetaPage _hash_getcachedmetap(Relation rel, Buffer *metabuf,
 										 bool force_refresh);
 extern Buffer _hash_getbucketbuf_from_hashkey(Relation rel, uint32 hashkey,
 											  int access,
-											  HashMetaPage *cachedmetap);
+											  HashMetaPage *cachedmetap,
+											  HashBufferHint *hint);
 extern Buffer _hash_getinitbuf(Relation rel, BlockNumber blkno);
 extern void _hash_initbuf(Buffer buf, uint32 max_bucket, uint32 num_bucket,
 						  uint32 flag, bool initpage);
