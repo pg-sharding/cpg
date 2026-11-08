@@ -30,10 +30,14 @@ typedef struct
 	TRGM	   *trigrams;
 	/* if a regex operator, the extracted graph */
 	TrgmPackedGraph *graph;
+	/* signature bit positions, prepared lazily for non-leaf comparisons */
+	uint32	   *positions;
+	int			siglen;
+	int32		npositions;
 
 	/*
 	 * The "query" and "trigrams" are stored in the same palloc block as this
-	 * cache struct, at MAXALIGN'ed offsets.  The graph however isn't.
+	 * cache struct, at MAXALIGN'ed offsets.  The graph and positions aren't.
 	 */
 } gtrgm_consistent_cache;
 
@@ -193,6 +197,62 @@ cnt_sml_sign_common(TRGM *qtrg, BITVECP sign, int siglen)
 	return count;
 }
 
+/*
+ * Map the query trigrams to signature positions once per signature length.
+ * Preserve repeated positions: similarity counts every trigram even when
+ * several trigrams hash to the same bit.  The regex graph also requires the
+ * original trigram order.
+ */
+static uint32 *
+gtrgm_query_positions(gtrgm_consistent_cache *cache, int siglen,
+					  int32 npositions, MemoryContext mcxt)
+{
+	int32		len = ARRNELEM(cache->trigrams);
+	trgm	   *ptr = GETARR(cache->trigrams);
+
+	if (len == 0)
+		return NULL;
+
+	if (cache->positions == NULL)
+		cache->positions = MemoryContextAlloc(mcxt, sizeof(uint32) * len);
+
+	if (cache->siglen != siglen)
+	{
+		cache->siglen = siglen;
+		cache->npositions = 0;
+	}
+
+	if (cache->npositions < npositions)
+	{
+		int32		k,
+					tmp = 0;
+
+		for (k = cache->npositions; k < npositions; k++)
+		{
+			CPTRGM(&tmp, ptr + k);
+			cache->positions[k] = HASHVAL(tmp, siglen);
+		}
+		cache->npositions = npositions;
+	}
+
+	return cache->positions;
+}
+
+static int32
+cnt_sml_sign_common_cached(gtrgm_consistent_cache *cache, BITVECP sign,
+						   int siglen, MemoryContext mcxt)
+{
+	int32		count = 0;
+	int32		k,
+				len = ARRNELEM(cache->trigrams);
+	uint32	   *positions = gtrgm_query_positions(cache, siglen, len, mcxt);
+
+	for (k = 0; k < len; k++)
+		count += GETBIT(sign, positions[k]);
+
+	return count;
+}
+
 Datum
 gtrgm_consistent(PG_FUNCTION_ARGS)
 {
@@ -283,6 +343,9 @@ gtrgm_consistent(PG_FUNCTION_ARGS)
 							   qtrgsize);
 
 		newcache->strategy = strategy;
+		newcache->positions = NULL;
+		newcache->siglen = 0;
+		newcache->npositions = 0;
 		newcache->query = (text *)
 			((char *) newcache + MAXALIGN(sizeof(gtrgm_consistent_cache)));
 		memcpy(newcache->query, query, querysize);
@@ -299,7 +362,11 @@ gtrgm_consistent(PG_FUNCTION_ARGS)
 		newcache->graph = graph;
 
 		if (cache)
+		{
+			if (cache->positions)
+				pfree(cache->positions);
 			pfree(cache);
+		}
 		fcinfo->flinfo->fn_extra = newcache;
 		cache = newcache;
 	}
@@ -332,7 +399,8 @@ gtrgm_consistent(PG_FUNCTION_ARGS)
 			}
 			else
 			{					/* non-leaf contains signature */
-				int32		count = cnt_sml_sign_common(qtrg, GETSIGN(key), siglen);
+				int32		count = cnt_sml_sign_common_cached(cache, GETSIGN(key),
+														 siglen, fcinfo->flinfo->fn_mcxt);
 				int32		len = ARRNELEM(qtrg);
 
 				if (len == 0)
@@ -368,19 +436,51 @@ gtrgm_consistent(PG_FUNCTION_ARGS)
 				int32		k,
 							tmp = 0,
 							len = ARRNELEM(qtrg);
-				trgm	   *ptr = GETARR(qtrg);
+				uint32	   *positions;
 				BITVECP		sign = GETSIGN(key);
 
 				res = true;
-				for (k = 0; k < len; k++)
+				/* Keep the common first-trigram rejection cheap. */
+				if (len == 0)
+					break;
+				CPTRGM(&tmp, GETARR(qtrg));
+				if (!GETBIT(sign, HASHVAL(tmp, siglen)))
 				{
-					CPTRGM(&tmp, ptr + k);
-					if (!GETBIT(sign, HASHVAL(tmp, siglen)))
+					res = false;
+					break;
+				}
+				if (len == 1)
+					break;
+
+				if (cache->siglen == siglen)
+					positions = cache->positions;
+				else
+					positions = gtrgm_query_positions(cache, siglen, 1,
+													 fcinfo->flinfo->fn_mcxt);
+				for (k = 1; k < cache->npositions; k++)
+				{
+					if (!GETBIT(sign, positions[k]))
 					{
 						res = false;
 						break;
 					}
 				}
+				if (!res || k == len)
+					break;
+
+				/* Only prepare positions actually needed by this comparison. */
+				for (; k < len; k++)
+				{
+					CPTRGM(&tmp, GETARR(qtrg) + k);
+					positions[k] = HASHVAL(tmp, siglen);
+					if (!GETBIT(sign, positions[k]))
+					{
+						res = false;
+						k++;
+						break;
+					}
+				}
+				cache->npositions = k;
 			}
 			break;
 		case RegExpICaseStrategyNumber:
@@ -410,9 +510,9 @@ gtrgm_consistent(PG_FUNCTION_ARGS)
 				else
 				{				/* non-leaf contains signature */
 					int32		k,
-								tmp = 0,
 								len = ARRNELEM(qtrg);
-					trgm	   *ptr = GETARR(qtrg);
+					uint32	   *positions = gtrgm_query_positions(cache, siglen, len,
+																 fcinfo->flinfo->fn_mcxt);
 					BITVECP		sign = GETSIGN(key);
 					bool	   *check;
 
@@ -427,8 +527,7 @@ gtrgm_consistent(PG_FUNCTION_ARGS)
 					check = palloc_array(bool, len);
 					for (k = 0; k < len; k++)
 					{
-						CPTRGM(&tmp, ptr + k);
-						check[k] = GETBIT(sign, HASHVAL(tmp, siglen));
+						check[k] = GETBIT(sign, positions[k]);
 					}
 					res = trigramsMatchGraph(cache->graph, check);
 					pfree(check);
