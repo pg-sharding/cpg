@@ -123,6 +123,23 @@ typedef struct ParallelBlockTableScanWorkerData *ParallelBlockTableScanWorker;
 struct IndexScanInstrumentation;
 
 /*
+ * Optional storage for a reusable index tuple's deformation.  The index AM
+ * owns this object, its arrays, and the referenced tuple data.  The table AM
+ * uses the cache only when xs_itup has all required_flags set in t_info, and
+ * fills it lazily after verifying heap visibility.  Other tuples are deformed
+ * directly without disturbing the cache.  The AM must clear itup before
+ * overwriting the referenced tuple data, even when the workspace address is
+ * unchanged.  It may detach the cache while the tuple data remains unchanged.
+ */
+typedef struct IndexTupleDeformCache
+{
+	IndexTuple	itup;			/* cached tuple identity, or NULL if invalid */
+	uint16		required_flags; /* AM-declared t_info bits for reusable tuples */
+	Datum	   *values;
+	bool	   *isnull;
+} IndexTupleDeformCache;
+
+/*
  * We use the same IndexScanDescData structure for both amgettuple-based
  * and amgetbitmap-based index scans.  Some fields are only relevant in
  * amgettuple-based scans.
@@ -163,6 +180,8 @@ typedef struct IndexScanDescData
 	 */
 	IndexTuple	xs_itup;		/* index tuple returned by AM */
 	struct TupleDescData *xs_itupdesc;	/* rowtype descriptor of xs_itup */
+	/* Optional AM-owned cache for this tuple workspace, or NULL */
+	IndexTupleDeformCache *xs_itupcache;
 	HeapTuple	xs_hitup;		/* index data returned by AM, as HeapTuple */
 	struct TupleDescData *xs_hitupdesc; /* rowtype descriptor of xs_hitup */
 
