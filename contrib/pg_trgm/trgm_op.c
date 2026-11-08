@@ -226,6 +226,33 @@ CMPTRGM_CHOOSE(const void *a, const void *b)
 	return CMPTRGM(a, b);
 }
 
+#define ST_SORT trigram_qsort_signed
+#define ST_ELEMENT_TYPE_VOID
+#define ST_COMPARE(a, b) CMPTRGM_SIGNED(a, b)
+#define ST_SCOPE static
+#define ST_DEFINE
+#define ST_DECLARE
+#include "lib/sort_template.h"
+
+#define ST_SORT trigram_qsort_unsigned
+#define ST_ELEMENT_TYPE_VOID
+#define ST_COMPARE(a, b) CMPTRGM_UNSIGNED(a, b)
+#define ST_SCOPE static
+#define ST_DEFINE
+#define ST_DECLARE
+#include "lib/sort_template.h"
+
+/* Sort an array of trigrams, handling signedness correctly */
+static void
+trigram_qsort_impl(trgm *array, size_t n)
+{
+	if (GetDefaultCharSignedness())
+		trigram_qsort_signed(array, n, sizeof(trgm));
+	else
+		trigram_qsort_unsigned(array, n, sizeof(trgm));
+}
+
+
 /*
  * Compare two trigrams for equality.  This has the same signature as
  * comparison functions used for sorting, so that this can be used with
@@ -298,6 +325,38 @@ trigram_radix_sort_and_unique(trgm *trg, size_t count, bool char_is_signed)
 static size_t
 trigram_sort_and_unique(trgm *array, size_t n)
 {
+	bool use_comparison = n <= 32;
+
+	/*
+	 * Comparison sorting is cheaper for small arrays.  For medium arrays,
+	 * estimate first-byte diversity using a 64-bit bitmap.  Collisions in
+	 * the bitmap can only affect which sort we choose, not its result.  Stop
+	 * probing once the input is diverse enough to favor radix sorting.
+	 */
+	if (!use_comparison && n <= 128)
+	{
+		uint64 seen = 0;
+		int occupied = 0;
+
+		for (size_t i = 0; i < n; i++)
+		{
+			uint64 bit = UINT64CONST(1) << ((unsigned char) array[i][0] & 63);
+
+			if (!(seen & bit))
+			{
+				seen |= bit;
+				if (++occupied > 6)
+					break;
+			}
+		}
+		use_comparison = occupied <= 6;
+	}
+	if (use_comparison)
+	{
+		trigram_qsort_impl(array, n);
+		return qunique(array, n, sizeof(trgm), CMPTRGM_EQ);
+	}
+
 	if (GetDefaultCharSignedness())
 		return trigram_radix_sort_and_unique(array, n, true);
 	else
