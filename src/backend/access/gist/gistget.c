@@ -17,12 +17,17 @@
 #include "access/genam.h"
 #include "access/gist_private.h"
 #include "access/relscan.h"
+#include "access/stratnum.h"
+#include "catalog/pg_type_d.h"
 #include "executor/instrument_node.h"
 #include "lib/pairingheap.h"
 #include "miscadmin.h"
 #include "pgstat.h"
 #include "storage/predicate.h"
 #include "utils/float.h"
+#include "utils/fmgroids.h"
+#include "utils/fmgrprotos.h"
+#include "utils/geo_decls.h"
 #include "utils/memutils.h"
 #include "utils/rel.h"
 
@@ -314,6 +319,252 @@ gistindex_keytest(IndexScanDesc scan,
 }
 
 /*
+ * Only the built-in, uncompressed BOX overlap contract permits this prefilter.
+ * Keep every survivor on the regular keytest path, including its memory context.
+ */
+static const BOX *
+gistBoxBatchQuery(IndexScanDesc scan)
+{
+	GISTScanOpaque so = (GISTScanOpaque) scan->opaque;
+	GISTSTATE  *state = so->giststate;
+	ScanKey		key = scan->keyData;
+
+	if (scan->numberOfKeys != 1 || scan->numberOfOrderBys != 0 ||
+		key->sk_attno != 1 || key->sk_flags != 0 ||
+		key->sk_strategy != RTOverlapStrategyNumber ||
+		(key->sk_subtype != InvalidOid && key->sk_subtype != BOXOID) ||
+		key->sk_func.fn_oid != F_GIST_BOX_CONSISTENT ||
+		key->sk_func.fn_addr != gist_box_consistent ||
+		state->consistentFn[0].fn_oid != F_GIST_BOX_CONSISTENT ||
+		state->consistentFn[0].fn_addr != gist_box_consistent ||
+		OidIsValid(state->compressFn[0].fn_oid) ||
+		OidIsValid(state->decompressFn[0].fn_oid) ||
+		state->leafTupdesc->natts != 1 ||
+		TupleDescAttr(state->leafTupdesc, 0)->atttypid != BOXOID ||
+		scan->indexRelation->rd_opcintype[0] != BOXOID)
+		return NULL;
+
+	return DatumGetBoxP(key->sk_argument);
+}
+
+#define GIST_BOX_BATCH_SIZE 8
+
+/* Gather from the slotted page while its existing share lock is held. */
+static uint32
+gistBoxBatchReject(IndexScanDesc scan, Page page, OffsetNumber first,
+				   OffsetNumber maxoff, const BOX *query)
+{
+	double		lowx[GIST_BOX_BATCH_SIZE];
+	double		highx[GIST_BOX_BATCH_SIZE];
+	double		lowy[GIST_BOX_BATCH_SIZE];
+	double		highy[GIST_BOX_BATCH_SIZE];
+	uint32		valid = 0;
+	uint32		rejected = 0;
+	int			count = Min(GIST_BOX_BATCH_SIZE, maxoff - first + 1);
+	int			j;
+
+	for (j = 0; j < count; j++)
+	{
+		ItemId		iid = PageGetItemId(page, first + j);
+		IndexTuple	it;
+		const BOX  *box;
+
+		/* These entries must still take their original path. */
+		if (scan->ignore_killed_tuples && ItemIdIsDead(iid))
+			continue;
+		it = (IndexTuple) PageGetItem(page, iid);
+		if (GistTupleIsInvalid(it) || IndexTupleHasNulls(it))
+			continue;
+
+		box = (const BOX *) ((char *) it + IndexInfoFindDataOffset(it->t_info));
+		lowx[j] = box->low.x;
+		highx[j] = box->high.x;
+		lowy[j] = box->low.y;
+		highy[j] = box->high.y;
+		valid |= UINT32_C(1) << j;
+	}
+
+	for (j = 0; j < count; j++)
+	{
+		if ((valid & (UINT32_C(1) << j)) != 0 &&
+			!(FPle(lowx[j], query->high.x) &&
+			  FPle(query->low.x, highx[j]) &&
+			  FPle(lowy[j], query->high.y) &&
+			  FPle(query->low.y, highy[j])))
+			rejected |= UINT32_C(1) << j;
+	}
+	return rejected;
+}
+
+/*
+ * Keep specialized state and its per-tuple branches out of the generic loop.
+ * Original keytests on the first batch admit further batching only after a
+ * valid BOX actually fails.  NULL/dead/old invalid entries do not admit it.
+ */
+static pg_noinline bool
+gistScanBoxItems(IndexScanDesc scan, Buffer buffer, Page page,
+				 TIDBitmap *tbm, int64 *ntids, OffsetNumber maxoff)
+{
+	GISTScanOpaque so = (GISTScanOpaque) scan->opaque;
+	GISTSTATE  *giststate = so->giststate;
+	Relation	r = scan->indexRelation;
+	const BOX  *query = gistBoxBatchQuery(scan);
+	OffsetNumber i;
+	MemoryContext oldcxt;
+	int			sampleleft = GIST_BOX_BATCH_SIZE;
+	bool		sawreject = false;
+	uint32		rejectmask = 0;
+	OffsetNumber batchfirst = InvalidOffsetNumber;
+	OffsetNumber batchend = FirstOffsetNumber;
+
+	if (query == NULL)
+		return false;
+
+	for (i = FirstOffsetNumber; i <= maxoff; i = OffsetNumberNext(i))
+	{
+		ItemId		iid = PageGetItemId(page, i);
+		IndexTuple	it;
+		bool		match;
+		bool		recheck;
+		bool		recheck_distances;
+		bool		sampletuple;
+
+		/*
+		 * If the scan specifies not to return killed tuples, then we treat a
+		 * killed tuple as not passing the qual.
+		 */
+		if (scan->ignore_killed_tuples && ItemIdIsDead(iid))
+		{
+			Assert(GistPageIsLeaf(page));
+			continue;
+		}
+
+		if (sampleleft == 0 && sawreject &&
+			(i < batchend || maxoff - i + 1 >= GIST_BOX_BATCH_SIZE))
+		{
+			if (i >= batchend)
+			{
+				batchfirst = i;
+				batchend = i + GIST_BOX_BATCH_SIZE;
+				rejectmask = gistBoxBatchReject(scan, page, i, maxoff, query);
+			}
+			if (rejectmask & (UINT32_C(1) << (i - batchfirst)))
+				continue;
+		}
+
+		it = (IndexTuple) PageGetItem(page, iid);
+		sampletuple = sampleleft > 0 &&
+			!GistTupleIsInvalid(it) && !IndexTupleHasNulls(it);
+
+		/*
+		 * Must call gistindex_keytest in tempCxt, and clean up any leftover
+		 * junk afterward.
+		 */
+		oldcxt = MemoryContextSwitchTo(so->giststate->tempCxt);
+
+		match = gistindex_keytest(scan, it, page, i,
+								  &recheck, &recheck_distances);
+
+		MemoryContextSwitchTo(oldcxt);
+		MemoryContextReset(so->giststate->tempCxt);
+
+		if (sampletuple)
+		{
+			sampleleft--;
+			sawreject |= !match;
+		}
+
+		/* Ignore tuple if it doesn't match */
+		if (!match)
+			continue;
+
+		if (tbm && GistPageIsLeaf(page))
+		{
+			/*
+			 * getbitmap scan, so just push heap tuple TIDs into the bitmap
+			 * without worrying about ordering
+			 */
+			tbm_add_tuples(tbm, &it->t_tid, 1, recheck);
+			(*ntids)++;
+		}
+		else if (scan->numberOfOrderBys == 0 && GistPageIsLeaf(page))
+		{
+			/*
+			 * Non-ordered scan, so report tuples in so->pageData[]
+			 */
+			so->pageData[so->nPageData].heapPtr = it->t_tid;
+			so->pageData[so->nPageData].recheck = recheck;
+			so->pageData[so->nPageData].offnum = i;
+
+			/*
+			 * In an index-only scan, also fetch the data from the tuple.  The
+			 * reconstructed tuples are stored in pageDataCxt.
+			 */
+			if (scan->xs_want_itup)
+			{
+				oldcxt = MemoryContextSwitchTo(so->pageDataCxt);
+				so->pageData[so->nPageData].recontup =
+					gistFetchTuple(giststate, r, it);
+				MemoryContextSwitchTo(oldcxt);
+			}
+			so->nPageData++;
+		}
+		else
+		{
+			/*
+			 * Must push item into search queue.  We get here for any lower
+			 * index page, and also for heap tuples if doing an ordered
+			 * search.
+			 */
+			GISTSearchItem *item;
+			int			nOrderBys = scan->numberOfOrderBys;
+
+			oldcxt = MemoryContextSwitchTo(so->queueCxt);
+
+			/* Create new GISTSearchItem for this item */
+			item = palloc(SizeOfGISTSearchItem(scan->numberOfOrderBys));
+
+			if (GistPageIsLeaf(page))
+			{
+				/* Creating heap-tuple GISTSearchItem */
+				item->blkno = InvalidBlockNumber;
+				item->data.heap.heapPtr = it->t_tid;
+				item->data.heap.recheck = recheck;
+				item->data.heap.recheckDistances = recheck_distances;
+
+				/*
+				 * In an index-only scan, also fetch the data from the tuple.
+				 */
+				if (scan->xs_want_itup)
+					item->data.heap.recontup = gistFetchTuple(giststate, r, it);
+			}
+			else
+			{
+				/* Creating index-page GISTSearchItem */
+				item->blkno = ItemPointerGetBlockNumber(&it->t_tid);
+
+				/*
+				 * LSN of current page is lsn of parent page for child. We
+				 * only have a shared lock, so we need to get the LSN
+				 * atomically.
+				 */
+				item->data.parentlsn = BufferGetLSNAtomic(buffer);
+			}
+
+			/* Insert it into the queue using new distance data */
+			memcpy(item->distances, so->distances,
+				   sizeof(item->distances[0]) * nOrderBys);
+
+			pairingheap_add(so->queue, &item->phNode);
+
+			MemoryContextSwitchTo(oldcxt);
+		}
+	}
+
+	return true;
+}
+
+/*
  * Scan all items on the GiST index page identified by *pageItem, and insert
  * them into the queue (or directly to output areas)
  *
@@ -424,6 +675,13 @@ gistScanPage(IndexScanDesc scan, GISTSearchItem *pageItem,
 	 * check all tuples on page
 	 */
 	maxoff = PageGetMaxOffsetNumber(page);
+	/* A sample and at least one full batch are needed to amortize setup. */
+	if (maxoff >= 2 * GIST_BOX_BATCH_SIZE &&
+		gistScanBoxItems(scan, buffer, page, tbm, ntids, maxoff))
+	{
+		UnlockReleaseBuffer(buffer);
+		return;
+	}
 	for (i = FirstOffsetNumber; i <= maxoff; i = OffsetNumberNext(i))
 	{
 		ItemId		iid = PageGetItemId(page, i);
