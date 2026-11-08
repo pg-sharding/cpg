@@ -434,6 +434,7 @@ spg_text_inner_consistent(PG_FUNCTION_ARGS)
 	int			maxReconstrLen;
 	text	   *prefixText = NULL;
 	int			prefixSize = 0;
+	bool		filtered = false;
 	int			i;
 
 	/*
@@ -473,23 +474,87 @@ spg_text_inner_consistent(PG_FUNCTION_ARGS)
 	/* last byte of reconstrText will be filled in below */
 
 	/*
-	 * Scan the child nodes.  For each one, complete the reconstructed value
-	 * and see if it's consistent with the query.  If so, emit an entry into
-	 * the output arrays.
+	 * All child values have this same prefix.  Compare it once per scan key,
+	 * then test only the optional label byte for each remaining child.
+	 * Keep node numbers in their original order for reconstruction below.
 	 */
 	out->nodeNumbers = palloc_array(int, in->nNodes);
 	out->levelAdds = palloc_array(int, in->nNodes);
 	out->reconstructedValues = palloc_array(Datum, in->nNodes);
-	out->nNodes = 0;
+	out->nNodes = in->nNodes;
 
-	for (i = 0; i < in->nNodes; i++)
+	for (int j = 0; j < in->nkeys && out->nNodes > 0; j++)
 	{
-		int16		nodeChar = DatumGetInt16(in->nodeLabels[i]);
-		int			thisLen;
-		bool		res = true;
-		int			j;
+		StrategyNumber strategy = in->scankeys[j].sk_strategy;
+		text	   *inText;
+		int			inSize;
+		int			prefixLen = maxReconstrLen - 1;
+		int			prefixCmp;
+		int			nMatches = 0;
 
-		/* If nodeChar is a dummy value, don't include it in data */
+		/* A partial multibyte prefix cannot be compared with a non-C locale. */
+		if (SPG_IS_COLLATION_AWARE_STRATEGY(strategy))
+		{
+			if (collate_is_c)
+				strategy -= SPG_STRATEGY_ADDITION;
+			else
+				continue;
+		}
+
+		inText = DatumGetTextPP(in->scankeys[j].sk_argument);
+		inSize = VARSIZE_ANY_EXHDR(inText);
+		prefixCmp = memcmp(VARDATA(reconstrText), VARDATA_ANY(inText),
+						   Min(inSize, prefixLen));
+
+		for (i = 0; i < out->nNodes; i++)
+		{
+			int			nodeN = filtered ? out->nodeNumbers[i] : i;
+			int16		nodeChar = DatumGetInt16(in->nodeLabels[nodeN]);
+			int			thisLen = prefixLen + (nodeChar > 0);
+			int			r = prefixCmp;
+			bool		res;
+
+			if (r == 0 && nodeChar > 0 && inSize > prefixLen)
+				r = (unsigned char) nodeChar -
+					((unsigned char *) VARDATA_ANY(inText))[prefixLen];
+
+			switch (strategy)
+			{
+				case BTLessStrategyNumber:
+				case BTLessEqualStrategyNumber:
+					res = (r <= 0);
+					break;
+				case BTEqualStrategyNumber:
+					res = (r == 0 && inSize >= thisLen);
+					break;
+				case BTGreaterEqualStrategyNumber:
+				case BTGreaterStrategyNumber:
+					res = (r >= 0);
+					break;
+				case RTPrefixStrategyNumber:
+					res = (r == 0);
+					break;
+				default:
+					elog(ERROR, "unrecognized strategy number: %d",
+						 in->scankeys[j].sk_strategy);
+					res = false;
+					break;
+			}
+
+			if (res)
+				out->nodeNumbers[nMatches++] = nodeN;
+		}
+		out->nNodes = nMatches;
+		filtered = true;
+	}
+
+	for (i = 0; i < out->nNodes; i++)
+	{
+		int			nodeN = filtered ? out->nodeNumbers[i] : i;
+		int16		nodeChar = DatumGetInt16(in->nodeLabels[nodeN]);
+		int			thisLen;
+
+		/* If nodeChar is a dummy value, don't include it in data. */
 		if (nodeChar <= 0)
 			thisLen = maxReconstrLen - 1;
 		else
@@ -498,74 +563,11 @@ spg_text_inner_consistent(PG_FUNCTION_ARGS)
 			thisLen = maxReconstrLen;
 		}
 
-		for (j = 0; j < in->nkeys; j++)
-		{
-			StrategyNumber strategy = in->scankeys[j].sk_strategy;
-			text	   *inText;
-			int			inSize;
-			int			r;
-
-			/*
-			 * If it's a collation-aware operator, but the collation is C, we
-			 * can treat it as non-collation-aware.  With non-C collation we
-			 * need to traverse whole tree :-( so there's no point in making
-			 * any check here.  (Note also that our reconstructed value may
-			 * well end with a partial multibyte character, so that applying
-			 * any encoding-sensitive test to it would be risky anyhow.)
-			 */
-			if (SPG_IS_COLLATION_AWARE_STRATEGY(strategy))
-			{
-				if (collate_is_c)
-					strategy -= SPG_STRATEGY_ADDITION;
-				else
-					continue;
-			}
-
-			inText = DatumGetTextPP(in->scankeys[j].sk_argument);
-			inSize = VARSIZE_ANY_EXHDR(inText);
-
-			r = memcmp(VARDATA(reconstrText), VARDATA_ANY(inText),
-					   Min(inSize, thisLen));
-
-			switch (strategy)
-			{
-				case BTLessStrategyNumber:
-				case BTLessEqualStrategyNumber:
-					if (r > 0)
-						res = false;
-					break;
-				case BTEqualStrategyNumber:
-					if (r != 0 || inSize < thisLen)
-						res = false;
-					break;
-				case BTGreaterEqualStrategyNumber:
-				case BTGreaterStrategyNumber:
-					if (r < 0)
-						res = false;
-					break;
-				case RTPrefixStrategyNumber:
-					if (r != 0)
-						res = false;
-					break;
-				default:
-					elog(ERROR, "unrecognized strategy number: %d",
-						 in->scankeys[j].sk_strategy);
-					break;
-			}
-
-			if (!res)
-				break;			/* no need to consider remaining conditions */
-		}
-
-		if (res)
-		{
-			out->nodeNumbers[out->nNodes] = i;
-			out->levelAdds[out->nNodes] = thisLen - in->level;
-			SET_VARSIZE(reconstrText, VARHDRSZ + thisLen);
-			out->reconstructedValues[out->nNodes] =
-				datumCopy(PointerGetDatum(reconstrText), false, -1);
-			out->nNodes++;
-		}
+		out->nodeNumbers[i] = nodeN;
+		out->levelAdds[i] = thisLen - in->level;
+		SET_VARSIZE(reconstrText, VARHDRSZ + thisLen);
+		out->reconstructedValues[i] =
+			datumCopy(PointerGetDatum(reconstrText), false, -1);
 	}
 
 	PG_RETURN_VOID();
