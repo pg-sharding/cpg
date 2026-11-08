@@ -155,6 +155,10 @@ _bt_readpage(IndexScanDesc scan, ScanDirection dir, OffsetNumber offnum,
 	/* delay setting so->currPos.lsn until _bt_drop_lock_and_maybe_pin */
 	pstate.dir = so->currPos.dir = dir;
 	so->currPos.nextTupleOffset = 0;
+	so->currPos.hasPosting = false;
+	/* currTuples is about to be overwritten with a new page's tuples. */
+	so->iosCache.itup = NULL;
+	scan->xs_itupcache = NULL;
 
 	/* either moreRight or moreLeft should be set now (may be unset later) */
 	Assert(ScanDirectionIsForward(dir) ? so->currPos.moreRight :
@@ -523,6 +527,10 @@ _bt_readpage(IndexScanDesc scan, ScanDirection dir, OffsetNumber offnum,
 	 * arrays to recover.  Assert that that step hasn't been missed.
 	 */
 	Assert(!pstate.forcenonrequired);
+
+	/* Attach once per saved page; tuple selection happens after visibility. */
+	if (so->currPos.hasPosting)
+		scan->xs_itupcache = &so->iosCache;
 
 	return (so->currPos.firstItem <= so->currPos.lastItem);
 }
@@ -1084,6 +1092,14 @@ _bt_setuppostingitems(BTScanOpaque so, int itemIndex, OffsetNumber offnum,
 		base->t_info |= itupsz;
 		so->currPos.nextTupleOffset += itupsz;
 
+		/*
+		 * Saved non-pivot tuples with INDEX_ALT_TID_MASK set are posting bases.
+		 * Reducing t_info's size above preserves this flag.  The base no longer
+		 * contains its posting TID array; consumers may only deform its values.
+		 * Ineligible descriptors leave the deformation cache disabled.
+		 */
+		if (so->iosCache.values != NULL)
+			so->currPos.hasPosting = true;
 		return currItem->tupleOffset;
 	}
 
