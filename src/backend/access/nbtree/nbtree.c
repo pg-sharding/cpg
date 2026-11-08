@@ -321,7 +321,7 @@ btgetbitmap(IndexScanDesc scan, TIDBitmap *tbm)
 				}
 
 				/* Save tuple ID, and continue scanning */
-				heapTid = &so->currPos.items[so->currPos.itemIndex].heapTid;
+				heapTid = &so->currPos.heapTids[so->currPos.itemIndex];
 				tbm_add_tuples(tbm, heapTid, 1, false);
 				ntids++;
 			}
@@ -528,6 +528,7 @@ btrestrpos(IndexScanDesc scan)
 		 * accurate.
 		 */
 		so->currPos.itemIndex = so->markItemIndex;
+		so->currPos.tupleIndex = BTScanPosTupleIndex(&so->currPos, so->markItemIndex);
 	}
 	else
 	{
@@ -550,9 +551,7 @@ btrestrpos(IndexScanDesc scan)
 			/* bump pin on mark buffer for assignment to current buffer */
 			if (BTScanPosIsPinned(so->markPos))
 				IncrBufferRefCount(so->markPos.buf);
-			memcpy(&so->currPos, &so->markPos,
-				   offsetof(BTScanPosData, items[1]) +
-				   so->markPos.lastItem * sizeof(BTScanPosItem));
+			BTScanPosCopy(&so->currPos, &so->markPos);
 			if (so->currTuples)
 				memcpy(so->currTuples, so->markTuples,
 					   so->markPos.nextTupleOffset);

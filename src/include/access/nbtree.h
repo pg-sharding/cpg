@@ -944,17 +944,17 @@ typedef BTVacuumPostingData *BTVacuumPosting;
  * We'll always release both the lock and the pin on the current page before
  * moving on to its sibling page.
  *
- * If we are doing an index-only scan, we save the entire IndexTuple for each
- * matched item, otherwise only its heap TID and offset.  The IndexTuples go
- * into a separate workspace array; each BTScanPosItem stores its tuple's
+ * We save matching heap TIDs densely, with one BTScanPosItem descriptor per
+ * physical index tuple.  If we are doing an index-only scan, we also save
+ * IndexTuples in a separate workspace array; each descriptor stores its tuple's
  * offset within that array.  Posting list tuples store a "base" tuple once,
  * allowing the same key to be returned for each TID in the posting list
  * tuple.
  */
 
-typedef struct BTScanPosItem	/* what we remember about each match */
+typedef struct BTScanPosItem	/* what we remember about each physical tuple */
 {
-	ItemPointerData heapTid;	/* TID of referenced heap item */
+	uint16		lastItem;		/* last logical TID belonging to this tuple */
 	OffsetNumber indexOffset;	/* index item's location within page */
 	LocationIndex tupleOffset;	/* IndexTuple's offset in workspace, if any */
 } BTScanPosItem;
@@ -986,20 +986,74 @@ typedef struct BTScanPosData
 	bool		moreRight;
 
 	/*
-	 * The items array is always ordered in index order (ie, increasing
-	 * indexoffset).  When scanning backwards it is convenient to fill the
-	 * array back-to-front, so we start at the last slot and fill downwards.
+	 * The heapTids and items arrays are always ordered in index order.
+	 * Each items entry describes a consecutive run of heapTids.  When scanning
+	 * backwards it is convenient to fill both arrays back-to-front, so we start
+	 * at the last slot and fill downwards.
 	 * Hence we need both a first-valid-entry and a last-valid-entry counter.
 	 * itemIndex is a cursor showing which entry was last returned to caller.
 	 */
-	int			firstItem;		/* first valid index in items[] */
-	int			lastItem;		/* last valid index in items[] */
-	int			itemIndex;		/* current index in items[] */
+	int			firstItem;		/* first valid index in heapTids[] */
+	int			lastItem;		/* last valid index in heapTids[] */
+	int			itemIndex;		/* current index in heapTids[] */
 
-	BTScanPosItem items[MaxTIDsPerBTreePage];	/* MUST BE LAST */
+	int			firstTuple;		/* first valid physical tuple descriptor */
+	int			lastTuple;		/* last valid physical tuple descriptor */
+	int			tupleIndex;		/* cached descriptor for itemIndex */
+
+	ItemPointerData heapTids[MaxTIDsPerBTreePage];
+	BTScanPosItem items[MaxIndexTuplesPerPage];	/* MUST BE LAST */
 } BTScanPosData;
 
 typedef BTScanPosData *BTScanPos;
+
+/* Copy only initialized scan state when saving or restoring a marked page. */
+static inline void
+BTScanPosCopy(BTScanPos dst, BTScanPos src)
+{
+	memcpy(dst, src, offsetof(BTScanPosData, heapTids));
+	memcpy(dst->heapTids + src->firstItem, src->heapTids + src->firstItem,
+		   (src->lastItem - src->firstItem + 1) * sizeof(ItemPointerData));
+	memcpy(dst->items + src->firstTuple, src->items + src->firstTuple,
+		   (src->lastTuple - src->firstTuple + 1) * sizeof(BTScanPosItem));
+}
+
+/* Find the physical tuple owning an arbitrary logical TID index. */
+static inline int
+BTScanPosTupleIndex(BTScanPos pos, int itemIndex)
+{
+	int lo = pos->firstTuple;
+	int hi = pos->lastTuple;
+
+	while (lo < hi)
+	{
+		int mid = lo + (hi - lo) / 2;
+
+		if (itemIndex > pos->items[mid].lastItem)
+			lo = mid + 1;
+		else
+			hi = mid;
+	}
+	return lo;
+}
+
+/* Ordinary scan advancement only crosses one physical tuple at a time. */
+static inline BTScanPosItem *
+BTScanPosCurrentTuple(BTScanPos pos)
+{
+	int i = pos->tupleIndex;
+
+	if (pos->itemIndex > pos->items[i].lastItem)
+		pos->tupleIndex = ++i;
+	else if (i > pos->firstTuple &&
+			 pos->itemIndex <= pos->items[i - 1].lastItem)
+		pos->tupleIndex = --i;
+	Assert(i >= pos->firstTuple && i <= pos->lastTuple);
+	Assert(pos->itemIndex <= pos->items[i].lastItem);
+	Assert(i == pos->firstTuple ||
+		   pos->itemIndex > pos->items[i - 1].lastItem);
+	return &pos->items[i];
+}
 
 #define BTScanPosIsPinned(scanpos) \
 ( \
@@ -1068,7 +1122,7 @@ typedef struct BTScanOpaqueData
 	MemoryContext arrayContext; /* scan-lifespan context for array data */
 
 	/* info about killed items if any (killedItems is NULL if never used) */
-	int		   *killedItems;	/* currPos.items indexes of killed items */
+	int		   *killedItems;	/* currPos.heapTids indexes of killed items */
 	int			numKilled;		/* number of currently stored items */
 	bool		dropPin;		/* drop leaf pin before btgettuple returns? */
 

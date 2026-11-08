@@ -261,13 +261,14 @@ _bt_killitems(IndexScanDesc scan)
 	for (int i = 0; i < numKilled; i++)
 	{
 		int			itemIndex = so->killedItems[i];
-		BTScanPosItem *kitem = &so->currPos.items[itemIndex];
+		BTScanPosItem *kitem = &so->currPos.items[BTScanPosTupleIndex(&so->currPos, itemIndex)];
+		ItemPointer ktid = &so->currPos.heapTids[itemIndex];
 		OffsetNumber offnum = kitem->indexOffset;
 
 		Assert(itemIndex >= so->currPos.firstItem &&
 			   itemIndex <= so->currPos.lastItem);
 		Assert(i == 0 ||
-			   offnum >= so->currPos.items[so->killedItems[i - 1]].indexOffset);
+			   offnum >= so->currPos.items[BTScanPosTupleIndex(&so->currPos, so->killedItems[i - 1])].indexOffset);
 
 		if (offnum < minoff)
 			continue;			/* pure paranoia */
@@ -293,7 +294,7 @@ _bt_killitems(IndexScanDesc scan)
 				{
 					ItemPointer item = BTreeTupleGetPostingN(ituple, j);
 
-					if (!ItemPointerEquals(item, &kitem->heapTid))
+					if (!ItemPointerEquals(item, ktid))
 						break;	/* out of posting list loop */
 
 					/*
@@ -318,7 +319,12 @@ _bt_killitems(IndexScanDesc scan)
 					 * correctly -- posting tuple still gets killed).
 					 */
 					if (pi < numKilled)
-						kitem = &so->currPos.items[so->killedItems[pi++]];
+					{
+						int nextitem = so->killedItems[pi++];
+
+						kitem = &so->currPos.items[BTScanPosTupleIndex(&so->currPos, nextitem)];
+						ktid = &so->currPos.heapTids[nextitem];
+					}
 				}
 
 				/*
@@ -333,7 +339,7 @@ _bt_killitems(IndexScanDesc scan)
 				if (j == nposting)
 					killtuple = true;
 			}
-			else if (ItemPointerEquals(&ituple->t_tid, &kitem->heapTid))
+			else if (ItemPointerEquals(&ituple->t_tid, ktid))
 				killtuple = true;
 
 			/*

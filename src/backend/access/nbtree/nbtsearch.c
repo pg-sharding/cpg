@@ -1622,23 +1622,25 @@ _bt_next(IndexScanDesc scan, ScanDirection dir)
 }
 
 /*
- * Return the index item from so->currPos.items[so->currPos.itemIndex] to the
+ * Return the index item from so->currPos.heapTids[so->currPos.itemIndex] to the
  * index scan by setting the relevant fields in caller's index scan descriptor
  */
 static inline void
 _bt_returnitem(IndexScanDesc scan, BTScanOpaque so)
 {
-	BTScanPosItem *currItem = &so->currPos.items[so->currPos.itemIndex];
-
 	/* Most recent _bt_readpage must have succeeded */
 	Assert(BTScanPosIsValid(so->currPos));
 	Assert(so->currPos.itemIndex >= so->currPos.firstItem);
 	Assert(so->currPos.itemIndex <= so->currPos.lastItem);
 
 	/* Return next item, per amgettuple contract */
-	scan->xs_heaptid = currItem->heapTid;
+	scan->xs_heaptid = so->currPos.heapTids[so->currPos.itemIndex];
 	if (so->currTuples)
+	{
+		BTScanPosItem *currItem = BTScanPosCurrentTuple(&so->currPos);
+
 		scan->xs_itup = (IndexTuple) (so->currTuples + currItem->tupleOffset);
+	}
 }
 
 /*
@@ -1672,13 +1674,12 @@ _bt_steppage(IndexScanDesc scan, ScanDirection dir)
 		/* bump pin on current buffer for assignment to mark buffer */
 		if (BTScanPosIsPinned(so->currPos))
 			IncrBufferRefCount(so->currPos.buf);
-		memcpy(&so->markPos, &so->currPos,
-			   offsetof(BTScanPosData, items[1]) +
-			   so->currPos.lastItem * sizeof(BTScanPosItem));
+		BTScanPosCopy(&so->markPos, &so->currPos);
 		if (so->markTuples)
 			memcpy(so->markTuples, so->currTuples,
 				   so->currPos.nextTupleOffset);
 		so->markPos.itemIndex = so->markItemIndex;
+		so->markPos.tupleIndex = BTScanPosTupleIndex(&so->markPos, so->markItemIndex);
 		so->markItemIndex = -1;
 
 		/*
