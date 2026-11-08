@@ -739,6 +739,14 @@ tsvector_to_array(PG_FUNCTION_ARGS)
 	PG_RETURN_POINTER(array);
 }
 
+#define ST_SORT sort_text_lexemes
+#define ST_ELEMENT_TYPE Datum
+#define ST_COMPARE(a, b) compare_text_lexemes(a, b)
+#define ST_SCOPE static
+#define ST_DECLARE
+#define ST_DEFINE
+#include "lib/sort_template.h"
+
 /*
  * Build tsvector from array of lexemes.
  */
@@ -787,7 +795,7 @@ array_to_tsvector(PG_FUNCTION_ARGS)
 	/* Sort and de-dup, because this is required for a valid tsvector. */
 	if (nitems > 1)
 	{
-		qsort(dlexemes, nitems, sizeof(Datum), compare_text_lexemes);
+		sort_text_lexemes(dlexemes, nitems);
 		nitems = qunique(dlexemes, nitems, sizeof(Datum),
 						 compare_text_lexemes);
 	}
