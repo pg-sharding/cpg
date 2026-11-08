@@ -18,13 +18,20 @@
 #include "access/nbtree.h"
 #include "access/relscan.h"
 #include "access/xact.h"
+#include "access/xlog.h"
 #include "catalog/catalog.h"
+#include "catalog/pg_type_d.h"
 #include "executor/instrument_node.h"
 #include "miscadmin.h"
 #include "pgstat.h"
+#include "port/pg_bitutils.h"
 #include "storage/predicate.h"
 #include "utils/injection_point.h"
+#include "utils/fmgroids.h"
+#include "utils/fmgrprotos.h"
+#include "utils/inval.h"
 #include "utils/lsyscache.h"
+#include "utils/memutils.h"
 #include "utils/rel.h"
 
 
@@ -46,6 +53,247 @@ static Buffer _bt_lock_and_validate_left(Relation rel, BlockNumber *blkno,
 										 BlockNumber lastcurrblkno);
 static bool _bt_endpoint(IndexScanDesc scan, ScanDirection dir);
 
+
+/*
+ * Experimental, backend-local representation of int8 pivot keys.  Entries
+ * contain no shared-buffer pointers and have a fixed memory bound.  A page is
+ * admitted only after repeated encounters at the same LSN, so short scans do
+ * not pay to deform every pivot.
+ *
+ * This prototype deliberately excludes recovery and non-WAL-logged relations.
+ * Their LSN/lifetime rules need a separate audit.  Relcache invalidations clear
+ * the cache as well: a page LSN alone is not a physical-file generation ID.
+ */
+#define BT_INT8_CACHE_ENTRIES 64
+#define BT_INT8_CACHE_ADMISSION 64
+/* A derived offset has ample spare bits; this never changes a page tuple. */
+#define BT_INT8_CACHE_NULLBIT ((OffsetNumber) 0x8000)
+
+typedef struct BTInt8PageCache
+{
+	RelFileLocator locator;
+	Oid			relid;
+	BlockNumber block;
+	XLogRecPtr	lsn;
+	OffsetNumber first;
+	OffsetNumber last;
+	unsigned int visits;
+	bool		seen;
+	bool		valid;
+	bool		rejected;
+	int64	   *values;
+	OffsetNumber *offsets;
+} BTInt8PageCache;
+
+static BTInt8PageCache bt_int8_cache[BT_INT8_CACHE_ENTRIES];
+static bool bt_int8_cache_registered;
+
+static void
+_bt_int8_cache_invalidate(Datum arg, Oid relid)
+{
+	/* Deliberately coarse; invalidation is rare compared with point lookups. */
+	for (int i = 0; i < BT_INT8_CACHE_ENTRIES; i++)
+	{
+		bt_int8_cache[i].seen = false;
+		bt_int8_cache[i].valid = false;
+		bt_int8_cache[i].rejected = false;
+	}
+}
+
+/* Map sorted pivot offsets to a complete-tree (Eytzinger) layout. */
+static bool
+_bt_int8_cache_build(Relation rel, Page page, BTInt8PageCache *entry,
+					 unsigned int node, unsigned int count, OffsetNumber *off)
+{
+	IndexTuple itup;
+	Datum datum;
+	bool isnull;
+
+	if (node > count)
+		return true;
+	if (!_bt_int8_cache_build(rel, page, entry, node * 2, count, off))
+		return false;
+	itup = (IndexTuple) PageGetItem(page, PageGetItemId(page, *off));
+	if (!BTreeTupleIsPivot(itup) || BTreeTupleGetNAtts(itup, rel) != 1)
+		return false;
+	datum = index_getattr(itup, 1, RelationGetDescr(rel), &isnull);
+	entry->values[node] = isnull ? 0 : DatumGetInt64(datum);
+	entry->offsets[node] = *off | (isnull ? BT_INT8_CACHE_NULLBIT : 0);
+	(*off)++;
+	return _bt_int8_cache_build(rel, page, entry, node * 2 + 1, count, off);
+}
+
+static BTInt8PageCache *
+_bt_int8_page_cache(Relation rel, Buffer buf, Page page,
+					OffsetNumber first, OffsetNumber last)
+{
+	BlockNumber block = BufferGetBlockNumber(buf);
+	XLogRecPtr	lsn = PageGetLSN(page);
+	BTInt8PageCache *entry;
+	unsigned int slot;
+
+	if (XLogRecPtrIsInvalid(lsn) || last <= first || last > MaxIndexTuplesPerPage)
+		return NULL;
+
+	slot = (block ^ rel->rd_locator.relNumber) % BT_INT8_CACHE_ENTRIES;
+	entry = &bt_int8_cache[slot];
+	if (!entry->seen || entry->relid != RelationGetRelid(rel) ||
+		!RelFileLocatorEquals(entry->locator, rel->rd_locator) ||
+		entry->block != block || entry->lsn != lsn ||
+		entry->first != first || entry->last != last)
+	{
+		entry->valid = false;
+		entry->rejected = false;
+		entry->locator = rel->rd_locator;
+		entry->relid = RelationGetRelid(rel);
+		entry->block = block;
+		entry->lsn = lsn;
+		entry->first = first;
+		entry->last = last;
+		entry->visits = 1;
+		entry->seen = true;
+		return NULL;
+	}
+	if (entry->rejected)
+		return NULL;
+	if (entry->valid)
+		return entry;
+
+	/* Short scans do not amortize converting a whole page. */
+	if (++entry->visits < BT_INT8_CACHE_ADMISSION)
+		return NULL;
+
+	/* No derived data exist before admission, so short scans need no callback. */
+	if (!bt_int8_cache_registered)
+	{
+		CacheRegisterRelcacheCallback(_bt_int8_cache_invalidate, (Datum) 0);
+		bt_int8_cache_registered = true;
+	}
+
+	if (entry->values == NULL)
+	{
+		Size values_size = MAXALIGN(sizeof(int64) * MaxIndexTuplesPerPage);
+		Size offsets_size = MAXALIGN(sizeof(OffsetNumber) * MaxIndexTuplesPerPage);
+
+		entry->values = MemoryContextAlloc(TopMemoryContext,
+										  values_size + offsets_size);
+		entry->offsets = (OffsetNumber *) ((char *) entry->values + values_size);
+	}
+	Assert(MaxIndexTuplesPerPage < BT_INT8_CACHE_NULLBIT);
+	Assert(last <= MaxIndexTuplesPerPage);
+	Assert(first >= FirstOffsetNumber && last - first < MaxIndexTuplesPerPage);
+
+	/* first is the implicit minus-infinity downlink, and has no user key. */
+	{
+		OffsetNumber off = OffsetNumberNext(first);
+
+		if (!_bt_int8_cache_build(rel, page, entry, 1, last - first, &off))
+		{
+			entry->rejected = true;
+			return NULL;
+		}
+		Assert(off == OffsetNumberNext(last));
+	}
+
+	/* Publish only after the whole derived representation is complete. */
+	entry->valid = true;
+	return entry;
+}
+
+/*
+ * Search with one ordinary ascending int8 key.  Internal equality and all
+ * NULL tuples still use _bt_compare(), preserving heap-TID truncation and
+ * backward-scan rules.  A leaf equality has no omitted user key or search TID
+ * and can compare equal directly.  Only internal pages use the optional
+ * derived cache; leaf pages and cache misses read the original tuples.
+ */
+static OffsetNumber
+_bt_binsrch_int8(Relation rel, BTScanInsert key, Buffer buf, Page page,
+				 OffsetNumber first, OffsetNumber last)
+{
+	BTPageOpaque opaque = BTPageGetOpaque(page);
+	bool leaf = P_ISLEAF(opaque);
+	BTInt8PageCache *entry = NULL;
+	OffsetNumber low = leaf ? first : OffsetNumberNext(first);
+	OffsetNumber high = OffsetNumberNext(last);
+	int64 argument = DatumGetInt64(key->scankeys->sk_argument);
+	int32 cmpval = key->nextkey ? 0 : 1;
+
+	/* Avoid a derived-cache lookup when the last pivot already settles this
+	 * search.  Strict inequality leaves all equality/TID rules untouched. */
+	if (!leaf)
+	{
+		IndexTuple itup = (IndexTuple) PageGetItem(page, PageGetItemId(page, last));
+		bool isnull;
+		Datum datum;
+
+		if (BTreeTupleGetNAtts(itup, rel) == 1)
+		{
+			datum = index_getattr(itup, 1, RelationGetDescr(rel), &isnull);
+			if (!isnull && argument > DatumGetInt64(datum))
+				return last;
+		}
+		entry = _bt_int8_page_cache(rel, buf, page, first, last);
+	}
+
+	if (entry != NULL)
+	{
+		unsigned int node = 1;
+		unsigned int count = last - first;
+
+		Assert(count < MaxIndexTuplesPerPage);
+		while (node <= count)
+		{
+			int64 value = entry->values[node];
+			OffsetNumber pivot = entry->offsets[node];
+			OffsetNumber off = pivot & ~BT_INT8_CACHE_NULLBIT;
+			unsigned int right = argument > value;
+
+			if ((pivot & BT_INT8_CACHE_NULLBIT) || value == argument)
+				right = _bt_compare(rel, key, page, off) >= cmpval;
+			node = node * 2 + right;
+		}
+		/* The predecessor is the last ancestor reached through a right edge.
+		 * Strip trailing left edges (zero bits) and that right edge.  The
+		 * leading sentinel yields node zero when no right edge was taken. */
+		node >>= pg_rightmost_one_pos32(node) + 1;
+		return node == 0 ? first :
+			(entry->offsets[node] & ~BT_INT8_CACHE_NULLBIT);
+	}
+
+	while (low < high)
+	{
+		OffsetNumber mid = low + (high - low) / 2;
+		int64 value = 0;
+		bool isnull;
+		int32 result;
+
+		{
+			IndexTuple itup = (IndexTuple) PageGetItem(page,
+												PageGetItemId(page, mid));
+			Datum datum;
+
+			if (BTreeTupleGetNAtts(itup, rel) != 1)
+			{
+				result = _bt_compare(rel, key, page, mid);
+				goto compared;
+			}
+			datum = index_getattr(itup, 1, RelationGetDescr(rel), &isnull);
+			if (!isnull)
+				value = DatumGetInt64(datum);
+		}
+		if (isnull || (!leaf && value == argument))
+			result = _bt_compare(rel, key, page, mid);
+		else
+			result = argument > value ? 1 : (argument < value ? -1 : 0);
+compared:
+		if (result >= cmpval)
+			low = OffsetNumberNext(mid);
+		else
+			high = mid;
+	}
+	return leaf && !key->backward ? low : OffsetNumberPrev(low);
+}
 
 /*
  *	_bt_drop_lock_and_maybe_pin()
@@ -108,6 +356,18 @@ _bt_search(Relation rel, Relation heaprel, BTScanInsert key, Buffer *bufP,
 	/* heaprel must be set whenever _bt_allocbuf is reachable */
 	Assert(access == BT_READ || access == BT_WRITE);
 	Assert(access == BT_READ || heaprel != NULL);
+
+	/* Recompute once per descent; scankeys can change between rescans. */
+	key->int8search = key->heapkeyspace && key->keysz == 1 &&
+		key->scantid == NULL &&
+		!(key->scankeys->sk_flags & (SK_ISNULL | SK_BT_DESC)) &&
+		key->scankeys->sk_attno == 1 &&
+		key->scankeys->sk_func.fn_oid == F_BTINT8CMP &&
+		key->scankeys->sk_func.fn_addr == btint8cmp &&
+		IndexRelationGetNumberOfAttributes(rel) == 1 &&
+		TupleDescAttr(RelationGetDescr(rel), 0)->atttypid == INT8OID &&
+		RelationIsPermanent(rel) && RelationNeedsWAL(rel) &&
+		!RecoveryInProgress();
 
 	/* Get the root page to start with */
 	*bufP = _bt_getroot(rel, heaprel, access);
@@ -354,6 +614,10 @@ _bt_binsrch(Relation rel,
 	int32		result,
 				cmpval;
 
+#ifdef USE_ASSERT_CHECKING
+	OffsetNumber int8_result = InvalidOffsetNumber;
+#endif
+
 	page = BufferGetPage(buf);
 	opaque = BTPageGetOpaque(page);
 
@@ -374,6 +638,16 @@ _bt_binsrch(Relation rel,
 	 */
 	if (unlikely(high < low))
 		return low;
+
+	if (key->int8search)
+	{
+#ifdef USE_ASSERT_CHECKING
+		/* Check the optimization against the original loop on this locked page. */
+		int8_result = _bt_binsrch_int8(rel, key, buf, page, low, high);
+#else
+		return _bt_binsrch_int8(rel, key, buf, page, low, high);
+#endif
+	}
 
 	/*
 	 * Binary search to find the first key on the page >= scan key, or first
@@ -423,6 +697,10 @@ _bt_binsrch(Relation rel,
 		 * after the last matching tuple (which might just be maxoff + 1).
 		 * Compensate by stepping back.
 		 */
+#ifdef USE_ASSERT_CHECKING
+		Assert(int8_result == InvalidOffsetNumber ||
+			   int8_result == (key->backward ? OffsetNumberPrev(low) : low));
+#endif
 		if (key->backward)
 			return OffsetNumberPrev(low);
 
@@ -447,6 +725,11 @@ _bt_binsrch(Relation rel,
 	 * it uses a leaf page high key to "re-find" a page undergoing deletion.
 	 */
 	Assert(low > P_FIRSTDATAKEY(opaque));
+
+#ifdef USE_ASSERT_CHECKING
+	Assert(int8_result == InvalidOffsetNumber ||
+		   int8_result == OffsetNumberPrev(low));
+#endif
 
 	return OffsetNumberPrev(low);
 }
