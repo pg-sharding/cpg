@@ -144,6 +144,7 @@
 #include "common/pg_prng.h"
 #include "executor/instrument.h"
 #include "miscadmin.h"
+#include "port/pg_bitutils.h"
 #include "pgstat.h"
 #include "portability/instr_time.h"
 #include "postmaster/autovacuum.h"
@@ -2006,12 +2007,46 @@ lazy_scan_new_or_empty(LVRelState *vacrel, Buffer buf, BlockNumber blkno,
 	return false;
 }
 
-/* qsort comparator for sorting OffsetNumbers */
-static int
-cmpOffsetNumbers(const void *a, const void *b)
+#define ST_SORT sort_dead_offsets
+#define ST_ELEMENT_TYPE OffsetNumber
+#define ST_COMPARE(a, b) pg_cmp_u16(*(a), *(b))
+#define ST_SCOPE static
+#define ST_DECLARE
+#define ST_DEFINE
+#include "lib/sort_template.h"
+
+/* The heap page contains each dead offset at most once. */
+static void
+sort_dead_offsets_bitmap(OffsetNumber *offsets, size_t n)
 {
-	return pg_cmp_u16(*(const OffsetNumber *) a, *(const OffsetNumber *) b);
+	uint64		seen[(MaxHeapTuplesPerPage + 63) / 64] = {0};
+	size_t		nout = 0;
+
+	if (n <= 16)
+	{
+		sort_dead_offsets(offsets, n);
+		return;
+	}
+	for (size_t i = 0; i < n; i++)
+	{
+		unsigned	key = offsets[i] - FirstOffsetNumber;
+
+		Assert(key < MaxHeapTuplesPerPage);
+		seen[key >> 6] |= UINT64CONST(1) << (key & 63);
+	}
+	for (unsigned word = 0; word < lengthof(seen); word++)
+	{
+		uint64		bits = seen[word];
+
+		while (bits)
+		{
+			offsets[nout++] = word * 64 + pg_rightmost_one_pos64(bits) + FirstOffsetNumber;
+			bits &= bits - 1;
+		}
+	}
+	Assert(nout == n);
 }
+
 
 /*
  *	lazy_scan_prune() -- lazy_scan_heap() pruning and freezing.
@@ -2113,8 +2148,7 @@ lazy_scan_prune(LVRelState *vacrel,
 		 * with an indeterminate order, but dead_items_add requires them to be
 		 * sorted.
 		 */
-		qsort(presult.deadoffsets, presult.lpdead_items, sizeof(OffsetNumber),
-			  cmpOffsetNumbers);
+		sort_dead_offsets_bitmap(presult.deadoffsets, presult.lpdead_items);
 
 		dead_items_add(vacrel, blkno, presult.deadoffsets, presult.lpdead_items);
 	}
