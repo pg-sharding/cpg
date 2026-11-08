@@ -368,6 +368,11 @@ typedef struct GinScanEntryData
 	bool		reduceResult;
 	uint32		predictNumberResult;
 	GinBtreeData btree;
+
+	/* Private compressed suffix of a posting-tree page, if loaded lazily. */
+	char	   *postingData;
+	GinPostingList *nextSegment;
+	char	   *postingEnd;
 } GinScanEntryData;
 
 typedef struct GinScanOpaqueData

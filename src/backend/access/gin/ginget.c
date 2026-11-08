@@ -330,6 +330,11 @@ restartScanEntry:
 	if (entry->list)
 		pfree(entry->list);
 	entry->list = NULL;
+	if (entry->postingData)
+		pfree(entry->postingData);
+	entry->postingData = NULL;
+	entry->nextSegment = NULL;
+	entry->postingEnd = NULL;
 	entry->nlist = 0;
 	entry->matchBitmap = NULL;
 	entry->matchNtuples = -1;
@@ -649,10 +654,84 @@ startScan(IndexScanDesc scan)
 }
 
 /*
+ * Decode the next needed segment of a private posting-page snapshot.  Like
+ * GinDataLeafPageGetItems, skip only segments whose successor starts at or
+ * before advancePast.  In particular, decode the last segment even when no
+ * item survives: its last item is needed by the page-transition protocol.
+ */
+static bool
+entryLoadNextSegment(GinScanEntry entry, ItemPointerData advancePast)
+{
+	GinPostingList *segment = entry->nextSegment;
+	GinPostingList *next;
+
+	if ((char *) segment >= entry->postingEnd)
+		return false;
+
+	next = GinNextPostingListSegment(segment);
+	while ((char *) next < entry->postingEnd &&
+		   ginCompareItemPointers(&next->first, &advancePast) <= 0)
+	{
+		segment = next;
+		next = GinNextPostingListSegment(segment);
+	}
+
+	for (;;)
+	{
+		if (entry->list)
+			pfree(entry->list);
+		entry->list = ginPostingListDecode(segment, &entry->nlist);
+		entry->nextSegment = next;
+		entry->offset = 0;
+		while (entry->offset < entry->nlist &&
+			   ginCompareItemPointers(&entry->list[entry->offset], &advancePast) <= 0)
+			entry->offset++;
+
+		if (entry->offset < entry->nlist)
+			return true;
+		if ((char *) next >= entry->postingEnd)
+			return false;
+
+		/* advancePast can lie in a gap between two segments. */
+		segment = next;
+		next = GinNextPostingListSegment(segment);
+	}
+}
+
+/* Copy a compressed suffix while holding the existing page lock. */
+static bool
+entryCopyPostingPage(Page page, GinScanEntry entry, ItemPointerData advancePast)
+{
+	GinPostingList *segment = GinDataLeafPageGetPostingList(page);
+	char	   *end = (char *) segment + GinDataLeafPageGetPostingListSize(page);
+	GinPostingList *next;
+	Size		len;
+
+	if ((char *) segment == end)
+		return false;
+
+	next = GinNextPostingListSegment(segment);
+	while ((char *) next < end &&
+		   ginCompareItemPointers(&next->first, &advancePast) <= 0)
+	{
+		segment = next;
+		next = GinNextPostingListSegment(segment);
+	}
+
+	len = end - (char *) segment;
+	entry->postingData = palloc(len);
+	memcpy(entry->postingData, segment, len);
+	entry->nextSegment = (GinPostingList *) entry->postingData;
+	entry->postingEnd = entry->postingData + len;
+	return entryLoadNextSegment(entry, advancePast);
+}
+
+/*
  * Load the next batch of item pointers from a posting tree.
  *
- * Note that we copy the page into GinScanEntry->list array and unlock it, but
- * keep it pinned to prevent interference with vacuum.
+ * Copy compressed pages for jumping consumers; keep sequential loads eager.
+ * The first posting-tree page remains eager to preserve the frequency estimate.
+ * As before, unlock the page but keep it pinned to prevent vacuum interference.
  */
 static void
 entryLoadMoreItems(GinState *ginstate, GinScanEntry entry,
@@ -661,6 +740,36 @@ entryLoadMoreItems(GinState *ginstate, GinScanEntry entry,
 	Page		page;
 	int			i;
 	bool		stepright;
+	bool		sequential = ginCompareItemPointers(&entry->curItem, &advancePast) == 0;
+
+	if (entry->postingData)
+	{
+		/* Amortize decoding when a previously jumping stream becomes sequential. */
+		if (sequential && (char *) entry->nextSegment < entry->postingEnd)
+		{
+			if (entry->list)
+				pfree(entry->list);
+			entry->list = ginPostingListDecodeAllSegments(entry->nextSegment,
+												   entry->postingEnd - (char *) entry->nextSegment,
+												   &entry->nlist);
+			entry->offset = 0;
+			pfree(entry->postingData);
+			entry->postingData = NULL;
+			entry->nextSegment = NULL;
+			entry->postingEnd = NULL;
+			return;
+		}
+		if (entryLoadNextSegment(entry, advancePast))
+			return;
+
+		/* Preserve the old last-consumed TID before choosing a page strategy. */
+		if (entry->nlist > 0)
+			entry->curItem = entry->list[entry->nlist - 1];
+		pfree(entry->postingData);
+		entry->postingData = NULL;
+		entry->nextSegment = NULL;
+		entry->postingEnd = NULL;
+	}
 
 	if (!BufferIsValid(entry->buffer))
 	{
@@ -725,6 +834,13 @@ entryLoadMoreItems(GinState *ginstate, GinScanEntry entry,
 			entry->list = NULL;
 			entry->nlist = 0;
 		}
+		if (entry->postingData)
+		{
+			pfree(entry->postingData);
+			entry->postingData = NULL;
+			entry->nextSegment = NULL;
+			entry->postingEnd = NULL;
+		}
 
 		if (stepright)
 		{
@@ -771,9 +887,20 @@ entryLoadMoreItems(GinState *ginstate, GinScanEntry entry,
 			continue;
 		}
 
-		entry->list = GinDataLeafPageGetItems(page, &entry->nlist, advancePast);
+		if (GinPageIsCompressed(page) && !sequential)
+		{
+			if (!entryCopyPostingPage(page, entry, advancePast))
+				continue;
+			i = entry->offset;
+		}
+		else
+		{
+			/* Sequential streams and pre-9.4 pages retain eager decoding. */
+			entry->list = GinDataLeafPageGetItems(page, &entry->nlist, advancePast);
+			i = 0;
+		}
 
-		for (i = 0; i < entry->nlist; i++)
+		for (; i < entry->nlist; i++)
 		{
 			if (ginCompareItemPointers(&advancePast, &entry->list[i]) < 0)
 			{
@@ -929,6 +1056,12 @@ entryGetItem(GinState *ginstate, GinScanEntry entry,
 		{
 			if (entry->offset >= entry->nlist)
 			{
+				if (entry->postingData)
+				{
+					entryLoadMoreItems(ginstate, entry, advancePast);
+					if (!entry->isFinished)
+						continue;
+				}
 				ItemPointerSetInvalid(&entry->curItem);
 				entry->isFinished = true;
 				break;
@@ -943,6 +1076,9 @@ entryGetItem(GinState *ginstate, GinScanEntry entry,
 			/* Done unless we need to reduce the result */
 			if (!entry->reduceResult || !dropItem(entry))
 				break;
+
+			/* A private final-page refill needs the last consumed item. */
+			advancePast = entry->curItem;
 		}
 	}
 	else
