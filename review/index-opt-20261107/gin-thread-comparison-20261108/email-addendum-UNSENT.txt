@@ -1,0 +1,37 @@
+UNSENT FUTURE COVER-LETTER ADDENDUMS. Do not silently replace frozen drafts.
+No message has been sent; no combined implementation or benchmark is claimed.
+
+For G1 (decoded advance):
+
+Related GIN performance work is David Geier's extraction/build series [0].
+This patch concerns a different stage: finding the first decoded posting TID
+strictly greater than advancePast in entryGetItem. It neither sorts extracted
+trigrams nor replaces the build accumulator. Its use of exponential probing
+and binary upper bound is established search technique, not a new algorithm.
+The earlier ginCompareAttEntries/extraction/trigram-sort/integer-comparator
+commits from that discussion are already included in our pinned baseline.
+The thread's pg_trgm query extraction can affect the same SELECT upstream of
+posting consumption; no additive combined speedup has been measured.
+
+For G2 (lazy decode):
+
+Related GIN performance work is David Geier's extraction/build series [0].
+The existing GinDataLeafPageGetItems already skips compressed segment prefixes.
+This patch changes how much of the selected page suffix is decoded: it owns a
+private compressed snapshot copied under the normal page lock and decodes
+needed segments on demand, retaining first-page/sequential eager paths and
+page-transition semantics. It does not introduce a new codec or claim the
+first segment-skipping implementation. Extraction/accumulation and scan
+consumption have distinct costs; both references and the retained streaming/
+absent negatives remain essential. Combination with [0] is untested.
+
+For older pg_trgm sort experiments:
+
+These are followups to the same radix/unique pipeline, not independent GIN
+novelty. In-place MSD and small-array radix regressions were already discussed
+in [1,2]. Credit those discussions; describe only the concrete implementation,
+measured regression repair and new controls that our experiment adds.
+
+[0] https://www.postgresql.org/message-id/5d366878-2007-4d31-861e-19294b7a583b%40gmail.com
+[1] https://www.postgresql.org/message-id/10afd923-38f4-451c-af89-34f8654533cb%40googlemail.com
+[2] https://www.postgresql.org/message-id/2cb613f1-37d7-4283-b2ad-3afff466134c%40iki.fi

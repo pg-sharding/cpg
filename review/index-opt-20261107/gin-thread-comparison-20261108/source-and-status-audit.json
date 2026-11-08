@@ -1,0 +1,262 @@
+{
+  "scope": "Read-only local pinned Git/source and patch-text inspection only. No upstream attachment code applied/executed, no build/runtime/timing. Web status separately observed2026-11-08.",
+  "pinned_base": "72b9498df9a369e747f8d96efb5a6cd33c2451e2",
+  "git_commits_already_in_base": [
+    {
+      "sha": "bba81f9d3d4f512280bd55751a450dac6f02d406",
+      "date": "2026-01-09",
+      "subject": "Inline ginCompareAttEntries for speed",
+      "ancestor_of_pinned_base": true,
+      "primary_git_url": "https://github.com/postgres/postgres/commit/bba81f9d3d4f512280bd55751a450dac6f02d406"
+    },
+    {
+      "sha": "6f5ad00ab763f9e029ec591f7f650bd09c1e933f",
+      "date": "2026-04-07",
+      "subject": "Optimize sort and deduplication in ginExtractEntries()",
+      "ancestor_of_pinned_base": true,
+      "primary_git_url": "https://github.com/postgres/postgres/commit/6f5ad00ab763f9e029ec591f7f650bd09c1e933f"
+    },
+    {
+      "sha": "9f3755ea07aa8858999bdac3d33151e93d2643e2",
+      "date": "2026-04-07",
+      "subject": "Optimize sorting and deduplicating trigrams",
+      "ancestor_of_pinned_base": true,
+      "primary_git_url": "https://github.com/postgres/postgres/commit/9f3755ea07aa8858999bdac3d33151e93d2643e2"
+    },
+    {
+      "sha": "41467b1d88303fbaea4ddd20c21ac4b8ce6b92d7",
+      "date": "2026-11-05",
+      "subject": "Use branchless comparisons in btint4cmp and btint8cmp, for speed",
+      "ancestor_of_pinned_base": true,
+      "primary_git_url": "https://github.com/postgres/postgres/commit/41467b1d88303fbaea4ddd20c21ac4b8ce6b92d7"
+    }
+  ],
+  "pinned_files": {
+    "src/backend/access/gin/ginget.c": {
+      "bytes": 55588,
+      "sha256": "b43e51d4df4d2e44808de167f03b86af076e01fba7e00486647ffba6302768f1",
+      "function_reference_lines": {
+        "entryGetItem": [
+          813,
+          1053,
+          1128,
+          1325
+        ],
+        "entryLoadMoreItems": [
+          658,
+          713,
+          956,
+          976
+        ],
+        "GinDataLeafPageGetItems": [
+          93,
+          439,
+          774
+        ],
+        "ginCompareItemPointers": [
+          677,
+          765,
+          778,
+          819,
+          940,
+          968,
+          1024,
+          1051,
+          1059,
+          1126,
+          1138,
+          1183,
+          1238,
+          1241,
+          1243,
+          1419,
+          1420
+        ]
+      }
+    },
+    "src/backend/access/gin/gindatapage.c": {
+      "bytes": 53916,
+      "sha256": "37a0c23b609c0a20bf9173f039beb91bc75fd4b55a3aedd862a51553df17b2b6",
+      "function_reference_lines": {
+        "GinDataLeafPageGetItems": [
+          135,
+          182
+        ],
+        "ginPostingListDecode": [
+          160,
+          192,
+          504,
+          677,
+          756,
+          1503,
+          1652,
+          1655
+        ],
+        "ginCompareItemPointers": [
+          151,
+          244,
+          294,
+          478,
+          507,
+          585,
+          691,
+          1495,
+          1511
+        ]
+      }
+    },
+    "src/backend/access/gin/ginfast.c": {
+      "bytes": 29481,
+      "sha256": "73a24354637c1d60d822a6d8607903a484adb09ef18ad7a64cb1db4b5a9f51e6",
+      "function_reference_lines": {
+        "ginInsertBAEntries": [
+          744,
+          748,
+          761
+        ],
+        "ginBeginBAScan": [
+          927,
+          957
+        ],
+        "BuildAccumulator": [
+          709,
+          792
+        ]
+      }
+    },
+    "src/backend/access/gin/ginbulk.c": {
+      "bytes": 7854,
+      "sha256": "02a4437dd91d85349feb62fba6fc9b45627c0e28cbdd23ae763fee7e01a15efb",
+      "function_reference_lines": {
+        "ginCompareItemPointers": [
+          59,
+          247
+        ],
+        "ginInsertBAEntries": [
+          209
+        ],
+        "ginBeginBAScan": [
+          256
+        ],
+        "BuildAccumulator": [
+          34,
+          76,
+          87,
+          109,
+          128,
+          148,
+          209,
+          256,
+          262,
+          267
+        ]
+      }
+    },
+    "src/include/access/gin_private.h": {
+      "bytes": 18356,
+      "sha256": "ea66f262f9e7a913cedf4f83f9e07f422681f8c88defcc3f5c9641f4e2b77a9b",
+      "function_reference_lines": {
+        "GinDataLeafPageGetItems": [
+          221,
+          222
+        ],
+        "ginPostingListDecode": [
+          478,
+          480,
+          482
+        ],
+        "ginCompareItemPointers": [
+          492
+        ],
+        "ginInsertBAEntries": [
+          446
+        ],
+        "ginBeginBAScan": [
+          450
+        ],
+        "GinScanEntryData": [
+          250,
+          255,
+          263,
+          333,
+          371
+        ],
+        "BuildAccumulator": [
+          443,
+          445,
+          446,
+          450,
+          451
+        ]
+      }
+    },
+    "contrib/pg_trgm/trgm_gin.c": {
+      "bytes": 9010,
+      "sha256": "7073ca5fee2ea4a9b1e9240b01b8449bfe1aaca8df46c3c7232092fc3565dfdb",
+      "function_reference_lines": {
+        "generate_trgm": [
+          45,
+          96
+        ],
+        "generate_wildcard_trgm": [
+          109
+        ]
+      }
+    }
+  },
+  "our_inputs": {
+    "gin-advance/gin-advance-v3.diff": {
+      "bytes": 3389,
+      "sha256": "5b8dd8cbb497f674ca84431afb206e2f9d6bea3f1a6c61c50126e698a1abc80d",
+      "modified_paths": [
+        "src/backend/access/gin/ginget.c"
+      ]
+    },
+    "gin-advance/micro-v3.c": {
+      "bytes": 24774,
+      "sha256": "3930660bacf6bf8a380444af12e5d1c0a8b977ebe8ade9e5b5ba0549080294d7",
+      "modified_paths": []
+    },
+    "gin-advance/micro-source-v3.json": {
+      "bytes": 547,
+      "sha256": "3f40e052a2cc4f47bdb7bffc084f4639635f6a2577a2c2ee57367e34c31f7378",
+      "modified_paths": []
+    },
+    "gin-lazy/v4/gin-lazy-v4.diff": {
+      "bytes": 6752,
+      "sha256": "c26113972fb105e45b3ae3e0889351e50f739920adbb2a85b9a41a144915e69c",
+      "modified_paths": [
+        "src/backend/access/gin/ginget.c",
+        "src/backend/access/gin/ginscan.c",
+        "src/include/access/gin_private.h"
+      ]
+    },
+    "gin-lazy/v4/micro.c": {
+      "bytes": 48371,
+      "sha256": "bbea69fd46f5676199c8ee5c4a2f8c583f4206418bc218f8cb928806df5d82e2",
+      "modified_paths": []
+    },
+    "gin-lazy/v4/micro-source.json": {
+      "bytes": 713,
+      "sha256": "81350d8f332dc83a1398580ea114e9a08b522769a94363df77f7769d50098041",
+      "modified_paths": []
+    }
+  },
+  "latest_v11_common_file_paths": {
+    "gin-advance/gin-advance-v3.diff": {
+      "v11-0001-Use-branchless-comparisons-in-btint4cmp-and-btin.patch": [],
+      "v11-0002-Use-radix-sort-to-extract-trigrams.patch": [],
+      "v11-0003-Replace-GIN-build-accumulator-RB-tree-with-a-has.patch": []
+    },
+    "gin-lazy/v4/gin-lazy-v4.diff": {
+      "v11-0001-Use-branchless-comparisons-in-btint4cmp-and-btin.patch": [],
+      "v11-0002-Use-radix-sort-to-extract-trigrams.patch": [],
+      "v11-0003-Replace-GIN-build-accumulator-RB-tree-with-a-has.patch": [
+        "src/include/access/gin_private.h"
+      ]
+    }
+  },
+  "latest_v11_header_changed_struct": "BuildAccumulator / GinEntryAccumulator",
+  "our_G2_header_changed_struct": "GinScanEntryData",
+  "combined_apply_build_or_SQL_test": "NOT_PERFORMED"
+}
