@@ -68,8 +68,6 @@ tableam_index_getnext_tid(IndexScanDesc scan, ScanDirection direction)
 static inline void
 tableam_index_fill_ios_slot(IndexScanDesc scan, TupleTableSlot *slot)
 {
-	ExecClearTuple(slot);
-
 	/*
 	 * We must deform the tuple using the tupdesc the index AM formed it with
 	 * (xs_hitupdesc or xs_itupdesc), not the slot's tupdesc.  The datums
@@ -81,6 +79,8 @@ tableam_index_fill_ios_slot(IndexScanDesc scan, TupleTableSlot *slot)
 	 */
 	if (scan->xs_hitup)
 	{
+		ExecClearTuple(slot);
+
 		Assert(slot->tts_tupleDescriptor->natts == scan->xs_hitupdesc->natts);
 
 		heap_deform_tuple(scan->xs_hitup, scan->xs_hitupdesc,
@@ -88,10 +88,60 @@ tableam_index_fill_ios_slot(IndexScanDesc scan, TupleTableSlot *slot)
 	}
 	else if (scan->xs_itup)
 	{
+		IndexTupleDeformCache *cache = scan->xs_itupcache;
+		bool		cache_hit = cache != NULL && cache->itup == scan->xs_itup;
+
 		Assert(slot->tts_tupleDescriptor->natts == scan->xs_itupdesc->natts);
 
-		index_deform_tuple(scan->xs_itup, scan->xs_itupdesc,
-						   slot->tts_values, slot->tts_isnull);
+		/* A cached identity was qualified before and remains immutable. */
+		if (cache != NULL &&
+			(likely(cache_hit) ||
+			 (scan->xs_itup->t_info & cache->required_flags) == cache->required_flags))
+		{
+			int			natts = cache->natts;
+
+			Assert(natts == scan->xs_itupdesc->natts);
+
+			/* Heap representation and name conversion retain their full path. */
+			if (cache_hit && scan->xs_name_cstring_attnums == NULL &&
+				ExecTryReplaceVirtualTupleFromArrays(slot, cache->values,
+												cache->isnull, natts))
+				return;
+
+			ExecClearTuple(slot);
+			if (!cache_hit)
+			{
+				index_deform_tuple(scan->xs_itup, scan->xs_itupdesc,
+								   cache->values, cache->isnull);
+				cache->itup = scan->xs_itup;
+			}
+			/* Use constant sizes for common short tuple descriptors. */
+			switch (natts)
+			{
+				case 2:
+					memcpy(slot->tts_values, cache->values, sizeof(Datum) * 2);
+					memcpy(slot->tts_isnull, cache->isnull, sizeof(bool) * 2);
+					break;
+				case 3:
+					memcpy(slot->tts_values, cache->values, sizeof(Datum) * 3);
+					memcpy(slot->tts_isnull, cache->isnull, sizeof(bool) * 3);
+					break;
+				case 4:
+					memcpy(slot->tts_values, cache->values, sizeof(Datum) * 4);
+					memcpy(slot->tts_isnull, cache->isnull, sizeof(bool) * 4);
+					break;
+				default:
+					memcpy(slot->tts_values, cache->values, sizeof(Datum) * natts);
+					memcpy(slot->tts_isnull, cache->isnull, sizeof(bool) * natts);
+					break;
+			}
+		}
+		else
+		{
+			ExecClearTuple(slot);
+			index_deform_tuple(scan->xs_itup, scan->xs_itupdesc,
+							   slot->tts_values, slot->tts_isnull);
+		}
 
 		/*
 		 * Copy all name columns stored as cstrings back into NAMEDATALEN
@@ -104,7 +154,10 @@ tableam_index_fill_ios_slot(IndexScanDesc scan, TupleTableSlot *slot)
 			tableam_index_fill_ios_names(scan, slot);
 	}
 	else
+	{
+		ExecClearTuple(slot);
 		elog(ERROR, "no data returned for index-only scan");
+	}
 
 	ExecStoreVirtualTuple(slot);
 }
