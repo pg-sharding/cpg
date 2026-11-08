@@ -466,6 +466,19 @@ extern Bucket _hash_hashkey2bucket(uint32 hashkey, uint32 maxbucket,
 extern uint32 _hash_spareindex(uint32 num_bucket);
 extern uint32 _hash_get_totalbuckets(uint32 splitpoint_phase);
 extern void _hash_checkpage(Relation rel, Buffer buf, int flags);
+/*
+ * Read a hash tuple key without an out-of-line call from the scan loop.
+ * Keep the exported accessor for existing callers.
+ */
+static inline uint32
+_hash_get_indextuple_hashkey_inline(IndexTuple itup)
+{
+	char	   *attp;
+
+	attp = (char *) itup + IndexInfoFindDataOffset(itup->t_info);
+	return *((uint32 *) attp);
+}
+
 extern uint32 _hash_get_indextuple_hashkey(IndexTuple itup);
 extern bool _hash_convert_tuple(Relation index,
 								const Datum *user_values, const bool *user_isnull,

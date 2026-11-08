@@ -290,14 +290,7 @@ hashoptions(Datum reloptions, bool validate)
 uint32
 _hash_get_indextuple_hashkey(IndexTuple itup)
 {
-	char	   *attp;
-
-	/*
-	 * We assume the hash key is the first attribute and can't be null, so
-	 * this can be done crudely but very very cheaply ...
-	 */
-	attp = (char *) itup + IndexInfoFindDataOffset(itup->t_info);
-	return *((uint32 *) attp);
+	return _hash_get_indextuple_hashkey_inline(itup);
 }
 
 /*

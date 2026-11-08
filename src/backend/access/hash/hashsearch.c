@@ -698,7 +698,7 @@ _hash_load_qualified_items(IndexScanDesc scan, Page page,
 				continue;
 			}
 
-			if (so->hashso_sk_hash == _hash_get_indextuple_hashkey(itup) &&
+			if (so->hashso_sk_hash == _hash_get_indextuple_hashkey_inline(itup) &&
 				_hash_checkqual(scan, itup))
 			{
 				/* tuple is qualified, so remember it */
@@ -744,7 +744,7 @@ _hash_load_qualified_items(IndexScanDesc scan, Page page,
 				continue;
 			}
 
-			if (so->hashso_sk_hash == _hash_get_indextuple_hashkey(itup) &&
+			if (so->hashso_sk_hash == _hash_get_indextuple_hashkey_inline(itup) &&
 				_hash_checkqual(scan, itup))
 			{
 				itemIndex--;
