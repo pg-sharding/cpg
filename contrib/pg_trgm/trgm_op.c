@@ -673,6 +673,52 @@ comp_ptrgm(const void *v1, const void *v2)
 }
 
 /*
+ * make_positional_trgm() emits nondecreasing indexes.  Stable byte passes
+ * therefore preserve the secondary index order without sorting it again.
+ * Positional duplicates must be retained.
+ */
+static void
+sort_positional_trgm(pos_trgm *array, size_t n)
+{
+	size_t freqs[3][256] = {{0}};
+	pos_trgm *starts[256];
+	pos_trgm *buffer;
+	pos_trgm *from = array;
+	pos_trgm *to;
+	unsigned signmask = GetDefaultCharSignedness() ? 0x80 : 0;
+
+	if (n <= 32)
+	{
+		qsort(array, n, sizeof(pos_trgm), comp_ptrgm);
+		return;
+	}
+	for (size_t i = 0; i < n; i++)
+		for (int byte = 0; byte < 3; byte++)
+			freqs[byte][(unsigned char) array[i].trg[byte]]++;
+
+	buffer = palloc_array(pos_trgm, n);
+	to = buffer;
+	for (int byte = 2; byte >= 0; byte--)
+	{
+		pos_trgm *next = to;
+		pos_trgm *swap;
+
+		for (unsigned key = 0; key < 256; key++)
+		{
+			starts[key ^ signmask] = next;
+			next += freqs[byte][key ^ signmask];
+		}
+		for (size_t i = 0; i < n; i++)
+			*starts[(unsigned char) from[i].trg[byte]]++ = from[i];
+		swap = from;
+		from = to;
+		to = swap;
+	}
+	memcpy(array, from, sizeof(pos_trgm) * n);
+	pfree(buffer);
+}
+
+/*
  * Iterative search function which calculates maximum similarity with word in
  * the string. Maximum similarity is only calculated only if the flag
  * WORD_SIMILARITY_CHECK_ONLY isn't set.
@@ -882,7 +928,7 @@ calc_word_similarity(char *str1, int slen1, char *str2, int slen2,
 
 	ptrg = make_positional_trgm(GETARR(trg1.datum), len1, GETARR(trg2.datum), len2);
 	len = len1 + len2;
-	qsort(ptrg, len, sizeof(pos_trgm), comp_ptrgm);
+	sort_positional_trgm(ptrg, len);
 
 	pfree(trg1.datum);
 	pfree(trg2.datum);
