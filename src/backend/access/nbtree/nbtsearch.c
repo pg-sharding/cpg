@@ -33,7 +33,7 @@ static Buffer _bt_moveright(Relation rel, Relation heaprel, BTScanInsert key,
 							Buffer buf, bool forupdate, BTStack stack,
 							int access);
 static OffsetNumber _bt_binsrch(Relation rel, BTScanInsert key, Buffer buf);
-static int	_bt_binsrch_posting(BTScanInsert key, Page page,
+static pg_noinline int _bt_binsrch_posting(BTScanInsert key, Page page,
 								OffsetNumber offnum);
 static inline void _bt_returnitem(IndexScanDesc scan, BTScanOpaque so);
 static bool _bt_steppage(IndexScanDesc scan, ScanDirection dir);
@@ -601,15 +601,16 @@ _bt_binsrch_insert(Relation rel, BTInsertState insertstate)
  * Returns offset into posting list where caller's scantid belongs.
  *----------
  */
-static int
+static pg_noinline int
 _bt_binsrch_posting(BTScanInsert key, Page page, OffsetNumber offnum)
 {
+	uint64		scantid,
+				tid;
 	IndexTuple	itup;
 	ItemId		itemid;
 	int			low,
 				high,
-				mid,
-				res;
+				mid;
 
 	/*
 	 * If this isn't a posting tuple, then the index must be corrupt (if it is
@@ -637,26 +638,46 @@ _bt_binsrch_posting(BTScanInsert key, Page page, OffsetNumber offnum)
 	if (ItemIdIsDead(itemid))
 		return -1;
 
+	/* Compare all six TID bytes without loading beyond the ItemPointer. */
+	scantid = ((uint64) ItemPointerGetBlockNumberNoCheck(key->scantid) << 16) |
+		ItemPointerGetOffsetNumberNoCheck(key->scantid);
+
 	/* "high" is past end of posting list for loop invariant */
 	low = 0;
 	high = BTreeTupleGetNPosting(itup);
 	Assert(high >= 2);
 
-	while (high > low)
+	while (high - low > 4)
 	{
-		mid = low + ((high - low) / 2);
-		res = ItemPointerCompare(key->scantid,
-								 BTreeTupleGetPostingN(itup, mid));
+		ItemPointer posting;
 
-		if (res > 0)
+		mid = low + ((high - low) / 2);
+		posting = BTreeTupleGetPostingN(itup, mid);
+
+		tid = ((uint64) ItemPointerGetBlockNumberNoCheck(posting) << 16) |
+			ItemPointerGetOffsetNumberNoCheck(posting);
+
+		if (scantid > tid)
 			low = mid + 1;
-		else if (res < 0)
+		else if (scantid < tid)
 			high = mid;
 		else
 			return mid;
 	}
 
-	/* Exact match not found */
+	/* A short contiguous tail avoids the last binary-search branches. */
+	while (low < high)
+	{
+		ItemPointer posting = BTreeTupleGetPostingN(itup, low);
+
+		tid = ((uint64) ItemPointerGetBlockNumberNoCheck(posting) << 16) |
+			ItemPointerGetOffsetNumberNoCheck(posting);
+		if (scantid <= tid)
+			break;
+		low++;
+	}
+
+	/* Return the insertion position, possibly an exact match in the tail. */
 	return low;
 }
 
