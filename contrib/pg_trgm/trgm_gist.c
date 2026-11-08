@@ -25,15 +25,19 @@ typedef struct
 {
 	/* most recent inputs to gtrgm_consistent */
 	StrategyNumber strategy;
+	Oid			collation;
 	text	   *query;
 	/* extracted trigrams for query */
 	TRGM	   *trigrams;
 	/* if a regex operator, the extracted graph */
 	TrgmPackedGraph *graph;
+	/* signature bit positions, prepared lazily for non-leaf comparisons */
+	uint32	   *positions;
+	int			siglen;
 
 	/*
 	 * The "query" and "trigrams" are stored in the same palloc block as this
-	 * cache struct, at MAXALIGN'ed offsets.  The graph however isn't.
+	 * cache struct, at MAXALIGN'ed offsets.  The graph and positions aren't.
 	 */
 } gtrgm_consistent_cache;
 
@@ -193,6 +197,56 @@ cnt_sml_sign_common(TRGM *qtrg, BITVECP sign, int siglen)
 	return count;
 }
 
+/*
+ * Map the query trigrams to signature positions once per signature length.
+ * Preserve repeated positions: similarity counts every trigram even when
+ * several trigrams hash to the same bit.  The regex graph also requires the
+ * original trigram order.
+ */
+static uint32 *
+gtrgm_query_positions(gtrgm_consistent_cache *cache, int siglen,
+					  MemoryContext mcxt)
+{
+	int32		len = ARRNELEM(cache->trigrams);
+	trgm	   *ptr = GETARR(cache->trigrams);
+
+	if (len == 0)
+		return NULL;
+
+	if (cache->positions == NULL)
+		cache->positions = MemoryContextAlloc(mcxt, sizeof(uint32) * len);
+
+	if (cache->siglen != siglen)
+	{
+		int32		k,
+					tmp = 0;
+
+		for (k = 0; k < len; k++)
+		{
+			CPTRGM(&tmp, ptr + k);
+			cache->positions[k] = HASHVAL(tmp, siglen);
+		}
+		cache->siglen = siglen;
+	}
+
+	return cache->positions;
+}
+
+static int32
+cnt_sml_sign_common_cached(gtrgm_consistent_cache *cache, BITVECP sign,
+						   int siglen, MemoryContext mcxt)
+{
+	int32		count = 0;
+	int32		k,
+				len = ARRNELEM(cache->trigrams);
+	uint32	   *positions = gtrgm_query_positions(cache, siglen, mcxt);
+
+	for (k = 0; k < len; k++)
+		count += GETBIT(sign, positions[k]);
+
+	return count;
+}
+
 Datum
 gtrgm_consistent(PG_FUNCTION_ARGS)
 {
@@ -214,8 +268,8 @@ gtrgm_consistent(PG_FUNCTION_ARGS)
 	/*
 	 * We keep the extracted trigrams in cache, because trigram extraction is
 	 * relatively CPU-expensive.  When trying to reuse a cached value, check
-	 * strategy number not just query itself, because trigram extraction
-	 * depends on strategy.
+	 * strategy number and collation, not just query itself, because trigram
+	 * extraction depends on them.
 	 *
 	 * The cached structure is a single palloc chunk containing the
 	 * gtrgm_consistent_cache header, then the input query (4-byte length
@@ -228,6 +282,7 @@ gtrgm_consistent(PG_FUNCTION_ARGS)
 	cache = (gtrgm_consistent_cache *) fcinfo->flinfo->fn_extra;
 	if (cache == NULL ||
 		cache->strategy != strategy ||
+		cache->collation != PG_GET_COLLATION() ||
 		VARSIZE(cache->query) != querysize ||
 		memcmp(cache->query, query, querysize) != 0)
 	{
@@ -283,6 +338,9 @@ gtrgm_consistent(PG_FUNCTION_ARGS)
 							   qtrgsize);
 
 		newcache->strategy = strategy;
+		newcache->collation = PG_GET_COLLATION();
+		newcache->positions = NULL;
+		newcache->siglen = 0;
 		newcache->query = (text *)
 			((char *) newcache + MAXALIGN(sizeof(gtrgm_consistent_cache)));
 		memcpy(newcache->query, query, querysize);
@@ -299,7 +357,11 @@ gtrgm_consistent(PG_FUNCTION_ARGS)
 		newcache->graph = graph;
 
 		if (cache)
+		{
+			if (cache->positions)
+				pfree(cache->positions);
 			pfree(cache);
+		}
 		fcinfo->flinfo->fn_extra = newcache;
 		cache = newcache;
 	}
@@ -332,7 +394,8 @@ gtrgm_consistent(PG_FUNCTION_ARGS)
 			}
 			else
 			{					/* non-leaf contains signature */
-				int32		count = cnt_sml_sign_common(qtrg, GETSIGN(key), siglen);
+				int32		count = cnt_sml_sign_common_cached(cache, GETSIGN(key),
+														 siglen, fcinfo->flinfo->fn_mcxt);
 				int32		len = ARRNELEM(qtrg);
 
 				if (len == 0)
@@ -366,16 +429,15 @@ gtrgm_consistent(PG_FUNCTION_ARGS)
 			else
 			{					/* non-leaf contains signature */
 				int32		k,
-							tmp = 0,
 							len = ARRNELEM(qtrg);
-				trgm	   *ptr = GETARR(qtrg);
+				uint32	   *positions = gtrgm_query_positions(cache, siglen,
+															 fcinfo->flinfo->fn_mcxt);
 				BITVECP		sign = GETSIGN(key);
 
 				res = true;
 				for (k = 0; k < len; k++)
 				{
-					CPTRGM(&tmp, ptr + k);
-					if (!GETBIT(sign, HASHVAL(tmp, siglen)))
+					if (!GETBIT(sign, positions[k]))
 					{
 						res = false;
 						break;
@@ -410,9 +472,9 @@ gtrgm_consistent(PG_FUNCTION_ARGS)
 				else
 				{				/* non-leaf contains signature */
 					int32		k,
-								tmp = 0,
 								len = ARRNELEM(qtrg);
-					trgm	   *ptr = GETARR(qtrg);
+					uint32	   *positions = gtrgm_query_positions(cache, siglen,
+																 fcinfo->flinfo->fn_mcxt);
 					BITVECP		sign = GETSIGN(key);
 					bool	   *check;
 
@@ -427,8 +489,7 @@ gtrgm_consistent(PG_FUNCTION_ARGS)
 					check = palloc_array(bool, len);
 					for (k = 0; k < len; k++)
 					{
-						CPTRGM(&tmp, ptr + k);
-						check[k] = GETBIT(sign, HASHVAL(tmp, siglen));
+						check[k] = GETBIT(sign, positions[k]);
 					}
 					res = trigramsMatchGraph(cache->graph, check);
 					pfree(check);
