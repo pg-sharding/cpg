@@ -7,6 +7,7 @@
 #include <math.h>
 
 #include "_int.h"
+#include "utils/memutils.h"
 #include "access/gist.h"
 #include "access/reloptions.h"
 #include "access/stratnum.h"
@@ -37,6 +38,81 @@ PG_FUNCTION_INFO_V1(g_int_same);
 PG_FUNCTION_INFO_V1(g_int_options);
 
 
+/* One byte-keyed prepared query per GiST consistent scan key. */
+typedef struct
+{
+	ArrayType  *original;
+	ArrayType  *prepared;
+} GIntQueryCache;
+
+/* Keep preparation and replacement out of the common consistent frame. */
+static pg_noinline ArrayType *
+g_int_prepare_query_miss(FmgrInfo *flinfo, ArrayType *original,
+                         bool *needs_free)
+{
+	GIntQueryCache *cache = flinfo ? flinfo->fn_extra : NULL;
+	GIntQueryCache *newcache;
+	ArrayType  *prepared;
+	Size		querysize = VARSIZE(original);
+	Size		preparedsize;
+	Size		cachesize;
+
+	CHECKARRVALID(original);
+
+	/*
+	 * There is nothing to sort or deduplicate with at most one element.
+	 * Consistent's consumers use only the flattened element count/data, so
+	 * bounds and dimensionality need not be normalized.  Borrow the input
+	 * until PG_FREE_IF_COPY and retain any previous, bounded cache entry.
+	 */
+	if (ARRNELEMS(original) <= 1)
+		return original;
+
+	prepared = DatumGetArrayTypePCopy(PointerGetDatum(original));
+	PREPAREARR(prepared);
+	*needs_free = true;
+
+	/* Direct calls without FmgrInfo retain the ordinary temporary copy. */
+	if (flinfo == NULL)
+		return prepared;
+
+	preparedsize = VARSIZE(prepared);
+	cachesize = add_size(MAXALIGN(sizeof(GIntQueryCache)),
+					 add_size(MAXALIGN(querysize), preparedsize));
+	/* A cache must not impose a smaller array limit than the old path. */
+	if (!AllocSizeIsValid(cachesize))
+		return prepared;
+
+	/* Build completely before replacing the old cache, including on ERROR. */
+	newcache = MemoryContextAlloc(flinfo->fn_mcxt, cachesize);
+	newcache->original = (ArrayType *)
+		((char *) newcache + MAXALIGN(sizeof(GIntQueryCache)));
+	newcache->prepared = (ArrayType *)
+		((char *) newcache->original + MAXALIGN(querysize));
+	memcpy(newcache->original, original, querysize);
+	memcpy(newcache->prepared, prepared, preparedsize);
+	pfree(prepared);
+	if (cache)
+		pfree(cache);
+	flinfo->fn_extra = newcache;
+	*needs_free = false;
+	return newcache->prepared;
+}
+
+static ArrayType *
+g_int_prepare_query(FmgrInfo *flinfo, ArrayType *original, bool *needs_free)
+{
+	GIntQueryCache *cache = flinfo ? flinfo->fn_extra : NULL;
+	Size		querysize = VARSIZE(original);
+
+	*needs_free = false;
+	if (cache && VARSIZE(cache->original) == querysize &&
+		memcmp(cache->original, original, querysize) == 0)
+		return cache->prepared;
+
+	return g_int_prepare_query_miss(flinfo, original, needs_free);
+}
+
 /*
  * The GiST Consistent method for _intments
  * Should return false if for all data items x below entry,
@@ -47,7 +123,9 @@ Datum
 g_int_consistent(PG_FUNCTION_ARGS)
 {
 	GISTENTRY  *entry = (GISTENTRY *) PG_GETARG_POINTER(0);
-	ArrayType  *query = PG_GETARG_ARRAYTYPE_P_COPY(1);
+	ArrayType  *query;
+	ArrayType  *original;
+	bool		query_needs_free;
 	StrategyNumber strategy = (StrategyNumber) PG_GETARG_UINT16(2);
 #ifdef NOT_USED
 	Oid			subtype = PG_GETARG_OID(3);
@@ -60,6 +138,8 @@ g_int_consistent(PG_FUNCTION_ARGS)
 
 	if (strategy == BooleanSearchStrategy)
 	{
+		/* Boolean query representation keeps its original independent copy. */
+		query = PG_GETARG_ARRAYTYPE_P_COPY(1);
 		retval = execconsistent((QUERYTYPE *) query,
 								(ArrayType *) DatumGetPointer(entry->key),
 								GIST_LEAF(entry));
@@ -68,9 +148,9 @@ g_int_consistent(PG_FUNCTION_ARGS)
 		PG_RETURN_BOOL(retval);
 	}
 
-	/* sort query for fast search, key is already sorted */
-	CHECKARRVALID(query);
-	PREPAREARR(query);
+	/* Ordinary array strategies share the same sorted, unique query. */
+	original = PG_GETARG_ARRAYTYPE_P(1);
+	query = g_int_prepare_query(fcinfo->flinfo, original, &query_needs_free);
 
 	switch (strategy)
 	{
@@ -116,7 +196,9 @@ g_int_consistent(PG_FUNCTION_ARGS)
 		default:
 			retval = false;
 	}
-	pfree(query);
+	if (query_needs_free)
+		pfree(query);
+	PG_FREE_IF_COPY(original, 1);
 	PG_RETURN_BOOL(retval);
 }
 
