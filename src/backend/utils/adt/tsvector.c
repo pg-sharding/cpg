@@ -41,6 +41,14 @@ compareWordEntryPos(const void *a, const void *b)
 	return pg_cmp_s32(apos, bpos);
 }
 
+#define ST_SORT sortWordEntryPos
+#define ST_ELEMENT_TYPE WordEntryPos
+#define ST_COMPARE(a, b) compareWordEntryPos(a, b)
+#define ST_SCOPE
+#define ST_DECLARE
+#define ST_DEFINE
+#include "lib/sort_template.h"
+
 /*
  * Removes duplicate pos entries. If there's two entries with same pos but
  * different weight, the higher weight is retained, so we can't use
@@ -57,7 +65,7 @@ uniquePos(WordEntryPos *a, int l)
 	if (l <= 1)
 		return l;
 
-	qsort(a, l, sizeof(WordEntryPos), compareWordEntryPos);
+	sortWordEntryPos(a, l);
 
 	res = a;
 	ptr = a + 1;

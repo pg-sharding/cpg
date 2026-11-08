@@ -66,6 +66,8 @@ extern int	compareWordEntryPos(const void *a, const void *b);
 
 typedef uint16 WordEntryPos;
 
+extern void sortWordEntryPos(WordEntryPos *data, size_t n);
+
 typedef struct
 {
 	uint16		npos;

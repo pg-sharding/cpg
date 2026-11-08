@@ -1430,7 +1430,7 @@ checkcondition_str(void *checkval, QueryOperand *val, ExecPhraseData *data)
 		{
 			/* Sort and make unique array of found positions */
 			data->pos = allpos;
-			qsort(data->pos, npos, sizeof(WordEntryPos), compareWordEntryPos);
+			sortWordEntryPos(data->pos, npos);
 			data->npos = qunique(data->pos, npos, sizeof(WordEntryPos),
 								 compareWordEntryPos);
 			data->allocated = true;
