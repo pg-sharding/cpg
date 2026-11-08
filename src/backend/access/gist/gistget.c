@@ -17,12 +17,17 @@
 #include "access/genam.h"
 #include "access/gist_private.h"
 #include "access/relscan.h"
+#include "access/stratnum.h"
+#include "catalog/pg_type_d.h"
 #include "executor/instrument_node.h"
 #include "lib/pairingheap.h"
 #include "miscadmin.h"
 #include "pgstat.h"
 #include "storage/predicate.h"
 #include "utils/float.h"
+#include "utils/fmgroids.h"
+#include "utils/fmgrprotos.h"
+#include "utils/geo_decls.h"
 #include "utils/memutils.h"
 #include "utils/rel.h"
 
@@ -314,6 +319,84 @@ gistindex_keytest(IndexScanDesc scan,
 }
 
 /*
+ * Only the built-in, uncompressed BOX overlap contract permits this prefilter.
+ * Keep every survivor on the regular keytest path, including its memory context.
+ */
+static const BOX *
+gistBoxBatchQuery(IndexScanDesc scan)
+{
+	GISTScanOpaque so = (GISTScanOpaque) scan->opaque;
+	GISTSTATE  *state = so->giststate;
+	ScanKey		key = scan->keyData;
+
+	if (scan->numberOfKeys != 1 || scan->numberOfOrderBys != 0 ||
+		key->sk_attno != 1 || key->sk_flags != 0 ||
+		key->sk_strategy != RTOverlapStrategyNumber ||
+		(key->sk_subtype != InvalidOid && key->sk_subtype != BOXOID) ||
+		key->sk_func.fn_oid != F_GIST_BOX_CONSISTENT ||
+		key->sk_func.fn_addr != gist_box_consistent ||
+		state->consistentFn[0].fn_oid != F_GIST_BOX_CONSISTENT ||
+		state->consistentFn[0].fn_addr != gist_box_consistent ||
+		OidIsValid(state->compressFn[0].fn_oid) ||
+		OidIsValid(state->decompressFn[0].fn_oid) ||
+		state->leafTupdesc->natts != 1 ||
+		TupleDescAttr(state->leafTupdesc, 0)->atttypid != BOXOID ||
+		scan->indexRelation->rd_opcintype[0] != BOXOID)
+		return NULL;
+
+	return DatumGetBoxP(key->sk_argument);
+}
+
+#define GIST_BOX_BATCH_SIZE 8
+
+/* Gather from the slotted page while its existing share lock is held. */
+static uint32
+gistBoxBatchReject(IndexScanDesc scan, Page page, OffsetNumber first,
+				   OffsetNumber maxoff, const BOX *query)
+{
+	double		lowx[GIST_BOX_BATCH_SIZE];
+	double		highx[GIST_BOX_BATCH_SIZE];
+	double		lowy[GIST_BOX_BATCH_SIZE];
+	double		highy[GIST_BOX_BATCH_SIZE];
+	uint32		valid = 0;
+	uint32		rejected = 0;
+	int			count = Min(GIST_BOX_BATCH_SIZE, maxoff - first + 1);
+	int			j;
+
+	for (j = 0; j < count; j++)
+	{
+		ItemId		iid = PageGetItemId(page, first + j);
+		IndexTuple	it;
+		const BOX  *box;
+
+		/* These entries must still take their original path. */
+		if (scan->ignore_killed_tuples && ItemIdIsDead(iid))
+			continue;
+		it = (IndexTuple) PageGetItem(page, iid);
+		if (GistTupleIsInvalid(it) || IndexTupleHasNulls(it))
+			continue;
+
+		box = (const BOX *) ((char *) it + IndexInfoFindDataOffset(it->t_info));
+		lowx[j] = box->low.x;
+		highx[j] = box->high.x;
+		lowy[j] = box->low.y;
+		highy[j] = box->high.y;
+		valid |= UINT32_C(1) << j;
+	}
+
+	for (j = 0; j < count; j++)
+	{
+		if ((valid & (UINT32_C(1) << j)) != 0 &&
+			!(FPle(lowx[j], query->high.x) &&
+			  FPle(query->low.x, highx[j]) &&
+			  FPle(lowy[j], query->high.y) &&
+			  FPle(query->low.y, highy[j])))
+			rejected |= UINT32_C(1) << j;
+	}
+	return rejected;
+}
+
+/*
  * Scan all items on the GiST index page identified by *pageItem, and insert
  * them into the queue (or directly to output areas)
  *
@@ -348,6 +431,10 @@ gistScanPage(IndexScanDesc scan, GISTSearchItem *pageItem,
 	OffsetNumber maxoff;
 	OffsetNumber i;
 	MemoryContext oldcxt;
+	const BOX  *boxquery;
+	uint32		boxreject = 0;
+	OffsetNumber boxfirst = InvalidOffsetNumber;
+	OffsetNumber boxend = FirstOffsetNumber;
 
 	Assert(!GISTSearchItemIsHeap(*pageItem));
 
@@ -424,6 +511,7 @@ gistScanPage(IndexScanDesc scan, GISTSearchItem *pageItem,
 	 * check all tuples on page
 	 */
 	maxoff = PageGetMaxOffsetNumber(page);
+	boxquery = gistBoxBatchQuery(scan);
 	for (i = FirstOffsetNumber; i <= maxoff; i = OffsetNumberNext(i))
 	{
 		ItemId		iid = PageGetItemId(page, i);
@@ -440,6 +528,18 @@ gistScanPage(IndexScanDesc scan, GISTSearchItem *pageItem,
 		{
 			Assert(GistPageIsLeaf(page));
 			continue;
+		}
+
+		if (boxquery != NULL)
+		{
+			if (i >= boxend)
+			{
+				boxfirst = i;
+				boxend = i + GIST_BOX_BATCH_SIZE;
+				boxreject = gistBoxBatchReject(scan, page, i, maxoff, boxquery);
+			}
+			if (boxreject & (UINT32_C(1) << (i - boxfirst)))
+				continue;
 		}
 
 		it = (IndexTuple) PageGetItem(page, iid);
