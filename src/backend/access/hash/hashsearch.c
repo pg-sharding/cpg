@@ -498,6 +498,73 @@ _hash_first(IndexScanDesc scan, ScanDirection dir)
 }
 
 /*
+ * Locate the first hash key >= hash_value on a page.  The initial rank is
+ * only a hint: establish an exact bracket before the final binary search.
+ * Hash values are ordered within a page, not across overflow pages.
+ */
+static OffsetNumber
+_hash_search_rank(Page page, uint32 hash_value)
+{
+	OffsetNumber maxoff = PageGetMaxOffsetNumber(page);
+	OffsetNumber lower = FirstOffsetNumber;
+	OffsetNumber upper = maxoff + 1;
+	OffsetNumber guess;
+	OffsetNumber off;
+	unsigned int step;
+	IndexTuple itup;
+	uint32 hashkey;
+
+	if (maxoff <= 8)
+		return _hash_binsearch(page, hash_value);
+
+	guess = 1 + (((uint64) hash_value * maxoff) >> 32);
+	itup = (IndexTuple) PageGetItem(page, PageGetItemId(page, guess));
+	hashkey = _hash_get_indextuple_hashkey(itup);
+	if (hashkey < hash_value)
+	{
+		lower = guess + 1;
+		for (step = 1; step <= maxoff - guess; step *= 2)
+		{
+			off = guess + step;
+			itup = (IndexTuple) PageGetItem(page, PageGetItemId(page, off));
+			if (_hash_get_indextuple_hashkey(itup) >= hash_value)
+			{
+				upper = off;
+				break;
+			}
+			lower = off + 1;
+		}
+	}
+	else
+	{
+		upper = guess;
+		for (step = 1; step < guess; step *= 2)
+		{
+			off = guess - step;
+			itup = (IndexTuple) PageGetItem(page, PageGetItemId(page, off));
+			if (_hash_get_indextuple_hashkey(itup) < hash_value)
+			{
+				lower = off + 1;
+				break;
+			}
+			upper = off;
+		}
+	}
+
+	while (upper > lower)
+	{
+		off = (upper + lower) / 2;
+		itup = (IndexTuple) PageGetItem(page, PageGetItemId(page, off));
+		if (_hash_get_indextuple_hashkey(itup) < hash_value)
+			lower = off + 1;
+		else
+			upper = off;
+	}
+
+	return lower;
+}
+
+/*
  *	_hash_readpage() -- Load data from current index page into so->currPos
  *
  *	We scan all the items in the current index page and save them into
@@ -534,7 +601,7 @@ _hash_readpage(IndexScanDesc scan, Buffer *bufP, ScanDirection dir)
 		for (;;)
 		{
 			/* new page, locate starting position by binary search */
-			offnum = _hash_binsearch(page, so->hashso_sk_hash);
+			offnum = _hash_search_rank(page, so->hashso_sk_hash);
 
 			itemIndex = _hash_load_qualified_items(scan, page, offnum, dir);
 
