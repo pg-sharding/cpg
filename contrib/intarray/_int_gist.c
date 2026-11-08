@@ -130,6 +130,22 @@ g_int_union(PG_FUNCTION_ARGS)
 	ArrayType  *res;
 	int			totlen = 0;
 
+	/* Merge a few sorted, unique keys directly. */
+	if (entryvec->n >= 2 && entryvec->n <= 8)
+	{
+		res = inner_int_union(GETENTRY(entryvec, 0),
+							  GETENTRY(entryvec, 1));
+		for (i = 2; i < entryvec->n; i++)
+		{
+			ArrayType  *next = inner_int_union(res, GETENTRY(entryvec, i));
+
+			pfree(res);
+			res = next;
+		}
+		*size = VARSIZE(res);
+		PG_RETURN_POINTER(res);
+	}
+
 	for (i = 0; i < entryvec->n; i++)
 	{
 		ArrayType  *ent = GETENTRY(entryvec, i);
