@@ -65,12 +65,8 @@ static bool _bt_oppodir_checkkeys(IndexScanDesc scan, ScanDirection dir,
 								  IndexTuple finaltup);
 static void _bt_saveitem(BTScanOpaque so, int itemIndex,
 						 OffsetNumber offnum, IndexTuple itup);
-static int	_bt_setuppostingitems(BTScanOpaque so, int itemIndex,
-								  OffsetNumber offnum, const ItemPointerData *heapTid,
-								  IndexTuple itup);
-static inline void _bt_savepostingitem(BTScanOpaque so, int itemIndex,
-									   OffsetNumber offnum,
-									   ItemPointer heapTid, int tupleOffset);
+static void _bt_savepostingitems(BTScanOpaque so, int itemIndex,
+								OffsetNumber offnum, IndexTuple itup);
 static bool _bt_checkkeys(IndexScanDesc scan, BTReadPageState *pstate, bool arrayKeys,
 						  IndexTuple tuple, int tupnatts);
 static bool _bt_check_compare(IndexScanDesc scan, ScanDirection dir,
@@ -233,6 +229,8 @@ _bt_readpage(IndexScanDesc scan, ScanDirection dir, OffsetNumber offnum,
 
 		/* load items[] in ascending order */
 		itemIndex = 0;
+		so->currPos.firstTuple = 0;
+		so->currPos.lastTuple = -1;
 
 		offnum = Max(offnum, minoff);
 
@@ -285,23 +283,8 @@ _bt_readpage(IndexScanDesc scan, ScanDirection dir, OffsetNumber offnum,
 				}
 				else
 				{
-					int			tupleOffset;
-
-					/* Set up posting list state (and remember first TID) */
-					tupleOffset =
-						_bt_setuppostingitems(so, itemIndex, offnum,
-											  BTreeTupleGetPostingN(itup, 0),
-											  itup);
-					itemIndex++;
-
-					/* Remember all later TIDs (must be at least one) */
-					for (int i = 1; i < BTreeTupleGetNPosting(itup); i++)
-					{
-						_bt_savepostingitem(so, itemIndex, offnum,
-											BTreeTupleGetPostingN(itup, i),
-											tupleOffset);
-						itemIndex++;
-					}
+					_bt_savepostingitems(so, itemIndex, offnum, itup);
+					itemIndex += BTreeTupleGetNPosting(itup);
 				}
 			}
 			/* When !continuescan, there can't be any more matches, so stop */
@@ -345,6 +328,7 @@ _bt_readpage(IndexScanDesc scan, ScanDirection dir, OffsetNumber offnum,
 		so->currPos.firstItem = 0;
 		so->currPos.lastItem = itemIndex - 1;
 		so->currPos.itemIndex = 0;
+		so->currPos.tupleIndex = so->currPos.firstTuple;
 	}
 	else
 	{
@@ -382,6 +366,8 @@ _bt_readpage(IndexScanDesc scan, ScanDirection dir, OffsetNumber offnum,
 
 		/* load items[] in descending order */
 		itemIndex = MaxTIDsPerBTreePage;
+		so->currPos.firstTuple = MaxIndexTuplesPerPage;
+		so->currPos.lastTuple = MaxIndexTuplesPerPage - 1;
 
 		offnum = Min(offnum, maxoff);
 
@@ -470,24 +456,8 @@ _bt_readpage(IndexScanDesc scan, ScanDirection dir, OffsetNumber offnum,
 				}
 				else
 				{
-					uint16		nitems = BTreeTupleGetNPosting(itup);
-					int			tupleOffset;
-
-					/* Set up posting list state (and remember last TID) */
-					itemIndex--;
-					tupleOffset =
-						_bt_setuppostingitems(so, itemIndex, offnum,
-											  BTreeTupleGetPostingN(itup, nitems - 1),
-											  itup);
-
-					/* Remember all prior TIDs (must be at least one) */
-					for (int i = nitems - 2; i >= 0; i--)
-					{
-						itemIndex--;
-						_bt_savepostingitem(so, itemIndex, offnum,
-											BTreeTupleGetPostingN(itup, i),
-											tupleOffset);
-					}
+					itemIndex -= BTreeTupleGetNPosting(itup);
+					_bt_savepostingitems(so, itemIndex, offnum, itup);
 				}
 			}
 			/* When !continuescan, there can't be any more matches, so stop */
@@ -508,6 +478,7 @@ _bt_readpage(IndexScanDesc scan, ScanDirection dir, OffsetNumber offnum,
 		so->currPos.firstItem = itemIndex;
 		so->currPos.lastItem = MaxTIDsPerBTreePage - 1;
 		so->currPos.itemIndex = MaxTIDsPerBTreePage - 1;
+		so->currPos.tupleIndex = so->currPos.lastTuple;
 	}
 
 	/*
@@ -1033,11 +1004,17 @@ static void
 _bt_saveitem(BTScanOpaque so, int itemIndex,
 			 OffsetNumber offnum, IndexTuple itup)
 {
-	BTScanPosItem *currItem = &so->currPos.items[itemIndex];
+	BTScanPosItem *currItem;
+
+	if (ScanDirectionIsForward(so->currPos.dir))
+		currItem = &so->currPos.items[++so->currPos.lastTuple];
+	else
+		currItem = &so->currPos.items[--so->currPos.firstTuple];
 
 	Assert(!BTreeTupleIsPivot(itup) && !BTreeTupleIsPosting(itup));
 
-	currItem->heapTid = itup->t_tid;
+	so->currPos.heapTids[itemIndex] = itup->t_tid;
+	currItem->lastItem = itemIndex;
 	currItem->indexOffset = offnum;
 	if (so->currTuples)
 	{
@@ -1049,69 +1026,35 @@ _bt_saveitem(BTScanOpaque so, int itemIndex,
 	}
 }
 
-/*
- * Setup state to save TIDs/items from a single posting list tuple.
- *
- * Saves an index item into so->currPos.items[itemIndex] for TID that is
- * returned to scan first.  Second or subsequent TIDs for posting list should
- * be saved by calling _bt_savepostingitem().
- *
- * Returns an offset into tuple storage space that main tuple is stored at if
- * needed.
- */
-static int
-_bt_setuppostingitems(BTScanOpaque so, int itemIndex, OffsetNumber offnum,
-					  const ItemPointerData *heapTid, IndexTuple itup)
+/* Copy a posting list into dense scan-owned storage, keeping one descriptor. */
+static void
+_bt_savepostingitems(BTScanOpaque so, int itemIndex, OffsetNumber offnum,
+					 IndexTuple itup)
 {
-	BTScanPosItem *currItem = &so->currPos.items[itemIndex];
+	BTScanPosItem *currItem;
+	int nitems = BTreeTupleGetNPosting(itup);
 
 	Assert(BTreeTupleIsPosting(itup));
-
-	currItem->heapTid = *heapTid;
+	if (ScanDirectionIsForward(so->currPos.dir))
+		currItem = &so->currPos.items[++so->currPos.lastTuple];
+	else
+		currItem = &so->currPos.items[--so->currPos.firstTuple];
+	memcpy(so->currPos.heapTids + itemIndex,
+		   BTreeTupleGetPostingN(itup, 0), nitems * sizeof(ItemPointerData));
+	currItem->lastItem = itemIndex + nitems - 1;
 	currItem->indexOffset = offnum;
 	if (so->currTuples)
 	{
-		/* Save base IndexTuple (truncate posting list) */
-		IndexTuple	base;
-		Size		itupsz = BTreeTupleGetPostingOffset(itup);
+		IndexTuple base;
+		Size itupsz = MAXALIGN(BTreeTupleGetPostingOffset(itup));
 
-		itupsz = MAXALIGN(itupsz);
 		currItem->tupleOffset = so->currPos.nextTupleOffset;
 		base = (IndexTuple) (so->currTuples + so->currPos.nextTupleOffset);
 		memcpy(base, itup, itupsz);
-		/* Defensively reduce work area index tuple header size */
 		base->t_info &= ~INDEX_SIZE_MASK;
 		base->t_info |= itupsz;
 		so->currPos.nextTupleOffset += itupsz;
-
-		return currItem->tupleOffset;
 	}
-
-	return 0;
-}
-
-/*
- * Save an index item into so->currPos.items[itemIndex] for current posting
- * tuple.
- *
- * Assumes that _bt_setuppostingitems() has already been called for current
- * posting list tuple.  Caller passes its return value as tupleOffset.
- */
-static inline void
-_bt_savepostingitem(BTScanOpaque so, int itemIndex, OffsetNumber offnum,
-					ItemPointer heapTid, int tupleOffset)
-{
-	BTScanPosItem *currItem = &so->currPos.items[itemIndex];
-
-	currItem->heapTid = *heapTid;
-	currItem->indexOffset = offnum;
-
-	/*
-	 * Have index-only scans return the same base IndexTuple for every TID
-	 * that originates from the same posting list
-	 */
-	if (so->currTuples)
-		currItem->tupleOffset = tupleOffset;
 }
 
 #define LOOK_AHEAD_REQUIRED_RECHECKS 	3
