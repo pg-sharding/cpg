@@ -131,6 +131,92 @@ compareint(const void *va, const void *vb)
 	return pg_cmp_s32(a, b);
 }
 
+#define ST_SORT tsvector_hash_qsort
+#define ST_ELEMENT_TYPE int32
+#define ST_COMPARE(a, b) pg_cmp_s32(*(a), *(b))
+#define ST_SCOPE static
+#define ST_DEFINE
+#define ST_DECLARE
+#include "lib/sort_template.h"
+
+/* Sort the signed CRC values and remove collisions before choosing key form. */
+static size_t
+tsvector_hash_sort_and_unique(int32 *array, size_t n)
+{
+	uint32		freqs[4][256];
+	uint32		first,
+				different = 0;
+	int32	   *buffer,
+			   *from = array,
+			   *to;
+	size_t		unique;
+
+	if (n <= 128)
+	{
+		tsvector_hash_qsort(array, n);
+		return qunique(array, n, sizeof(int32), compareint);
+	}
+
+	/* The comparison sort also has a cheap path for already ordered input. */
+	{
+		size_t		j;
+
+		for (j = 1; j < n; j++)
+			if (array[j - 1] > array[j])
+				break;
+		if (j == n)
+			return qunique(array, n, sizeof(int32), compareint);
+	}
+
+	memset(freqs, 0, sizeof(freqs));
+	first = (uint32) array[0];
+	for (size_t j = 0; j < n; j++)
+	{
+		uint32		key = (uint32) array[j];
+
+		different |= key ^ first;
+		/* A tsvector allocation cannot contain UINT32_MAX lexemes. */
+		freqs[0][key & 255]++;
+		freqs[1][(key >> 8) & 255]++;
+		freqs[2][(key >> 16) & 255]++;
+		freqs[3][key >> 24]++;
+	}
+	if (different == 0)
+		return 1;
+
+	buffer = palloc_array(int32, n);
+	to = buffer;
+	for (unsigned int byte = 0; byte < 4; byte++)
+	{
+		int32	   *starts[256],
+				   *next = to,
+				   *swap;
+		unsigned int shift = byte * 8;
+		unsigned int mask = byte == 3 ? 128 : 0;
+
+		if ((different & ((uint32) 255 << shift)) == 0)
+			continue;
+		for (unsigned int k = 0; k < 256; k++)
+		{
+			starts[k ^ mask] = next;
+			next += freqs[byte][k ^ mask];
+		}
+		for (size_t j = 0; j < n; j++)
+			*starts[((uint32) from[j] >> shift) & 255]++ = from[j];
+		swap = from;
+		from = to;
+		to = swap;
+	}
+
+	array[0] = from[0];
+	unique = 1;
+	for (size_t j = 1; j < n; j++)
+		if (from[j] != array[unique - 1])
+			array[unique++] = from[j];
+	pfree(buffer);
+	return unique;
+}
+
 static void
 makesign(BITVECP sign, SignTSVector *a, int siglen)
 {
@@ -190,8 +276,7 @@ gtsvector_compress(PG_FUNCTION_ARGS)
 			ptr++;
 		}
 
-		qsort(GETARR(res), val->size, sizeof(int), compareint);
-		len = qunique(GETARR(res), val->size, sizeof(int), compareint);
+		len = tsvector_hash_sort_and_unique(GETARR(res), val->size);
 		if (len != val->size)
 		{
 			/*
