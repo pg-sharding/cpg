@@ -431,6 +431,56 @@ spg_box_quad_choose(PG_FUNCTION_ARGS)
 	PG_RETURN_VOID();
 }
 
+/* Find the upper median without ordering the other coordinates. */
+static float8
+spg_box_select(float8 *values, int n)
+{
+	int			lo = 0,
+				hi = n,
+				nth = n / 2,
+				budget = 32;
+
+	while (hi - lo > 16 && budget-- > 0)
+	{
+		float8		a = values[lo],
+					b = values[lo + (hi - lo) / 2],
+					c = values[hi - 1];
+		float8		pivot = a < b ? (b < c ? b : (a < c ? c : a))
+			: (a < c ? a : (b < c ? c : b));
+		int			less = lo,
+					scan = lo,
+					greater = hi;
+
+		while (scan < greater)
+		{
+			float8		tmp;
+
+			if (values[scan] < pivot)
+			{
+				tmp = values[less];
+				values[less++] = values[scan];
+				values[scan++] = tmp;
+			}
+			else if (values[scan] > pivot)
+			{
+				tmp = values[--greater];
+				values[greater] = values[scan];
+				values[scan] = tmp;
+			}
+			else
+				scan++;
+		}
+		if (nth < less)
+			hi = less;
+		else if (nth >= greater)
+			lo = greater;
+		else
+			return values[nth];
+	}
+	qsort(values + lo, hi - lo, sizeof(float8), compareDoubles);
+	return values[nth];
+}
+
 /*
  * SP-GiST pick-split function
  *
@@ -443,6 +493,8 @@ spg_box_quad_picksplit(PG_FUNCTION_ARGS)
 	spgPickSplitIn *in = (spgPickSplitIn *) PG_GETARG_POINTER(0);
 	spgPickSplitOut *out = (spgPickSplitOut *) PG_GETARG_POINTER(1);
 	BOX		   *centroid;
+	bool		use_qsort = false;
+	unsigned	zeros[4] = {0};
 	int			median,
 				i;
 	float8	   *lowXs = palloc_array(float8, in->nTuples);
@@ -459,12 +511,36 @@ spg_box_quad_picksplit(PG_FUNCTION_ARGS)
 		highXs[i] = box->high.x;
 		lowYs[i] = box->low.y;
 		highYs[i] = box->high.y;
+
+		/* Keep the original behavior for non-total NaN comparisons and zeros. */
+		for (int axis = 0; axis < 4; axis++)
+		{
+			float8 value = axis == 0 ? lowXs[i] : axis == 1 ? highXs[i]
+				: axis == 2 ? lowYs[i] : highYs[i];
+
+			if (isnan(value))
+				use_qsort = true;
+			if (value == 0)
+				zeros[axis] |= signbit(value) ? 1 : 2;
+			if (zeros[axis] == 3)
+				use_qsort = true;
+		}
 	}
 
-	qsort(lowXs, in->nTuples, sizeof(float8), compareDoubles);
-	qsort(highXs, in->nTuples, sizeof(float8), compareDoubles);
-	qsort(lowYs, in->nTuples, sizeof(float8), compareDoubles);
-	qsort(highYs, in->nTuples, sizeof(float8), compareDoubles);
+	if (use_qsort)
+	{
+		qsort(lowXs, in->nTuples, sizeof(float8), compareDoubles);
+		qsort(highXs, in->nTuples, sizeof(float8), compareDoubles);
+		qsort(lowYs, in->nTuples, sizeof(float8), compareDoubles);
+		qsort(highYs, in->nTuples, sizeof(float8), compareDoubles);
+	}
+	else
+	{
+		lowXs[in->nTuples / 2] = spg_box_select(lowXs, in->nTuples);
+		highXs[in->nTuples / 2] = spg_box_select(highXs, in->nTuples);
+		lowYs[in->nTuples / 2] = spg_box_select(lowYs, in->nTuples);
+		highYs[in->nTuples / 2] = spg_box_select(highYs, in->nTuples);
+	}
 
 	median = in->nTuples / 2;
 
