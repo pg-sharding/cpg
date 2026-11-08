@@ -373,6 +373,10 @@ btbeginscan(Relation rel, int nkeys, int norderbys)
 	 * scan->xs_itupdesc whether we'll need it or not, since that's so cheap.
 	 */
 	so->currTuples = so->markTuples = NULL;
+	so->iosCache.values = NULL;
+	so->iosCache.isnull = NULL;
+	so->iosCache.itup = NULL;
+	so->iosCache.required_flags = INDEX_ALT_TID_MASK;
 
 	scan->xs_itupdesc = RelationGetDescr(rel);
 
@@ -389,6 +393,9 @@ btrescan(IndexScanDesc scan, ScanKey scankey, int nscankeys,
 		 ScanKey orderbys, int norderbys)
 {
 	BTScanOpaque so = (BTScanOpaque) scan->opaque;
+
+	so->iosCache.itup = NULL;
+	scan->xs_itupcache = NULL;
 
 	/* we aren't holding any read locks, but gotta drop the pins */
 	if (BTScanPosIsValid(so->currPos))
@@ -435,8 +442,22 @@ btrescan(IndexScanDesc scan, ScanKey scankey, int nscankeys,
 	 */
 	if (scan->xs_want_itup && so->currTuples == NULL)
 	{
-		so->currTuples = (char *) palloc(BLCKSZ * 2);
+		int			natts = scan->xs_itupdesc->natts;
+		Size		cachesz = 0;
+
+		/*
+		 * A one-attribute tuple has no attribute-prefix walk to reuse.  Cache
+		 * setup and copying can cost more than deformation for short postings.
+		 */
+		if (natts > 1)
+			cachesz = natts * (sizeof(Datum) + sizeof(bool));
+		so->currTuples = palloc(BLCKSZ * 2 + cachesz);
 		so->markTuples = so->currTuples + BLCKSZ;
+		if (cachesz > 0)
+		{
+			so->iosCache.values = (Datum *) (so->currTuples + BLCKSZ * 2);
+			so->iosCache.isnull = (bool *) (so->iosCache.values + natts);
+		}
 	}
 
 	/*
@@ -518,6 +539,10 @@ btrestrpos(IndexScanDesc scan)
 {
 	BTScanOpaque so = (BTScanOpaque) scan->opaque;
 
+	/* Restore may overwrite currTuples, including its by-reference datums. */
+	so->iosCache.itup = NULL;
+	scan->xs_itupcache = NULL;
+
 	if (so->markItemIndex >= 0)
 	{
 		/*
@@ -566,6 +591,10 @@ btrestrpos(IndexScanDesc scan)
 		else
 			BTScanPosInvalidate(so->currPos);
 	}
+
+	/* A restored workspace needs the same page-level attachment as a read. */
+	if (BTScanPosIsValid(so->currPos) && so->currPos.hasPosting)
+		scan->xs_itupcache = &so->iosCache;
 }
 
 /*
