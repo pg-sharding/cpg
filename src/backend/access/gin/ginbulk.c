@@ -173,6 +173,7 @@ ginInsertBAEntry(BuildAccumulator *accum,
 
 	oldsize = accum->hash->size;
 	entry = ginbuild_insert(accum->hash, hashkey, &found);
+	accum->allocatedMemory += (accum->hash->size - oldsize) * sizeof(GinHashEntry);
 
 	if (!found)
 	{
@@ -186,7 +187,6 @@ ginInsertBAEntry(BuildAccumulator *accum,
 		entry->items = palloc_array(ItemPointerData, DEF_ITEMS_PER_KEY);
 		entry->numItems = 0;
 		entry->allocatedItems = DEF_ITEMS_PER_KEY;
-		accum->allocatedMemory += (accum->hash->size - oldsize) * sizeof(GinHashEntry);
 		accum->allocatedMemory += GetMemoryChunkSpace(entry->items);
 	}
 
