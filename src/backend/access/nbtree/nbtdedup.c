@@ -27,6 +27,7 @@ static bool _bt_do_singleval(Relation rel, Page page, BTDedupState state,
 							 OffsetNumber minoff, IndexTuple newitem);
 static void _bt_singleval_fillfactor(Page page, BTDedupState state,
 									 Size newitemsz);
+static Page _bt_dedup_start_page(Page page, OffsetNumber baseoff);
 #ifdef USE_ASSERT_CHECKING
 static bool _bt_posting_valid(IndexTuple posting);
 #endif
@@ -64,7 +65,7 @@ _bt_dedup_pass(Relation rel, Buffer buf, IndexTuple newitem, Size newitemsz,
 				maxoff;
 	Page		page = BufferGetPage(buf);
 	BTPageOpaque opaque = BTPageGetOpaque(page);
-	Page		newpage;
+	Page		newpage = NULL;
 	BTDedupState state;
 	Size		pagesaving PG_USED_FOR_ASSERTS_ONLY = 0;
 	bool		singlevalstrat = false;
@@ -110,27 +111,7 @@ _bt_dedup_pass(Relation rel, Buffer buf, IndexTuple newitem, Size newitemsz,
 	if (!bottomupdedup)
 		singlevalstrat = _bt_do_singleval(rel, page, state, minoff, newitem);
 
-	/*
-	 * Deduplicate items from page, and write them to newpage.
-	 *
-	 * Copy the original page's LSN into newpage copy.  This will become the
-	 * updated version of the page.  We need this because XLogInsert will
-	 * examine the LSN and possibly dump it in a page image.
-	 */
-	newpage = PageGetTempPageCopySpecial(page);
-	PageSetLSN(newpage, PageGetLSN(page));
-
-	/* Copy high key, if any */
-	if (!P_RIGHTMOST(opaque))
-	{
-		ItemId		hitemid = PageGetItemId(page, P_HIKEY);
-		Size		hitemsz = ItemIdGetLength(hitemid);
-		IndexTuple	hitem = (IndexTuple) PageGetItem(page, hitemid);
-
-		if (PageAddItem(newpage, hitem, hitemsz, P_HIKEY, false, false) == InvalidOffsetNumber)
-			elog(ERROR, "deduplication failed to add highkey");
-	}
-
+	/* Build the output page only after finding tuples we can merge. */
 	for (offnum = minoff;
 		 offnum <= maxoff;
 		 offnum = OffsetNumberNext(offnum))
@@ -156,6 +137,8 @@ _bt_dedup_pass(Relation rel, Buffer buf, IndexTuple newitem, Size newitemsz,
 			 * Tuple is equal to base tuple of pending posting list.  Heap
 			 * TID(s) for itup have been saved in state.
 			 */
+			if (newpage == NULL)
+				newpage = _bt_dedup_start_page(page, state->baseoff);
 		}
 		else
 		{
@@ -170,7 +153,16 @@ _bt_dedup_pass(Relation rel, Buffer buf, IndexTuple newitem, Size newitemsz,
 			 * form new posting tuple and add it to our temp page (newpage).
 			 * Else add pending interval's base tuple to the temp page as-is.
 			 */
-			pagesaving += _bt_dedup_finish_pending(newpage, state);
+			if (newpage != NULL)
+				pagesaving += _bt_dedup_finish_pending(newpage, state);
+			else
+			{
+				/* Leave an unchanged prefix on the original page for now. */
+				Assert(state->nitems == 1);
+				state->nhtids = 0;
+				state->nitems = 0;
+				state->phystupsize = 0;
+			}
 
 			if (singlevalstrat)
 			{
@@ -203,11 +195,12 @@ _bt_dedup_pass(Relation rel, Buffer buf, IndexTuple newitem, Size newitemsz,
 	}
 
 	/* Handle the last item */
-	pagesaving += _bt_dedup_finish_pending(newpage, state);
+	if (newpage != NULL)
+		pagesaving += _bt_dedup_finish_pending(newpage, state);
 
 	/*
-	 * If no items suitable for deduplication were found, newpage must be
-	 * exactly the same as the original page, so just return from function.
+	 * If no items suitable for deduplication were found, we never built an
+	 * output page, so just return from function.
 	 *
 	 * We could determine whether or not to proceed on the basis the space
 	 * savings being sufficient to avoid an immediate page split instead.  We
@@ -217,8 +210,8 @@ _bt_dedup_pass(Relation rel, Buffer buf, IndexTuple newitem, Size newitemsz,
 	 */
 	if (state->nintervals == 0)
 	{
+		Assert(newpage == NULL);
 		/* cannot leak memory here */
-		pfree(newpage);
 		pfree(state->htids);
 		pfree(state);
 		return;
@@ -277,6 +270,34 @@ _bt_dedup_pass(Relation rel, Buffer buf, IndexTuple newitem, Size newitemsz,
 	/* cannot leak memory here */
 	pfree(state->htids);
 	pfree(state);
+}
+
+/*
+ * Start building a deduplicated page after finding the first mergeable pair.
+ * Copy the unchanged prefix, including the high key when present.  Subsequent
+ * tuples are added by _bt_dedup_finish_pending() in the usual way.
+ */
+static Page
+_bt_dedup_start_page(Page page, OffsetNumber baseoff)
+{
+	Page		newpage = PageGetTempPageCopySpecial(page);
+
+	/* XLogInsert may need the original LSN when taking a full page image. */
+	PageSetLSN(newpage, PageGetLSN(page));
+
+	for (OffsetNumber offnum = FirstOffsetNumber;
+		 offnum < baseoff;
+		 offnum = OffsetNumberNext(offnum))
+	{
+		ItemId		itemid = PageGetItemId(page, offnum);
+		IndexTuple	itup = (IndexTuple) PageGetItem(page, itemid);
+		Size		itemsz = ItemIdGetLength(itemid);
+
+		if (PageAddItem(newpage, itup, itemsz, offnum, false, false) == InvalidOffsetNumber)
+			elog(ERROR, "deduplication failed to add unchanged tuple");
+	}
+
+	return newpage;
 }
 
 /*
