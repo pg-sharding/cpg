@@ -1175,46 +1175,71 @@ fill_expanded_ranges(ExpandedRange *eranges, int neranges, Ranges *ranges)
  */
 static int
 sort_expanded_ranges(FmgrInfo *cmp, Oid colloid,
-					 ExpandedRange *eranges, int neranges)
+					 ExpandedRange *eranges, int neranges,
+					 Ranges *ranges_a, Ranges *ranges_b)
 {
-	int			n;
-	int			i;
+	Ranges *inputs[2] = {ranges_a, ranges_b};
+	int heads[6], ends[6];
+	int nruns = 0;
+	int offset = 0;
+	int n = 0;
+	ExpandedRange *result;
 	compare_context cxt;
 
 	Assert(neranges > 0);
-
-	/* sort the values */
 	cxt.colloid = colloid;
 	cxt.cmpFn = cmp;
 
-	/*
-	 * XXX We do qsort on all the values, but we could also leverage the fact
-	 * that some of the input data is already sorted (all the ranges and maybe
-	 * some of the points) and do merge sort.
-	 */
-	qsort_arg(eranges, neranges, sizeof(ExpandedRange),
-			  compare_expanded_ranges, &cxt);
-
-	/*
-	 * Deduplicate the ranges - simply compare each range to the preceding
-	 * one, and skip the duplicate ones.
-	 */
-	n = 1;
-	for (i = 1; i < neranges; i++)
+	/* Each input has sorted ranges, sorted points, and an unsorted tail. */
+	for (int input = 0; input < 2; input++)
 	{
-		/* if the current range is equal to the preceding one, do nothing */
-		if (!compare_expanded_ranges(&eranges[i - 1], &eranges[i], &cxt))
+		Ranges *ranges = inputs[input];
+		int lengths[3];
+
+		if (ranges == NULL)
 			continue;
+		lengths[0] = ranges->nranges;
+		lengths[1] = ranges->nsorted;
+		lengths[2] = ranges->nvalues - ranges->nsorted;
+		for (int part = 0; part < 3; part++)
+		{
+			int length = lengths[part];
 
-		/* otherwise, copy it to n-th place (if not already there) */
-		if (i != n)
-			memcpy(&eranges[n], &eranges[i], sizeof(ExpandedRange));
-
-		n++;
+			if (length == 0)
+				continue;
+			if (part == 2 && length > 1)
+				qsort_arg(eranges + offset, length, sizeof(ExpandedRange),
+						  compare_expanded_ranges, &cxt);
+			heads[nruns] = offset;
+			offset += length;
+			ends[nruns++] = offset;
+		}
 	}
+	Assert(offset == neranges);
 
-	Assert((n > 0) && (n <= neranges));
+	/* Merge the runs using the same collation-aware (minval,maxval) order. */
+	result = palloc_array(ExpandedRange, neranges);
+	for (int i = 0; i < neranges; i++)
+	{
+		int best = -1;
 
+		for (int run = 0; run < nruns; run++)
+		{
+			if (heads[run] == ends[run])
+				continue;
+			if (best < 0 ||
+				compare_expanded_ranges(&eranges[heads[run]],
+										&eranges[heads[best]], &cxt) < 0)
+				best = run;
+		}
+		Assert(best >= 0);
+		if (n == 0 || compare_expanded_ranges(&result[n - 1],
+												&eranges[heads[best]], &cxt) != 0)
+			result[n++] = eranges[heads[best]];
+		heads[best]++;
+	}
+	memcpy(eranges, result, n * sizeof(ExpandedRange));
+	pfree(result);
 	return n;
 }
 
@@ -1396,7 +1421,8 @@ build_expanded_ranges(FmgrInfo *cmp, Oid colloid, Ranges *ranges,
 	fill_expanded_ranges(eranges, neranges, ranges);
 
 	/* sort and deduplicate the expanded ranges */
-	neranges = sort_expanded_ranges(cmp, colloid, eranges, neranges);
+	neranges = sort_expanded_ranges(cmp, colloid, eranges, neranges,
+										 ranges, NULL);
 
 	/* remember how many ranges we built */
 	*nranges = neranges;
@@ -2798,7 +2824,8 @@ brin_minmax_multi_union(PG_FUNCTION_ARGS)
 											   BTLessStrategyNumber);
 
 	/* sort the expanded ranges */
-	neranges = sort_expanded_ranges(cmpFn, colloid, eranges, neranges);
+	neranges = sort_expanded_ranges(cmpFn, colloid, eranges, neranges,
+										 ranges_a, ranges_b);
 
 	/*
 	 * We've loaded two different lists of expanded ranges, so some of them

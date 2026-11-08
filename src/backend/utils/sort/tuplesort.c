@@ -2654,6 +2654,7 @@ static void
 radix_sort_recursive(SortTuple *begin, size_t n_elems, int level, Tuplesortstate *state)
 {
 	RadixSortInfo partitions[256] = {0};
+	uint64		active[4] = {0};
 	uint8		remaining_partitions[256];
 	size_t		total = 0;
 	int			num_partitions = 0;
@@ -2683,23 +2684,27 @@ radix_sort_recursive(SortTuple *begin, size_t n_elems, int level, Tuplesortstate
 		st->curbyte = this_partition;
 
 		partitions[this_partition].count++;
+		active[this_partition >> 6] |= UINT64CONST(1) << (this_partition & 63);
 
 		CHECK_FOR_INTERRUPTS();
 	}
 
 	/* compute partition offsets */
-	for (int i = 0; i < 256; i++)
+	for (unsigned word = 0; word < 4; word++)
 	{
-		size_t		count = partitions[i].count;
+		uint64 bits = active[word];
 
-		if (count != 0)
+		while (bits)
 		{
+			unsigned i = word * 64 + pg_rightmost_one_pos64(bits);
+			size_t count = partitions[i].count;
+
 			partitions[i].offset = total;
 			total += count;
-			remaining_partitions[num_partitions] = i;
-			num_partitions++;
+			partitions[i].next_offset = total;
+			remaining_partitions[num_partitions++] = i;
+			bits &= bits - 1;
 		}
-		partitions[i].next_offset = total;
 	}
 
 	/*
