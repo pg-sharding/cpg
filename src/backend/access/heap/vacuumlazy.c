@@ -2006,12 +2006,13 @@ lazy_scan_new_or_empty(LVRelState *vacrel, Buffer buf, BlockNumber blkno,
 	return false;
 }
 
-/* qsort comparator for sorting OffsetNumbers */
-static int
-cmpOffsetNumbers(const void *a, const void *b)
-{
-	return pg_cmp_u16(*(const OffsetNumber *) a, *(const OffsetNumber *) b);
-}
+#define ST_SORT sort_dead_offsets
+#define ST_ELEMENT_TYPE OffsetNumber
+#define ST_COMPARE(a, b) pg_cmp_u16(*(a), *(b))
+#define ST_SCOPE static
+#define ST_DECLARE
+#define ST_DEFINE
+#include "lib/sort_template.h"
 
 /*
  *	lazy_scan_prune() -- lazy_scan_heap() pruning and freezing.
@@ -2113,8 +2114,7 @@ lazy_scan_prune(LVRelState *vacrel,
 		 * with an indeterminate order, but dead_items_add requires them to be
 		 * sorted.
 		 */
-		qsort(presult.deadoffsets, presult.lpdead_items, sizeof(OffsetNumber),
-			  cmpOffsetNumbers);
+		sort_dead_offsets(presult.deadoffsets, presult.lpdead_items);
 
 		dead_items_add(vacrel, blkno, presult.deadoffsets, presult.lpdead_items);
 	}
