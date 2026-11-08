@@ -10,6 +10,7 @@
 #include "common/int.h"
 #include "lib/qunique.h"
 #include "miscadmin.h"
+#include "port/pg_bitutils.h"
 #include "trgm.h"
 #include "tsearch/ts_locale.h"
 #include "utils/formatting.h"
@@ -226,6 +227,22 @@ CMPTRGM_CHOOSE(const void *a, const void *b)
 	return CMPTRGM(a, b);
 }
 
+#define ST_SORT trigram_qsort_signed
+#define ST_ELEMENT_TYPE_VOID
+#define ST_COMPARE(a, b) CMPTRGM_SIGNED(a, b)
+#define ST_SCOPE static
+#define ST_DEFINE
+#define ST_DECLARE
+#include "lib/sort_template.h"
+
+#define ST_SORT trigram_qsort_unsigned
+#define ST_ELEMENT_TYPE_VOID
+#define ST_COMPARE(a, b) CMPTRGM_UNSIGNED(a, b)
+#define ST_SCOPE static
+#define ST_DEFINE
+#define ST_DECLARE
+#include "lib/sort_template.h"
+
 /*
  * Compare two trigrams for equality.  This has the same signature as
  * comparison functions used for sorting, so that this can be used with
@@ -242,62 +259,108 @@ CMPTRGM_EQ(const void *a, const void *b)
 }
 
 /*
- * Needed to properly handle negative numbers in case char is signed.
+ * Sort with stable byte-wise radix passes.  The bitmaps identify the exact
+ * nonempty buckets, avoiding a scan of all 256 buckets for each pass.
  */
-static inline unsigned char
-radix_key(char x, bool char_is_signed)
+static size_t
+trigram_radix_sort_and_unique(trgm *array, size_t n, bool char_is_signed)
 {
-	return char_is_signed ? x ^ 0x80 : x;
-}
+	uint32		freqs[3][256] = {{0}};
+	uint64		active[3][4] = {{0}};
+	trgm	   *starts[256];
+	trgm	   *buffer;
+	trgm	   *from = array;
+	trgm	   *to;
+	unsigned	word_xor = char_is_signed ? 2 : 0;
+	size_t		unique;
 
-static inline size_t
-trigram_radix_sort_and_unique(trgm *trg, size_t count, bool char_is_signed)
-{
-	trgm *buffer = palloc_array(trgm, count);
-	trgm *starts[256];
-	trgm *from = trg;
-	trgm *to = buffer;
-	size_t freqs[256];
-
-	/*
-	 * Do the sorting. Start with last character because that's the "LSB"
-	 * in a trigram. Avoid unnecessary copies by ping-ponging between the buffers.
-	 */
-	for (int i = 2; i >= 0; i--)
+	/* The allocated trigram array cannot hold enough items to overflow uint32. */
+	/* Byte frequencies are unaffected by earlier sorting passes. */
+	for (size_t j = 0; j < n; j++)
 	{
-		trgm *old_from = from;
-		trgm *next = to;
-
-		/*
-		* Compute frequencies to partition the buffer.
-		*/
-		memset(freqs, 0, sizeof(freqs));
-
-		for (size_t j = 0; j < count; j++)
-			freqs[radix_key(trg[j][i], char_is_signed)]++;
-
-		for (size_t j = 0; j < 256; j++)
+		for (int byte = 0; byte < 3; byte++)
 		{
-			starts[j] = next;
-			next += freqs[j];
+			unsigned	key = (unsigned char) array[j][byte];
+
+			freqs[byte][key]++;
+			active[byte][key >> 6] |= UINT64CONST(1) << (key & 63);
+		}
+	}
+
+	/* A single trigram value needs neither allocation nor sorting. */
+	if (freqs[0][(unsigned char) array[0][0]] == n &&
+		freqs[1][(unsigned char) array[0][1]] == n &&
+		freqs[2][(unsigned char) array[0][2]] == n)
+		return 1;
+
+	buffer = palloc_array(trgm, n);
+	to = buffer;
+
+	for (int byte = 2; byte >= 0; byte--)
+	{
+		trgm	   *next = to;
+		trgm	   *old_from;
+
+		/* A constant byte does not affect the order. */
+		if (freqs[byte][(unsigned char) array[0][byte]] == n)
+			continue;
+
+		for (unsigned word = 0; word < 4; word++)
+		{
+			unsigned	index = word ^ word_xor;
+			uint64		bits = active[byte][index];
+
+			/* Signed order visits bytes 128..255 before bytes 0..127. */
+			while (bits)
+			{
+				unsigned	key = index * 64 + pg_rightmost_one_pos64(bits);
+
+				starts[key] = next;
+				next += freqs[byte][key];
+				bits &= bits - 1;
+			}
 		}
 
-		for (size_t j = 0; j < count; j++)
-			memcpy(starts[radix_key(from[j][i], char_is_signed)]++, from[j], sizeof(trgm));
+		for (size_t j = 0; j < n; j++)
+			memcpy(starts[(unsigned char) from[j][byte]]++, from[j],
+				   sizeof(trgm));
 
+		old_from = from;
 		from = to;
 		to = old_from;
 	}
 
-	count = qunique(buffer, count, sizeof(trgm), CMPTRGM_EQ);
-	memcpy(trg, buffer, sizeof(trgm) * count);
+	/* Combine deduplication with copying back from the temporary buffer. */
+	if (from == array)
+		unique = qunique(array, n, sizeof(trgm), CMPTRGM_EQ);
+	else
+	{
+		memcpy(array[0], from[0], sizeof(trgm));
+		unique = 1;
+		for (size_t j = 1; j < n; j++)
+			if (CMPTRGM_EQ(from[j], array[unique - 1]))
+				memcpy(array[unique++], from[j], sizeof(trgm));
+	}
+
 	pfree(buffer);
-	return count;
+	return unique;
 }
 
+/* Sort and deduplicate an array of trigrams, handling signedness correctly. */
 static size_t
 trigram_sort_and_unique(trgm *array, size_t n)
 {
+	/* Avoid radix bookkeeping and allocation for small arrays. */
+	if (n <= 32)
+	{
+		if (GetDefaultCharSignedness())
+			trigram_qsort_signed(array, n, sizeof(trgm));
+		else
+			trigram_qsort_unsigned(array, n, sizeof(trgm));
+
+		return qunique(array, n, sizeof(trgm), CMPTRGM_EQ);
+	}
+
 	if (GetDefaultCharSignedness())
 		return trigram_radix_sort_and_unique(array, n, true);
 	else
