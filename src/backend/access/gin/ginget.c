@@ -18,6 +18,7 @@
 #include "access/relscan.h"
 #include "common/pg_prng.h"
 #include "miscadmin.h"
+#include "port/pg_bitutils.h"
 #include "storage/predicate.h"
 #include "utils/datum.h"
 #include "utils/memutils.h"
@@ -25,6 +26,8 @@
 
 /* GUC parameter */
 int			GinFuzzySearchLimit = 0;
+
+static int entryCopyFirstPostingPage(Page page, GinScanEntry entry);
 
 typedef struct pendingPosition
 {
@@ -347,7 +350,8 @@ collectMatchBitmap(GinBtreeData *btree, GinBtreeStack *stack,
  * Start* functions setup beginning state of searches: finds correct buffer and pins it.
  */
 static void
-startScanEntry(GinState *ginstate, GinScanEntry entry, Snapshot snapshot)
+startScanEntry(GinState *ginstate, GinScanEntry entry, Snapshot snapshot,
+			   bool deferPosting)
 {
 	GinBtreeData btreeEntry;
 	GinBtreeStack *stackEntry;
@@ -437,6 +441,7 @@ restartScanEntry:
 			GinBtreeStack *stack;
 			Page		entrypage;
 			ItemPointerData minItem;
+			int			nitems;
 
 			/*
 			 * This is an equality scan, so lock the root of the posting tree.
@@ -472,9 +477,19 @@ restartScanEntry:
 			 * Load the first page into memory.
 			 */
 			ItemPointerSetMin(&minItem);
-			entry->list = GinDataLeafPageGetItems(entrypage, &entry->nlist, minItem);
+			if (deferPosting && GinPageIsCompressed(entrypage) &&
+				GinDataLeafPageGetPostingListSize(entrypage) > 0)
+			{
+				nitems = entryCopyFirstPostingPage(entrypage, entry);
+				entry->offset = 0;
+			}
+			else
+			{
+				entry->list = GinDataLeafPageGetItems(entrypage, &entry->nlist, minItem);
+				nitems = entry->nlist;
+			}
 
-			entry->predictNumberResult = stack->predictNumber * entry->nlist;
+			entry->predictNumberResult = stack->predictNumber * nitems;
 
 			LockBuffer(entry->buffer, GIN_UNLOCK);
 			freeGinBtreeStack(stack);
@@ -646,7 +661,8 @@ startScan(IndexScanDesc scan)
 	uint32		i;
 
 	for (i = 0; i < so->totalentries; i++)
-		startScanEntry(ginstate, so->entries[i], scan->xs_snapshot);
+		startScanEntry(ginstate, so->entries[i], scan->xs_snapshot,
+					   so->totalentries > 1);
 
 	if (GinFuzzySearchLimit > 0)
 	{
@@ -682,6 +698,47 @@ startScan(IndexScanDesc scan)
 	 */
 	for (i = 0; i < so->nkeys; i++)
 		startScanKey(ginstate, so, so->keys + i);
+}
+
+/*
+ * Save a compressed first page without materializing its TIDs.  Each segment
+ * stores its first TID explicitly, then one varbyte integer per remaining TID.
+ * A byte with its high bit clear terminates exactly one integer.  Counting
+ * these bytes preserves the original frequency estimate without decoding.
+ */
+static int
+entryCopyFirstPostingPage(Page page, GinScanEntry entry)
+{
+	GinPostingList *first = GinDataLeafPageGetPostingList(page);
+	Size		len = GinDataLeafPageGetPostingListSize(page);
+	GinPostingList *segment;
+	int			nitems = 0;
+
+	entry->postingData = palloc(len);
+	memcpy(entry->postingData, first, len);
+	entry->nextSegment = (GinPostingList *) entry->postingData;
+	entry->postingEnd = entry->postingData + len;
+
+	for (segment = entry->nextSegment;
+		 (char *) segment < entry->postingEnd;
+		 segment = GinNextPostingListSegment(segment))
+	{
+		nitems += 1 + segment->nbytes -
+			(int) pg_popcount_masked((const char *) segment->bytes,
+									segment->nbytes, 0x80);
+	}
+
+#ifdef USE_ASSERT_CHECKING
+	{
+		int			decoded;
+		ItemPointer items;
+
+		items = ginPostingListDecodeAllSegments(entry->nextSegment, len, &decoded);
+		Assert(nitems == decoded);
+		pfree(items);
+	}
+#endif
+	return nitems;
 }
 
 /*
@@ -761,7 +818,7 @@ entryCopyPostingPage(Page page, GinScanEntry entry, ItemPointerData advancePast)
  * Load the next batch of item pointers from a posting tree.
  *
  * Copy compressed pages for jumping consumers; keep sequential loads eager.
- * The first posting-tree page remains eager to preserve the frequency estimate.
+ * Multi-entry startup keeps a private first page with an exact item count.
  * As before, unlock the page but keep it pinned to prevent vacuum interference.
  */
 static void
