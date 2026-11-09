@@ -116,8 +116,6 @@ ginFillScanEntry(GinScanOpaque so, OffsetNumber attnum,
 	scanEntry->matchNtuples = -1;
 	scanEntry->list = NULL;
 	scanEntry->postingData = NULL;
-	scanEntry->nextSegment = NULL;
-	scanEntry->postingEnd = NULL;
 	scanEntry->nlist = 0;
 	scanEntry->offset = InvalidOffsetNumber;
 	scanEntry->isFinished = false;

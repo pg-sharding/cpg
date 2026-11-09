@@ -364,8 +364,6 @@ restartScanEntry:
 	if (entry->postingData)
 		pfree(entry->postingData);
 	entry->postingData = NULL;
-	entry->nextSegment = NULL;
-	entry->postingEnd = NULL;
 	entry->nlist = 0;
 	entry->matchBitmap = NULL;
 	entry->matchNtuples = -1;
@@ -684,6 +682,14 @@ startScan(IndexScanDesc scan)
 		startScanKey(ginstate, so, so->keys + i);
 }
 
+/* State needed only while a compressed suffix is kept privately. */
+struct GinPostingPageData
+{
+	GinPostingList *nextSegment;
+	char	   *end;
+	char		data[FLEXIBLE_ARRAY_MEMBER];
+};
+
 /*
  * Decode the next needed segment of a private posting-page snapshot.  Like
  * GinDataLeafPageGetItems, skip only segments whose successor starts at or
@@ -693,14 +699,15 @@ startScan(IndexScanDesc scan)
 static bool
 entryLoadNextSegment(GinScanEntry entry, ItemPointerData advancePast)
 {
-	GinPostingList *segment = entry->nextSegment;
+	struct GinPostingPageData *posting = entry->postingData;
+	GinPostingList *segment = posting->nextSegment;
 	GinPostingList *next;
 
-	if ((char *) segment >= entry->postingEnd)
+	if ((char *) segment >= posting->end)
 		return false;
 
 	next = GinNextPostingListSegment(segment);
-	while ((char *) next < entry->postingEnd &&
+	while ((char *) next < posting->end &&
 		   ginCompareItemPointers(&next->first, &advancePast) <= 0)
 	{
 		segment = next;
@@ -712,7 +719,7 @@ entryLoadNextSegment(GinScanEntry entry, ItemPointerData advancePast)
 		if (entry->list)
 			pfree(entry->list);
 		entry->list = ginPostingListDecode(segment, &entry->nlist);
-		entry->nextSegment = next;
+		posting->nextSegment = next;
 		entry->offset = 0;
 		while (entry->offset < entry->nlist &&
 			   ginCompareItemPointers(&entry->list[entry->offset], &advancePast) <= 0)
@@ -720,7 +727,7 @@ entryLoadNextSegment(GinScanEntry entry, ItemPointerData advancePast)
 
 		if (entry->offset < entry->nlist)
 			return true;
-		if ((char *) next >= entry->postingEnd)
+		if ((char *) next >= posting->end)
 			return false;
 
 		/* advancePast can lie in a gap between two segments. */
@@ -750,10 +757,10 @@ entryCopyPostingPage(Page page, GinScanEntry entry, ItemPointerData advancePast)
 	}
 
 	len = end - (char *) segment;
-	entry->postingData = palloc(len);
-	memcpy(entry->postingData, segment, len);
-	entry->nextSegment = (GinPostingList *) entry->postingData;
-	entry->postingEnd = entry->postingData + len;
+	entry->postingData = palloc(offsetof(struct GinPostingPageData, data) + len);
+	memcpy(entry->postingData->data, segment, len);
+	entry->postingData->nextSegment = (GinPostingList *) entry->postingData->data;
+	entry->postingData->end = entry->postingData->data + len;
 	return entryLoadNextSegment(entry, advancePast);
 }
 
@@ -775,19 +782,19 @@ entryLoadMoreItems(GinState *ginstate, GinScanEntry entry,
 
 	if (entry->postingData)
 	{
+		struct GinPostingPageData *posting = entry->postingData;
+
 		/* Amortize decoding when a previously jumping stream becomes sequential. */
-		if (sequential && (char *) entry->nextSegment < entry->postingEnd)
+		if (sequential && (char *) posting->nextSegment < posting->end)
 		{
 			if (entry->list)
 				pfree(entry->list);
-			entry->list = ginPostingListDecodeAllSegments(entry->nextSegment,
-												   entry->postingEnd - (char *) entry->nextSegment,
+			entry->list = ginPostingListDecodeAllSegments(posting->nextSegment,
+												   posting->end - (char *) posting->nextSegment,
 												   &entry->nlist);
 			entry->offset = 0;
 			pfree(entry->postingData);
 			entry->postingData = NULL;
-			entry->nextSegment = NULL;
-			entry->postingEnd = NULL;
 			return;
 		}
 		if (entryLoadNextSegment(entry, advancePast))
@@ -798,8 +805,6 @@ entryLoadMoreItems(GinState *ginstate, GinScanEntry entry,
 			entry->curItem = entry->list[entry->nlist - 1];
 		pfree(entry->postingData);
 		entry->postingData = NULL;
-		entry->nextSegment = NULL;
-		entry->postingEnd = NULL;
 	}
 
 	if (!BufferIsValid(entry->buffer))
@@ -869,8 +874,6 @@ entryLoadMoreItems(GinState *ginstate, GinScanEntry entry,
 		{
 			pfree(entry->postingData);
 			entry->postingData = NULL;
-			entry->nextSegment = NULL;
-			entry->postingEnd = NULL;
 		}
 
 		if (stepright)

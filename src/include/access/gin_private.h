@@ -330,6 +330,8 @@ typedef struct GinScanKeyData
 	bool		isFinished;
 } GinScanKeyData;
 
+struct GinPostingPageData;
+
 typedef struct GinScanEntryData
 {
 	/* query key and other information from extractQueryFn */
@@ -370,9 +372,7 @@ typedef struct GinScanEntryData
 	GinBtreeData btree;
 
 	/* Private compressed suffix of a posting-tree page, if loaded lazily. */
-	char	   *postingData;
-	GinPostingList *nextSegment;
-	char	   *postingEnd;
+	struct GinPostingPageData *postingData;
 } GinScanEntryData;
 
 typedef struct GinScanOpaqueData
