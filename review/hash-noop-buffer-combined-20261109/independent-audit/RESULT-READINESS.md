@@ -1,0 +1,17 @@
+# Finite result-readiness checklist
+
+These are the already selected finite benchmark prerequisites and result checks, not a new concurrency or release qualification campaign.
+
+- Exact published B72/N/H/C source pins and unchanged composition; frozen source/build/fixture/runner inputs and patches. Five fresh common-path builds B/N/H/C release and C_assert, each with239 unchanged core tests. T is the exact B installation and entrypoint, on another postmaster.
+- New seed and all ten stopped numeric measurement copies, complete byte hashes and fsync before role assignment. The nineteenth natural residual recipe adds no new table/data/support function; original18 cases and answers remain unchanged.
+- Root-reviewed finite gate: normal/UBSan page oracle on all five builds,19 full multisets/literal/plan checks,18 preserved historical multiset checks,126 lifecycle checks and21 cursor traces per build, with zero accepted timing samples. The two SQL channels overlap; they are not185 distinct workloads. Seed, support, five prefixes and all ten unused copies protected; five extra gate clones stopped.
+- Root runtime approval binds exact successful build/fixture/gate receipts. Separate95-observation smoke uses five EXTRA copies and accepts zero timings; the ten measurement copies remain unused. A separate root review precedes the fixed run. No automatic build-to-timing approval.
+- Exactly two fixed cohorts,2280 raw/1900 retained/380 warm;19cases×5roles×12rounds, ten retained Williams rows. No extra repeats, dropped negatives, trimming, control normalization or pooled cohorts. Persisted raw precedes acceptance checks; literal SELECT before every measured EXPLAIN is identical extra warming for every role.
+- Complete actual plans/loops/Memoize/rechecks and all answers match the frozen policy; all retained root plans have zero shared reads. Three metrics remain distinct: EXPLAIN execution, whole-command backend CPU and client wall.
+- Final recorded cleanup: all ten measurement clusters, five smoke clones and seed stopped, all owned clients/processes absent, no cleanup error, original input/prefix/support protection unchanged. Offline digest checks do not pretend to reread omitted binaries or PGDATA.
+- Independent raw chronology/statistics review compares all570 absolute and1140 pair groups,11400 direct pairs, all value arrays and distribution statistics with derived JSON/CSV. Preserve both cohorts and every positive/negative/control separately.
+- Result packet includes exact source diff/format patch, English UNSENT draft, absolute/range/direct tables, lossless raw and compact build/gate/cleanup receipts, plus independent fresh-build/fixture/micro/SQL instructions. Portable source/static checks and actual Linux execution receive separate provenance; no unexecuted replay or CREATE INDEX gain is claimed.
+
+Guest server6/client4 and server7/client5 are distinct guest cores within each cohort. The cohorts switch sibling threads on the same guest core pair; they are not independent hardware placements. Physical host placement and linked-code/layout effects remain limits.
+
+Historical H-parent stale-hint, replacement and concurrency evidence is not rerun or promoted to new proof for C. The result is a finite ordinary serial performance screen, not full hint validation, concurrency/crash safety, scientific novelty or general merge readiness. No added concurrent/replacement campaign is required by this checklist.

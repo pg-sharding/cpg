@@ -1,0 +1,223 @@
+{
+  "scope": "Exact original18case workload; no new cases selected from timings",
+  "cases": [
+    {
+      "name": "uniform_random",
+      "sql": "SELECT count(*),sum(h.n),sum(h.s) FROM probes_random p CROSS JOIN LATERAL (SELECT count(*) n,coalesce(sum(id),0) s FROM uniform_keys h WHERE h.k=p.k OFFSET 0) h",
+      "rows_sql": "SELECT h.id FROM probes_random p JOIN uniform_keys h ON h.k=p.k",
+      "rows_index_sql": "SELECT h.id FROM probes_random p CROSS JOIN LATERAL (SELECT id FROM uniform_keys h WHERE h.k=p.k OFFSET 0) h",
+      "index": "uniform_hash",
+      "settings": "",
+      "diagnostic": false,
+      "cohort": "original_main",
+      "require_index": true
+    },
+    {
+      "name": "uniform_hot",
+      "sql": "SELECT count(*),sum(h.n),sum(h.s) FROM probes_hot p CROSS JOIN LATERAL (SELECT count(*) n,coalesce(sum(id),0) s FROM uniform_keys h WHERE h.k=p.k OFFSET 0) h",
+      "rows_sql": "SELECT h.id FROM probes_hot p JOIN uniform_keys h ON h.k=p.k",
+      "rows_index_sql": "SELECT h.id FROM probes_hot p CROSS JOIN LATERAL (SELECT id FROM uniform_keys h WHERE h.k=p.k OFFSET 0) h",
+      "index": "uniform_hash",
+      "settings": "",
+      "diagnostic": false,
+      "cohort": "original_main",
+      "require_index": true
+    },
+    {
+      "name": "uniform_hot_rescans",
+      "sql": "SELECT count(*),sum(h.n),sum(h.s) FROM probes_hot p CROSS JOIN LATERAL (SELECT count(*) n,coalesce(sum(id),0) s FROM uniform_keys h WHERE h.k=p.k OFFSET 0) h",
+      "rows_sql": "SELECT h.id FROM probes_hot p JOIN uniform_keys h ON h.k=p.k",
+      "rows_index_sql": "SELECT h.id FROM probes_hot p CROSS JOIN LATERAL (SELECT id FROM uniform_keys h WHERE h.k=p.k OFFSET 0) h",
+      "index": "uniform_hash",
+      "settings": "SET enable_memoize=off;",
+      "diagnostic": true,
+      "cohort": "original_main",
+      "require_index": true
+    },
+    {
+      "name": "uniform_absent",
+      "sql": "SELECT count(*),sum(h.n),sum(h.s) FROM probes_absent p CROSS JOIN LATERAL (SELECT count(*) n,coalesce(sum(id),0) s FROM uniform_keys h WHERE h.k=p.k OFFSET 0) h",
+      "rows_sql": "SELECT h.id FROM probes_absent p JOIN uniform_keys h ON h.k=p.k",
+      "rows_index_sql": "SELECT h.id FROM probes_absent p CROSS JOIN LATERAL (SELECT id FROM uniform_keys h WHERE h.k=p.k OFFSET 0) h",
+      "index": "uniform_hash",
+      "settings": "",
+      "diagnostic": false,
+      "cohort": "original_main",
+      "require_index": true
+    },
+    {
+      "name": "skew_duplicates",
+      "sql": "SELECT count(*),sum(h.n),sum(h.s) FROM probes_skew p CROSS JOIN LATERAL (SELECT count(*) n,coalesce(sum(id),0) s FROM skew_keys h WHERE h.k=p.k OFFSET 0) h",
+      "rows_sql": "SELECT h.id FROM probes_skew p JOIN skew_keys h ON h.k=p.k",
+      "rows_index_sql": "SELECT h.id FROM probes_skew p CROSS JOIN LATERAL (SELECT id FROM skew_keys h WHERE h.k=p.k OFFSET 0) h",
+      "index": "skew_hash",
+      "settings": "",
+      "diagnostic": false,
+      "cohort": "original_main",
+      "require_index": true
+    },
+    {
+      "name": "identity_low_hash",
+      "sql": "SELECT count(*),sum(h.n),sum(h.s) FROM probes_identity p CROSS JOIN LATERAL (SELECT count(*) n,coalesce(sum(id),0) s FROM identity_keys h WHERE h.k=p.k OFFSET 0) h",
+      "rows_sql": "SELECT h.id FROM probes_identity p JOIN identity_keys h ON h.k=p.k",
+      "rows_index_sql": "SELECT h.id FROM probes_identity p CROSS JOIN LATERAL (SELECT id FROM identity_keys h WHERE h.k=p.k OFFSET 0) h",
+      "index": "identity_hash_idx",
+      "settings": "",
+      "diagnostic": false,
+      "cohort": "original_main",
+      "require_index": true
+    },
+    {
+      "name": "zero_collisions_present",
+      "sql": "SELECT count(*),sum(h.n),sum(h.s) FROM probes_collision p CROSS JOIN LATERAL (SELECT count(*) n,coalesce(sum(id),0) s FROM zero_keys h WHERE h.k=p.k OFFSET 0) h",
+      "rows_sql": "SELECT h.id FROM probes_collision p JOIN zero_keys h ON h.k=p.k",
+      "rows_index_sql": "SELECT h.id FROM probes_collision p CROSS JOIN LATERAL (SELECT id FROM zero_keys h WHERE h.k=p.k OFFSET 0) h",
+      "index": "zero_hash_idx",
+      "settings": "",
+      "diagnostic": false,
+      "cohort": "original_main",
+      "require_index": true
+    },
+    {
+      "name": "zero_collisions_present_forced",
+      "sql": "SELECT count(*),sum(h.n),sum(h.s) FROM probes_collision p CROSS JOIN LATERAL (SELECT count(*) n,coalesce(sum(id),0) s FROM zero_keys h WHERE h.k=p.k OFFSET 0) h",
+      "rows_sql": "SELECT h.id FROM probes_collision p JOIN zero_keys h ON h.k=p.k",
+      "rows_index_sql": "SELECT h.id FROM probes_collision p CROSS JOIN LATERAL (SELECT id FROM zero_keys h WHERE h.k=p.k OFFSET 0) h",
+      "index": "zero_hash_idx",
+      "settings": "SET enable_seqscan=off;",
+      "diagnostic": true,
+      "cohort": "original_main",
+      "require_index": true
+    },
+    {
+      "name": "zero_collisions_absent",
+      "sql": "SELECT count(*),sum(h.n),sum(h.s) FROM probes_collision_absent p CROSS JOIN LATERAL (SELECT count(*) n,coalesce(sum(id),0) s FROM zero_keys h WHERE h.k=p.k OFFSET 0) h",
+      "rows_sql": "SELECT h.id FROM probes_collision_absent p JOIN zero_keys h ON h.k=p.k",
+      "rows_index_sql": "SELECT h.id FROM probes_collision_absent p CROSS JOIN LATERAL (SELECT id FROM zero_keys h WHERE h.k=p.k OFFSET 0) h",
+      "index": "zero_hash_idx",
+      "settings": "",
+      "diagnostic": false,
+      "cohort": "original_main",
+      "require_index": true
+    },
+    {
+      "name": "zero_collisions_absent_forced",
+      "sql": "SELECT count(*),sum(h.n),sum(h.s) FROM probes_collision_absent p CROSS JOIN LATERAL (SELECT count(*) n,coalesce(sum(id),0) s FROM zero_keys h WHERE h.k=p.k OFFSET 0) h",
+      "rows_sql": "SELECT h.id FROM probes_collision_absent p JOIN zero_keys h ON h.k=p.k",
+      "rows_index_sql": "SELECT h.id FROM probes_collision_absent p CROSS JOIN LATERAL (SELECT id FROM zero_keys h WHERE h.k=p.k OFFSET 0) h",
+      "index": "zero_hash_idx",
+      "settings": "SET enable_seqscan=off;",
+      "diagnostic": true,
+      "cohort": "original_main",
+      "require_index": true
+    },
+    {
+      "name": "max_collisions_present",
+      "sql": "SELECT count(*),sum(h.n),sum(h.s) FROM probes_collision p CROSS JOIN LATERAL (SELECT count(*) n,coalesce(sum(id),0) s FROM max_keys h WHERE h.k=p.k OFFSET 0) h",
+      "rows_sql": "SELECT h.id FROM probes_collision p JOIN max_keys h ON h.k=p.k",
+      "rows_index_sql": "SELECT h.id FROM probes_collision p CROSS JOIN LATERAL (SELECT id FROM max_keys h WHERE h.k=p.k OFFSET 0) h",
+      "index": "max_hash_idx",
+      "settings": "",
+      "diagnostic": false,
+      "cohort": "original_main",
+      "require_index": true
+    },
+    {
+      "name": "max_collisions_present_forced",
+      "sql": "SELECT count(*),sum(h.n),sum(h.s) FROM probes_collision p CROSS JOIN LATERAL (SELECT count(*) n,coalesce(sum(id),0) s FROM max_keys h WHERE h.k=p.k OFFSET 0) h",
+      "rows_sql": "SELECT h.id FROM probes_collision p JOIN max_keys h ON h.k=p.k",
+      "rows_index_sql": "SELECT h.id FROM probes_collision p CROSS JOIN LATERAL (SELECT id FROM max_keys h WHERE h.k=p.k OFFSET 0) h",
+      "index": "max_hash_idx",
+      "settings": "SET enable_seqscan=off;",
+      "diagnostic": true,
+      "cohort": "original_main",
+      "require_index": true
+    },
+    {
+      "name": "max_collisions_absent",
+      "sql": "SELECT count(*),sum(h.n),sum(h.s) FROM probes_collision_absent p CROSS JOIN LATERAL (SELECT count(*) n,coalesce(sum(id),0) s FROM max_keys h WHERE h.k=p.k OFFSET 0) h",
+      "rows_sql": "SELECT h.id FROM probes_collision_absent p JOIN max_keys h ON h.k=p.k",
+      "rows_index_sql": "SELECT h.id FROM probes_collision_absent p CROSS JOIN LATERAL (SELECT id FROM max_keys h WHERE h.k=p.k OFFSET 0) h",
+      "index": "max_hash_idx",
+      "settings": "",
+      "diagnostic": false,
+      "cohort": "original_main",
+      "require_index": true
+    },
+    {
+      "name": "max_collisions_absent_forced",
+      "sql": "SELECT count(*),sum(h.n),sum(h.s) FROM probes_collision_absent p CROSS JOIN LATERAL (SELECT count(*) n,coalesce(sum(id),0) s FROM max_keys h WHERE h.k=p.k OFFSET 0) h",
+      "rows_sql": "SELECT h.id FROM probes_collision_absent p JOIN max_keys h ON h.k=p.k",
+      "rows_index_sql": "SELECT h.id FROM probes_collision_absent p CROSS JOIN LATERAL (SELECT id FROM max_keys h WHERE h.k=p.k OFFSET 0) h",
+      "index": "max_hash_idx",
+      "settings": "SET enable_seqscan=off;",
+      "diagnostic": true,
+      "cohort": "original_main",
+      "require_index": true
+    },
+    {
+      "name": "tiny_natural",
+      "sql": "SELECT count(*),sum(h.n),sum(h.s) FROM probes_random p CROSS JOIN LATERAL (SELECT count(*) n,coalesce(sum(id),0) s FROM tiny_keys h WHERE h.k=p.k OFFSET 0) h",
+      "rows_sql": "SELECT h.id FROM probes_random p JOIN tiny_keys h ON h.k=p.k",
+      "rows_index_sql": "SELECT h.id FROM probes_random p CROSS JOIN LATERAL (SELECT id FROM tiny_keys h WHERE h.k=p.k OFFSET 0) h",
+      "index": "tiny_hash",
+      "settings": "",
+      "diagnostic": false,
+      "cohort": "original_main",
+      "require_index": false
+    },
+    {
+      "name": "tiny_forced",
+      "sql": "SELECT count(*),sum(h.n),sum(h.s) FROM probes_random p CROSS JOIN LATERAL (SELECT count(*) n,coalesce(sum(id),0) s FROM tiny_keys h WHERE h.k=p.k OFFSET 0) h",
+      "rows_sql": "SELECT h.id FROM probes_random p JOIN tiny_keys h ON h.k=p.k",
+      "rows_index_sql": "SELECT h.id FROM probes_random p CROSS JOIN LATERAL (SELECT id FROM tiny_keys h WHERE h.k=p.k OFFSET 0) h",
+      "index": "tiny_hash",
+      "settings": "SET enable_seqscan=off;",
+      "diagnostic": true,
+      "cohort": "original_main",
+      "require_index": true
+    },
+    {
+      "name": "seq_control",
+      "sql": "SELECT count(*),sum(id) FROM uniform_keys WHERE id%7919=0",
+      "rows_sql": "SELECT id FROM uniform_keys WHERE id%7919=0",
+      "index": null,
+      "settings": "",
+      "diagnostic": false,
+      "cohort": "original_main",
+      "require_index": false
+    },
+    {
+      "name": "skew_overflow_absent_holdout",
+      "sql": "SELECT count(*),sum(h.n),sum(h.s) FROM probes_skew_holdout p CROSS JOIN LATERAL (SELECT count(*) n,coalesce(sum(id),0) s FROM skew_keys h WHERE h.k=p.k OFFSET 0) h",
+      "rows_sql": "SELECT h.id FROM probes_skew_holdout p JOIN skew_keys h ON h.k=p.k",
+      "rows_index_sql": "SELECT h.id FROM probes_skew_holdout p CROSS JOIN LATERAL (SELECT id FROM skew_keys h WHERE h.k=p.k OFFSET 0) h",
+      "index": "skew_hash",
+      "settings": "",
+      "diagnostic": false,
+      "engineered_holdout": true,
+      "expected_answer": "3000|0|0",
+      "expected_index_loops": 3000,
+      "require_zero_heap_blocks": true,
+      "require_memoize_enabled": true,
+      "cohort": "engineered_holdout",
+      "require_index": true
+    },
+    {
+      "name": "uniform_hot_varying_residual",
+      "sql": "SELECT count(*),sum(h.n),sum(h.s) FROM probes_hot p CROSS JOIN LATERAL (SELECT count(*) n,coalesce(sum(id),0) s FROM uniform_keys h WHERE h.k=p.k AND h.id <= 122000 + p.id OFFSET 0) h",
+      "rows_sql": "SELECT h.id FROM probes_hot p JOIN uniform_keys h ON h.k=p.k AND h.id <= 122000 + p.id",
+      "rows_index_sql": "SELECT h.id FROM probes_hot p CROSS JOIN LATERAL (SELECT id FROM uniform_keys h WHERE h.k=p.k AND h.id <= 122000 + p.id OFFSET 0) h",
+      "index": "uniform_hash",
+      "settings": "",
+      "diagnostic": false,
+      "engineered_samebucket": false,
+      "holdout": "Varying residual bound with ordinary Memoize enabled. Inspect actual complete parameter key and index loops. No engineered bucket-mask filtering.",
+      "cohort": "historical_H2_residual",
+      "require_index": true,
+      "expected_index_loops": 3000,
+      "require_memoize_enabled": true
+    }
+  ],
+  "status": "PROSPECTIVE_19_CASES_BEFORE_TIMING"
+}

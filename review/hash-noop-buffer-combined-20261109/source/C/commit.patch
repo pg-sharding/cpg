@@ -1,0 +1,41 @@
+From 909e76d48524f5f2c9bfed09c01f25195fb1798a Mon Sep 17 00:00:00 2001
+From: root <localhost>
+Date: Sun, 8 Nov 2026 23:55:11 +0500
+Subject: [PATCH] Avoid redundant qualification callbacks in hash scans
+
+_hash_checkqual() always returns true for hash tuples, since the original
+key is rechecked by the executor. Remove the two predicates in the page
+loader, keeping the exported function and the existing recheck behavior.
+
+(cherry picked from commit 3fc5ad43e3f932374ad4eb1fa7e2da041e5ffc3b)
+---
+ src/backend/access/hash/hashsearch.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
+
+diff --git a/src/backend/access/hash/hashsearch.c b/src/backend/access/hash/hashsearch.c
+index 9da3dc63efc..bfdb59c90fb 100644
+--- a/src/backend/access/hash/hashsearch.c
++++ b/src/backend/access/hash/hashsearch.c
+@@ -699,8 +699,7 @@ _hash_load_qualified_items(IndexScanDesc scan, Page page,
+ 				continue;
+ 			}
+ 
+-			if (so->hashso_sk_hash == _hash_get_indextuple_hashkey(itup) &&
+-				_hash_checkqual(scan, itup))
++			if (so->hashso_sk_hash == _hash_get_indextuple_hashkey(itup))
+ 			{
+ 				/* tuple is qualified, so remember it */
+ 				_hash_saveitem(so, itemIndex, offnum, itup);
+@@ -745,8 +744,7 @@ _hash_load_qualified_items(IndexScanDesc scan, Page page,
+ 				continue;
+ 			}
+ 
+-			if (so->hashso_sk_hash == _hash_get_indextuple_hashkey(itup) &&
+-				_hash_checkqual(scan, itup))
++			if (so->hashso_sk_hash == _hash_get_indextuple_hashkey(itup))
+ 			{
+ 				itemIndex--;
+ 				/* tuple is qualified, so remember it */
+-- 
+2.50.1 (Apple Git-155)
+

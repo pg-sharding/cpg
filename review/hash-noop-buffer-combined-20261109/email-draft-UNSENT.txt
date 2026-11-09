@@ -1,0 +1,80 @@
+Subject: Hash scans: matched qualification-cleanup and buffer-hint results
+
+Hi,
+
+I compared two small hash scan changes, separately and together: removing
+calls to the always-true qualification stub, and keeping a non-owning primary
+bucket buffer hint across rescans. The hint still uses ReadRecentBuffer tag
+validation, ordinary locking/page checks and executor heap rechecks.
+
+The new matched comparison does not support selecting their composition as
+an improvement over the standalone hint. On pinned public B72
+(72b9498df9a369e747f8d96efb5a6cd33c2451e2), the same campaign compares B,
+an exact executable twin T, cleanup N, hint H and composition C.
+
+Whole-command backend CPU, paired median percentage changes, cohorts 0/1:
+
+                                      H/T                 C/T                 C/H
+forced 3000 rescans            -7.16% / -11.52%     -5.86% / -7.54%     +2.94% / +5.16%
+natural varying residual     -11.99% / -7.28%    -10.07% / -7.55%     +3.17% / +1.14%
+tiny forced                   +1.46% / +1.28%     +2.43% / +3.55%     +0.98% / +3.36%
+
+For the forced rescan command, absolute CPU medians in milliseconds were:
+B 2.446957 / 2.436027, T 2.443392 / 2.469506,
+N 2.411043 / 2.451785, H 2.264659 / 2.174418,
+C 2.309326 / 2.302060. Executor-time C/H was
++2.64% / +5.87%; natural-residual
+executor-time C/H was +1.82% / +1.75%.
+
+Both rescan cells actually perform 3000 index loops. The natural-residual
+case leaves Memoize enabled but varies a residual bound; ordinary hot
+Memoize remains a separate one-index-loop/2999-hit control. No-op N/T random
+CPU was +1.44% / -0.91%, so its earlier large random-query gain
+was not confirmed by these fresh builds. C/H skew duplicates improved
+-1.94% / -4.60%; the MAX-absent-forced second cohort had C/T
++8.73%. All 19 cells, including absent/tiny/overflow/engineered collisions and
+a sequential control, remain in the complete tables and raw observations.
+
+This is a shared VM with substantial spread. First-cohort C/H residual CPU
+ratios range -20.24%..+83.95%; second-cohort -7.72%..+7.13%. Sequential C/T
+CPU changes -1.90% / -2.97% even though that query uses no hash
+index. I have not trimmed/normalized samples, pooled cohorts or inferred a
+causal penalty of the deleted calls. The cohorts switch sibling logical
+threads on the same guest core pair, not independent hardware.
+
+The fixed experiment used 19 cases, five roles, two warm and ten retained
+rounds in a balanced Williams design, and two fresh process/data cohorts:
+2280 raw/1900 retained/380 warm. All ten direct role pairs and executor elapsed,
+whole-command backend CPU and client wall (distinct boundaries) are included.
+An independent audit checked all 85,500 numerical comparisons, answers,
+plans, chronology and recorded source/build/runtime bindings.
+
+All five fullclean builds (four release plus composition with assertions)
+passed the unchanged 239 core tests. Finite normal/UBSan page oracles, complete
+SQL multisets and logged/unlogged/TEMP lifecycle/cursor checks also passed.
+This does not repeat the earlier concurrent-writer qualification or prove
+general merge readiness. The old parent packets remain unchanged.
+
+The code is engineering cleanup and reuse of an existing buffer API, not a
+new hashing algorithm. Prior discussion covers the scan/recheck contract[1],
+per-tuple cleanup[2] and page-at-a-time loader[3]. The bounded history search
+does not establish absence of another proposal; no priority claim is made.
+The contribution here is the matched comparison and negative composition
+result. The hint alone remains a narrow rescan candidate with negative
+controls, while the cleanup's larger historical signal needs independent
+confirmation.
+
+The packet includes standalone alternative B72 diffs, a dependent H then C
+format-patch form, all absolute ranges/raw, build/data/run instructions and
+scripts. No native-kernel or CREATE INDEX speed claim follows from this SQL
+screen. Source-only branch:
+https://github.com/pg-sharding/cpg/tree/experiments/hash-noop-buffer-b72-v1-20261109
+
+[1] https://www.postgresql.org/message-id/20080516130442.GP28382%40it.is.rice.edu
+[2] https://www.postgresql.org/message-id/23649.1216398205%40sss.pgh.pa.us
+[3] https://www.postgresql.org/message-id/CAA4eK1LnQi51L8%2BmsZasZ926fbiO7BGpjeaY5XcgQn3Xdcvm3w%40mail.gmail.com
+
+Regards,
+Kirill
+
+UNSENT DRAFT. No message has been sent.
