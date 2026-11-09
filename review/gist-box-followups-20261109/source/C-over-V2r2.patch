@@ -1,0 +1,72 @@
+From 69418cd771db8d58888fa8184dad583bda2ce30a Mon Sep 17 00:00:00 2001
+From: root <localhost>
+Date: Mon, 9 Nov 2026 23:03:45 +0500
+Subject: [PATCH] Cache necessary GiST BOX caller conditions at rescan
+
+Recompute the necessary BOX caller conditions after updating scan keys and
+copying support functions. Read that bool at the page caller while keeping
+all semantic eligibility checks and the current BOX argument in the helper.
+---
+ src/backend/access/gist/gistget.c  |  2 +-
+ src/backend/access/gist/gistscan.c | 12 ++++++++++++
+ src/include/access/gist_private.h  |  1 +
+ 3 files changed, 14 insertions(+), 1 deletion(-)
+
+diff --git a/src/backend/access/gist/gistget.c b/src/backend/access/gist/gistget.c
+index 4365488a6b0..f7a3d3726a5 100644
+--- a/src/backend/access/gist/gistget.c
++++ b/src/backend/access/gist/gistget.c
+@@ -676,7 +676,7 @@ gistScanPage(IndexScanDesc scan, GISTSearchItem *pageItem,
+ 	 */
+ 	maxoff = PageGetMaxOffsetNumber(page);
+ 	/* A sample and at least one full batch are needed to amortize setup. */
+-	if (maxoff >= 2 * GIST_BOX_BATCH_SIZE &&
++	if (maxoff >= 2 * GIST_BOX_BATCH_SIZE && so->boxBatchCandidate &&
+ 		gistScanBoxItems(scan, buffer, page, tbm, ntids, maxoff))
+ 	{
+ 		UnlockReleaseBuffer(buffer);
+diff --git a/src/backend/access/gist/gistscan.c b/src/backend/access/gist/gistscan.c
+index b67ba5a8a53..834d70a73cd 100644
+--- a/src/backend/access/gist/gistscan.c
++++ b/src/backend/access/gist/gistscan.c
+@@ -18,6 +18,8 @@
+ #include "access/gistscan.h"
+ #include "access/relscan.h"
+ #include "utils/float.h"
++#include "utils/fmgroids.h"
++#include "utils/fmgrprotos.h"
+ #include "utils/lsyscache.h"
+ #include "utils/memutils.h"
+ #include "utils/rel.h"
+@@ -346,6 +348,16 @@ gistrescan(IndexScanDesc scan, ScanKey key, int nkeys,
+ 			pfree(fn_extras);
+ 	}
+ 
++	/*
++	 * Cache only necessary caller conditions, after support functions have
++	 * been copied into the scan keys.  The page helper still checks the full
++	 * BOX contract and obtains the current argument on every entry.
++	 */
++	so->boxBatchCandidate = scan->numberOfKeys == 1 &&
++		scan->numberOfOrderBys == 0 && scan->keyData[0].sk_flags == 0 &&
++		scan->keyData[0].sk_func.fn_oid == F_GIST_BOX_CONSISTENT &&
++		scan->keyData[0].sk_func.fn_addr == gist_box_consistent;
++
+ 	/* any previous xs_hitup will have been pfree'd in context resets above */
+ 	scan->xs_hitup = NULL;
+ }
+diff --git a/src/include/access/gist_private.h b/src/include/access/gist_private.h
+index 39fdd27f5b9..88f647f9747 100644
+--- a/src/include/access/gist_private.h
++++ b/src/include/access/gist_private.h
+@@ -160,6 +160,7 @@ typedef struct GISTScanOpaqueData
+ 	MemoryContext queueCxt;		/* context holding the queue */
+ 	bool		qual_ok;		/* false if qual can never be satisfied */
+ 	bool		firstCall;		/* true until first gistgettuple call */
++	bool		boxBatchCandidate; /* necessary BOX caller checks at rescan */
+ 
+ 	/* pre-allocated workspace arrays */
+ 	IndexOrderByDistance *distances;	/* output area for gistindex_keytest */
+-- 
+2.50.1 (Apple Git-155)
+

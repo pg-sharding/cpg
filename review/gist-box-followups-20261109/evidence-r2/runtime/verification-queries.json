@@ -1,0 +1,82 @@
+[
+  {
+    "name": "sparse_join",
+    "sql": "SELECT b.id FROM s2.probes p JOIN s2.boxes b ON b.b && p.q"
+  },
+  {
+    "name": "medium_join",
+    "sql": "SELECT b.id FROM (SELECT * FROM s2.probes WHERE id<=64) p JOIN s2.boxes b ON b.b && box(center(p.q),center(p.q)+point(20,20))"
+  },
+  {
+    "name": "absent_join",
+    "sql": "SELECT b.id FROM s2.probes p JOIN s2.boxes b ON b.b && box(point(2000+p.id,2000),point(2000+p.id,2000))"
+  },
+  {
+    "name": "single_sparse",
+    "sql": "SELECT id FROM s2.boxes WHERE b && box(point(100,100),point(105,105))"
+  },
+  {
+    "name": "allmatch_natural",
+    "sql": "SELECT id FROM s2.boxes WHERE b && box(point(-1,-1),point(2000,2000))"
+  },
+  {
+    "name": "saturated_natural",
+    "sql": "SELECT id FROM s2.saturated WHERE b && '((0,0),(0,0))'::box"
+  },
+  {
+    "name": "tiny_natural",
+    "sql": "SELECT b.id FROM s2.probes p JOIN s2.tiny b ON b.b && p.q"
+  },
+  {
+    "name": "point_off",
+    "sql": "SELECT b.id FROM s2.probes p JOIN s2.points b ON b.p <@ p.q"
+  },
+  {
+    "name": "custom_fn_off",
+    "sql": "SELECT b.id FROM s2.probes p JOIN s2.wrapped b ON b.b && p.q"
+  },
+  {
+    "name": "two_keys_off",
+    "sql": "SELECT b.id FROM s2.probes p JOIN s2.boxes b ON b.b && p.q AND b.b @> center(p.q)"
+  },
+  {
+    "name": "null_off",
+    "sql": "SELECT id FROM s2.boxes WHERE b IS NULL"
+  },
+  {
+    "name": "edge_0",
+    "sql": "SELECT id FROM s2.edges WHERE b && '((0,0),(0,0))'::box"
+  },
+  {
+    "name": "edge_1",
+    "sql": "SELECT id FROM s2.edges WHERE b && '((0.000001,0),(0.000001,0))'::box"
+  },
+  {
+    "name": "edge_2",
+    "sql": "SELECT id FROM s2.edges WHERE b && '((NaN,0),(NaN,0))'::box"
+  },
+  {
+    "name": "edge_3",
+    "sql": "SELECT id FROM s2.edges WHERE b && '((Infinity,Infinity),(-Infinity,-Infinity))'::box"
+  },
+  {
+    "name": "edge_4",
+    "sql": "SELECT id FROM s2.edges WHERE b && '((Infinity,Infinity),(Infinity,Infinity))'::box"
+  },
+  {
+    "name": "edge_5",
+    "sql": "SELECT id FROM s2.edges WHERE b && '((-Infinity,-Infinity),(-Infinity,-Infinity))'::box"
+  },
+  {
+    "name": "searchnotnull",
+    "sql": "SELECT id FROM s2.boxes WHERE b IS NOT NULL"
+  },
+  {
+    "name": "nullarg",
+    "sql": "SELECT id FROM s2.boxes WHERE b && NULL::box"
+  },
+  {
+    "name": "containedoff",
+    "sql": "SELECT id FROM s2.boxes WHERE b <@ '((100,100),(0,0))'::box"
+  }
+]

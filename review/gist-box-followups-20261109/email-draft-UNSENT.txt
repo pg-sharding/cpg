@@ -1,0 +1,80 @@
+Status: UNSENT draft; experimental results, no general merge recommendation.
+Subject: [PATCH] GiST BOX page batching: rescan gating and dense continuation
+
+Hi,
+
+I tested two independent follow-ups to a scalar page-local BOX overlap
+prefilter prototype. Both retain ordinary GiST callbacks for survivors and
+leave locking, rightlink/NSN handling, rechecks and stored index format alone.
+The reference revision is 72b9498df9a369e747f8d96efb5a6cd33c2451e2 (B72),
+not current master. R below is the unchanged V2r2 prototype [0].
+
+C caches only necessary caller eligibility at gistrescan, after copying the
+support functions into scan keys. The helper still validates the complete BOX
+contract and obtains the current argument every time. The extra bool fits
+existing padding: GISTScanOpaqueData remains 24664 bytes on this platform.
+
+D changes the helper to return the first unprocessed offset after eight valid
+BOX sample tuples all pass their ordinary keytests. The caller resumes its
+generic loop there. Sample callbacks and already emitted results are not
+repeated. If the sample contains a genuine rejection, the old batching path
+continues. Batch/sample size 8 and minimum page size 16 remain unchanged.
+
+On VM158, Linux x86-64/GCC 13.3, the fixed five-role B/exact B twin/R/C/D
+comparison completed two fresh process cohorts, 16 SQL and four actual-AM
+micro cases, 2 warm + 10 retained rounds: 2400 raw observations, no trimming
+or control normalization. Effects below are medians of direct same-round
+percentages; cohort 0/cohort 1 remain separate.
+
+                           C/R                 D/R
+  forced all-match SQL     -0.85 / +3.09%      -1.83 / -2.99%
+  sparse join SQL          +1.27 / +1.71%     +10.42 / -3.43%
+  NULL SQL                 +0.45 /+10.87%      -1.60 / -0.33%
+  sparse AM process CPU    +0.37 / -1.12%      -1.29 / -5.11%
+  all-match AM CPU         -1.15 / +2.17%      -1.23 / -0.49%
+
+The forced all-match R/D absolute execution medians were 20.6335/20.2810ms
+and 23.7375/21.6990ms. Ratios of these separate medians differ from the
+reported direct-pair medians. D/R pair ranges were -12.55..+6.13% and
+-37.83..+76.04%, crossing zero in both cohorts. Whole-command CPU effects
+were -1.78/-2.79%. D therefore has a promising dense-case median result,
+but is not established as a general replacement for R.
+
+D retains the shared prototype's sparse SQL benefit against B, -40.53/-41.14%.
+That large saving already exists in R and is not a new D contribution.
+The sparse D/R ranges cross zero, and the first-cohort median is a negative
+result. C does not establish a useful general upgrade; in particular its
+second-cohort NULL SQL/CPU costs are +10.87/+10.44% against R.
+
+Unchanged controls also move. D/R Seq Scan is -8.00/+1.48%, and the exact
+baseline twin differs from B by -0.83/-8.25% on forced all-match. These are
+shared-VM process cohorts, not independent hardware replication. No layout,
+frequency or scheduling cause is inferred, and no controls are subtracted.
+
+All six fresh full builds (four release plus C/D assert) passed all 239 original core tests.
+The finite gate passed 132 full multiset comparisons against forced-sequential
+references, prepared rescans, bitmap/projection and zero-key checks across
+the six backends. An independent recount checked 28,800 statistical values.
+All owned clusters are stopped and source/install identities remain unchanged.
+
+The new micro calls the real index_rescan/index_getbitmap API, including page
+traversal/callbacks and bitmap creation/free. Its process-CPU interval excludes
+initial relation/query setup. SQL uses EXPLAIN ANALYZE with TIMING OFF; wider
+whole-command CPU/wall remain separate. It is not numerically interchangeable
+with the older extracted page-loop model. CREATE INDEX is fixture setup only.
+
+The packet includes both standalone B72 diffs and incremental format-patches
+above exact R, full absolute ranges/negative controls/raw observations, the
+deterministic setup and executed micro/SQL reproduction scripts. C and D are
+alternatives, not a two-patch series. Failed diagnostic attempts are preserved
+separately: an initial API compile mismatch and a driver metadata-name error
+produced zero accepted observations; r2 used fresh copies and a fresh smoke.
+
+This is implementation work on scalar conservative spatial rejection, with
+algorithmic context in [1]. Multi-entry GiST/SP-GiST [2] concerns a different
+index contract. I am not claiming a new spatial algorithm, SIMD implementation
+or exhaustive novelty. I have not rechecked current discussion/adoption status.
+
+[0] https://github.com/pg-sharding/cpg/commit/ebd53d036faaece35a56139abe24641496affbe6
+[1] https://arxiv.org/abs/2309.16913
+[2] https://www.postgresql.org/message-id/6E8C1417-FB54-48F9-B4DB-C33B7BD8F1DE%40enterprisedb.com

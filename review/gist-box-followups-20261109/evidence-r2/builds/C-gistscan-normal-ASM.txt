@@ -1,0 +1,489 @@
+
+/home/reshke/allfuzz/box-followups-20261109-r1/builds/common-build/src/backend/access/gist/gistscan.o:     file format elf64-x86-64
+
+
+Disassembly of section .text:
+
+0000000000000000 <pairingheap_GISTSearchItem_cmp>:
+   0:	f3 0f 1e fa          	endbr64
+   4:	41 55                	push   %r13
+   6:	49 89 d5             	mov    %rdx,%r13
+   9:	41 54                	push   %r12
+   b:	49 89 f4             	mov    %rsi,%r12
+   e:	55                   	push   %rbp
+   f:	48 89 fd             	mov    %rdi,%rbp
+  12:	53                   	push   %rbx
+  13:	31 db                	xor    %ebx,%ebx
+  15:	48 83 ec 08          	sub    $0x8,%rsp
+  19:	8b 42 1c             	mov    0x1c(%rdx),%eax
+  1c:	85 c0                	test   %eax,%eax
+  1e:	7f 1a                	jg     3a <pairingheap_GISTSearchItem_cmp+0x3a>
+  20:	eb 5e                	jmp    80 <pairingheap_GISTSearchItem_cmp+0x80>
+  22:	66 0f 1f 44 00 00    	nopw   0x0(%rax,%rax,1)
+  28:	40 84 ff             	test   %dil,%dil
+  2b:	0f 84 8f 00 00 00    	je     c0 <pairingheap_GISTSearchItem_cmp+0xc0>
+  31:	83 c3 01             	add    $0x1,%ebx
+  34:	41 39 5d 1c          	cmp    %ebx,0x1c(%r13)
+  38:	7e 46                	jle    80 <pairingheap_GISTSearchItem_cmp+0x80>
+  3a:	48 63 c3             	movslq %ebx,%rax
+  3d:	48 c1 e0 04          	shl    $0x4,%rax
+  41:	48 8d 4c 05 00       	lea    0x0(%rbp,%rax,1),%rcx
+  46:	4c 01 e0             	add    %r12,%rax
+  49:	80 79 40 00          	cmpb   $0x0,0x40(%rcx)
+  4d:	0f b6 78 40          	movzbl 0x40(%rax),%edi
+  51:	75 d5                	jne    28 <pairingheap_GISTSearchItem_cmp+0x28>
+  53:	40 84 ff             	test   %dil,%dil
+  56:	75 50                	jne    a8 <pairingheap_GISTSearchItem_cmp+0xa8>
+  58:	f2 0f 10 41 38       	movsd  0x38(%rcx),%xmm0
+  5d:	f2 0f 10 48 38       	movsd  0x38(%rax),%xmm1
+  62:	e8 00 00 00 00       	call   67 <pairingheap_GISTSearchItem_cmp+0x67>	63: R_X86_64_PLT32	float8_cmp_internal-0x4
+  67:	f7 d8                	neg    %eax
+  69:	74 c6                	je     31 <pairingheap_GISTSearchItem_cmp+0x31>
+  6b:	48 83 c4 08          	add    $0x8,%rsp
+  6f:	5b                   	pop    %rbx
+  70:	5d                   	pop    %rbp
+  71:	41 5c                	pop    %r12
+  73:	41 5d                	pop    %r13
+  75:	c3                   	ret
+  76:	66 2e 0f 1f 84 00 00 00 00 00 	cs nopw 0x0(%rax,%rax,1)
+  80:	83 7d 18 ff          	cmpl   $0xffffffff,0x18(%rbp)
+  84:	41 8b 44 24 18       	mov    0x18(%r12),%eax
+  89:	74 45                	je     d0 <pairingheap_GISTSearchItem_cmp+0xd0>
+  8b:	83 f8 ff             	cmp    $0xffffffff,%eax
+  8e:	0f 94 c0             	sete   %al
+  91:	48 83 c4 08          	add    $0x8,%rsp
+  95:	0f b6 c0             	movzbl %al,%eax
+  98:	5b                   	pop    %rbx
+  99:	5d                   	pop    %rbp
+  9a:	f7 d8                	neg    %eax
+  9c:	41 5c                	pop    %r12
+  9e:	41 5d                	pop    %r13
+  a0:	c3                   	ret
+  a1:	0f 1f 80 00 00 00 00 	nopl   0x0(%rax)
+  a8:	48 83 c4 08          	add    $0x8,%rsp
+  ac:	b8 01 00 00 00       	mov    $0x1,%eax
+  b1:	5b                   	pop    %rbx
+  b2:	5d                   	pop    %rbp
+  b3:	41 5c                	pop    %r12
+  b5:	41 5d                	pop    %r13
+  b7:	c3                   	ret
+  b8:	0f 1f 84 00 00 00 00 00 	nopl   0x0(%rax,%rax,1)
+  c0:	48 83 c4 08          	add    $0x8,%rsp
+  c4:	b8 ff ff ff ff       	mov    $0xffffffff,%eax
+  c9:	5b                   	pop    %rbx
+  ca:	5d                   	pop    %rbp
+  cb:	41 5c                	pop    %r12
+  cd:	41 5d                	pop    %r13
+  cf:	c3                   	ret
+  d0:	83 f8 ff             	cmp    $0xffffffff,%eax
+  d3:	0f 95 c0             	setne  %al
+  d6:	48 83 c4 08          	add    $0x8,%rsp
+  da:	5b                   	pop    %rbx
+  db:	0f b6 c0             	movzbl %al,%eax
+  de:	5d                   	pop    %rbp
+  df:	41 5c                	pop    %r12
+  e1:	41 5d                	pop    %r13
+  e3:	c3                   	ret
+  e4:	66 66 2e 0f 1f 84 00 00 00 00 00 	data16 cs nopw 0x0(%rax,%rax,1)
+  ef:	90                   	nop
+
+00000000000000f0 <gistbeginscan>:
+  f0:	f3 0f 1e fa          	endbr64
+  f4:	41 55                	push   %r13
+  f6:	41 54                	push   %r12
+  f8:	55                   	push   %rbp
+  f9:	53                   	push   %rbx
+  fa:	48 83 ec 08          	sub    $0x8,%rsp
+  fe:	e8 00 00 00 00       	call   103 <gistbeginscan+0x13>	ff: R_X86_64_PLT32	RelationGetIndexScan-0x4
+ 103:	48 8b 78 08          	mov    0x8(%rax),%rdi
+ 107:	48 89 c5             	mov    %rax,%rbp
+ 10a:	e8 00 00 00 00       	call   10f <gistbeginscan+0x1f>	10b: R_X86_64_PLT32	initGISTstate-0x4
+ 10f:	bf 58 60 00 00       	mov    $0x6058,%edi
+ 114:	4c 8b 2d 00 00 00 00 	mov    0x0(%rip),%r13        # 11b <gistbeginscan+0x2b>	117: R_X86_64_PC32	CurrentMemoryContext-0x4
+ 11b:	49 89 c4             	mov    %rax,%r12
+ 11e:	48 8b 00             	mov    (%rax),%rax
+ 121:	48 89 05 00 00 00 00 	mov    %rax,0x0(%rip)        # 128 <gistbeginscan+0x38>	124: R_X86_64_PC32	CurrentMemoryContext-0x4
+ 128:	e8 00 00 00 00       	call   12d <gistbeginscan+0x3d>	129: R_X86_64_PLT32	palloc0-0x4
+ 12d:	4c 89 20             	mov    %r12,(%rax)
+ 130:	48 89 c3             	mov    %rax,%rbx
+ 133:	e8 00 00 00 00       	call   138 <gistbeginscan+0x48>	134: R_X86_64_PLT32	createTempGistContext-0x4
+ 138:	bf 10 00 00 00       	mov    $0x10,%edi
+ 13d:	49 89 44 24 08       	mov    %rax,0x8(%r12)
+ 142:	48 c7 43 10 00 00 00 00 	movq   $0x0,0x10(%rbx)
+ 14a:	49 8b 04 24          	mov    (%r12),%rax
+ 14e:	48 89 43 18          	mov    %rax,0x18(%rbx)
+ 152:	48 63 75 1c          	movslq 0x1c(%rbp),%rsi
+ 156:	e8 00 00 00 00       	call   15b <gistbeginscan+0x6b>	157: R_X86_64_PLT32	palloc_mul-0x4
+ 15b:	c6 43 20 01          	movb   $0x1,0x20(%rbx)
+ 15f:	48 89 43 28          	mov    %rax,0x28(%rbx)
+ 163:	48 63 75 1c          	movslq 0x1c(%rbp),%rsi
+ 167:	85 f6                	test   %esi,%esi
+ 169:	7e 37                	jle    1a2 <gistbeginscan+0xb2>
+ 16b:	bf 08 00 00 00       	mov    $0x8,%edi
+ 170:	e8 00 00 00 00       	call   175 <gistbeginscan+0x85>	171: R_X86_64_PLT32	palloc0_mul-0x4
+ 175:	48 63 75 1c          	movslq 0x1c(%rbp),%rsi
+ 179:	bf 01 00 00 00       	mov    $0x1,%edi
+ 17e:	48 89 85 80 00 00 00 	mov    %rax,0x80(%rbp)
+ 185:	e8 00 00 00 00       	call   18a <gistbeginscan+0x9a>	186: R_X86_64_PLT32	palloc_mul-0x4
+ 18a:	48 63 55 1c          	movslq 0x1c(%rbp),%rdx
+ 18e:	be 01 00 00 00       	mov    $0x1,%esi
+ 193:	48 89 85 88 00 00 00 	mov    %rax,0x88(%rbp)
+ 19a:	48 89 c7             	mov    %rax,%rdi
+ 19d:	e8 00 00 00 00       	call   1a2 <gistbeginscan+0xb2>	19e: R_X86_64_PLT32	memset-0x4
+ 1a2:	48 b8 00 00 00 00 ff ff ff ff 	movabs $0xffffffff00000000,%rax
+ 1ac:	48 c7 43 30 00 00 00 00 	movq   $0x0,0x30(%rbx)
+ 1b4:	48 89 43 38          	mov    %rax,0x38(%rbx)
+ 1b8:	48 89 e8             	mov    %rbp,%rax
+ 1bb:	48 c7 43 40 00 00 00 00 	movq   $0x0,0x40(%rbx)
+ 1c3:	4c 89 2d 00 00 00 00 	mov    %r13,0x0(%rip)        # 1ca <gistbeginscan+0xda>	1c6: R_X86_64_PC32	CurrentMemoryContext-0x4
+ 1ca:	48 89 5d 38          	mov    %rbx,0x38(%rbp)
+ 1ce:	48 83 c4 08          	add    $0x8,%rsp
+ 1d2:	5b                   	pop    %rbx
+ 1d3:	5d                   	pop    %rbp
+ 1d4:	41 5c                	pop    %r12
+ 1d6:	41 5d                	pop    %r13
+ 1d8:	c3                   	ret
+ 1d9:	0f 1f 80 00 00 00 00 	nopl   0x0(%rax)
+
+00000000000001e0 <gistrescan>:
+ 1e0:	f3 0f 1e fa          	endbr64
+ 1e4:	41 57                	push   %r15
+ 1e6:	49 89 ff             	mov    %rdi,%r15
+ 1e9:	41 56                	push   %r14
+ 1eb:	41 55                	push   %r13
+ 1ed:	41 54                	push   %r12
+ 1ef:	49 89 cc             	mov    %rcx,%r12
+ 1f2:	55                   	push   %rbp
+ 1f3:	48 89 f5             	mov    %rsi,%rbp
+ 1f6:	53                   	push   %rbx
+ 1f7:	48 83 ec 18          	sub    $0x18,%rsp
+ 1fb:	48 8b 5f 38          	mov    0x38(%rdi),%rbx
+ 1ff:	44 8b 4b 38          	mov    0x38(%rbx),%r9d
+ 203:	45 85 c9             	test   %r9d,%r9d
+ 206:	7e 05                	jle    20d <gistrescan+0x2d>
+ 208:	e8 00 00 00 00       	call   20d <gistrescan+0x2d>	209: R_X86_64_PLT32	gistkillitems-0x4
+ 20d:	48 83 7b 10 00       	cmpq   $0x0,0x10(%rbx)
+ 212:	c7 43 3c ff ff ff ff 	movl   $0xffffffff,0x3c(%rbx)
+ 219:	48 c7 43 40 00 00 00 00 	movq   $0x0,0x40(%rbx)
+ 221:	c6 44 24 0b 01       	movb   $0x1,0xb(%rsp)
+ 226:	74 1a                	je     242 <gistrescan+0x62>
+ 228:	48 8b 03             	mov    (%rbx),%rax
+ 22b:	48 8b 7b 18          	mov    0x18(%rbx),%rdi
+ 22f:	48 3b 38             	cmp    (%rax),%rdi
+ 232:	0f 84 78 02 00 00    	je     4b0 <gistrescan+0x2d0>
+ 238:	e8 00 00 00 00       	call   23d <gistrescan+0x5d>	239: R_X86_64_PLT32	MemoryContextReset-0x4
+ 23d:	c6 44 24 0b 00       	movb   $0x0,0xb(%rsp)
+ 242:	41 80 7f 30 00       	cmpb   $0x0,0x30(%r15)
+ 247:	74 0b                	je     254 <gistrescan+0x74>
+ 249:	49 83 7f 60 00       	cmpq   $0x0,0x60(%r15)
+ 24e:	0f 84 cc 02 00 00    	je     520 <gistrescan+0x340>
+ 254:	48 8b 43 18          	mov    0x18(%rbx),%rax
+ 258:	4c 8b 2d 00 00 00 00 	mov    0x0(%rip),%r13        # 25f <gistrescan+0x7f>	25b: R_X86_64_PC32	CurrentMemoryContext-0x4
+ 25f:	4c 89 fe             	mov    %r15,%rsi
+ 262:	48 8d 3d 97 fd ff ff 	lea    -0x269(%rip),%rdi        # 0 <pairingheap_GISTSearchItem_cmp>
+ 269:	48 89 05 00 00 00 00 	mov    %rax,0x0(%rip)        # 270 <gistrescan+0x90>	26c: R_X86_64_PC32	CurrentMemoryContext-0x4
+ 270:	e8 00 00 00 00       	call   275 <gistrescan+0x95>	271: R_X86_64_PLT32	pairingheap_allocate-0x4
+ 275:	4c 89 2d 00 00 00 00 	mov    %r13,0x0(%rip)        # 27c <gistrescan+0x9c>	278: R_X86_64_PC32	CurrentMemoryContext-0x4
+ 27c:	48 89 43 10          	mov    %rax,0x10(%rbx)
+ 280:	c6 43 21 01          	movb   $0x1,0x21(%rbx)
+ 284:	48 85 ed             	test   %rbp,%rbp
+ 287:	0f 84 b3 01 00 00    	je     440 <gistrescan+0x260>
+ 28d:	49 63 77 18          	movslq 0x18(%r15),%rsi
+ 291:	85 f6                	test   %esi,%esi
+ 293:	0f 8e a7 01 00 00    	jle    440 <gistrescan+0x260>
+ 299:	45 31 ed             	xor    %r13d,%r13d
+ 29c:	80 7c 24 0b 00       	cmpb   $0x0,0xb(%rsp)
+ 2a1:	0f 84 c9 03 00 00    	je     670 <gistrescan+0x490>
+ 2a7:	48 8d 14 f6          	lea    (%rsi,%rsi,8),%rdx
+ 2ab:	49 8b 7f 20          	mov    0x20(%r15),%rdi
+ 2af:	48 89 ee             	mov    %rbp,%rsi
+ 2b2:	31 ed                	xor    %ebp,%ebp
+ 2b4:	48 c1 e2 03          	shl    $0x3,%rdx
+ 2b8:	e8 00 00 00 00       	call   2bd <gistrescan+0xdd>	2b9: R_X86_64_PLT32	memcpy-0x4
+ 2bd:	c6 43 20 01          	movb   $0x1,0x20(%rbx)
+ 2c1:	45 8b 47 18          	mov    0x18(%r15),%r8d
+ 2c5:	45 85 c0             	test   %r8d,%r8d
+ 2c8:	7e 65                	jle    32f <gistrescan+0x14f>
+ 2ca:	66 0f 1f 44 00 00    	nopw   0x0(%rax,%rax,1)
+ 2d0:	49 8b 57 20          	mov    0x20(%r15),%rdx
+ 2d4:	48 8d 44 ed 00       	lea    0x0(%rbp,%rbp,8),%rax
+ 2d9:	4c 8d 34 c2          	lea    (%rdx,%rax,8),%r14
+ 2dd:	48 8b 13             	mov    (%rbx),%rdx
+ 2e0:	41 0f bf 46 04       	movswl 0x4(%r14),%eax
+ 2e5:	49 8d 7e 10          	lea    0x10(%r14),%rdi
+ 2e9:	48 8b 0a             	mov    (%rdx),%rcx
+ 2ec:	83 e8 01             	sub    $0x1,%eax
+ 2ef:	48 98                	cltq
+ 2f1:	48 8d 04 40          	lea    (%rax,%rax,2),%rax
+ 2f5:	48 c1 e0 04          	shl    $0x4,%rax
+ 2f9:	48 8d 74 02 28       	lea    0x28(%rdx,%rax,1),%rsi
+ 2fe:	48 89 ca             	mov    %rcx,%rdx
+ 301:	e8 00 00 00 00       	call   306 <gistrescan+0x126>	302: R_X86_64_PLT32	fmgr_info_copy-0x4
+ 306:	80 7c 24 0b 00       	cmpb   $0x0,0xb(%rsp)
+ 30b:	75 09                	jne    316 <gistrescan+0x136>
+ 30d:	49 8b 44 ed 00       	mov    0x0(%r13,%rbp,8),%rax
+ 312:	49 89 46 28          	mov    %rax,0x28(%r14)
+ 316:	41 8b 06             	mov    (%r14),%eax
+ 319:	a8 01                	test   $0x1,%al
+ 31b:	74 08                	je     325 <gistrescan+0x145>
+ 31d:	a8 c0                	test   $0xc0,%al
+ 31f:	75 04                	jne    325 <gistrescan+0x145>
+ 321:	c6 43 20 00          	movb   $0x0,0x20(%rbx)
+ 325:	48 83 c5 01          	add    $0x1,%rbp
+ 329:	41 39 6f 18          	cmp    %ebp,0x18(%r15)
+ 32d:	7f a1                	jg     2d0 <gistrescan+0xf0>
+ 32f:	80 7c 24 0b 00       	cmpb   $0x0,0xb(%rsp)
+ 334:	0f 84 0e 03 00 00    	je     648 <gistrescan+0x468>
+ 33a:	4d 85 e4             	test   %r12,%r12
+ 33d:	0f 84 d3 00 00 00    	je     416 <gistrescan+0x236>
+ 343:	49 63 77 1c          	movslq 0x1c(%r15),%rsi
+ 347:	48 c7 04 24 00 00 00 00 	movq   $0x0,(%rsp)
+ 34f:	85 f6                	test   %esi,%esi
+ 351:	0f 8e bf 00 00 00    	jle    416 <gistrescan+0x236>
+ 357:	49 8b 7f 28          	mov    0x28(%r15),%rdi
+ 35b:	48 8d 14 f6          	lea    (%rsi,%rsi,8),%rdx
+ 35f:	4c 89 e6             	mov    %r12,%rsi
+ 362:	45 31 e4             	xor    %r12d,%r12d
+ 365:	48 c1 e2 03          	shl    $0x3,%rdx
+ 369:	e8 00 00 00 00       	call   36e <gistrescan+0x18e>	36a: R_X86_64_PLT32	memcpy-0x4
+ 36e:	49 63 77 1c          	movslq 0x1c(%r15),%rsi
+ 372:	bf 04 00 00 00       	mov    $0x4,%edi
+ 377:	e8 00 00 00 00       	call   37c <gistrescan+0x19c>	378: R_X86_64_PLT32	palloc_mul-0x4
+ 37c:	48 89 43 08          	mov    %rax,0x8(%rbx)
+ 380:	41 8b 7f 1c          	mov    0x1c(%r15),%edi
+ 384:	85 ff                	test   %edi,%edi
+ 386:	0f 8e 7f 00 00 00    	jle    40b <gistrescan+0x22b>
+ 38c:	0f 1f 40 00          	nopl   0x0(%rax)
+ 390:	49 8b 57 28          	mov    0x28(%r15),%rdx
+ 394:	4b 8d 04 e4          	lea    (%r12,%r12,8),%rax
+ 398:	4c 8d 34 c2          	lea    (%rdx,%rax,8),%r14
+ 39c:	48 8b 13             	mov    (%rbx),%rdx
+ 39f:	41 0f bf 46 04       	movswl 0x4(%r14),%eax
+ 3a4:	83 e8 01             	sub    $0x1,%eax
+ 3a7:	48 98                	cltq
+ 3a9:	48 8d 04 40          	lea    (%rax,%rax,2),%rax
+ 3ad:	48 c1 e0 04          	shl    $0x4,%rax
+ 3b1:	8b b4 02 30 2a 00 00 	mov    0x2a30(%rdx,%rax,1),%esi
+ 3b8:	4c 8d ac 02 28 2a 00 00 	lea    0x2a28(%rdx,%rax,1),%r13
+ 3c0:	85 f6                	test   %esi,%esi
+ 3c2:	0f 84 00 00 00 00    	je     3c8 <gistrescan+0x1e8>	3c4: R_X86_64_PC32	.text.unlikely-0x4
+ 3c8:	48 8b 43 08          	mov    0x8(%rbx),%rax
+ 3cc:	41 8b 7e 18          	mov    0x18(%r14),%edi
+ 3d0:	4a 8d 2c a0          	lea    (%rax,%r12,4),%rbp
+ 3d4:	e8 00 00 00 00       	call   3d9 <gistrescan+0x1f9>	3d5: R_X86_64_PLT32	get_func_rettype-0x4
+ 3d9:	49 8d 7e 10          	lea    0x10(%r14),%rdi
+ 3dd:	4c 89 ee             	mov    %r13,%rsi
+ 3e0:	89 45 00             	mov    %eax,0x0(%rbp)
+ 3e3:	48 8b 03             	mov    (%rbx),%rax
+ 3e6:	48 8b 10             	mov    (%rax),%rdx
+ 3e9:	e8 00 00 00 00       	call   3ee <gistrescan+0x20e>	3ea: R_X86_64_PLT32	fmgr_info_copy-0x4
+ 3ee:	80 7c 24 0b 00       	cmpb   $0x0,0xb(%rsp)
+ 3f3:	75 0c                	jne    401 <gistrescan+0x221>
+ 3f5:	48 8b 04 24          	mov    (%rsp),%rax
+ 3f9:	4a 8b 04 e0          	mov    (%rax,%r12,8),%rax
+ 3fd:	49 89 46 28          	mov    %rax,0x28(%r14)
+ 401:	49 83 c4 01          	add    $0x1,%r12
+ 405:	45 39 67 1c          	cmp    %r12d,0x1c(%r15)
+ 409:	7f 85                	jg     390 <gistrescan+0x1b0>
+ 40b:	80 7c 24 0b 00       	cmpb   $0x0,0xb(%rsp)
+ 410:	0f 84 fa 00 00 00    	je     510 <gistrescan+0x330>
+ 416:	31 c0                	xor    %eax,%eax
+ 418:	49 83 7f 18 01       	cmpq   $0x1,0x18(%r15)
+ 41d:	0f 84 b5 00 00 00    	je     4d8 <gistrescan+0x2f8>
+ 423:	88 43 22             	mov    %al,0x22(%rbx)
+ 426:	49 c7 47 58 00 00 00 00 	movq   $0x0,0x58(%r15)
+ 42e:	48 83 c4 18          	add    $0x18,%rsp
+ 432:	5b                   	pop    %rbx
+ 433:	5d                   	pop    %rbp
+ 434:	41 5c                	pop    %r12
+ 436:	41 5d                	pop    %r13
+ 438:	41 5e                	pop    %r14
+ 43a:	41 5f                	pop    %r15
+ 43c:	c3                   	ret
+ 43d:	0f 1f 00             	nopl   (%rax)
+ 440:	4d 85 e4             	test   %r12,%r12
+ 443:	74 d1                	je     416 <gistrescan+0x236>
+ 445:	49 63 77 1c          	movslq 0x1c(%r15),%rsi
+ 449:	85 f6                	test   %esi,%esi
+ 44b:	7e c9                	jle    416 <gistrescan+0x236>
+ 44d:	80 7c 24 0b 00       	cmpb   $0x0,0xb(%rsp)
+ 452:	48 c7 04 24 00 00 00 00 	movq   $0x0,(%rsp)
+ 45a:	0f 85 f7 fe ff ff    	jne    357 <gistrescan+0x177>
+ 460:	bf 08 00 00 00       	mov    $0x8,%edi
+ 465:	e8 00 00 00 00       	call   46a <gistrescan+0x28a>	466: R_X86_64_PLT32	palloc_mul-0x4
+ 46a:	49 63 77 1c          	movslq 0x1c(%r15),%rsi
+ 46e:	48 89 04 24          	mov    %rax,(%rsp)
+ 472:	85 f6                	test   %esi,%esi
+ 474:	0f 8e dd fe ff ff    	jle    357 <gistrescan+0x177>
+ 47a:	31 d2                	xor    %edx,%edx
+ 47c:	31 c0                	xor    %eax,%eax
+ 47e:	66 90                	xchg   %ax,%ax
+ 480:	49 8b 4f 28          	mov    0x28(%r15),%rcx
+ 484:	48 8b 34 24          	mov    (%rsp),%rsi
+ 488:	48 8b 4c 11 28       	mov    0x28(%rcx,%rdx,1),%rcx
+ 48d:	48 83 c2 48          	add    $0x48,%rdx
+ 491:	48 89 0c c6          	mov    %rcx,(%rsi,%rax,8)
+ 495:	49 63 77 1c          	movslq 0x1c(%r15),%rsi
+ 499:	48 83 c0 01          	add    $0x1,%rax
+ 49d:	39 c6                	cmp    %eax,%esi
+ 49f:	7f df                	jg     480 <gistrescan+0x2a0>
+ 4a1:	e9 b1 fe ff ff       	jmp    357 <gistrescan+0x177>
+ 4a6:	66 2e 0f 1f 84 00 00 00 00 00 	cs nopw 0x0(%rax,%rax,1)
+ 4b0:	41 b8 00 00 80 00    	mov    $0x800000,%r8d
+ 4b6:	b9 00 20 00 00       	mov    $0x2000,%ecx
+ 4bb:	31 d2                	xor    %edx,%edx
+ 4bd:	48 8d 35 00 00 00 00 	lea    0x0(%rip),%rsi        # 4c4 <gistrescan+0x2e4>	4c0: R_X86_64_PC32	.LC0-0x4
+ 4c4:	e8 00 00 00 00       	call   4c9 <gistrescan+0x2e9>	4c5: R_X86_64_PLT32	AllocSetContextCreateInternal-0x4
+ 4c9:	48 89 43 18          	mov    %rax,0x18(%rbx)
+ 4cd:	e9 6b fd ff ff       	jmp    23d <gistrescan+0x5d>
+ 4d2:	66 0f 1f 44 00 00    	nopw   0x0(%rax,%rax,1)
+ 4d8:	49 8b 57 20          	mov    0x20(%r15),%rdx
+ 4dc:	8b 0a                	mov    (%rdx),%ecx
+ 4de:	85 c9                	test   %ecx,%ecx
+ 4e0:	0f 85 3d ff ff ff    	jne    423 <gistrescan+0x243>
+ 4e6:	81 7a 18 12 0a 00 00 	cmpl   $0xa12,0x18(%rdx)
+ 4ed:	0f 85 30 ff ff ff    	jne    423 <gistrescan+0x243>
+ 4f3:	48 8b 05 00 00 00 00 	mov    0x0(%rip),%rax        # 4fa <gistrescan+0x31a>	4f6: R_X86_64_REX_GOTPCRELX	gist_box_consistent-0x4
+ 4fa:	48 39 42 10          	cmp    %rax,0x10(%rdx)
+ 4fe:	0f 94 c0             	sete   %al
+ 501:	e9 1d ff ff ff       	jmp    423 <gistrescan+0x243>
+ 506:	66 2e 0f 1f 84 00 00 00 00 00 	cs nopw 0x0(%rax,%rax,1)
+ 510:	48 8b 3c 24          	mov    (%rsp),%rdi
+ 514:	e8 00 00 00 00       	call   519 <gistrescan+0x339>	515: R_X86_64_PLT32	pfree-0x4
+ 519:	e9 f8 fe ff ff       	jmp    416 <gistrescan+0x236>
+ 51e:	66 90                	xchg   %ax,%ax
+ 520:	49 8b 47 08          	mov    0x8(%r15),%rax
+ 524:	4c 8b 2b             	mov    (%rbx),%r13
+ 527:	48 8b 50 38          	mov    0x38(%rax),%rdx
+ 52b:	48 8b 80 48 01 00 00 	mov    0x148(%rax),%rax
+ 532:	0f bf 7a 78          	movswl 0x78(%rdx),%edi
+ 536:	44 0f bf 70 0a       	movswl 0xa(%rax),%r14d
+ 53b:	89 3c 24             	mov    %edi,(%rsp)
+ 53e:	44 89 74 24 0c       	mov    %r14d,0xc(%rsp)
+ 543:	e8 00 00 00 00       	call   548 <gistrescan+0x368>	544: R_X86_64_PLT32	CreateTemplateTupleDesc-0x4
+ 548:	49 89 45 20          	mov    %rax,0x20(%r13)
+ 54c:	45 85 f6             	test   %r14d,%r14d
+ 54f:	0f 8e 5e 01 00 00    	jle    6b3 <gistrescan+0x4d3>
+ 555:	45 89 f5             	mov    %r14d,%r13d
+ 558:	45 31 f6             	xor    %r14d,%r14d
+ 55b:	0f 1f 44 00 00       	nopl   0x0(%rax,%rax,1)
+ 560:	49 8b 57 08          	mov    0x8(%r15),%rdx
+ 564:	41 8d 76 01          	lea    0x1(%r14),%esi
+ 568:	45 31 c9             	xor    %r9d,%r9d
+ 56b:	41 b8 ff ff ff ff    	mov    $0xffffffff,%r8d
+ 571:	0f bf f6             	movswl %si,%esi
+ 574:	48 8b 92 70 01 00 00 	mov    0x170(%rdx),%rdx
+ 57b:	42 8b 0c b2          	mov    (%rdx,%r14,4),%ecx
+ 57f:	48 8b 13             	mov    (%rbx),%rdx
+ 582:	49 83 c6 01          	add    $0x1,%r14
+ 586:	48 8b 7a 20          	mov    0x20(%rdx),%rdi
+ 58a:	31 d2                	xor    %edx,%edx
+ 58c:	e8 00 00 00 00       	call   591 <gistrescan+0x3b1>	58d: R_X86_64_PLT32	TupleDescInitEntry-0x4
+ 591:	4d 39 f5             	cmp    %r14,%r13
+ 594:	75 ca                	jne    560 <gistrescan+0x380>
+ 596:	44 8b 6c 24 0c       	mov    0xc(%rsp),%r13d
+ 59b:	41 83 c5 01          	add    $0x1,%r13d
+ 59f:	44 39 2c 24          	cmp    %r13d,(%rsp)
+ 5a3:	7c 5e                	jl     603 <gistrescan+0x423>
+ 5a5:	41 8d 45 ff          	lea    -0x1(%r13),%eax
+ 5a9:	48 98                	cltq
+ 5ab:	48 8d 04 80          	lea    (%rax,%rax,4),%rax
+ 5af:	48 8d 04 80          	lea    (%rax,%rax,4),%rax
+ 5b3:	4c 8d 34 85 00 00 00 00 	lea    0x0(,%rax,4),%r14
+ 5bb:	8b 04 24             	mov    (%rsp),%eax
+ 5be:	83 c0 01             	add    $0x1,%eax
+ 5c1:	89 04 24             	mov    %eax,(%rsp)
+ 5c4:	0f 1f 40 00          	nopl   0x0(%rax)
+ 5c8:	48 8b 03             	mov    (%rbx),%rax
+ 5cb:	44 89 ee             	mov    %r13d,%esi
+ 5ce:	45 31 c9             	xor    %r9d,%r9d
+ 5d1:	41 b8 ff ff ff ff    	mov    $0xffffffff,%r8d
+ 5d7:	41 83 c5 01          	add    $0x1,%r13d
+ 5db:	49 83 c6 64          	add    $0x64,%r14
+ 5df:	48 8b 50 10          	mov    0x10(%rax),%rdx
+ 5e3:	48 8b 78 20          	mov    0x20(%rax),%rdi
+ 5e7:	48 63 0a             	movslq (%rdx),%rcx
+ 5ea:	48 8d 54 ca 20       	lea    0x20(%rdx,%rcx,8),%rdx
+ 5ef:	41 8b 4c 16 e0       	mov    -0x20(%r14,%rdx,1),%ecx
+ 5f4:	31 d2                	xor    %edx,%edx
+ 5f6:	e8 00 00 00 00       	call   5fb <gistrescan+0x41b>	5f7: R_X86_64_PLT32	TupleDescInitEntry-0x4
+ 5fb:	8b 04 24             	mov    (%rsp),%eax
+ 5fe:	41 39 c5             	cmp    %eax,%r13d
+ 601:	75 c5                	jne    5c8 <gistrescan+0x3e8>
+ 603:	48 8b 03             	mov    (%rbx),%rax
+ 606:	48 8b 78 20          	mov    0x20(%rax),%rdi
+ 60a:	e8 00 00 00 00       	call   60f <gistrescan+0x42f>	60b: R_X86_64_PLT32	TupleDescFinalize-0x4
+ 60f:	48 8b 03             	mov    (%rbx),%rax
+ 612:	41 b8 00 00 80 00    	mov    $0x800000,%r8d
+ 618:	31 d2                	xor    %edx,%edx
+ 61a:	b9 00 20 00 00       	mov    $0x2000,%ecx
+ 61f:	48 8d 35 00 00 00 00 	lea    0x0(%rip),%rsi        # 626 <gistrescan+0x446>	622: R_X86_64_PC32	.LC1-0x4
+ 626:	48 8b 40 20          	mov    0x20(%rax),%rax
+ 62a:	49 89 47 60          	mov    %rax,0x60(%r15)
+ 62e:	48 8b 03             	mov    (%rbx),%rax
+ 631:	48 8b 38             	mov    (%rax),%rdi
+ 634:	e8 00 00 00 00       	call   639 <gistrescan+0x459>	635: R_X86_64_PLT32	AllocSetContextCreateInternal-0x4
+ 639:	48 89 83 50 60 00 00 	mov    %rax,0x6050(%rbx)
+ 640:	e9 0f fc ff ff       	jmp    254 <gistrescan+0x74>
+ 645:	0f 1f 00             	nopl   (%rax)
+ 648:	4c 89 ef             	mov    %r13,%rdi
+ 64b:	e8 00 00 00 00       	call   650 <gistrescan+0x470>	64c: R_X86_64_PLT32	pfree-0x4
+ 650:	4d 85 e4             	test   %r12,%r12
+ 653:	0f 84 bd fd ff ff    	je     416 <gistrescan+0x236>
+ 659:	49 63 77 1c          	movslq 0x1c(%r15),%rsi
+ 65d:	85 f6                	test   %esi,%esi
+ 65f:	0f 8f fb fd ff ff    	jg     460 <gistrescan+0x280>
+ 665:	e9 ac fd ff ff       	jmp    416 <gistrescan+0x236>
+ 66a:	66 0f 1f 44 00 00    	nopw   0x0(%rax,%rax,1)
+ 670:	bf 08 00 00 00       	mov    $0x8,%edi
+ 675:	e8 00 00 00 00       	call   67a <gistrescan+0x49a>	676: R_X86_64_PLT32	palloc_mul-0x4
+ 67a:	49 63 77 18          	movslq 0x18(%r15),%rsi
+ 67e:	49 89 c5             	mov    %rax,%r13
+ 681:	85 f6                	test   %esi,%esi
+ 683:	0f 8e 1e fc ff ff    	jle    2a7 <gistrescan+0xc7>
+ 689:	31 d2                	xor    %edx,%edx
+ 68b:	31 c0                	xor    %eax,%eax
+ 68d:	0f 1f 00             	nopl   (%rax)
+ 690:	49 8b 4f 20          	mov    0x20(%r15),%rcx
+ 694:	48 8b 4c 11 28       	mov    0x28(%rcx,%rdx,1),%rcx
+ 699:	48 83 c2 48          	add    $0x48,%rdx
+ 69d:	49 89 4c c5 00       	mov    %rcx,0x0(%r13,%rax,8)
+ 6a2:	49 63 77 18          	movslq 0x18(%r15),%rsi
+ 6a6:	48 83 c0 01          	add    $0x1,%rax
+ 6aa:	39 c6                	cmp    %eax,%esi
+ 6ac:	7f e2                	jg     690 <gistrescan+0x4b0>
+ 6ae:	e9 f4 fb ff ff       	jmp    2a7 <gistrescan+0xc7>
+ 6b3:	41 bd 01 00 00 00    	mov    $0x1,%r13d
+ 6b9:	e9 e1 fe ff ff       	jmp    59f <gistrescan+0x3bf>
+ 6be:	66 90                	xchg   %ax,%ax
+
+00000000000006c0 <gistendscan>:
+ 6c0:	f3 0f 1e fa          	endbr64
+ 6c4:	53                   	push   %rbx
+ 6c5:	48 8b 5f 38          	mov    0x38(%rdi),%rbx
+ 6c9:	8b 43 38             	mov    0x38(%rbx),%eax
+ 6cc:	85 c0                	test   %eax,%eax
+ 6ce:	7e 05                	jle    6d5 <gistendscan+0x15>
+ 6d0:	e8 00 00 00 00       	call   6d5 <gistendscan+0x15>	6d1: R_X86_64_PLT32	gistkillitems-0x4
+ 6d5:	48 8b 3b             	mov    (%rbx),%rdi
+ 6d8:	5b                   	pop    %rbx
+ 6d9:	e9 00 00 00 00       	jmp    6de <gistendscan+0x1e>	6da: R_X86_64_PLT32	freeGISTstate-0x4
+
+Disassembly of section .text.unlikely:
+
+0000000000000000 <gistrescan.cold>:
+   0:	31 f6                	xor    %esi,%esi
+   2:	bf 15 00 00 00       	mov    $0x15,%edi
+   7:	e8 00 00 00 00       	call   c <gistrescan.cold+0xc>	8: R_X86_64_PLT32	errstart_cold-0x4
+   c:	49 8b 47 08          	mov    0x8(%r15),%rax
+  10:	41 0f bf 56 04       	movswl 0x4(%r14),%edx
+  15:	be 08 00 00 00       	mov    $0x8,%esi
+  1a:	48 8d 3d 00 00 00 00 	lea    0x0(%rip),%rdi        # 21 <gistrescan.cold+0x21>	1d: R_X86_64_PC32	.LC2-0x4
+  21:	48 8b 48 38          	mov    0x38(%rax),%rcx
+  25:	31 c0                	xor    %eax,%eax
+  27:	48 83 c1 04          	add    $0x4,%rcx
+  2b:	e8 00 00 00 00       	call   30 <gistrescan.cold+0x30>	2c: R_X86_64_PLT32	errmsg_internal-0x4
+  30:	48 8d 15 00 00 00 00 	lea    0x0(%rip),%rdx        # 37 <gistrescan.cold+0x37>	33: R_X86_64_PC32	.rodata-0x4
+  37:	be 3e 01 00 00       	mov    $0x13e,%esi
+  3c:	48 8d 3d 00 00 00 00 	lea    0x0(%rip),%rdi        # 43 <gistrescan.cold+0x43>	3f: R_X86_64_PC32	.LC3-0x4
+  43:	e8 00 00 00 00       	call   48 <.LC3+0x8>	44: R_X86_64_PLT32	errfinish-0x4

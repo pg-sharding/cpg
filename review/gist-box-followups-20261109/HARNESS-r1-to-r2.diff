@@ -1,0 +1,39 @@
+--- runtime-r1/benchmark.py
++++ runtime/benchmark.py
+@@ -17,7 +17,8 @@
+ assert a.prepare_smoke != a.matrix
+ os.umask(0o077)
+ os.nice(max(0,10-os.getpriority(os.PRIO_PROCESS,0)))
+-out=ROOT/'bench-r1'
++ATTEMPT='r2'
++out=ROOT/('bench-'+ATTEMPT)
+ if a.prepare_smoke:out.mkdir()
+ runtime=Runtime(out)
+ seed=json.loads((ROOT/'SEED.json').read_text())
+@@ -43,7 +44,7 @@
+             'module':sha(ROOT/'modules/box-am.so'),'seed_json':sha(ROOT/'SEED.json'),'protocol':sha(ROOT/'PROTOCOL.md')}
+ 
+ def rolemap(phase):return {role:i if phase==0 else 4-i for i,role in enumerate(ROLES)}
+-def path(kind,phase,slot):return ROOT/(f'data-{kind}-p{phase}-s{slot}')
++def path(kind,phase,slot):return ROOT/(f'data-{ATTEMPT}-{kind}-p{phase}-s{slot}')
+ 
+ def start(kind,phase,cpu):
+     mapping=rolemap(phase)
+@@ -51,7 +52,7 @@
+     sessions={}
+     for slot in range(5):
+         role=next(r for r,s in mapping.items() if s==slot)
+-        rec=runtime.start(role,path(kind,phase,slot),kind[0]+str(phase)+str(slot),cpu)
++        rec=runtime.start(role,path(kind,phase,slot),ATTEMPT+kind[0]+str(phase)+str(slot),cpu)
+         records[role]=rec
+         sessions[role]=runtime.open(rec)
+     return records,sessions
+@@ -162,7 +163,7 @@
+                         for position,role in enumerate(roles):
+                             s=sessions[role]
+                             row=observation(s,c)
+-                            row.update(cohort=phase,case=c['name'],native=c['native'],rep=rep,warm=rep<0,
++                            row.update(cohort=phase,case=c['name'],is_native=c['native'],rep=rep,warm=rep<0,
+                                        role=role,slot=rolemap(phase)[role],position=position,schedule=current_schedule,
+                                        order=roles,previous_role=last,backend_pid=s.pid,loadavg=os.getloadavg())
+                             append(out/(f'cohort{phase}-raw.jsonl'),row)

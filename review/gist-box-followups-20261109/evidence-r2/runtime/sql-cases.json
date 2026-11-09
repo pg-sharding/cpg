@@ -1,0 +1,114 @@
+[
+  {
+    "name": "sparse_join",
+    "sql": "SELECT count(*) FROM s2.probes p JOIN s2.boxes b ON b.b && p.q",
+    "settings": ";",
+    "index": "boxes_gist",
+    "require_index": true
+  },
+  {
+    "name": "medium_join",
+    "sql": "SELECT count(*) FROM (SELECT * FROM s2.probes WHERE id<=64) p JOIN s2.boxes b ON b.b && box(center(p.q),center(p.q)+point(20,20))",
+    "settings": ";",
+    "index": "boxes_gist",
+    "require_index": true
+  },
+  {
+    "name": "absent_join",
+    "sql": "SELECT count(*) FROM s2.probes p JOIN s2.boxes b ON b.b && box(point(2000+p.id,2000),point(2000+p.id,2000))",
+    "settings": ";",
+    "index": "boxes_gist",
+    "require_index": true
+  },
+  {
+    "name": "single_sparse",
+    "sql": "SELECT count(*) FROM s2.boxes WHERE b && box(point(100,100),point(105,105))",
+    "settings": ";",
+    "index": "boxes_gist",
+    "require_index": true
+  },
+  {
+    "name": "allmatch_natural",
+    "sql": "SELECT count(*) FROM s2.boxes WHERE b && box(point(-1,-1),point(2000,2000))",
+    "settings": ";",
+    "index": "boxes_gist",
+    "require_index": false
+  },
+  {
+    "name": "allmatch_forced",
+    "sql": "SELECT count(*) FROM s2.boxes WHERE b && box(point(-1,-1),point(2000,2000))",
+    "settings": "SET enable_seqscan=off;",
+    "index": "boxes_gist",
+    "require_index": true
+  },
+  {
+    "name": "saturated_natural",
+    "sql": "SELECT count(*) FROM s2.saturated WHERE b && '((0,0),(0,0))'::box",
+    "settings": ";",
+    "index": "saturated_gist",
+    "require_index": false
+  },
+  {
+    "name": "saturated_forced",
+    "sql": "SELECT count(*) FROM s2.saturated WHERE b && '((0,0),(0,0))'::box",
+    "settings": "SET enable_seqscan=off;",
+    "index": "saturated_gist",
+    "require_index": true
+  },
+  {
+    "name": "tiny_natural",
+    "sql": "SELECT count(*) FROM s2.probes p JOIN s2.tiny b ON b.b && p.q",
+    "settings": ";",
+    "index": "tiny_gist",
+    "require_index": false
+  },
+  {
+    "name": "tiny_forced",
+    "sql": "SELECT count(*) FROM s2.probes p JOIN s2.tiny b ON b.b && p.q",
+    "settings": "SET enable_seqscan=off;SET enable_material=off;",
+    "index": "tiny_gist",
+    "require_index": true
+  },
+  {
+    "name": "point_off",
+    "sql": "SELECT count(*) FROM s2.probes p JOIN s2.points b ON b.p <@ p.q",
+    "settings": ";",
+    "index": "points_gist",
+    "require_index": true
+  },
+  {
+    "name": "knn_off",
+    "sql": "SELECT sum(id) FROM (SELECT id FROM s2.points ORDER BY p <-> point(101,101) LIMIT 1000)s",
+    "settings": ";",
+    "index": "points_gist",
+    "require_index": true
+  },
+  {
+    "name": "custom_fn_off",
+    "sql": "SELECT count(*) FROM s2.probes p JOIN s2.wrapped b ON b.b && p.q",
+    "settings": ";",
+    "index": "wrapped_gist",
+    "require_index": true
+  },
+  {
+    "name": "two_keys_off",
+    "sql": "SELECT count(*) FROM s2.probes p JOIN s2.boxes b ON b.b && p.q AND b.b && box(center(p.q)-point(1,1),center(p.q)+point(1,1))",
+    "settings": ";",
+    "index": "boxes_gist",
+    "require_index": true
+  },
+  {
+    "name": "null_off",
+    "sql": "SELECT count(*) FROM s2.boxes WHERE b IS NULL",
+    "settings": ";",
+    "index": "boxes_gist",
+    "require_index": true
+  },
+  {
+    "name": "seq_off",
+    "sql": "SELECT sum(payload) FROM s2.boxes",
+    "settings": ";",
+    "index": null,
+    "require_index": false
+  }
+]

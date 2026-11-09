@@ -1,0 +1,52 @@
+diff --git a/src/backend/access/gist/gistget.c b/src/backend/access/gist/gistget.c
+--- a/src/backend/access/gist/gistget.c
++++ b/src/backend/access/gist/gistget.c
+@@ -676,7 +676,7 @@
+ 	 */
+ 	maxoff = PageGetMaxOffsetNumber(page);
+ 	/* A sample and at least one full batch are needed to amortize setup. */
+-	if (maxoff >= 2 * GIST_BOX_BATCH_SIZE &&
++	if (maxoff >= 2 * GIST_BOX_BATCH_SIZE && so->boxBatchCandidate &&
+ 		gistScanBoxItems(scan, buffer, page, tbm, ntids, maxoff))
+ 	{
+ 		UnlockReleaseBuffer(buffer);
+diff --git a/src/backend/access/gist/gistscan.c b/src/backend/access/gist/gistscan.c
+--- a/src/backend/access/gist/gistscan.c
++++ b/src/backend/access/gist/gistscan.c
+@@ -18,6 +18,8 @@
+ #include "access/gistscan.h"
+ #include "access/relscan.h"
+ #include "utils/float.h"
++#include "utils/fmgroids.h"
++#include "utils/fmgrprotos.h"
+ #include "utils/lsyscache.h"
+ #include "utils/memutils.h"
+ #include "utils/rel.h"
+@@ -346,6 +348,16 @@
+ 			pfree(fn_extras);
+ 	}
+ 
++	/*
++	 * Cache only necessary caller conditions, after support functions have
++	 * been copied into the scan keys.  The page helper still checks the full
++	 * BOX contract and obtains the current argument on every entry.
++	 */
++	so->boxBatchCandidate = scan->numberOfKeys == 1 &&
++		scan->numberOfOrderBys == 0 && scan->keyData[0].sk_flags == 0 &&
++		scan->keyData[0].sk_func.fn_oid == F_GIST_BOX_CONSISTENT &&
++		scan->keyData[0].sk_func.fn_addr == gist_box_consistent;
++
+ 	/* any previous xs_hitup will have been pfree'd in context resets above */
+ 	scan->xs_hitup = NULL;
+ }
+diff --git a/src/include/access/gist_private.h b/src/include/access/gist_private.h
+--- a/src/include/access/gist_private.h
++++ b/src/include/access/gist_private.h
+@@ -160,6 +160,7 @@
+ 	MemoryContext queueCxt;		/* context holding the queue */
+ 	bool		qual_ok;		/* false if qual can never be satisfied */
+ 	bool		firstCall;		/* true until first gistgettuple call */
++	bool		boxBatchCandidate; /* necessary BOX caller checks at rescan */
+ 
+ 	/* pre-allocated workspace arrays */
+ 	IndexOrderByDistance *distances;	/* output area for gistindex_keytest */

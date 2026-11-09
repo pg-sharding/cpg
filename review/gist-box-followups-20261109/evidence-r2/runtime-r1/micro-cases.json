@@ -1,0 +1,26 @@
+[
+  {
+    "name": "am_sparse",
+    "sql": "SELECT public.box_am_micro('s2.boxes_gist',ARRAY(SELECT q FROM s2.probes WHERE id<=32 ORDER BY id),64)",
+    "answer_sql": "SELECT (64) * sum((SELECT count(*) FROM s2.boxes WHERE b && q)) FROM unnest(ARRAY(SELECT q FROM s2.probes WHERE id<=32 ORDER BY id))q",
+    "scans": 2048
+  },
+  {
+    "name": "am_medium",
+    "sql": "SELECT public.box_am_micro('s2.boxes_gist',ARRAY(SELECT box(center(q),center(q)+point(20,20)) FROM s2.probes WHERE id<=32 ORDER BY id),16)",
+    "answer_sql": "SELECT (16) * sum((SELECT count(*) FROM s2.boxes WHERE b && q)) FROM unnest(ARRAY(SELECT box(center(q),center(q)+point(20,20)) FROM s2.probes WHERE id<=32 ORDER BY id))q",
+    "scans": 512
+  },
+  {
+    "name": "am_absent",
+    "sql": "SELECT public.box_am_micro('s2.boxes_gist',ARRAY(SELECT box(point(2000+id,2000),point(2000+id,2000)) FROM s2.probes WHERE id<=32 ORDER BY id),64)",
+    "answer_sql": "SELECT (64) * sum((SELECT count(*) FROM s2.boxes WHERE b && q)) FROM unnest(ARRAY(SELECT box(point(2000+id,2000),point(2000+id,2000)) FROM s2.probes WHERE id<=32 ORDER BY id))q",
+    "scans": 2048
+  },
+  {
+    "name": "am_allmatch",
+    "sql": "SELECT public.box_am_micro('s2.boxes_gist',ARRAY[box(point(-1,-1),point(2000,2000))],8)",
+    "answer_sql": "SELECT (8) * sum((SELECT count(*) FROM s2.boxes WHERE b && q)) FROM unnest(ARRAY[box(point(-1,-1),point(2000,2000))])q",
+    "scans": 8
+  }
+]

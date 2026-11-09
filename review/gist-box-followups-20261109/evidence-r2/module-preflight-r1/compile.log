@@ -1,0 +1,16 @@
+/home/reshke/allfuzz/box-followups-20261109-r1/runtime/am-micro.c: In function ‘box_am_micro’:
+/home/reshke/allfuzz/box-followups-20261109-r1/runtime/am-micro.c:57:67: warning: passing argument 3 of ‘index_beginscan_bitmap’ makes pointer from integer without a cast [-Wint-conversion]
+   57 |         scan = index_beginscan_bitmap(index, GetActiveSnapshot(), 1);
+      |                                                                   ^
+      |                                                                   |
+      |                                                                   int
+In file included from /home/reshke/allfuzz/box-followups-20261109-r1/runtime/am-micro.c:4:
+/home/reshke/allfuzz/box-followups-20261109-r1/builds/stage-B/home/reshke/allfuzz/box-followups-20261109-r1/builds/prefix/include/postgresql/server/access/genam.h:167:115: note: expected ‘IndexScanInstrumentation *’ but argument is of type ‘int’
+  167 |                                                                                         IndexScanInstrumentation *instrument,
+      |                                                                                         ~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~
+/home/reshke/allfuzz/box-followups-20261109-r1/runtime/am-micro.c:57:16: error: too few arguments to function ‘index_beginscan_bitmap’
+   57 |         scan = index_beginscan_bitmap(index, GetActiveSnapshot(), 1);
+      |                ^~~~~~~~~~~~~~~~~~~~~~
+/home/reshke/allfuzz/box-followups-20261109-r1/builds/stage-B/home/reshke/allfuzz/box-followups-20261109-r1/builds/prefix/include/postgresql/server/access/genam.h:165:22: note: declared here
+  165 | extern IndexScanDesc index_beginscan_bitmap(Relation indexRelation,
+      |                      ^~~~~~~~~~~~~~~~~~~~~~
