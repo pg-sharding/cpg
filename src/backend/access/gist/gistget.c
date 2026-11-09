@@ -676,7 +676,7 @@ gistScanPage(IndexScanDesc scan, GISTSearchItem *pageItem,
 	 */
 	maxoff = PageGetMaxOffsetNumber(page);
 	/* A sample and at least one full batch are needed to amortize setup. */
-	if (maxoff >= 2 * GIST_BOX_BATCH_SIZE &&
+	if (maxoff >= 2 * GIST_BOX_BATCH_SIZE && so->boxBatchCandidate &&
 		gistScanBoxItems(scan, buffer, page, tbm, ntids, maxoff))
 	{
 		UnlockReleaseBuffer(buffer);

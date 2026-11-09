@@ -18,6 +18,8 @@
 #include "access/gistscan.h"
 #include "access/relscan.h"
 #include "utils/float.h"
+#include "utils/fmgroids.h"
+#include "utils/fmgrprotos.h"
 #include "utils/lsyscache.h"
 #include "utils/memutils.h"
 #include "utils/rel.h"
@@ -345,6 +347,16 @@ gistrescan(IndexScanDesc scan, ScanKey key, int nkeys,
 		if (!first_time)
 			pfree(fn_extras);
 	}
+
+	/*
+	 * Cache only necessary caller conditions, after support functions have
+	 * been copied into the scan keys.  The page helper still checks the full
+	 * BOX contract and obtains the current argument on every entry.
+	 */
+	so->boxBatchCandidate = scan->numberOfKeys == 1 &&
+		scan->numberOfOrderBys == 0 && scan->keyData[0].sk_flags == 0 &&
+		scan->keyData[0].sk_func.fn_oid == F_GIST_BOX_CONSISTENT &&
+		scan->keyData[0].sk_func.fn_addr == gist_box_consistent;
 
 	/* any previous xs_hitup will have been pfree'd in context resets above */
 	scan->xs_hitup = NULL;

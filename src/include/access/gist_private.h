@@ -160,6 +160,7 @@ typedef struct GISTScanOpaqueData
 	MemoryContext queueCxt;		/* context holding the queue */
 	bool		qual_ok;		/* false if qual can never be satisfied */
 	bool		firstCall;		/* true until first gistgettuple call */
+	bool		boxBatchCandidate; /* necessary BOX caller checks at rescan */
 
 	/* pre-allocated workspace arrays */
 	IndexOrderByDistance *distances;	/* output area for gistindex_keytest */
