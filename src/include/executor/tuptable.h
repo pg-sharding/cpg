@@ -481,6 +481,56 @@ ExecClearTuple(TupleTableSlot *slot)
 }
 
 /*
+ * Replace an unowned built-in virtual tuple from independently owned arrays.
+ * The caller supplies a validated descriptor count and keeps referenced data
+ * alive.  In particular, neither source array may alias the slot's arrays or
+ * storage owned by the slot.  Copy even NULL Datums: consumers may have changed
+ * the slot since its previous use.
+ *
+ * Other slot implementations and materialized virtual tuples need their clear
+ * callback.  Return false without changing them.  For an unowned virtual slot,
+ * combine the observable effects of virtual clear, array copies and store;
+ * preserve tableOid, descriptor flags and all unrelated slot fields.
+ */
+static inline bool
+ExecTryReplaceVirtualTupleFromArrays(TupleTableSlot *slot,
+									const Datum *values, const bool *isnull,
+									int natts)
+{
+	if (!TTS_IS_VIRTUAL(slot) || TTS_SHOULDFREE(slot))
+		return false;
+
+	Assert(slot->tts_tupleDescriptor != NULL);
+	Assert(natts > 0 && natts == slot->tts_tupleDescriptor->natts);
+
+	/* Keep the same constant-size copies as the IOS cache's ordinary path. */
+	switch (natts)
+	{
+		case 2:
+			memcpy(slot->tts_values, values, sizeof(Datum) * 2);
+			memcpy(slot->tts_isnull, isnull, sizeof(bool) * 2);
+			break;
+		case 3:
+			memcpy(slot->tts_values, values, sizeof(Datum) * 3);
+			memcpy(slot->tts_isnull, isnull, sizeof(bool) * 3);
+			break;
+		case 4:
+			memcpy(slot->tts_values, values, sizeof(Datum) * 4);
+			memcpy(slot->tts_isnull, isnull, sizeof(bool) * 4);
+			break;
+		default:
+			memcpy(slot->tts_values, values, sizeof(Datum) * natts);
+			memcpy(slot->tts_isnull, isnull, sizeof(bool) * natts);
+			break;
+	}
+
+	ItemPointerSetInvalid(&slot->tts_tid);
+	slot->tts_nvalid = natts;
+	slot->tts_flags &= ~TTS_FLAG_EMPTY;
+	return true;
+}
+
+/*
  * ExecMaterializeSlot - force a slot into the "materialized" state.
  *
  * This causes the slot's tuple to be a local copy not dependent on any

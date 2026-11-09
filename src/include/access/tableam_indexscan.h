@@ -26,6 +26,10 @@
 extern pg_attribute_cold void tableam_index_fill_ios_names(IndexScanDesc scan,
 														   TupleTableSlot *slot);
 
+extern pg_noinline void tableam_index_fill_ios_cached_slot(IndexScanDesc scan,
+												 TupleTableSlot *slot,
+												 IndexTupleDeformCache *cache);
+
 
 /*
  * Fetch the next matching TID for the scan (or the first) through the
@@ -68,8 +72,6 @@ tableam_index_getnext_tid(IndexScanDesc scan, ScanDirection direction)
 static inline void
 tableam_index_fill_ios_slot(IndexScanDesc scan, TupleTableSlot *slot)
 {
-	ExecClearTuple(slot);
-
 	/*
 	 * We must deform the tuple using the tupdesc the index AM formed it with
 	 * (xs_hitupdesc or xs_itupdesc), not the slot's tupdesc.  The datums
@@ -81,6 +83,8 @@ tableam_index_fill_ios_slot(IndexScanDesc scan, TupleTableSlot *slot)
 	 */
 	if (scan->xs_hitup)
 	{
+		ExecClearTuple(slot);
+
 		Assert(slot->tts_tupleDescriptor->natts == scan->xs_hitupdesc->natts);
 
 		heap_deform_tuple(scan->xs_hitup, scan->xs_hitupdesc,
@@ -88,8 +92,19 @@ tableam_index_fill_ios_slot(IndexScanDesc scan, TupleTableSlot *slot)
 	}
 	else if (scan->xs_itup)
 	{
+		IndexTupleDeformCache *cache = scan->xs_itupcache;
+
 		Assert(slot->tts_tupleDescriptor->natts == scan->xs_itupdesc->natts);
 
+		/* Leave noneligible tuples on the ordinary inline fill path. */
+		if (cache != NULL &&
+			(scan->xs_itup->t_info & cache->required_flags) == cache->required_flags)
+		{
+			tableam_index_fill_ios_cached_slot(scan, slot, cache);
+			return;
+		}
+
+		ExecClearTuple(slot);
 		index_deform_tuple(scan->xs_itup, scan->xs_itupdesc,
 						   slot->tts_values, slot->tts_isnull);
 
@@ -104,7 +119,10 @@ tableam_index_fill_ios_slot(IndexScanDesc scan, TupleTableSlot *slot)
 			tableam_index_fill_ios_names(scan, slot);
 	}
 	else
+	{
+		ExecClearTuple(slot);
 		elog(ERROR, "no data returned for index-only scan");
+	}
 
 	ExecStoreVirtualTuple(slot);
 }
