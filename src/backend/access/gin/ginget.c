@@ -951,6 +951,19 @@ entryLoadMoreItems(GinState *ginstate, GinScanEntry entry,
 	}
 }
 
+/* Only the ordering predicate is needed by decoded-list advancement. */
+static inline bool
+ginItemPointerIsAfter(const ItemPointerData *item,
+					  const ItemPointerData *advancePast)
+{
+	uint64		itemKey = (uint64) GinItemPointerGetBlockNumber(item) << 32 |
+						GinItemPointerGetOffsetNumber(item);
+	uint64		pastKey = (uint64) GinItemPointerGetBlockNumber(advancePast) << 32 |
+						GinItemPointerGetOffsetNumber(advancePast);
+
+	return itemKey > pastKey;
+}
+
 #define gin_rand() pg_prng_double(&pg_global_prng_state)
 #define dropItem(e) ( gin_rand() > ((double)GinFuzzySearchLimit)/((double)((e)->predictNumberResult)) )
 
@@ -1101,7 +1114,7 @@ entryGetItem(GinState *ginstate, GinScanEntry entry,
 			entry->curItem = entry->list[entry->offset++];
 
 			/* If we're not past advancePast, keep scanning */
-			if (ginCompareItemPointers(&entry->curItem, &advancePast) <= 0)
+			if (!ginItemPointerIsAfter(&entry->curItem, &advancePast))
 				continue;
 
 			/* Done unless we need to reduce the result */
@@ -1132,7 +1145,7 @@ entryGetItem(GinState *ginstate, GinScanEntry entry,
 			entry->curItem = entry->list[entry->offset++];
 
 			/* If we're not past advancePast, keep scanning */
-			if (ginCompareItemPointers(&entry->curItem, &advancePast) <= 0)
+			if (!ginItemPointerIsAfter(&entry->curItem, &advancePast))
 				continue;
 
 			/* Done unless we need to reduce the result */
