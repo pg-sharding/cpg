@@ -48,6 +48,61 @@ typedef struct
 /* Experimental fixed bound for the cold-query stack workspace. */
 #define G_INT_STACK_QUERY_LIMIT 32
 
+/*
+ * Keep the fixed workspace out of tiny and large cache-miss preparation.
+ * The caller has validated the array and established 2 <= nitems <= 32.
+ * Return NULL without replacing the cache if its combined size is unsuitable.
+ */
+static pg_noinline ArrayType *
+g_int_prepare_query_stack(FmgrInfo *flinfo, ArrayType *original, int nitems)
+{
+	GIntQueryCache *cache = flinfo->fn_extra;
+	GIntQueryCache *newcache;
+	ArrayType  *prepared;
+	Size		querysize = VARSIZE(original);
+	Size		preparedsize;
+	Size		cachesize;
+	int32		items[G_INT_STACK_QUERY_LIMIT];
+	bool		ascending = true;
+	int			i;
+	int			nunique = 1;
+
+	memcpy(items, ARRPTR(original), (Size) nitems * sizeof(int32));
+	isort(items, nitems, &ascending);
+	for (i = 1; i < nitems; i++)
+	{
+		if (items[i] != items[nunique - 1])
+			items[nunique++] = items[i];
+	}
+	preparedsize = ARR_OVERHEAD_NONULLS(1) +
+		(Size) nunique * sizeof(int32);
+	cachesize = add_size(MAXALIGN(sizeof(GIntQueryCache)),
+					 add_size(MAXALIGN(querysize), preparedsize));
+	if (AllocSizeIsValid(cachesize))
+	{
+		newcache = MemoryContextAlloc(flinfo->fn_mcxt, cachesize);
+		newcache->original = (ArrayType *)
+			((char *) newcache + MAXALIGN(sizeof(GIntQueryCache)));
+		newcache->prepared = (ArrayType *)
+			((char *) newcache->original + MAXALIGN(querysize));
+		memcpy(newcache->original, original, querysize);
+		prepared = newcache->prepared;
+		MemSet(prepared, 0, ARR_OVERHEAD_NONULLS(1));
+		SET_VARSIZE(prepared, preparedsize);
+		ARR_NDIM(prepared) = 1;
+		ARR_ELEMTYPE(prepared) = ARR_ELEMTYPE(original);
+		ARR_DIMS(prepared)[0] = nunique;
+		ARR_LBOUND(prepared)[0] = 1;
+		memcpy(ARRPTR(prepared), items, (Size) nunique * sizeof(int32));
+		if (cache)
+			pfree(cache);
+		flinfo->fn_extra = newcache;
+		return prepared;
+	}
+
+	return NULL;
+}
+
 /* Keep preparation and replacement out of the common consistent frame. */
 static pg_noinline ArrayType *
 g_int_prepare_query_miss(FmgrInfo *flinfo, ArrayType *original,
@@ -59,7 +114,6 @@ g_int_prepare_query_miss(FmgrInfo *flinfo, ArrayType *original,
 	Size		querysize = VARSIZE(original);
 	Size		preparedsize;
 	Size		cachesize;
-	int32		items[G_INT_STACK_QUERY_LIMIT];
 	int			nitems;
 
 	CHECKARRVALID(original);
@@ -74,45 +128,12 @@ g_int_prepare_query_miss(FmgrInfo *flinfo, ArrayType *original,
 	if (nitems <= 1)
 		return original;
 
-	/* The workspace never becomes retained state or escapes this helper. */
+	/* Only small cache misses enter the helper with a fixed workspace. */
 	if (flinfo != NULL && nitems <= G_INT_STACK_QUERY_LIMIT)
 	{
-		bool		ascending = true;
-		int			i;
-		int			nunique = 1;
-
-		memcpy(items, ARRPTR(original), (Size) nitems * sizeof(int32));
-		isort(items, nitems, &ascending);
-		for (i = 1; i < nitems; i++)
-		{
-			if (items[i] != items[nunique - 1])
-				items[nunique++] = items[i];
-		}
-		preparedsize = ARR_OVERHEAD_NONULLS(1) +
-			(Size) nunique * sizeof(int32);
-		cachesize = add_size(MAXALIGN(sizeof(GIntQueryCache)),
-						 add_size(MAXALIGN(querysize), preparedsize));
-		if (AllocSizeIsValid(cachesize))
-		{
-			newcache = MemoryContextAlloc(flinfo->fn_mcxt, cachesize);
-			newcache->original = (ArrayType *)
-				((char *) newcache + MAXALIGN(sizeof(GIntQueryCache)));
-			newcache->prepared = (ArrayType *)
-				((char *) newcache->original + MAXALIGN(querysize));
-			memcpy(newcache->original, original, querysize);
-			prepared = newcache->prepared;
-			MemSet(prepared, 0, ARR_OVERHEAD_NONULLS(1));
-			SET_VARSIZE(prepared, preparedsize);
-			ARR_NDIM(prepared) = 1;
-			ARR_ELEMTYPE(prepared) = ARR_ELEMTYPE(original);
-			ARR_DIMS(prepared)[0] = nunique;
-			ARR_LBOUND(prepared)[0] = 1;
-			memcpy(ARRPTR(prepared), items, (Size) nunique * sizeof(int32));
-			if (cache)
-				pfree(cache);
-			flinfo->fn_extra = newcache;
+		prepared = g_int_prepare_query_stack(flinfo, original, nitems);
+		if (prepared != NULL)
 			return prepared;
-		}
 	}
 
 	prepared = DatumGetArrayTypePCopy(PointerGetDatum(original));
