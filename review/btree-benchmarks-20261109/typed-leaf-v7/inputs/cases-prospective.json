@@ -1,0 +1,27 @@
+{
+  "persistent": {
+    "perm_hot": "SELECT sum((SELECT k FROM b_perm WHERE k=(g*7919::bigint)%10000+1)) FROM generate_series(1,25000)g",
+    "perm_random": "SELECT sum((SELECT k FROM b_perm WHERE k=(g*7919::bigint)%2000000+1)) FROM generate_series(1,25000)g",
+    "perm_absent": "SELECT count((SELECT k FROM b_perm WHERE k=2000000::bigint+g)) FROM generate_series(1,25000)g",
+    "unlogged_hot": "SELECT sum((SELECT k FROM b_unlogged WHERE k=(g*7919::bigint)%10000+1)) FROM generate_series(1,25000)g",
+    "unlogged_absent": "SELECT count((SELECT k FROM b_unlogged WHERE k=1000000::bigint+g)) FROM generate_series(1,25000)g",
+    "temp_hot": "SELECT sum((SELECT k FROM b_temp WHERE k=(g*7919::bigint)%10000+1)) FROM generate_series(1,25000)g",
+    "temp_absent": "SELECT count((SELECT k FROM b_temp WHERE k=1000000::bigint+g)) FROM generate_series(1,25000)g",
+    "heap_points": "SELECT sum((SELECT length(pad) FROM b_perm WHERE k=(g*7919::bigint)%10000+1)) FROM generate_series(1,25000)g",
+    "int4_arg_control": "SELECT sum((SELECT k FROM b_perm WHERE k=(g*7919)%10000+1)) FROM generate_series(1,25000)g",
+    "text_control": "SELECT count((SELECT k FROM b_text WHERE k=lpad(((g*7919)%500000+1)::text,12,'0'))) FROM generate_series(1,25000)g",
+    "seq_control": "SELECT sum(k) FROM b_perm",
+    "write_i4_control": "INSERT INTO b_write_i4 SELECT nextval('b_write_i4_seq')::int,repeat('w',32) FROM generate_series(1,1000)",
+    "write_i8_control": "INSERT INTO b_write_i8 SELECT nextval('b_write_i8_seq'),repeat('w',32) FROM generate_series(1,1000)",
+    "heated_exact1": "SELECT k FROM b_perm WHERE k=99991::bigint"
+  },
+  "write_holdout": {
+    "random_unique_i4": "INSERT INTO h_write_i4 SELECT (200000::bigint+(nextval('h_write_i4_seq')*7919::bigint)%10000000)::int,repeat('w',32) FROM generate_series(1,1000)",
+    "random_unique_i8": "INSERT INTO h_write_i8 SELECT 200000::bigint+(nextval('h_write_i8_seq')*7919::bigint)%10000000,repeat('w',32) FROM generate_series(1,1000)"
+  },
+  "fresh": {
+    "exact1": "SELECT k FROM b_perm WHERE k=99991::bigint",
+    "exact2": "SELECT sum((SELECT k FROM b_perm WHERE k=99990::bigint+g::bigint)) FROM generate_series(1,2)g",
+    "small_range": "SELECT count(*) FROM b_perm WHERE k BETWEEN 99990::bigint AND 100005::bigint"
+  }
+}

@@ -1,0 +1,23 @@
+\set ON_ERROR_STOP on
+CREATE EXTENSION amcheck;
+CREATE EXTENSION pageinspect;
+CREATE TABLE b_perm(k bigint NOT NULL,pad text);
+INSERT INTO b_perm SELECT g,repeat('p',32) FROM generate_series(1,2000000)g;
+CREATE UNIQUE INDEX b_perm_idx ON b_perm(k);
+CREATE UNLOGGED TABLE b_unlogged(k bigint NOT NULL,pad text);
+INSERT INTO b_unlogged SELECT g,repeat('u',32) FROM generate_series(1,1000000)g;
+CREATE UNIQUE INDEX b_unlogged_idx ON b_unlogged(k);
+CREATE TABLE b_text(k text);
+INSERT INTO b_text SELECT lpad(g::text,12,'0') FROM generate_series(1,500000)g;
+CREATE INDEX b_text_idx ON b_text(k);
+CREATE TABLE b_join AS SELECT ((g*7919::bigint)%2000000)+1 k FROM generate_series(1,10000)g;
+CREATE SEQUENCE b_write_i4_seq START 100001;
+CREATE TABLE b_write_i4(k int PRIMARY KEY,pad text);
+INSERT INTO b_write_i4 SELECT g,repeat('w',32) FROM generate_series(1,100000)g;
+CREATE SEQUENCE b_write_i8_seq START 100001;
+CREATE TABLE b_write_i8(k bigint PRIMARY KEY,pad text);
+INSERT INTO b_write_i8 SELECT g,repeat('w',32) FROM generate_series(1,100000)g;
+VACUUM(ANALYZE,FREEZE)b_perm;
+VACUUM(ANALYZE,FREEZE)b_unlogged;
+VACUUM(ANALYZE,FREEZE)b_text;
+VACUUM(ANALYZE,FREEZE)b_join;

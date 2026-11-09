@@ -1,0 +1,14 @@
+diff --git a/src/include/access/tableam_indexscan.h b/src/include/access/tableam_indexscan.h
+--- a/src/include/access/tableam_indexscan.h
++++ b/src/include/access/tableam_indexscan.h
+@@ -96,7 +96,9 @@
+ 
+ 		Assert(slot->tts_tupleDescriptor->natts == scan->xs_itupdesc->natts);
+ 
+-		if (cache != NULL)
++		/* Leave noneligible tuples on the ordinary inline fill path. */
++		if (cache != NULL &&
++			(scan->xs_itup->t_info & cache->required_flags) == cache->required_flags)
+ 		{
+ 			tableam_index_fill_ios_cached_slot(scan, slot, cache);
+ 			return;

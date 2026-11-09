@@ -1,0 +1,5 @@
+{
+  "exact1": "SELECT k FROM b_perm WHERE k=99991::bigint",
+  "exact2": "SELECT sum((SELECT k FROM b_perm WHERE k=99990::bigint+g::bigint)) FROM generate_series(1,2)g",
+  "small_range": "SELECT count(*) FROM b_perm WHERE k BETWEEN 99990::bigint AND 100005::bigint"
+}

@@ -1,0 +1,5 @@
+# Preserved pre-sample harness attempts
+
+R3 failed before SQL: staged psql resolved system libpq and reported undefined symbol PQsendPipelineSync. R4 fixed staged binary/client library environments; all four real SQL backends passed, then the synthetic baseline oracle asserted on a posting tuple because _bt_mkscankey(rel,NULL) initializes allequalimage=false. R5 uses native _bt_metaversion to initialize actual index metadata; no assertion or fixture was dropped and no normal candidate source/ELF changed.
+
+Parent confirmed both failed attempts stopped all owned clusters with no remaining PID. These events preceded all accepted performance samples. Exact attempted gate/session code and input payload receipts are preserved under evidence/failed-harness-r3 and r4. Runtime failure/cleanup facts here are parent-reported; this packet does not pretend those source payload manifests are actual stderr/status logs. R5 actual PASS proofs and final live closure are included separately. Original remote attempts remain preserved; no accepted sample was retried.

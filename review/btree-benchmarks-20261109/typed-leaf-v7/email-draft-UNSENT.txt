@@ -1,0 +1,68 @@
+Subject: [RFC] Leaf-only typed int8 B-tree positioning: matched SQL follow-up
+To: pgsql-hackers@lists.postgresql.org
+Status: UNSENT
+
+Hi,
+
+I completed a bounded SQL follow-up to the earlier typed int8 positioning
+prototype. The standalone leaf-only patch is against 20devel B72
+72b9498df9a369e747f8d96efb5a6cd33c2451e2. It restores ordinary internal tree
+descent and serializable retry, keeping the earlier eligibility/comparison
+helpers only for initial leaf positioning. V6 and leaf-only V7 are independent
+alternatives, not a patch series. No threshold/cache/padding tuning was added.
+
+The new result does not demonstrate a general fresh-query repair or a clean
+replacement for V6. Permanent hot25000 B/L7 medians were21.939/20.775ms and
+21.964/22.1845ms in two fresh cohorts. Direct L7/B EXPLAIN ratios were−4.45%
+and+0.18%, versus L7/T−4.01%/+0.09% and L7/V6+4.83%/+8.97%. V7 retained
+random/absent gains versus baseline, but gave up part of V6's benefit.
+
+Fresh exact1 B/L7 medians were65.5/58us and49.5/54us. Direct L7/B EXPLAIN
+ratios were−6.90%/+8.26%, with wide ranges−39.08..+54.00% and
+−27.69..+56.16%; command CPU ratios were+3.38%/+2.07%. Heated exact1 still
+had L7/B CPU+17.52%/+11.59%. Append-int8 write EXPLAIN ratios were
++3.07%/+4.78% versus B and+3.65%/+3.18% versus its exact-ELF twin. All write,
+int4/text/seqscan controls and their negative or changing outcomes remain in
+the attached full tables. These observations do not identify a causal codegen
+or scheduling explanation.
+
+The campaign used B/T/V6/V7 release roles, two fresh numeric-copy cohorts,
+continuous four-role Williams ordering and fixed four warm + twelve retained persistent
+or four warm + twenty-four retained fresh rounds. All 19cases produced2720raw/2112retained/
+608warm observations; all six direct pairs and three separate metrics are
+included without trimming, pooling or twin normalization. Absolute min/median/
+max, stdev/MAD, raw plans/literals/counters and full write-key formula evidence
+are supplied. The shared guest's other work was left running; physical host
+isolation is not established.
+
+Execution Time is EXPLAIN executor milliseconds. Client command wall stops
+at the complete psql reply before JSON parsing/journaling, and backend CPU
+is read immediately afterward; both include planning/protocol, not exact
+executor CPU. Every read's separate literal check follows EXPLAIN outside the
+interval. Fresh excludes connection startup. There is no new native microtiming
+in this wave; historical helper checks and V6 measurements remain separate.
+
+Four matched full builds each passed the original core239 suite. Untimed
+matched SQL, complete setup-formula multisets, pinned-page linear/fallback
+oracles, lifecycle and permanent physical standby passed. The two-session
+injection barrier was not run. Two pre-sample harness attempts are preserved:
+a staged libpq resolution error, then an invalid synthetic-key metadata default;
+R5 uses actual metapage metadata without disabling assertions or dropping the
+posting fixture. No candidate source changed during these corrections.
+
+The package includes standalone alternative patches, exact source/build/ELF
+bindings, raw restore scripts, independent arithmetic audits and fresh-build
+replay instructions. The replay adapter has local AST/help review only, not a
+new independent Linux build/run. V7 source is published at:
+https://github.com/pg-sharding/cpg/tree/experiments/btree-typed-leaf-v7-b72-20261109
+(commit48cf00b7cdf70f26f4f431486871eaf50adfbbf8, byte-exact to the built source).
+
+Earlier specialized page search is discussed in [2]; [1] is general normalized
+separator-key representation context, not the same implementation. This
+contribution is the guarded
+implementation/placement experiment and reproducible evidence, not a new
+algorithm or an exhaustive novelty claim. The references are carried forward
+from earlier archive review, not a new search in this wave.
+
+[1] https://www.postgresql.org/message-id/CAH2-Wzmm%2BnYmpmT_XmSwcNeZPvG0eGbKYMHaSwWkEOs1PAmaEA%40mail.gmail.com
+[2] https://www.postgresql.org/message-id/79FF16D2-B815-45C9-A24A-D0851981E78B%40yandex-team.ru

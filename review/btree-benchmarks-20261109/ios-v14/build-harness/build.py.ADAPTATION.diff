@@ -1,0 +1,100 @@
+--- hash/build.py
++++ ios-v14/build.py
+@@ -1,5 +1,5 @@
+ #!/usr/bin/env python3
+-"""Five serial fullclean builds from a verified public B72 source archive."""
++"""Four serial fullclean IOS builds from a verified public B72 source archive."""
+ import argparse
+ import hashlib
+ import io
+@@ -30,8 +30,8 @@
+     parser.add_argument('--output', type=pathlib.Path, required=True,
+                         help='New nonexistent output root; preserve every failed attempt')
+     parser.add_argument('--cc', default='gcc')
+-    parser.add_argument('--core-port', type=int, default=40540,
+-                        help='First of five unused regression ports')
++    parser.add_argument('--core-port', type=int, default=40640,
++                        help='First of four unused regression ports')
+     args = parser.parse_args()
+     assert 1024 <= args.core_port <= 65530
+     root = args.output.resolve()
+@@ -83,8 +83,8 @@
+         expected_files = {k: v for k, v in baseline.items()
+                           if k.startswith('src/test/regress/expected/')}
+         release_config = None
+-        sequence = [('B', 'B', False), ('N', 'N', False), ('H', 'H', False),
+-                    ('C', 'C', False), ('C_assert', 'C', True)]
++        sequence = [('B', 'B', False), ('V13', 'V13', False),
++                    ('V14', 'V14', False), ('V14_assert', 'V14', True)]
+         for index, (label, role, assertions) in enumerate(sequence):
+             for name, data in pristine.items():
+                 (source / name).write_bytes(data)
+@@ -118,7 +118,7 @@
+                          'configure'),
+                         (['make', '-j2'], 'build'),
+                         (['make', 'DESTDIR=' + str(stage), 'install'], 'install')]
+-            for extension in ('pageinspect', 'pg_prewarm', 'amcheck'):
++            for extension in ('pageinspect', 'pg_visibility', 'amcheck'):
+                 commands.extend([
+                     (['make', '-C', 'contrib/' + extension, '-j2'], extension + '-build'),
+                     (['make', '-C', 'contrib/' + extension,
+@@ -144,7 +144,7 @@
+             header_inventory = inventory(headers)
+             assert len(header_inventory) == 907
+             save(root / (label + '-headers.json'), header_inventory)
+-            current = dict(prefix=str(prefix), commit=variant['commit'],
++            current = dict(prefix=str(prefix), commit=variant.get('commit'),
+                            postgres_sha256=sha(prefix / 'bin/postgres'),
+                            assertions=assertions, source_files=7726,
+                            source_manifest_sha256=sha(root / (label + '-source-inventory.json')),
+@@ -165,8 +165,11 @@
+                     release_config = current['configure']
+                 assert current['configure'] == release_config
+                 current['normal_objects'] = {}
+-                for stem in ('hashsearch', 'hashpage', 'hashutil'):
+-                    obj = build / ('src/backend/access/hash/' + stem + '.o')
++                for stem, object_path in (('genam', 'index/genam'),
++                                          ('nbtreadpage', 'nbtree/nbtreadpage'),
++                                          ('nbtree', 'nbtree/nbtree'),
++                                          ('tableam_indexscan', 'table/tableam_indexscan')):
++                    obj = build / ('src/backend/access/' + object_path + '.o')
+                     log = root / (label + '-' + stem + '-normal-ASM.txt')
+                     run(['objdump', '-drwC', obj], log)
+                     current['normal_objects'][stem] = dict(
+@@ -174,25 +177,13 @@
+             state['variants'][label] = current
+             save(root / (label + '-provenance.json'), current)
+             save(root / 'status.json', state)
+-        base = pathlib.Path(state['variants']['B']['prefix'])
+-        pg = base / 'bin/pg_config'
+-        support = root / 'fixture-support.so'
+-        command = [*shlex.split(capture([pg, '--cc'], base)), '-shared', '-fPIC',
+-                   *shlex.split(capture([pg, '--cflags'], base)),
+-                   *shlex.split(capture([pg, '--cppflags'], base)),
+-                   '-I' + capture([pg, '--includedir-server'], base).strip(),
+-                   HERE / 'custom-hash-support.c', '-o', support]
+-        run(command, root / 'support-build.log', prefix=base)
+-        receipt = dict(status='PASS_NEW_MATCHED_HASH_BUILDS', base=spec['base'],
++        receipt = dict(status='PASS_NEW_MATCHED_IOS_BUILDS', base=spec['base'],
+                        source_plan_path=str(plan_path), source_plan_sha256=sha(plan_path),
+                        source_archive_sha256=state['source_archive_sha256'],
+                        variants=state['variants'], core239_each=True, source_files=7726,
+-                       role_to_variant={'B': 'B', 'T': 'B', 'N': 'N', 'H': 'H', 'C': 'C'},
++                       role_to_variant={'B': 'B', 'T': 'B', 'V13': 'V13', 'V14': 'V14'},
+                        common_source=str(source), common_build=str(build),
+                        compiled_prefix=str(compiled), nice=10, jobs=2,
+-                       support=str(support), support_sha256=sha(support),
+-                       support_source_sha256=sha(HERE / 'custom-hash-support.c'),
+-                       support_command=list(map(str, command)),
+                        scripts={p.name: sha(p) for p in HERE.iterdir() if p.is_file()},
+                        AM_qualification='NOT RUN BY BUILD SCRIPT', timing_samples=0,
+                        original_measurements_reproduced=False)
+@@ -218,7 +209,7 @@
+                     errors.append(dict(data=str(pidfile.parent), error=repr(exc)))
+         state['core_finally_stops'] = proofs
+         state['core_cleanup_errors'] = errors
+-        if errors and state['status'] == 'PASS_NEW_MATCHED_HASH_BUILDS':
++        if errors and state['status'] == 'PASS_NEW_MATCHED_IOS_BUILDS':
+             state['status'] = 'FAILED_CLEANUP'
+         save(root / 'status.json', state)
+         if errors and not sys.exc_info()[0]:

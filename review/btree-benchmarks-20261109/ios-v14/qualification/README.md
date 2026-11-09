@@ -1,0 +1,13 @@
+# Finite IOS V14 correctness gate
+
+LOCAL STATIC PREPARATION ONLY; this new front door has not yet run. Root executes only after independent input review and the four fresh fullclean builds/core239 PASS.
+
+```sh
+nice -n10 python3 inputs/qualification/gate.py --build /home/reshke/allfuzz/btree-ios-v14-campaign-20261109/build --correctness-seed /home/reshke/allfuzz/index-optimizations-20261107-ios-v8/data-correctness-v9 --output /home/reshke/allfuzz/btree-ios-v14-campaign-20261109/qualification --port 40649
+```
+
+Keep qualification/ beside build-harness/ in the immutable input tree: the gate imports the pinned common.py there. Output must be new and short enough for a Unix socket. Requires GCC/cc, objdump, GDB, Python3 and the matched installations. Historical seed is only read/hashed/copied, never started or configured. Each of B/V13/V14/V14_assert runs on a new independent private copy, sequentially; finally stops only owned copies and fsyncs them. Full seed tree and all matched installed files are checked unchanged afterward. The original three output references are copied byte-for-byte from V13 full-backend-prep/inputs; no candidate expected regeneration.
+
+The module/oracle/SQL bytes are unchanged. Native callback extraction reads the exact B72 nbtsearch.c function, which neither V13 nor V14 modifies, then compiles it against each mode's actual installed headers. The real mode-specific tableAM helper resolves from that matching backend. Baseline has no cache. V13/V14/assert: 751812 dispatch checks,640 cache-contract checks (mixed posting/singletons, backward return, legal reset before workspace/eligibility/mask changes), slot checksums5504/5504/4096/128,6941 ownership checks. All four execute the same three SQL scripts and compare outputs byte-for-byte to the original baseline. Candidate ownership is positive120/materialized60/custom40/fullhelper40/heappriority5/names8/custom_clears45. GDB verifies actual backend/module descriptor/cache/opaque layouts; normal actual callback and outlined helper assembly is retained.
+
+Final status PASS_FOUR_IOS_FINITE_GATES requires four roles;12 target outputs;3,007,248 dispatch checks;1,920 cache contracts;20,823 ownership checks, debug_assertions off/off/off/on, seed/installed bytes unchanged, cleanup errors empty, timing_samples0. Core239x4 belongs to the separately bound build receipt. These counts are checks inside the finite oracles, not distinct SQL workloads. No new concurrent/memory-model proof, CREATE INDEX timing, source change, or accepted benchmark is supplied by this gate. Failures remain under their original new output and are not retried automatically.

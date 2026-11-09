@@ -1,0 +1,72 @@
+Subject: [RFC] B-tree IOS posting cache: eligibility gate and matched SQL results
+
+Hi,
+
+I measured a small caller-side eligibility gate for the outlined B-tree IOS
+cache on PostgreSQL 72b9498df9a369e747f8d96efb5a6cd33c2451e2. V14 improves
+mixed-scan CPU point estimates modestly against V13, but it is not a general
+V13 upgrade: short-posting and several LIMIT/control cells regress. The large
+wide-posting benefits versus the baseline and exact baseline ELF twin remain.
+All observations and negative controls are included.
+
+The change checks required_flags before calling the optional outlined helper,
+so noneligible tuples on an attached mixed page use the ordinary inline fill
+path. The helper, independently owned slot/cache arrays, invalidation and
+mark/restore contracts are unchanged from V13. This is an implementation
+tradeoff, not a new algorithm or exhaustive novelty claim. Earlier prototype:
+https://github.com/pg-sharding/cpg/tree/review/index-opt-20261107/ios-v12
+No existing mailing-list thread is claimed for this unsent draft.
+
+Fresh fullclean commonpath B/V13/V14 release builds and V14 with assertions
+passed all 239 original core tests each, plus the original SQL/native/cache/
+ownership gates. Separate smoke checked all 19 cases across four roles
+(76 observations, zero accepted). The fixed two fresh SQL cohorts completed
+2128 raw / 1824 retained / 304 warm observations, with 12 retained paired
+rounds per cell, identical 128-statement validation histories and all
+plan/HF/direction/LIMIT/zero-retained-read gates passing.
+
+CPU medians in milliseconds (B -> V14, cohort 0 / cohort 1):
+  eight TEXT COUNT: 116.019 -> 85.360 / 122.666 -> 85.709
+  fixed32 COUNT:     29.917 -> 16.369 /  30.058 -> 16.344
+  wide32 tail:       44.463 -> 19.935 /  44.472 -> 20.035
+Paired median changes versus B are -27.06%/-30.38%, -45.43%/-44.84%, and
+-55.43%/-54.98%; these cells also beat the exact baseline twin. Against V13,
+eight-TEXT COUNT instead costs +0.67%/+1.49%, fixed32 changes +0.74%/-0.15%
+and wide32 tail +0.46%/+0.07%. The wide gain is inherited.
+
+Mixed2/mixed64 forward CPU changes -1.06%/-1.36% and -0.59%/-0.68% against
+V13; backward mixed2/mixed64 change -1.09%/-1.97% and -0.92%/-1.34%.
+Their ranges largely cross zero, so these are modest descriptive point
+estimates. Short2/3/4 postings cost +0.55%/+1.68%, +0.56%/+1.69%, and
++0.27%/+0.76% versus V13.
+
+LIMIT1 execution costs +3.17%/+5.95% against B; own-backend CPU changes
+-0.28%/+1.62%. In cohort 1, LIMIT2 execution is +11.48% against B and
++11.60% against V13, while CPU is +1.43%/+3.14%. The metrics are distinct.
+Regular heap IndexScan CPU V14/twin changes -0.73%/+6.17%; SeqScan changes
+-0.45%/+1.10%. Heap-fetch IOS V14/V13 changes -6.43%/+2.75%. Complete
+absolute and paired ranges are included. These control movements and
+shared-host spread limit attribution; twins are not subtracted and no
+causal layout/scheduler explanation is assigned.
+
+All 19 cases, five metrics, six direct pairs and raw complete plans are
+retained without trimming or pooling. 176 runqueue ratios have zero
+denominators; those ratios are explicitly undefined, with every absolute,
+difference and raw pair retained. Independent recount matched all 49172
+compared numbers exactly. All 17 owned clusters stopped; source/installs
+and the canonical seed remained unchanged.
+
+The packet contains standalone V13/V14 alternatives against B72 plus an
+optional exact V13-to-V14 diff, not a three-patch series. The later published
+code identity 113e61347b43d2ae4afb187944ede9e9f6108c24 matches the exact
+measured V14 source; historical build receipts retain null commit fields,
+and this later identity implies no rebuild or new sample. Scripts and
+instructions cover fullclean build/core, finite native/ownership checks and
+the 19-case SQL run from an existing local B72 Git repository. No baseline
+archive or PGDATA is bundled. Local chunk restoration and numerical replay
+are not another Linux benchmark. Native helpers are correctness checks here;
+CREATE INDEX is setup only. No generic concurrency proof, universal regression
+repair or merge-readiness claim is made. I would retain V14 as an experimental
+tradeoff rather than replace V13 unconditionally on this evidence.
+
+This draft has not been sent.
