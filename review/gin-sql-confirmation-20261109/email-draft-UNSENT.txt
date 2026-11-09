@@ -1,0 +1,92 @@
+Subject: [RFC] GIN scan advancement and deferred decoding: full SQL results
+
+UNSENT NEW-THREAD DRAFT. The two diffs are independent alternatives, not a series.
+
+Hi,
+
+I have been experimenting with two changes to GIN posting-list consumption.
+Both use established techniques and retain the index/WAL format:
+
+* Advance V4: after two cheap probes in a decoded TID array, use exponential
+  probing and binary upper-bound search to find the first TID greater than
+  advancePast. Boolean ordering decisions compare logical unsigned TID keys
+  directly instead of constructing a three-way comparison result.
+* Lazy V4: copy the selected compressed page suffix under the existing lock,
+  then decode further segments from private memory only when needed. First-page
+  frequency estimation and sequential eager consumption are preserved.
+
+This is new full-backend SQL evidence for advance V4, alongside an independent
+lazy V4 comparison. Sources were not tuned after observing these results.
+The baseline is 72b9498df9a369e747f8d96efb5a6cd33c2451e2 plus the same supplied
+prerequisite in all trees; this is not a measurement of current master.
+The packet contains the common baseline diff and two alternative diffs above
+it, as well as complete B72-relative source snapshots and identities.
+
+Two fresh four-role cohorts on the same shared Linux VM kept all 25 original
+SQL cases. B and its twin used the same executable in separate clusters.
+All data/index files were physical copies of one baseline seed. Server/client
+physical cores changed from 0/4 to 4/0; role slots, process/session births and
+case order reversed. Two warm-up and twelve retained Williams4 rounds produced
+2800 raw observations, including 400 warm-ups. Each measured EXPLAIN followed
+an execution checked against a frozen scalar answer. No observation was
+filtered, pooled with older results or normalized against a control.
+
+For 100 common/rare FTS probes, baseline medians 79.2875/79.6255ms became
+34.8645/36.9435ms with advance and 29.4185/29.8335ms with lazy. The direct paired
+whole-command backend CPU changes are -55.80/-53.24% and -63.07/-62.97%.
+In cohort 0 the absolute ranges are baseline 77.595-119.467ms, advance
+34.277-55.900ms and lazy 27.782-45.331ms; all ranges remain in the packet.
+
+JSONB containment medians 153.2210/155.1050ms became advance
+66.0725/71.5810ms or lazy 53.8735/54.6835ms; paired CPU -56.53/-55.16% and
+-64.52/-64.39%. Grouped-skew medians 57.3435/61.4850ms became advance
+23.3880/29.4180ms or lazy 11.5160/12.7400ms. Both also help selective intarray
+and builtin-array queries. Advance improves skew127 CPU by 28.80/29.35%,
+where lazy is approximately neutral (-0.98/+0.49%). These gains are not additive;
+there is no combined candidate in this comparison.
+
+There are unresolved negatives. Advance's absent case is +7.26/+6.65% CPU
+versus baseline and +5.66/+4.39% versus the exact twin. Baseline medians
+1.3020/1.1785ms become 1.3645/1.2595ms; 11/12 direct CPU pairs versus B are
+positive in each cohort, although the full pair ranges cross zero. Lazy's
+tiny-inline conjunction is +5.60/+5.17% CPU versus B. Full-consumption single-key
+lazy queries are +2.60/+2.58% versus B, but -0.20/+1.36% versus the twin.
+Forced OR, dense/inline/absent/empty/lossy and Seq controls are all retained.
+
+The off-path Seq control also moves: advance/B CPU +8.69/+11.21%, lazy/B
++6.30/+8.06%, while the exact twin/B is +3.90/+1.30%. Its paired ranges are
+broad and cross zero. This path does not use a GIN index, so these observations
+do not establish an algorithmic GIN cause; neither do they establish harmless
+noise. They remain unresolved and rule out a general speedup claim. Some
+absolute medians differ substantially from direct paired percentages; the
+complete chronology and all six direct pairs are included, without correction.
+
+The builds used GCC 13.3.0, -O2 -g -fno-lto, common source/build/compiled-prefix
+paths, separate DESTDIRs, OpenSSL, no ICU/readline, nice10 and make-j2.
+All four clean builds (B/lazy/advance release and advance assertion control)
+passed the original 239 core tests each. Ordinary checks included full Seq/GIN
+multisets for all 25 cases, frozen scalar answers/plans and generic prepared
+executions, repeated in the measured cohorts. There were no result mismatches.
+Retained shared/temp/backend IO and WAL bytes were zero: these are warm-cache
+SQL measurements with 512MB shared_buffers, 64MB work_mem, JIT/parallel/memoize
+off and the explicit system timing clock. All own clusters are stopped.
+
+Earlier fast-scan work already supplies advancePast and segment skipping [1,2].
+Galloping and deferred decoding are established techniques. The contribution
+is their integration with GIN's decoded cursors/private suffix ownership and
+the measured tradeoffs, not a new search algorithm or compression format.
+Geier's extraction/sort/build-accumulator work [3] concerns another stage;
+our earlier pg_trgm radix/MSD work is a direct followup to that series. The
+bounded prior-art review is recorded in the packet, without a priority claim.
+
+The independent diffs, all raw EXPLAIN/CPU observations, negative results,
+source/build receipts, full tables and commands to repeat the SQL campaign
+are available at [4]. Historical native results are separate evidence; no
+new fixed-source native, CREATE INDEX or combined result is claimed here.
+Feedback on the two scan approaches and the unresolved small/control costs
+would be welcome.
+
+[1] https://www.postgresql.org/message-id/52E42AD0.5060600%40vmware.com
+[2] https://www.postgresql.org/message-id/52F36245.6070006%40vmware.com
+[3] https://www.postgresql.org/message-id/5d366878-2007-4d31-861e-19294b7a583b%40gmail.com
+[4] https://github.com/pg-sharding/cpg/tree/experiments/gin-fixed-sql-results-b72-20261109/review/gin-sql-confirmation-20261109

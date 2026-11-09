@@ -1,0 +1,33 @@
+--- prepared/run-sql.py
++++ executed/run-sql.py
+@@ -1,5 +1,5 @@
+ #!/usr/bin/env python3
+-"""Unexecuted ordinary GIN SQL screen on four already-owned local backends.
++"""Ordinary GIN SQL screen on four already-owned local backends.
+ 
+ No source build, cluster lifecycle, concurrency workload or native-body replay.
+ """
+@@ -36,10 +36,14 @@
+  a.out_new.mkdir(parents=True);sessions={};cleanup=[];status={'status':'RUNNING','cohort':a.cohort,'raw':0,'retained':0,'runtime_sha256':sha(a.runtime),'scope':'NEW fixed-source ordinary SQL performance only; no concurrency or native kernel claim'}
+  save(a.out_new/'status.json',status)
+  try:
+-  for role in ROLES:
++  session_order=runtime.get('session_order',ROLES)
++  assert sorted(session_order)==sorted(ROLES)
++  assert os.sched_getaffinity(0)=={runtime['client_cpu']}
++  for role in session_order:
+    item=runtime['roles'][role];s=Session(item['prefix'],item['dsn'],a.out_new/(role+'-psql-stderr.txt'));sessions[role]=s
+    meta=s.json("SELECT json_build_object('pid',pg_backend_pid(),'local_socket',inet_server_addr() IS NULL,'version',version(),'assertions',current_setting('debug_assertions'),'clock',current_setting('timing_clock_source'),'shared_buffers',current_setting('shared_buffers'))")
+    s.pid=meta['pid'];assert meta['local_socket'] and meta['assertions']=='off' and meta['clock']=='system' and meta['shared_buffers']=='512MB'
++   assert os.sched_getaffinity(s.pid)=={runtime['server_cpu']}
+    assert sha(pathlib.Path('/proc',str(s.pid),'exe'))==item['backend_sha256']
+    if a.setup:s.sql((HERE/'inputs/setup.sql').read_text())
+    s.sql("SET search_path=g1,public,pg_catalog;SET jit=off;SET max_parallel_workers_per_gather=0;SET enable_memoize=off;SET gin_fuzzy_search_limit=0;SET statement_timeout='180s';SET lock_timeout='10s';SET work_mem='64MB'")
+@@ -74,6 +78,7 @@
+       assert any(n['Index Name']==c['index'] for n in indexes) if c['index'] else not indexes
+       assert observed['client_ns']>0 and observed['command_delta']['cpu_ns']>0 and all(v>=0 for v in observed['command_delta'].values())
+       status['raw']+=1;status['retained']+=int(round>=2)
++    status['last_case']=c['name'];save(a.out_new/'status.json',status)
+    assert status['raw']==1400 and status['retained']==1200
+   status['status']='PASS';status['raw_sha256']=sha(a.out_new/'raw.jsonl')
+  except Exception as exc:
