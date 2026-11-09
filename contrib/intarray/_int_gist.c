@@ -67,6 +67,9 @@ g_int_prepare_query_stack(FmgrInfo *flinfo, ArrayType *original, int nitems)
 	int			i;
 	int			nunique = 1;
 
+	if (nitems < 2 || nitems > G_INT_STACK_QUERY_LIMIT)
+		return NULL;
+
 	memcpy(items, ARRPTR(original), (Size) nitems * sizeof(int32));
 	isort(items, nitems, &ascending);
 	for (i = 1; i < nitems; i++)
