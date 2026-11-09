@@ -401,7 +401,7 @@ gistBoxBatchReject(IndexScanDesc scan, Page page, OffsetNumber first,
  * Original keytests on the first batch admit further batching only after a
  * valid BOX actually fails.  NULL/dead/old invalid entries do not admit it.
  */
-static pg_noinline bool
+static pg_noinline OffsetNumber
 gistScanBoxItems(IndexScanDesc scan, Buffer buffer, Page page,
 				 TIDBitmap *tbm, int64 *ntids, OffsetNumber maxoff)
 {
@@ -418,7 +418,7 @@ gistScanBoxItems(IndexScanDesc scan, Buffer buffer, Page page,
 	OffsetNumber batchend = FirstOffsetNumber;
 
 	if (query == NULL)
-		return false;
+		return FirstOffsetNumber;
 
 	for (i = FirstOffsetNumber; i <= maxoff; i = OffsetNumberNext(i))
 	{
@@ -428,6 +428,14 @@ gistScanBoxItems(IndexScanDesc scan, Buffer buffer, Page page,
 		bool		recheck;
 		bool		recheck_distances;
 		bool		sampletuple;
+
+		/*
+		 * All sampled valid BOX tuples passed their ordinary keytests.
+		 * Continue at this first unprocessed offset in the generic loop;
+		 * already queued/reported sample tuples must not be tested again.
+		 */
+		if (sampleleft == 0 && !sawreject)
+			return i;
 
 		/*
 		 * If the scan specifies not to return killed tuples, then we treat a
@@ -561,7 +569,7 @@ gistScanBoxItems(IndexScanDesc scan, Buffer buffer, Page page,
 		}
 	}
 
-	return true;
+	return OffsetNumberNext(maxoff);
 }
 
 /*
@@ -676,13 +684,10 @@ gistScanPage(IndexScanDesc scan, GISTSearchItem *pageItem,
 	 */
 	maxoff = PageGetMaxOffsetNumber(page);
 	/* A sample and at least one full batch are needed to amortize setup. */
-	if (maxoff >= 2 * GIST_BOX_BATCH_SIZE &&
-		gistScanBoxItems(scan, buffer, page, tbm, ntids, maxoff))
-	{
-		UnlockReleaseBuffer(buffer);
-		return;
-	}
-	for (i = FirstOffsetNumber; i <= maxoff; i = OffsetNumberNext(i))
+	i = FirstOffsetNumber;
+	if (maxoff >= 2 * GIST_BOX_BATCH_SIZE)
+		i = gistScanBoxItems(scan, buffer, page, tbm, ntids, maxoff);
+	for (; i <= maxoff; i = OffsetNumberNext(i))
 	{
 		ItemId		iid = PageGetItemId(page, i);
 		IndexTuple	it;
