@@ -1,0 +1,133 @@
+From 0ab3bd65c8957ea5e25f9ef8981401f0616d99de Mon Sep 17 00:00:00 2001
+From: root <localhost>
+Date: Tue, 10 Nov 2026 01:54:06 +0500
+Subject: [PATCH] Combine deferred GIN startup decoding with adaptive TID
+ advancement
+
+Use the existing exponential/binary upper-bound search after two cheap
+probes in the decoded list, alongside deferred first-page consumption.
+---
+ src/backend/access/gin/ginget.c | 91 +++++++++++++++++++++++++++++++--
+ 1 file changed, 87 insertions(+), 4 deletions(-)
+
+diff --git a/src/backend/access/gin/ginget.c b/src/backend/access/gin/ginget.c
+index 7d6ceac6016..79eb15c0030 100644
+--- a/src/backend/access/gin/ginget.c
++++ b/src/backend/access/gin/ginget.c
+@@ -1021,6 +1021,47 @@ ginItemPointerIsAfter(const ItemPointerData *item,
+ 	return itemKey > pastKey;
+ }
+ 
++static int
++ginAdvanceDecoded(const ItemPointerData *list, int offset, int nlist,
++				const ItemPointerData *advancePast)
++{
++	int lower;
++	int upper = nlist;
++	int step = 1;
++	int remaining = nlist - offset;
++
++	if (offset >= nlist ||
++		ginItemPointerIsAfter(&list[offset], advancePast))
++		return offset;
++
++	lower = offset + 1;
++	while (step < remaining)
++	{
++		int probe = offset + step;
++
++		if (ginItemPointerIsAfter(&list[probe], advancePast))
++		{
++			upper = probe;
++			break;
++		}
++		lower = probe + 1;
++		if (step > remaining / 2)
++			break;
++		step *= 2;
++	}
++
++	while (lower < upper)
++	{
++		int middle = lower + (upper - lower) / 2;
++
++		if (!ginItemPointerIsAfter(&list[middle], advancePast))
++			lower = middle + 1;
++		else
++			upper = middle;
++	}
++	return lower;
++}
++
+ #define gin_rand() pg_prng_double(&pg_global_prng_state)
+ #define dropItem(e) ( gin_rand() > ((double)GinFuzzySearchLimit)/((double)((e)->predictNumberResult)) )
+ 
+@@ -1170,9 +1211,30 @@ entryGetItem(GinState *ginstate, GinScanEntry entry,
+ 
+ 			entry->curItem = entry->list[entry->offset++];
+ 
+-			/* If we're not past advancePast, keep scanning */
++			/* Keep the common zero- and one-item advances inexpensive. */
+ 			if (!ginItemPointerIsAfter(&entry->curItem, &advancePast))
+-				continue;
++			{
++				if (entry->offset >= entry->nlist)
++					continue;
++
++				entry->curItem = entry->list[entry->offset++];
++				if (!ginItemPointerIsAfter(&entry->curItem, &advancePast))
++				{
++					entry->offset = ginAdvanceDecoded(entry->list,
++													entry->offset,
++													entry->nlist,
++													&advancePast);
++					/* entryLoadMoreItems uses curItem to choose its search. */
++					if (entry->offset >= entry->nlist)
++					{
++						entry->curItem = entry->list[entry->nlist - 1];
++						continue;
++					}
++					/* The search has already proved this item > advancePast. */
++					entry->curItem = entry->list[entry->offset++];
++				}
++			}
++
+ 
+ 			/* Done unless we need to reduce the result */
+ 			if (!entry->reduceResult || !dropItem(entry))
+@@ -1201,9 +1263,30 @@ entryGetItem(GinState *ginstate, GinScanEntry entry,
+ 
+ 			entry->curItem = entry->list[entry->offset++];
+ 
+-			/* If we're not past advancePast, keep scanning */
++			/* Keep the common zero- and one-item advances inexpensive. */
+ 			if (!ginItemPointerIsAfter(&entry->curItem, &advancePast))
+-				continue;
++			{
++				if (entry->offset >= entry->nlist)
++					continue;
++
++				entry->curItem = entry->list[entry->offset++];
++				if (!ginItemPointerIsAfter(&entry->curItem, &advancePast))
++				{
++					entry->offset = ginAdvanceDecoded(entry->list,
++													entry->offset,
++													entry->nlist,
++													&advancePast);
++					/* entryLoadMoreItems uses curItem to choose its search. */
++					if (entry->offset >= entry->nlist)
++					{
++						entry->curItem = entry->list[entry->nlist - 1];
++						continue;
++					}
++					/* The search has already proved this item > advancePast. */
++					entry->curItem = entry->list[entry->offset++];
++				}
++			}
++
+ 
+ 			/* Done unless we need to reduce the result */
+ 			if (!entry->reduceResult || !dropItem(entry))
+-- 
+2.50.1 (Apple Git-155)
+

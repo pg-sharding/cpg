@@ -1,0 +1,177 @@
+From 1841cbedf6366c9588b06c4f2934785eb7fbb408 Mon Sep 17 00:00:00 2001
+From: root <localhost>
+Date: Tue, 10 Nov 2026 00:53:40 +0500
+Subject: [PATCH] Keep lazy GIN decoder state in its private page allocation
+
+Store the segment cursor and suffix end with the private compressed data.
+Only one pointer is then needed in every scan entry, including entries
+that never use deferred decoding. Keep the existing decode and cursor rules.
+---
+ src/backend/access/gin/ginget.c  | 43 +++++++++++++++++---------------
+ src/backend/access/gin/ginscan.c |  2 --
+ src/include/access/gin_private.h |  6 ++---
+ 3 files changed, 26 insertions(+), 25 deletions(-)
+
+diff --git a/src/backend/access/gin/ginget.c b/src/backend/access/gin/ginget.c
+index a209bdd07a6..8769f6cd78c 100644
+--- a/src/backend/access/gin/ginget.c
++++ b/src/backend/access/gin/ginget.c
+@@ -364,8 +364,6 @@ restartScanEntry:
+ 	if (entry->postingData)
+ 		pfree(entry->postingData);
+ 	entry->postingData = NULL;
+-	entry->nextSegment = NULL;
+-	entry->postingEnd = NULL;
+ 	entry->nlist = 0;
+ 	entry->matchBitmap = NULL;
+ 	entry->matchNtuples = -1;
+@@ -684,6 +682,14 @@ startScan(IndexScanDesc scan)
+ 		startScanKey(ginstate, so, so->keys + i);
+ }
+ 
++/* State needed only while a compressed suffix is kept privately. */
++struct GinPostingPageData
++{
++	GinPostingList *nextSegment;
++	char	   *end;
++	char		data[FLEXIBLE_ARRAY_MEMBER];
++};
++
+ /*
+  * Decode the next needed segment of a private posting-page snapshot.  Like
+  * GinDataLeafPageGetItems, skip only segments whose successor starts at or
+@@ -693,14 +699,15 @@ startScan(IndexScanDesc scan)
+ static bool
+ entryLoadNextSegment(GinScanEntry entry, ItemPointerData advancePast)
+ {
+-	GinPostingList *segment = entry->nextSegment;
++	struct GinPostingPageData *posting = entry->postingData;
++	GinPostingList *segment = posting->nextSegment;
+ 	GinPostingList *next;
+ 
+-	if ((char *) segment >= entry->postingEnd)
++	if ((char *) segment >= posting->end)
+ 		return false;
+ 
+ 	next = GinNextPostingListSegment(segment);
+-	while ((char *) next < entry->postingEnd &&
++	while ((char *) next < posting->end &&
+ 		   ginCompareItemPointers(&next->first, &advancePast) <= 0)
+ 	{
+ 		segment = next;
+@@ -712,7 +719,7 @@ entryLoadNextSegment(GinScanEntry entry, ItemPointerData advancePast)
+ 		if (entry->list)
+ 			pfree(entry->list);
+ 		entry->list = ginPostingListDecode(segment, &entry->nlist);
+-		entry->nextSegment = next;
++		posting->nextSegment = next;
+ 		entry->offset = 0;
+ 		while (entry->offset < entry->nlist &&
+ 			   ginCompareItemPointers(&entry->list[entry->offset], &advancePast) <= 0)
+@@ -720,7 +727,7 @@ entryLoadNextSegment(GinScanEntry entry, ItemPointerData advancePast)
+ 
+ 		if (entry->offset < entry->nlist)
+ 			return true;
+-		if ((char *) next >= entry->postingEnd)
++		if ((char *) next >= posting->end)
+ 			return false;
+ 
+ 		/* advancePast can lie in a gap between two segments. */
+@@ -750,10 +757,10 @@ entryCopyPostingPage(Page page, GinScanEntry entry, ItemPointerData advancePast)
+ 	}
+ 
+ 	len = end - (char *) segment;
+-	entry->postingData = palloc(len);
+-	memcpy(entry->postingData, segment, len);
+-	entry->nextSegment = (GinPostingList *) entry->postingData;
+-	entry->postingEnd = entry->postingData + len;
++	entry->postingData = palloc(offsetof(struct GinPostingPageData, data) + len);
++	memcpy(entry->postingData->data, segment, len);
++	entry->postingData->nextSegment = (GinPostingList *) entry->postingData->data;
++	entry->postingData->end = entry->postingData->data + len;
+ 	return entryLoadNextSegment(entry, advancePast);
+ }
+ 
+@@ -775,19 +782,19 @@ entryLoadMoreItems(GinState *ginstate, GinScanEntry entry,
+ 
+ 	if (entry->postingData)
+ 	{
++		struct GinPostingPageData *posting = entry->postingData;
++
+ 		/* Amortize decoding when a previously jumping stream becomes sequential. */
+-		if (sequential && (char *) entry->nextSegment < entry->postingEnd)
++		if (sequential && (char *) posting->nextSegment < posting->end)
+ 		{
+ 			if (entry->list)
+ 				pfree(entry->list);
+-			entry->list = ginPostingListDecodeAllSegments(entry->nextSegment,
+-												   entry->postingEnd - (char *) entry->nextSegment,
++			entry->list = ginPostingListDecodeAllSegments(posting->nextSegment,
++												   posting->end - (char *) posting->nextSegment,
+ 												   &entry->nlist);
+ 			entry->offset = 0;
+ 			pfree(entry->postingData);
+ 			entry->postingData = NULL;
+-			entry->nextSegment = NULL;
+-			entry->postingEnd = NULL;
+ 			return;
+ 		}
+ 		if (entryLoadNextSegment(entry, advancePast))
+@@ -798,8 +805,6 @@ entryLoadMoreItems(GinState *ginstate, GinScanEntry entry,
+ 			entry->curItem = entry->list[entry->nlist - 1];
+ 		pfree(entry->postingData);
+ 		entry->postingData = NULL;
+-		entry->nextSegment = NULL;
+-		entry->postingEnd = NULL;
+ 	}
+ 
+ 	if (!BufferIsValid(entry->buffer))
+@@ -869,8 +874,6 @@ entryLoadMoreItems(GinState *ginstate, GinScanEntry entry,
+ 		{
+ 			pfree(entry->postingData);
+ 			entry->postingData = NULL;
+-			entry->nextSegment = NULL;
+-			entry->postingEnd = NULL;
+ 		}
+ 
+ 		if (stepright)
+diff --git a/src/backend/access/gin/ginscan.c b/src/backend/access/gin/ginscan.c
+index 5fc0808f37e..6db1897e559 100644
+--- a/src/backend/access/gin/ginscan.c
++++ b/src/backend/access/gin/ginscan.c
+@@ -116,8 +116,6 @@ ginFillScanEntry(GinScanOpaque so, OffsetNumber attnum,
+ 	scanEntry->matchNtuples = -1;
+ 	scanEntry->list = NULL;
+ 	scanEntry->postingData = NULL;
+-	scanEntry->nextSegment = NULL;
+-	scanEntry->postingEnd = NULL;
+ 	scanEntry->nlist = 0;
+ 	scanEntry->offset = InvalidOffsetNumber;
+ 	scanEntry->isFinished = false;
+diff --git a/src/include/access/gin_private.h b/src/include/access/gin_private.h
+index 49d36fe4117..8d88b8defb8 100644
+--- a/src/include/access/gin_private.h
++++ b/src/include/access/gin_private.h
+@@ -330,6 +330,8 @@ typedef struct GinScanKeyData
+ 	bool		isFinished;
+ } GinScanKeyData;
+ 
++struct GinPostingPageData;
++
+ typedef struct GinScanEntryData
+ {
+ 	/* query key and other information from extractQueryFn */
+@@ -370,9 +372,7 @@ typedef struct GinScanEntryData
+ 	GinBtreeData btree;
+ 
+ 	/* Private compressed suffix of a posting-tree page, if loaded lazily. */
+-	char	   *postingData;
+-	GinPostingList *nextSegment;
+-	char	   *postingEnd;
++	struct GinPostingPageData *postingData;
+ } GinScanEntryData;
+ 
+ typedef struct GinScanOpaqueData
+-- 
+2.50.1 (Apple Git-155)
+

@@ -1,0 +1,13 @@
+# GIN regression repair R3 (2026-11-10)
+
+Source baseline is B72 (72b9498df9a369e747f8d96efb5a6cd33c2451e2), with the already supplied common prerequisite. This is not a current-master measurement. B/T are identical baseline binaries, L4 is the preceding lazy prototype. All runs use VM158 and separate owned clusters. No archive database or foreign job is changed.
+
+L8 replaces two three-way TID comparisons in entryGetItem with a direct boolean logical-block/offset ordering predicate. L9 additionally defers compressed first-page decoding for multi-entry scans and counts varbyte terminators with masked popcount to retain the exact original frequency estimate. C9 additionally incorporates advance V4's two-probe/galloping decoded advancement. L8 deliberately retains L4's layout; the V7 layout experiment is separate and negative.
+
+B and C9_assert have clean builds. Release L4/L8/L9/C9 reuse unchanged objects at identical source/build/compiled-prefix paths and flags. Full source/header inventories and installed-tree hashes are recorded. The L8/L9/C9 transitions must change exactly access/gin/ginget.o among backend object files. Every build must pass 239 original core tests without expected regeneration. C9_assert independently decodes first-page counts under assertions during ordinary qualification.
+
+Screen: B/T/L4/L8/L9/C9, 12 SQL cases plus four real AM cases, two warm and 12 retained Williams-balanced rounds per case, two reversed CPU/slot/session/case-order cohorts. Total 2688 raw, 2304 retained, 384 warm observations. No sample trimming, pooling, or B/T normalization. Profiles run separately during qualification, before fresh timing clusters. Full 25-query follow-up is conditional on review of the screen, not an automatic pass.
+
+Every candidate first passes all 25 ordered Seq/GIN multiset comparisons, fixed scalar answers and expected paths, eight prepared-query comparisons and cached rescans, plus four real AM answer checks. All 25 multiset/path checks repeat for every measured role/cohort. Assertion build is correctness-only. Metrics remain separate: EXPLAIN executor ms, whole-command backend CPU, client wall, and for real-AM tests the internal index_rescan/index_getbitmap/tbm_free CPU/wall loop. The latter is a native real-AM measurement, not an extracted body or modeled loader.
+
+The prior R2 same-binary calibration and software profiles are retained as a separate experiment; their observations are not pooled into R3. An apparently unchanged Seq control is still checked explicitly. All attempts, negatives, hashes and cleanup proofs are preserved. The initial adapter error in R1 produced zero timing observations and is documented separately.

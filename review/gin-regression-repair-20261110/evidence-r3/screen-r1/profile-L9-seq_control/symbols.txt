@@ -1,0 +1,776 @@
+# To display the perf.data header info, please use --header/--header-only options.
+#
+#
+# Total Lost Samples: 0
+#
+# Samples: 596  of event 'cpu-clock:u'
+# Event count (approx.): 2994974500
+#
+# Overhead  Symbol                            IPC   [IPC Coverage]
+# ........  ................................  ....................
+#
+    48.83%  [.] tts_buffer_heap_getsomeattrs  -      -            
+            |          
+            |--47.82%--slot_deform_heap_tuple (inlined)
+            |          tts_buffer_heap_getsomeattrs
+            |          slot_getsomeattrs (inlined)
+            |          slot_getsomeattrs (inlined)
+            |          ExecInterpExpr
+            |          ExecEvalExprSwitchContext (inlined)
+            |          ExecQual (inlined)
+            |          ExecScanExtended (inlined)
+            |          ExecSeqScanWithQual
+            |          ExecProcNode (inlined)
+            |          fetch_input_tuple
+            |          agg_retrieve_direct (inlined)
+            |          ExecAgg
+            |          ExecProcNode (inlined)
+            |          ExecLimit
+            |          ExecProcNode (inlined)
+            |          ExecNestLoop
+            |          ExecProcNode (inlined)
+            |          fetch_input_tuple
+            |          agg_retrieve_direct (inlined)
+            |          ExecAgg
+            |          ExecProcNode (inlined)
+            |          ExecutePlan (inlined)
+            |          standard_ExecutorRun
+            |          PortalRunSelect
+            |          PortalRun
+            |          exec_simple_query
+            |          PostgresMain
+            |          BackendMain
+            |          postmaster_child_launch
+            |          BackendStartup (inlined)
+            |          ServerLoop (inlined)
+            |          PostmasterMain
+            |          main
+            |          __libc_start_call_main
+            |          __libc_start_main_impl (inlined)
+            |          _start
+            |          
+             --0.84%--tts_buffer_heap_getsomeattrs
+                       slot_getsomeattrs (inlined)
+                       slot_getsomeattrs (inlined)
+                       ExecInterpExpr
+                       ExecEvalExprSwitchContext (inlined)
+                       ExecQual (inlined)
+                       ExecScanExtended (inlined)
+                       ExecSeqScanWithQual
+                       ExecProcNode (inlined)
+                       fetch_input_tuple
+                       agg_retrieve_direct (inlined)
+                       ExecAgg
+                       ExecProcNode (inlined)
+                       ExecLimit
+                       ExecProcNode (inlined)
+                       ExecNestLoop
+                       ExecProcNode (inlined)
+                       fetch_input_tuple
+                       agg_retrieve_direct (inlined)
+                       ExecAgg
+                       ExecProcNode (inlined)
+                       ExecutePlan (inlined)
+                       standard_ExecutorRun
+                       PortalRunSelect
+                       PortalRun
+                       exec_simple_query
+                       PostgresMain
+                       BackendMain
+                       postmaster_child_launch
+                       BackendStartup (inlined)
+                       ServerLoop (inlined)
+                       PostmasterMain
+                       main
+                       __libc_start_call_main
+                       __libc_start_main_impl (inlined)
+                       _start
+
+    11.58%  [.] ExecInterpExpr                -      -            
+            |          
+             --11.24%--ExecInterpExpr
+                       |          
+                        --11.07%--ExecEvalExprSwitchContext (inlined)
+                                  ExecQual (inlined)
+                                  ExecScanExtended (inlined)
+                                  ExecSeqScanWithQual
+                                  ExecProcNode (inlined)
+                                  fetch_input_tuple
+                                  agg_retrieve_direct (inlined)
+                                  ExecAgg
+                                  ExecProcNode (inlined)
+                                  ExecLimit
+                                  ExecProcNode (inlined)
+                                  ExecNestLoop
+                                  ExecProcNode (inlined)
+                                  fetch_input_tuple
+                                  agg_retrieve_direct (inlined)
+                                  ExecAgg
+                                  ExecProcNode (inlined)
+                                  ExecutePlan (inlined)
+                                  standard_ExecutorRun
+                                  PortalRunSelect
+                                  PortalRun
+                                  exec_simple_query
+                                  PostgresMain
+                                  BackendMain
+                                  postmaster_child_launch
+                                  BackendStartup (inlined)
+                                  ServerLoop (inlined)
+                                  PostmasterMain
+                                  main
+                                  __libc_start_call_main
+                                  __libc_start_main_impl (inlined)
+                                  _start
+
+     6.04%  [.] heap_getnextslot              -      -            
+            |
+            ---table_scan_getnextslot (inlined)
+               SeqNext (inlined)
+               ExecScanFetch (inlined)
+               ExecScanExtended (inlined)
+               ExecSeqScanWithQual
+               ExecProcNode (inlined)
+               fetch_input_tuple
+               agg_retrieve_direct (inlined)
+               ExecAgg
+               ExecProcNode (inlined)
+               ExecLimit
+               ExecProcNode (inlined)
+               ExecNestLoop
+               ExecProcNode (inlined)
+               fetch_input_tuple
+               agg_retrieve_direct (inlined)
+               ExecAgg
+               ExecProcNode (inlined)
+               ExecutePlan (inlined)
+               standard_ExecutorRun
+               PortalRunSelect
+               PortalRun
+               exec_simple_query
+               PostgresMain
+               BackendMain
+               postmaster_child_launch
+               BackendStartup (inlined)
+               ServerLoop (inlined)
+               PostmasterMain
+               main
+               __libc_start_call_main
+               __libc_start_main_impl (inlined)
+               _start
+
+     5.54%  [.] heapgettup_pagemode           -      -            
+            |          
+            |--3.36%--heapgettup_pagemode
+            |          heap_getnextslot
+            |          table_scan_getnextslot (inlined)
+            |          SeqNext (inlined)
+            |          ExecScanFetch (inlined)
+            |          ExecScanExtended (inlined)
+            |          ExecSeqScanWithQual
+            |          ExecProcNode (inlined)
+            |          fetch_input_tuple
+            |          agg_retrieve_direct (inlined)
+            |          ExecAgg
+            |          ExecProcNode (inlined)
+            |          ExecLimit
+            |          ExecProcNode (inlined)
+            |          ExecNestLoop
+            |          ExecProcNode (inlined)
+            |          fetch_input_tuple
+            |          agg_retrieve_direct (inlined)
+            |          ExecAgg
+            |          ExecProcNode (inlined)
+            |          ExecutePlan (inlined)
+            |          standard_ExecutorRun
+            |          PortalRunSelect
+            |          PortalRun
+            |          exec_simple_query
+            |          PostgresMain
+            |          BackendMain
+            |          postmaster_child_launch
+            |          BackendStartup (inlined)
+            |          ServerLoop (inlined)
+            |          PostmasterMain
+            |          main
+            |          __libc_start_call_main
+            |          __libc_start_main_impl (inlined)
+            |          _start
+            |          
+            |--1.34%--PageGetItem (inlined)
+            |          heapgettup_pagemode
+            |          heap_getnextslot
+            |          table_scan_getnextslot (inlined)
+            |          SeqNext (inlined)
+            |          ExecScanFetch (inlined)
+            |          ExecScanExtended (inlined)
+            |          ExecSeqScanWithQual
+            |          ExecProcNode (inlined)
+            |          fetch_input_tuple
+            |          agg_retrieve_direct (inlined)
+            |          ExecAgg
+            |          ExecProcNode (inlined)
+            |          ExecLimit
+            |          ExecProcNode (inlined)
+            |          ExecNestLoop
+            |          ExecProcNode (inlined)
+            |          fetch_input_tuple
+            |          agg_retrieve_direct (inlined)
+            |          ExecAgg
+            |          ExecProcNode (inlined)
+            |          ExecutePlan (inlined)
+            |          standard_ExecutorRun
+            |          PortalRunSelect
+            |          PortalRun
+            |          exec_simple_query
+            |          PostgresMain
+            |          BackendMain
+            |          postmaster_child_launch
+            |          BackendStartup (inlined)
+            |          ServerLoop (inlined)
+            |          PostmasterMain
+            |          main
+            |          __libc_start_call_main
+            |          __libc_start_main_impl (inlined)
+            |          _start
+            |          
+             --0.67%--BufferGetBlock (inlined)
+                       BufferGetPage (inlined)
+                       heapgettup_pagemode
+                       heap_getnextslot
+                       table_scan_getnextslot (inlined)
+                       SeqNext (inlined)
+                       ExecScanFetch (inlined)
+                       ExecScanExtended (inlined)
+                       ExecSeqScanWithQual
+                       ExecProcNode (inlined)
+                       fetch_input_tuple
+                       agg_retrieve_direct (inlined)
+                       ExecAgg
+                       ExecProcNode (inlined)
+                       ExecLimit
+                       ExecProcNode (inlined)
+                       ExecNestLoop
+                       ExecProcNode (inlined)
+                       fetch_input_tuple
+                       agg_retrieve_direct (inlined)
+                       ExecAgg
+                       ExecProcNode (inlined)
+                       ExecutePlan (inlined)
+                       standard_ExecutorRun
+                       PortalRunSelect
+                       PortalRun
+                       exec_simple_query
+                       PostgresMain
+                       BackendMain
+                       postmaster_child_launch
+                       BackendStartup (inlined)
+                       ServerLoop (inlined)
+                       PostmasterMain
+                       main
+                       __libc_start_call_main
+                       __libc_start_main_impl (inlined)
+                       _start
+
+     5.37%  [.] heap_prepare_pagescan         -      -            
+            |          
+             --5.20%--page_collect_tuples (inlined)
+                       heap_prepare_pagescan
+                       heapgettup_pagemode
+                       heap_getnextslot
+                       table_scan_getnextslot (inlined)
+                       SeqNext (inlined)
+                       ExecScanFetch (inlined)
+                       ExecScanExtended (inlined)
+                       ExecSeqScanWithQual
+                       ExecProcNode (inlined)
+                       fetch_input_tuple
+                       agg_retrieve_direct (inlined)
+                       ExecAgg
+                       ExecProcNode (inlined)
+                       ExecLimit
+                       ExecProcNode (inlined)
+                       ExecNestLoop
+                       ExecProcNode (inlined)
+                       fetch_input_tuple
+                       agg_retrieve_direct (inlined)
+                       ExecAgg
+                       0xffffffffffffffff
+
+     4.70%  [.] hash_search_with_hash_value   -      -            
+            |
+            ---BufTableLookup
+               BufferAlloc (inlined)
+               PinBufferForBlock (inlined)
+               StartReadBuffersImpl (inlined)
+               StartReadBuffer
+               read_stream_next_buffer
+               heap_fetch_next_buffer (inlined)
+               heapgettup_pagemode
+               heap_getnextslot
+               table_scan_getnextslot (inlined)
+               SeqNext (inlined)
+               ExecScanFetch (inlined)
+               ExecScanExtended (inlined)
+               ExecSeqScanWithQual
+               ExecProcNode (inlined)
+               fetch_input_tuple
+               agg_retrieve_direct (inlined)
+               ExecAgg
+               ExecProcNode (inlined)
+               ExecLimit
+               ExecProcNode (inlined)
+               ExecNestLoop
+               ExecProcNode (inlined)
+               fetch_input_tuple
+               agg_retrieve_direct (inlined)
+               ExecAgg
+               ExecProcNode (inlined)
+               ExecutePlan (inlined)
+               standard_ExecutorRun
+               PortalRunSelect
+               PortalRun
+               exec_simple_query
+               PostgresMain
+               BackendMain
+               postmaster_child_launch
+               BackendStartup (inlined)
+               ServerLoop (inlined)
+               PostmasterMain
+               main
+               __libc_start_call_main
+               __libc_start_main_impl (inlined)
+               _start
+
+     3.52%  [.] int84eq                       -      -            
+            |          
+            |--1.85%--BoolGetDatum (inlined)
+            |          int84eq
+            |          ExecInterpExpr
+            |          ExecEvalExprSwitchContext (inlined)
+            |          ExecQual (inlined)
+            |          ExecScanExtended (inlined)
+            |          ExecSeqScanWithQual
+            |          ExecProcNode (inlined)
+            |          fetch_input_tuple
+            |          agg_retrieve_direct (inlined)
+            |          ExecAgg
+            |          ExecProcNode (inlined)
+            |          ExecLimit
+            |          ExecProcNode (inlined)
+            |          ExecNestLoop
+            |          ExecProcNode (inlined)
+            |          fetch_input_tuple
+            |          agg_retrieve_direct (inlined)
+            |          ExecAgg
+            |          ExecProcNode (inlined)
+            |          ExecutePlan (inlined)
+            |          standard_ExecutorRun
+            |          PortalRunSelect
+            |          PortalRun
+            |          exec_simple_query
+            |          PostgresMain
+            |          BackendMain
+            |          postmaster_child_launch
+            |          BackendStartup (inlined)
+            |          ServerLoop (inlined)
+            |          PostmasterMain
+            |          main
+            |          __libc_start_call_main
+            |          __libc_start_main_impl (inlined)
+            |          _start
+            |          
+             --1.68%--int84eq
+                       ExecInterpExpr
+                       ExecEvalExprSwitchContext (inlined)
+                       ExecQual (inlined)
+                       ExecScanExtended (inlined)
+                       ExecSeqScanWithQual
+                       ExecProcNode (inlined)
+                       fetch_input_tuple
+                       agg_retrieve_direct (inlined)
+                       ExecAgg
+                       ExecProcNode (inlined)
+                       ExecLimit
+                       ExecProcNode (inlined)
+                       ExecNestLoop
+                       ExecProcNode (inlined)
+                       fetch_input_tuple
+                       agg_retrieve_direct (inlined)
+                       ExecAgg
+                       ExecProcNode (inlined)
+                       ExecutePlan (inlined)
+                       standard_ExecutorRun
+                       PortalRunSelect
+                       PortalRun
+                       exec_simple_query
+                       PostgresMain
+                       BackendMain
+                       postmaster_child_launch
+                       BackendStartup (inlined)
+                       ServerLoop (inlined)
+                       PostmasterMain
+                       main
+                       __libc_start_call_main
+                       __libc_start_main_impl (inlined)
+                       _start
+
+     2.01%  [.] ExecSeqScanWithQual           -      -            
+            |          
+            |--0.67%--ExecEvalExprSwitchContext (inlined)
+            |          ExecQual (inlined)
+            |          ExecScanExtended (inlined)
+            |          ExecSeqScanWithQual
+            |          ExecProcNode (inlined)
+            |          fetch_input_tuple
+            |          agg_retrieve_direct (inlined)
+            |          ExecAgg
+            |          ExecProcNode (inlined)
+            |          ExecLimit
+            |          ExecProcNode (inlined)
+            |          ExecNestLoop
+            |          ExecProcNode (inlined)
+            |          fetch_input_tuple
+            |          agg_retrieve_direct (inlined)
+            |          ExecAgg
+            |          ExecProcNode (inlined)
+            |          ExecutePlan (inlined)
+            |          standard_ExecutorRun
+            |          PortalRunSelect
+            |          PortalRun
+            |          exec_simple_query
+            |          PostgresMain
+            |          BackendMain
+            |          postmaster_child_launch
+            |          BackendStartup (inlined)
+            |          ServerLoop (inlined)
+            |          PostmasterMain
+            |          main
+            |          __libc_start_call_main
+            |          __libc_start_main_impl (inlined)
+            |          _start
+            |          
+             --0.50%--table_scan_getnextslot (inlined)
+                       SeqNext (inlined)
+                       ExecScanFetch (inlined)
+                       ExecScanExtended (inlined)
+                       ExecSeqScanWithQual
+                       ExecProcNode (inlined)
+                       fetch_input_tuple
+                       agg_retrieve_direct (inlined)
+                       ExecAgg
+                       ExecProcNode (inlined)
+                       ExecLimit
+                       ExecProcNode (inlined)
+                       ExecNestLoop
+                       ExecProcNode (inlined)
+                       fetch_input_tuple
+                       agg_retrieve_direct (inlined)
+                       ExecAgg
+                       ExecProcNode (inlined)
+                       ExecutePlan (inlined)
+                       standard_ExecutorRun
+                       PortalRunSelect
+                       PortalRun
+                       exec_simple_query
+                       PostgresMain
+                       BackendMain
+                       postmaster_child_launch
+                       BackendStartup (inlined)
+                       ServerLoop (inlined)
+                       PostmasterMain
+                       main
+                       __libc_start_call_main
+                       __libc_start_main_impl (inlined)
+                       _start
+
+     1.85%  [.] int8mod                       -      -            
+            |          
+             --1.17%--Int64GetDatum (inlined)
+                       int8mod
+                       ExecInterpExpr
+                       ExecEvalExprSwitchContext (inlined)
+                       ExecQual (inlined)
+                       ExecScanExtended (inlined)
+                       ExecSeqScanWithQual
+                       ExecProcNode (inlined)
+                       fetch_input_tuple
+                       agg_retrieve_direct (inlined)
+                       ExecAgg
+                       ExecProcNode (inlined)
+                       ExecLimit
+                       ExecProcNode (inlined)
+                       ExecNestLoop
+                       ExecProcNode (inlined)
+                       fetch_input_tuple
+                       agg_retrieve_direct (inlined)
+                       ExecAgg
+                       ExecProcNode (inlined)
+                       ExecutePlan (inlined)
+                       standard_ExecutorRun
+                       PortalRunSelect
+                       PortalRun
+                       exec_simple_query
+                       PostgresMain
+                       BackendMain
+                       postmaster_child_launch
+                       BackendStartup (inlined)
+                       ServerLoop (inlined)
+                       PostmasterMain
+                       main
+                       __libc_start_call_main
+                       __libc_start_main_impl (inlined)
+                       _start
+
+     1.68%  [.] ExecStoreBufferHeapTuple      -      -            
+            |          
+            |--1.17%--tts_buffer_heap_store_tuple (inlined)
+            |          ExecStoreBufferHeapTuple
+            |          heap_getnextslot
+            |          table_scan_getnextslot (inlined)
+            |          SeqNext (inlined)
+            |          ExecScanFetch (inlined)
+            |          ExecScanExtended (inlined)
+            |          ExecSeqScanWithQual
+            |          ExecProcNode (inlined)
+            |          fetch_input_tuple
+            |          agg_retrieve_direct (inlined)
+            |          ExecAgg
+            |          ExecProcNode (inlined)
+            |          ExecLimit
+            |          ExecProcNode (inlined)
+            |          ExecNestLoop
+            |          ExecProcNode (inlined)
+            |          fetch_input_tuple
+            |          agg_retrieve_direct (inlined)
+            |          ExecAgg
+            |          ExecProcNode (inlined)
+            |          ExecutePlan (inlined)
+            |          standard_ExecutorRun
+            |          PortalRunSelect
+            |          PortalRun
+            |          exec_simple_query
+            |          PostgresMain
+            |          BackendMain
+            |          postmaster_child_launch
+            |          BackendStartup (inlined)
+            |          ServerLoop (inlined)
+            |          PostmasterMain
+            |          main
+            |          __libc_start_call_main
+            |          __libc_start_main_impl (inlined)
+            |          _start
+            |          
+             --0.50%--ExecStoreBufferHeapTuple
+                       heap_getnextslot
+                       table_scan_getnextslot (inlined)
+                       SeqNext (inlined)
+                       ExecScanFetch (inlined)
+                       ExecScanExtended (inlined)
+                       ExecSeqScanWithQual
+                       ExecProcNode (inlined)
+                       fetch_input_tuple
+                       agg_retrieve_direct (inlined)
+                       ExecAgg
+                       ExecProcNode (inlined)
+                       ExecLimit
+                       ExecProcNode (inlined)
+                       ExecNestLoop
+                       ExecProcNode (inlined)
+                       fetch_input_tuple
+                       agg_retrieve_direct (inlined)
+                       ExecAgg
+                       ExecProcNode (inlined)
+                       ExecutePlan (inlined)
+                       standard_ExecutorRun
+                       PortalRunSelect
+                       PortalRun
+                       exec_simple_query
+                       PostgresMain
+                       BackendMain
+                       postmaster_child_launch
+                       BackendStartup (inlined)
+                       ServerLoop (inlined)
+                       PostmasterMain
+                       main
+                       __libc_start_call_main
+                       __libc_start_main_impl (inlined)
+                       _start
+
+     1.34%  [.] GetPrivateRefCountEntrySlow   -      -            
+            |
+            ---GetPrivateRefCountEntry (inlined)
+               |          
+                --0.84%--IncrBufferRefCount
+                          tts_buffer_heap_store_tuple (inlined)
+                          ExecStoreBufferHeapTuple
+                          heap_getnextslot
+                          table_scan_getnextslot (inlined)
+                          SeqNext (inlined)
+                          ExecScanFetch (inlined)
+                          ExecScanExtended (inlined)
+                          ExecSeqScanWithQual
+                          ExecProcNode (inlined)
+                          fetch_input_tuple
+                          agg_retrieve_direct (inlined)
+                          ExecAgg
+                          ExecProcNode (inlined)
+                          ExecLimit
+                          ExecProcNode (inlined)
+                          ExecNestLoop
+                          ExecProcNode (inlined)
+                          fetch_input_tuple
+                          agg_retrieve_direct (inlined)
+                          ExecAgg
+                          ExecProcNode (inlined)
+                          ExecutePlan (inlined)
+                          standard_ExecutorRun
+                          PortalRunSelect
+                          PortalRun
+                          exec_simple_query
+                          PostgresMain
+                          BackendMain
+                          postmaster_child_launch
+                          BackendStartup (inlined)
+                          ServerLoop (inlined)
+                          PostmasterMain
+                          main
+                          __libc_start_call_main
+                          __libc_start_main_impl (inlined)
+                          _start
+
+     1.01%  [.] MemoryContextReset            -      -            
+            |
+            ---ExecScanExtended (inlined)
+               ExecSeqScanWithQual
+               ExecProcNode (inlined)
+               fetch_input_tuple
+               agg_retrieve_direct (inlined)
+               ExecAgg
+               ExecProcNode (inlined)
+               ExecLimit
+               ExecProcNode (inlined)
+               ExecNestLoop
+               ExecProcNode (inlined)
+               fetch_input_tuple
+               agg_retrieve_direct (inlined)
+               ExecAgg
+               ExecProcNode (inlined)
+               ExecutePlan (inlined)
+               standard_ExecutorRun
+               PortalRunSelect
+               PortalRun
+               exec_simple_query
+               PostgresMain
+               BackendMain
+               postmaster_child_launch
+               BackendStartup (inlined)
+               ServerLoop (inlined)
+               PostmasterMain
+               main
+               __libc_start_call_main
+               __libc_start_main_impl (inlined)
+               _start
+
+     1.01%  [.] heap_page_prune_opt           -      -            
+            |
+            ---heap_prepare_pagescan
+               heapgettup_pagemode
+               |          
+                --0.84%--0xffffffffffffffff
+
+     0.67%  [.] LWLockAttemptLock             -      -            
+            |
+            ---pg_atomic_read_u32 (inlined)
+               LWLockAttemptLock
+               LWLockAcquire
+               BufferAlloc (inlined)
+               PinBufferForBlock (inlined)
+               StartReadBuffersImpl (inlined)
+               StartReadBuffer
+               read_stream_next_buffer
+               heap_fetch_next_buffer (inlined)
+               heapgettup_pagemode
+               heap_getnextslot
+               table_scan_getnextslot (inlined)
+               SeqNext (inlined)
+               ExecScanFetch (inlined)
+               ExecScanExtended (inlined)
+               ExecSeqScanWithQual
+               ExecProcNode (inlined)
+               fetch_input_tuple
+               agg_retrieve_direct (inlined)
+               ExecAgg
+               ExecProcNode (inlined)
+               ExecLimit
+               ExecProcNode (inlined)
+               ExecNestLoop
+               ExecProcNode (inlined)
+               fetch_input_tuple
+               agg_retrieve_direct (inlined)
+               ExecAgg
+               ExecProcNode (inlined)
+               ExecutePlan (inlined)
+               standard_ExecutorRun
+               PortalRunSelect
+               PortalRun
+               exec_simple_query
+               PostgresMain
+               BackendMain
+               postmaster_child_launch
+               BackendStartup (inlined)
+               ServerLoop (inlined)
+               PostmasterMain
+               main
+               __libc_start_call_main
+               __libc_start_main_impl (inlined)
+               _start
+
+     0.67%  [.] UnpinBufferNoOwner            -      -            
+     0.50%  [.] ForgetPrivateRefCountEntry    -      -            
+            |
+            ---ForgetPrivateRefCountEntry
+               tts_buffer_heap_store_tuple (inlined)
+               ExecStoreBufferHeapTuple
+               heap_getnextslot
+               table_scan_getnextslot (inlined)
+               SeqNext (inlined)
+               ExecScanFetch (inlined)
+               ExecScanExtended (inlined)
+               ExecSeqScanWithQual
+               ExecProcNode (inlined)
+               fetch_input_tuple
+               agg_retrieve_direct (inlined)
+               ExecAgg
+               ExecProcNode (inlined)
+               ExecLimit
+               ExecProcNode (inlined)
+               ExecNestLoop
+               ExecProcNode (inlined)
+               fetch_input_tuple
+               agg_retrieve_direct (inlined)
+               ExecAgg
+               ExecProcNode (inlined)
+               ExecutePlan (inlined)
+               standard_ExecutorRun
+               PortalRunSelect
+               PortalRun
+               exec_simple_query
+               PostgresMain
+               BackendMain
+               postmaster_child_launch
+               BackendStartup (inlined)
+               ServerLoop (inlined)
+               PostmasterMain
+               main
+               __libc_start_call_main
+               __libc_start_main_impl (inlined)
+               _start
+
+     0.50%  [.] PinBuffer                     -      -            
+     0.50%  [.] ReleaseBuffer                 -      -            
+
+
+#
+# (Cannot load tips.txt file, please install perf!)
+#

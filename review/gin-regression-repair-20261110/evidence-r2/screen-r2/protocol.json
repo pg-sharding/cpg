@@ -1,0 +1,251 @@
+{
+  "mode": "screen",
+  "roles": [
+    "B",
+    "T",
+    "A4",
+    "L4",
+    "L7"
+  ],
+  "retained_rounds": 20,
+  "warmups": 2,
+  "cases": [
+    {
+      "name": "skew1000",
+      "table": "docs",
+      "predicate": "d @@ 'common & rare0'::tsquery",
+      "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'common & rare0'::tsquery",
+      "sql": "SELECT sum(q.n) FROM generate_series(1,100) p(i) CROSS JOIN LATERAL (SELECT count(*) n FROM g1.docs WHERE d @@ to_tsquery('simple','common & rare'||(p.i%2)::text) OFFSET 0) q",
+      "settings": "",
+      "index": "docs_d_gin",
+      "role": "query",
+      "probes": 100,
+      "kind": "sql"
+    },
+    {
+      "name": "or_forced",
+      "table": "docs",
+      "predicate": "d @@ 'common | rare0'::tsquery",
+      "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'common | rare0'::tsquery",
+      "sql": "SELECT sum(q.n) FROM generate_series(1,5) p(i) CROSS JOIN LATERAL (SELECT count(*) n FROM g1.docs WHERE d @@ 'common | rare0'::tsquery OFFSET (p.i % 1)) q",
+      "settings": "SET enable_seqscan=off;",
+      "index": "docs_d_gin",
+      "role": "forced negative",
+      "probes": 5,
+      "kind": "sql"
+    },
+    {
+      "name": "single_forced",
+      "table": "docs",
+      "predicate": "d @@ 'common'::tsquery",
+      "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'common'::tsquery",
+      "sql": "SELECT sum(q.n) FROM generate_series(1,5) p(i) CROSS JOIN LATERAL (SELECT count(*) n FROM g1.docs WHERE d @@ 'common'::tsquery OFFSET (p.i % 1)) q",
+      "settings": "SET enable_seqscan=off;",
+      "index": "docs_d_gin",
+      "role": "forced negative",
+      "probes": 5,
+      "kind": "sql"
+    },
+    {
+      "name": "inline",
+      "table": "inline_docs",
+      "predicate": "d @@ 'common & token17'::tsquery",
+      "rows_sql": "SELECT id FROM g1.inline_docs WHERE d @@ 'common & token17'::tsquery",
+      "sql": "SELECT sum(q.n) FROM generate_series(1,100) p(i) CROSS JOIN LATERAL (SELECT count(*) n FROM g1.inline_docs WHERE d @@ 'common & token17'::tsquery OFFSET (p.i % 1)) q",
+      "settings": "SET enable_seqscan=off;",
+      "index": "inline_d_gin",
+      "role": "short inline negative",
+      "probes": 100,
+      "kind": "sql"
+    },
+    {
+      "name": "jsonb",
+      "table": "docs",
+      "predicate": "jb @> '{\"common\":true,\"rare\":42}'::jsonb",
+      "rows_sql": "SELECT id FROM g1.docs WHERE jb @> '{\"common\":true,\"rare\":42}'::jsonb",
+      "sql": "SELECT sum(q.n) FROM generate_series(1,100) p(i) CROSS JOIN LATERAL (SELECT count(*) n FROM g1.docs WHERE jb @> '{\"common\":true,\"rare\":42}'::jsonb OFFSET (p.i % 1)) q",
+      "settings": "",
+      "index": "docs_jb_gin",
+      "role": "query",
+      "probes": 100,
+      "kind": "sql"
+    },
+    {
+      "name": "lossy_and",
+      "table": "docs",
+      "predicate": "d @@ 'dense2 & dense3'::tsquery",
+      "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'dense2 & dense3'::tsquery",
+      "sql": "SELECT sum(q.n) FROM generate_series(1,5) p(i) CROSS JOIN LATERAL (SELECT count(*) n FROM g1.docs WHERE d @@ 'dense2 & dense3'::tsquery OFFSET (p.i % 1)) q",
+      "settings": "SET work_mem='64kB';SET enable_seqscan=off;",
+      "index": "docs_d_gin",
+      "role": "lossy/recheck",
+      "probes": 5,
+      "kind": "sql"
+    },
+    {
+      "name": "seq_control",
+      "table": "docs",
+      "predicate": "id % 1000 = 0",
+      "rows_sql": "SELECT id FROM g1.docs WHERE id % 1000 = 0",
+      "sql": "SELECT sum(q.n) FROM generate_series(1,5) p(i) CROSS JOIN LATERAL (SELECT count(*) n FROM g1.docs WHERE id % 1000 = 0 OFFSET (p.i % 1)) q",
+      "settings": "SET enable_bitmapscan=off;SET enable_indexscan=off;",
+      "index": null,
+      "role": "off-path control",
+      "probes": 5,
+      "kind": "sql"
+    },
+    {
+      "name": "skew_group4096",
+      "table": "docs",
+      "predicate": "d @@ 'common & group17'::tsquery",
+      "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'common & group17'::tsquery",
+      "sql": "SELECT sum(q.n) FROM generate_series(1,100) p(i) CROSS JOIN LATERAL (SELECT count(*) n FROM g1.docs WHERE d @@ 'common & group17'::tsquery OFFSET(p.i%1))q",
+      "settings": "",
+      "index": "docs_d_gin",
+      "role": "unmeasured holdout frozen after histogram and before release timing",
+      "probes": 100,
+      "kind": "sql"
+    },
+    {
+      "name": "inline_single",
+      "table": "inline_docs",
+      "predicate": "d @@ 'common'::tsquery",
+      "rows_sql": "SELECT id FROM g1.inline_docs WHERE d @@ 'common'::tsquery",
+      "sql": "SELECT sum(q.n) FROM generate_series(1,100) p(i) CROSS JOIN LATERAL (SELECT count(*) n FROM g1.inline_docs WHERE d @@ 'common'::tsquery OFFSET(p.i%1))q",
+      "settings": "SET enable_seqscan=off;",
+      "index": "inline_d_gin",
+      "role": "unmeasured holdout frozen after histogram and before release timing",
+      "probes": 100,
+      "kind": "sql"
+    },
+    {
+      "name": "absent",
+      "table": "docs",
+      "predicate": "d @@ 'common & missing'::tsquery",
+      "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'common & missing'::tsquery",
+      "sql": "SELECT sum(q.n) FROM generate_series(1,100) p(i) CROSS JOIN LATERAL (SELECT count(*) n FROM g1.docs WHERE d @@ 'common & missing'::tsquery OFFSET(p.i%1))q",
+      "settings": "",
+      "index": "docs_d_gin",
+      "role": "unmeasured holdout frozen after histogram and before release timing",
+      "probes": 100,
+      "kind": "sql"
+    },
+    {
+      "name": "am_inline",
+      "kind": "am",
+      "settings": "",
+      "index": "inline_d_gin",
+      "query": "common & token17",
+      "loops": 10000,
+      "tids_per_scan": 4,
+      "sql": "SELECT public.gin_am_micro('g1.inline_d_gin'::regclass, 'common & token17'::tsquery, 10000)"
+    },
+    {
+      "name": "am_absent",
+      "kind": "am",
+      "settings": "",
+      "index": "docs_d_gin",
+      "query": "common & missing",
+      "loops": 5000,
+      "tids_per_scan": 0,
+      "sql": "SELECT public.gin_am_micro('g1.docs_d_gin'::regclass, 'common & missing'::tsquery, 5000)"
+    },
+    {
+      "name": "am_skew1000",
+      "kind": "am",
+      "settings": "",
+      "index": "docs_d_gin",
+      "query": "common & rare0",
+      "loops": 100,
+      "tids_per_scan": 200,
+      "sql": "SELECT public.gin_am_micro('g1.docs_d_gin'::regclass, 'common & rare0'::tsquery, 100)"
+    },
+    {
+      "name": "am_full",
+      "kind": "am",
+      "settings": "",
+      "index": "docs_d_gin",
+      "query": "common",
+      "loops": 10,
+      "tids_per_scan": 200000,
+      "sql": "SELECT public.gin_am_micro('g1.docs_d_gin'::regclass, 'common'::tsquery, 10)"
+    }
+  ],
+  "orders": [
+    [
+      "B",
+      "T",
+      "L7",
+      "A4",
+      "L4"
+    ],
+    [
+      "T",
+      "A4",
+      "B",
+      "L4",
+      "L7"
+    ],
+    [
+      "A4",
+      "L4",
+      "T",
+      "L7",
+      "B"
+    ],
+    [
+      "L4",
+      "L7",
+      "A4",
+      "B",
+      "T"
+    ],
+    [
+      "L7",
+      "B",
+      "L4",
+      "T",
+      "A4"
+    ],
+    [
+      "L4",
+      "A4",
+      "L7",
+      "T",
+      "B"
+    ],
+    [
+      "L7",
+      "L4",
+      "B",
+      "A4",
+      "T"
+    ],
+    [
+      "B",
+      "L7",
+      "T",
+      "L4",
+      "A4"
+    ],
+    [
+      "T",
+      "B",
+      "A4",
+      "L7",
+      "L4"
+    ],
+    [
+      "A4",
+      "T",
+      "L4",
+      "B",
+      "L7"
+    ]
+  ],
+  "cohorts": 2,
+  "raw": 3080,
+  "retained": 2800,
+  "warm": 280,
+  "timing": "SQL EXPLAIN executor, whole backend schedstat CPU and client wall; AM also has actual index_rescan/getbitmap loop process CPU and wall."
+}

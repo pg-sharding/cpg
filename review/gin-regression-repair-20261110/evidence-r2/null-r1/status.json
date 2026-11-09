@@ -1,0 +1,98 @@
+{
+  "status": "FAILED_PRESERVED",
+  "phase": "ordinary-qualification",
+  "build_receipt_sha256": "af42978476f2c9cafbd72cdbb1c02057dda4e1f40683a2ede952a4f1742ab720",
+  "source_plan_sha256": "6162d1799b1c9e2bb3527aa2472ac40aeb58e0f4daeebfbc04cdb5835aaf659c",
+  "mode": "null",
+  "host_before": {
+    "uname": [
+      "Linux",
+      "pgfuzz",
+      "6.8.0-147-generic",
+      "#147-Ubuntu SMP PREEMPT_DYNAMIC Thu Sep 24 11:33:16 UTC 2026",
+      "x86_64"
+    ],
+    "load": [
+      2.5546875,
+      3.58740234375,
+      3.75439453125
+    ],
+    "affinity": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
+    ],
+    "memory": {
+      "MemTotal": "16374612 kB",
+      "MemAvailable": "9646540 kB",
+      "SwapTotal": "0 kB",
+      "SwapFree": "0 kB"
+    },
+    "cpu_topology": "CPU CORE SOCKET ONLINE\n  0    0      0    yes\n  1    0      0    yes\n  2    1      0    yes\n  3    1      0    yes\n  4    2      0    yes\n  5    2      0    yes\n  6    3      0    yes\n  7    3      0    yes\n",
+    "realtime_ns": 1794255419982816799
+  },
+  "clusters": [
+    {
+      "label": "seed",
+      "variant": "B",
+      "prefix": "/home/reshke/allfuzz/gin-regression-repair-20261110-r1/build/stage-B/home/reshke/allfuzz/gin-regression-repair-20261110-r1/build/prefix",
+      "data": "/home/reshke/allfuzz/gin-regression-repair-20261110-r1/null-r1/seed",
+      "socket": "/home/reshke/allfuzz/gin-regression-repair-20261110-r1/null-r1/s-seed",
+      "port": 42800,
+      "server_cpu": 0,
+      "before_ns": 1794255421019655648,
+      "pid": 2923317,
+      "ready_ns": 1794255421388278948,
+      "stopped": true,
+      "stop_proof": {
+        "pg_ctl_status_rc": 3,
+        "cluster_state": "shut down",
+        "pidfile_absent": true
+      },
+      "stopped_ns": 1794255424300813891
+    },
+    {
+      "label": "qual-B",
+      "variant": "B",
+      "prefix": "/home/reshke/allfuzz/gin-regression-repair-20261110-r1/build/stage-B/home/reshke/allfuzz/gin-regression-repair-20261110-r1/build/prefix",
+      "data": "/home/reshke/allfuzz/gin-regression-repair-20261110-r1/null-r1/data-qual-B",
+      "socket": "/home/reshke/allfuzz/gin-regression-repair-20261110-r1/null-r1/s-qual-B",
+      "port": 42801,
+      "server_cpu": 0,
+      "before_ns": 1794255428719230768,
+      "pid": 2923351,
+      "ready_ns": 1794255429010027923,
+      "stopped": true,
+      "stop_proof": {
+        "pg_ctl_status_rc": 3,
+        "cluster_state": "shut down",
+        "pidfile_absent": true
+      },
+      "stopped_ns": 1794255439685565892
+    }
+  ],
+  "cleanup": [
+    {
+      "label": "seed",
+      "pg_ctl_status_rc": 3,
+      "cluster_state": "shut down",
+      "pidfile_absent": true
+    },
+    {
+      "label": "qual-B",
+      "pg_ctl_status_rc": 3,
+      "cluster_state": "shut down",
+      "pidfile_absent": true
+    }
+  ],
+  "timing_samples": 0,
+  "error": "RuntimeError(('owned psql EOF', 3))",
+  "traceback": "Traceback (most recent call last):\n  File \"/home/reshke/allfuzz/gin-regression-repair-20261110-r1/campaign.py\", line 215, in main\n    result['micro'] = qualify_micro(s, micro_cases())\n                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/reshke/allfuzz/gin-regression-repair-20261110-r1/runtime_helpers.py\", line 32, in qualify_micro\n    value = session.json(query)\n            ^^^^^^^^^^^^^^^^^^^\n  File \"/home/reshke/allfuzz/gin-regression-repair-20261110-r1/harness/session.py\", line 24, in json\n    def json(self,text):return json.loads(self.sql(text))\n                                          ^^^^^^^^^^^^^^\n  File \"/home/reshke/allfuzz/gin-regression-repair-20261110-r1/harness/session.py\", line 20, in sql\n    if line is None:raise RuntimeError(('owned psql EOF',self.proc.poll()))\n                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nRuntimeError: ('owned psql EOF', 3)\n",
+  "finished_ns": 1794255439702261227,
+  "cleanup_errors": []
+}
