@@ -1,0 +1,635 @@
+{
+  "status": "PASS_ASSERT_LOCKED_LEAF_INTERNAL_LINEAR_ORACLE",
+  "scope": "untimed static helper oracle, not a candidate backend or SQL benchmark",
+  "commands": [
+    {
+      "args": [
+        "gcc",
+        "-Wall",
+        "-Wmissing-prototypes",
+        "-Wpointer-arith",
+        "-Wdeclaration-after-statement",
+        "-Werror=vla",
+        "-Wmissing-format-attribute",
+        "-Wold-style-declaration",
+        "-Wimplicit-fallthrough=5",
+        "-Wcast-function-type",
+        "-Wformat-security",
+        "-Wshadow=local",
+        "-fno-strict-aliasing",
+        "-fwrapv",
+        "-fexcess-precision=standard",
+        "-fstrict-flex-arrays=1",
+        "-Wno-format-truncation",
+        "-Wno-stringop-truncation",
+        "-O2",
+        "-g",
+        "-Wstrict-prototypes",
+        "-Wold-style-definition",
+        "-D_GNU_SOURCE",
+        "-fPIC",
+        "-I/home/reshke/allfuzz/typed-leaf-v7-sql-20261108-r1/stage-v7assert/home/reshke/allfuzz/typed-leaf-v7-sql-20261108-r1/prefix/include/postgresql/server",
+        "-I/home/reshke/allfuzz/typed-leaf-v7-sql-20261108-r1/stage-v7assert/home/reshke/allfuzz/typed-leaf-v7-sql-20261108-r1/prefix/include/postgresql/internal",
+        "-c",
+        "/home/reshke/allfuzz/btree-typed-v8-firstattr-20261109-r1/page-oracle-r1/V6-oracle.c",
+        "-o",
+        "/home/reshke/allfuzz/btree-typed-v8-firstattr-20261109-r1/page-oracle-r1/V6-oracle.o"
+      ],
+      "rc": 0,
+      "log": "V6-compile.log"
+    },
+    {
+      "args": [
+        "gcc",
+        "-shared",
+        "-o",
+        "/home/reshke/allfuzz/btree-typed-v8-firstattr-20261109-r1/page-oracle-r1/V6-oracle.so",
+        "/home/reshke/allfuzz/btree-typed-v8-firstattr-20261109-r1/page-oracle-r1/V6-oracle.o"
+      ],
+      "rc": 0,
+      "log": "V6-link.log"
+    },
+    {
+      "args": [
+        "gcc",
+        "-Wall",
+        "-Wmissing-prototypes",
+        "-Wpointer-arith",
+        "-Wdeclaration-after-statement",
+        "-Werror=vla",
+        "-Wmissing-format-attribute",
+        "-Wold-style-declaration",
+        "-Wimplicit-fallthrough=5",
+        "-Wcast-function-type",
+        "-Wformat-security",
+        "-Wshadow=local",
+        "-fno-strict-aliasing",
+        "-fwrapv",
+        "-fexcess-precision=standard",
+        "-fstrict-flex-arrays=1",
+        "-Wno-format-truncation",
+        "-Wno-stringop-truncation",
+        "-O2",
+        "-g",
+        "-Wstrict-prototypes",
+        "-Wold-style-definition",
+        "-D_GNU_SOURCE",
+        "-fPIC",
+        "-I/home/reshke/allfuzz/typed-leaf-v7-sql-20261108-r1/stage-v7assert/home/reshke/allfuzz/typed-leaf-v7-sql-20261108-r1/prefix/include/postgresql/server",
+        "-I/home/reshke/allfuzz/typed-leaf-v7-sql-20261108-r1/stage-v7assert/home/reshke/allfuzz/typed-leaf-v7-sql-20261108-r1/prefix/include/postgresql/internal",
+        "-c",
+        "/home/reshke/allfuzz/btree-typed-v8-firstattr-20261109-r1/page-oracle-r1/V8-oracle.c",
+        "-o",
+        "/home/reshke/allfuzz/btree-typed-v8-firstattr-20261109-r1/page-oracle-r1/V8-oracle.o"
+      ],
+      "rc": 0,
+      "log": "V8-compile.log"
+    },
+    {
+      "args": [
+        "gcc",
+        "-shared",
+        "-o",
+        "/home/reshke/allfuzz/btree-typed-v8-firstattr-20261109-r1/page-oracle-r1/V8-oracle.so",
+        "/home/reshke/allfuzz/btree-typed-v8-firstattr-20261109-r1/page-oracle-r1/V8-oracle.o"
+      ],
+      "rc": 0,
+      "log": "V8-link.log"
+    },
+    {
+      "args": [
+        "/home/reshke/allfuzz/typed-leaf-v7-sql-20261108-r1/stage-v7assert/home/reshke/allfuzz/typed-leaf-v7-sql-20261108-r1/prefix/bin/initdb",
+        "-D",
+        "/home/reshke/allfuzz/btree-typed-v8-firstattr-20261109-r1/page-oracle-r1/data",
+        "--no-locale",
+        "--encoding=UTF8"
+      ],
+      "rc": 0,
+      "log": "initdb.log"
+    },
+    {
+      "args": [
+        "/home/reshke/allfuzz/typed-leaf-v7-sql-20261108-r1/stage-v7assert/home/reshke/allfuzz/typed-leaf-v7-sql-20261108-r1/prefix/bin/pg_ctl",
+        "-D",
+        "/home/reshke/allfuzz/btree-typed-v8-firstattr-20261109-r1/page-oracle-r1/data",
+        "-l",
+        "/home/reshke/allfuzz/btree-typed-v8-firstattr-20261109-r1/page-oracle-r1/server.log",
+        "-w",
+        "start",
+        "-o",
+        "-p 40881 -k /home/reshke/allfuzz/btree-typed-v8-firstattr-20261109-r1/page-oracle-r1 -c listen_addresses= -c shared_buffers=128MB -c autovacuum=off"
+      ],
+      "rc": 0,
+      "log": "start.log"
+    },
+    {
+      "args": [
+        "/home/reshke/allfuzz/typed-leaf-v7-sql-20261108-r1/stage-v7assert/home/reshke/allfuzz/typed-leaf-v7-sql-20261108-r1/prefix/bin/psql",
+        "-X",
+        "-A",
+        "-t",
+        "-h",
+        "/home/reshke/allfuzz/btree-typed-v8-firstattr-20261109-r1/page-oracle-r1",
+        "-p",
+        "40881",
+        "-d",
+        "postgres",
+        "-v",
+        "ON_ERROR_STOP=1",
+        "-c",
+        "CREATE FUNCTION firstattr_probe_v6(regclass,bigint[]) RETURNS text AS '/home/reshke/allfuzz/btree-typed-v8-firstattr-20261109-r1/page-oracle-r1/V6-oracle.so','firstattr_probe_v6' LANGUAGE C STRICT;"
+      ],
+      "rc": 0,
+      "log": "V6-create-function.out"
+    },
+    {
+      "args": [
+        "/home/reshke/allfuzz/typed-leaf-v7-sql-20261108-r1/stage-v7assert/home/reshke/allfuzz/typed-leaf-v7-sql-20261108-r1/prefix/bin/psql",
+        "-X",
+        "-A",
+        "-t",
+        "-h",
+        "/home/reshke/allfuzz/btree-typed-v8-firstattr-20261109-r1/page-oracle-r1",
+        "-p",
+        "40881",
+        "-d",
+        "postgres",
+        "-v",
+        "ON_ERROR_STOP=1",
+        "-c",
+        "CREATE FUNCTION firstattr_probe_v8(regclass,bigint[]) RETURNS text AS '/home/reshke/allfuzz/btree-typed-v8-firstattr-20261109-r1/page-oracle-r1/V8-oracle.so','firstattr_probe_v8' LANGUAGE C STRICT;"
+      ],
+      "rc": 0,
+      "log": "V8-create-function.out"
+    },
+    {
+      "args": [
+        "/home/reshke/allfuzz/typed-leaf-v7-sql-20261108-r1/stage-v7assert/home/reshke/allfuzz/typed-leaf-v7-sql-20261108-r1/prefix/bin/psql",
+        "-X",
+        "-A",
+        "-t",
+        "-h",
+        "/home/reshke/allfuzz/btree-typed-v8-firstattr-20261109-r1/page-oracle-r1",
+        "-p",
+        "40881",
+        "-d",
+        "postgres",
+        "-v",
+        "ON_ERROR_STOP=1",
+        "-c",
+        "\n    CREATE EXTENSION amcheck;\n    CREATE EXTENSION pageinspect;\n    CREATE TABLE payload(k bigint);\n    INSERT INTO payload SELECT 2*g FROM generate_series(-25000,25000) g;\n    INSERT INTO payload SELECT 3 FROM generate_series(1,50000);\n    INSERT INTO payload VALUES ('-9223372036854775808'),('9223372036854775807'),(NULL),(NULL);\n    CREATE INDEX payload_last ON payload(k);\n    CREATE INDEX payload_first ON payload(k NULLS FIRST);\n    CREATE TABLE distincts AS SELECT 2*g::bigint AS k FROM generate_series(-25000,25000) g;\n    CREATE UNIQUE INDEX distincts_idx ON distincts(k);\n    CREATE TABLE duplicates AS SELECT 3::bigint AS k FROM generate_series(1,5000);\n    CREATE INDEX duplicates_idx ON duplicates(k);\n    CREATE TABLE empty(k bigint);\n    CREATE INDEX empty_idx ON empty(k);\n    "
+      ],
+      "rc": 0,
+      "log": "setup.out"
+    },
+    {
+      "args": [
+        "/home/reshke/allfuzz/typed-leaf-v7-sql-20261108-r1/stage-v7assert/home/reshke/allfuzz/typed-leaf-v7-sql-20261108-r1/prefix/bin/psql",
+        "-X",
+        "-A",
+        "-t",
+        "-h",
+        "/home/reshke/allfuzz/btree-typed-v8-firstattr-20261109-r1/page-oracle-r1",
+        "-p",
+        "40881",
+        "-d",
+        "postgres",
+        "-v",
+        "ON_ERROR_STOP=1",
+        "-c",
+        "VACUUM ANALYZE;"
+      ],
+      "rc": 0,
+      "log": "vacuum.out"
+    },
+    {
+      "args": [
+        "/home/reshke/allfuzz/typed-leaf-v7-sql-20261108-r1/stage-v7assert/home/reshke/allfuzz/typed-leaf-v7-sql-20261108-r1/prefix/bin/psql",
+        "-X",
+        "-A",
+        "-t",
+        "-h",
+        "/home/reshke/allfuzz/btree-typed-v8-firstattr-20261109-r1/page-oracle-r1",
+        "-p",
+        "40881",
+        "-d",
+        "postgres",
+        "-v",
+        "ON_ERROR_STOP=1",
+        "-c",
+        "SELECT (SELECT count(*) FROM payload),(SELECT count(*) FROM distincts),(SELECT count(*) FROM duplicates);"
+      ],
+      "rc": 0,
+      "log": "formula-counts.out"
+    },
+    {
+      "args": [
+        "/home/reshke/allfuzz/typed-leaf-v7-sql-20261108-r1/stage-v7assert/home/reshke/allfuzz/typed-leaf-v7-sql-20261108-r1/prefix/bin/psql",
+        "-X",
+        "-A",
+        "-t",
+        "-h",
+        "/home/reshke/allfuzz/btree-typed-v8-firstattr-20261109-r1/page-oracle-r1",
+        "-p",
+        "40881",
+        "-d",
+        "postgres",
+        "-v",
+        "ON_ERROR_STOP=1",
+        "-c",
+        "SELECT firstattr_probe_v6('payload_last',ARRAY['-9223372036854775808',-50001,-50000,-49999,-1,0,1,2,3,4,5,49999,50000,50001,'9223372036854775807']::bigint[]);"
+      ],
+      "rc": 0,
+      "log": "payload_last-V6.out"
+    },
+    {
+      "args": [
+        "/home/reshke/allfuzz/typed-leaf-v7-sql-20261108-r1/stage-v7assert/home/reshke/allfuzz/typed-leaf-v7-sql-20261108-r1/prefix/bin/psql",
+        "-X",
+        "-A",
+        "-t",
+        "-h",
+        "/home/reshke/allfuzz/btree-typed-v8-firstattr-20261109-r1/page-oracle-r1",
+        "-p",
+        "40881",
+        "-d",
+        "postgres",
+        "-v",
+        "ON_ERROR_STOP=1",
+        "-c",
+        "SELECT firstattr_probe_v8('payload_last',ARRAY['-9223372036854775808',-50001,-50000,-49999,-1,0,1,2,3,4,5,49999,50000,50001,'9223372036854775807']::bigint[]);"
+      ],
+      "rc": 0,
+      "log": "payload_last-V8.out"
+    },
+    {
+      "args": [
+        "/home/reshke/allfuzz/typed-leaf-v7-sql-20261108-r1/stage-v7assert/home/reshke/allfuzz/typed-leaf-v7-sql-20261108-r1/prefix/bin/psql",
+        "-X",
+        "-A",
+        "-t",
+        "-h",
+        "/home/reshke/allfuzz/btree-typed-v8-firstattr-20261109-r1/page-oracle-r1",
+        "-p",
+        "40881",
+        "-d",
+        "postgres",
+        "-v",
+        "ON_ERROR_STOP=1",
+        "-c",
+        "SELECT bt_index_parent_check('payload_last',true,true);"
+      ],
+      "rc": 0,
+      "log": "payload_last-amcheck.out"
+    },
+    {
+      "args": [
+        "/home/reshke/allfuzz/typed-leaf-v7-sql-20261108-r1/stage-v7assert/home/reshke/allfuzz/typed-leaf-v7-sql-20261108-r1/prefix/bin/psql",
+        "-X",
+        "-A",
+        "-t",
+        "-h",
+        "/home/reshke/allfuzz/btree-typed-v8-firstattr-20261109-r1/page-oracle-r1",
+        "-p",
+        "40881",
+        "-d",
+        "postgres",
+        "-v",
+        "ON_ERROR_STOP=1",
+        "-c",
+        "SELECT firstattr_probe_v6('payload_first',ARRAY['-9223372036854775808',-50001,-50000,-49999,-1,0,1,2,3,4,5,49999,50000,50001,'9223372036854775807']::bigint[]);"
+      ],
+      "rc": 0,
+      "log": "payload_first-V6.out"
+    },
+    {
+      "args": [
+        "/home/reshke/allfuzz/typed-leaf-v7-sql-20261108-r1/stage-v7assert/home/reshke/allfuzz/typed-leaf-v7-sql-20261108-r1/prefix/bin/psql",
+        "-X",
+        "-A",
+        "-t",
+        "-h",
+        "/home/reshke/allfuzz/btree-typed-v8-firstattr-20261109-r1/page-oracle-r1",
+        "-p",
+        "40881",
+        "-d",
+        "postgres",
+        "-v",
+        "ON_ERROR_STOP=1",
+        "-c",
+        "SELECT firstattr_probe_v8('payload_first',ARRAY['-9223372036854775808',-50001,-50000,-49999,-1,0,1,2,3,4,5,49999,50000,50001,'9223372036854775807']::bigint[]);"
+      ],
+      "rc": 0,
+      "log": "payload_first-V8.out"
+    },
+    {
+      "args": [
+        "/home/reshke/allfuzz/typed-leaf-v7-sql-20261108-r1/stage-v7assert/home/reshke/allfuzz/typed-leaf-v7-sql-20261108-r1/prefix/bin/psql",
+        "-X",
+        "-A",
+        "-t",
+        "-h",
+        "/home/reshke/allfuzz/btree-typed-v8-firstattr-20261109-r1/page-oracle-r1",
+        "-p",
+        "40881",
+        "-d",
+        "postgres",
+        "-v",
+        "ON_ERROR_STOP=1",
+        "-c",
+        "SELECT bt_index_parent_check('payload_first',true,true);"
+      ],
+      "rc": 0,
+      "log": "payload_first-amcheck.out"
+    },
+    {
+      "args": [
+        "/home/reshke/allfuzz/typed-leaf-v7-sql-20261108-r1/stage-v7assert/home/reshke/allfuzz/typed-leaf-v7-sql-20261108-r1/prefix/bin/psql",
+        "-X",
+        "-A",
+        "-t",
+        "-h",
+        "/home/reshke/allfuzz/btree-typed-v8-firstattr-20261109-r1/page-oracle-r1",
+        "-p",
+        "40881",
+        "-d",
+        "postgres",
+        "-v",
+        "ON_ERROR_STOP=1",
+        "-c",
+        "SELECT firstattr_probe_v6('distincts_idx',ARRAY['-9223372036854775808',-50001,-50000,-49999,-1,0,1,2,3,4,5,49999,50000,50001,'9223372036854775807']::bigint[]);"
+      ],
+      "rc": 0,
+      "log": "distincts_idx-V6.out"
+    },
+    {
+      "args": [
+        "/home/reshke/allfuzz/typed-leaf-v7-sql-20261108-r1/stage-v7assert/home/reshke/allfuzz/typed-leaf-v7-sql-20261108-r1/prefix/bin/psql",
+        "-X",
+        "-A",
+        "-t",
+        "-h",
+        "/home/reshke/allfuzz/btree-typed-v8-firstattr-20261109-r1/page-oracle-r1",
+        "-p",
+        "40881",
+        "-d",
+        "postgres",
+        "-v",
+        "ON_ERROR_STOP=1",
+        "-c",
+        "SELECT firstattr_probe_v8('distincts_idx',ARRAY['-9223372036854775808',-50001,-50000,-49999,-1,0,1,2,3,4,5,49999,50000,50001,'9223372036854775807']::bigint[]);"
+      ],
+      "rc": 0,
+      "log": "distincts_idx-V8.out"
+    },
+    {
+      "args": [
+        "/home/reshke/allfuzz/typed-leaf-v7-sql-20261108-r1/stage-v7assert/home/reshke/allfuzz/typed-leaf-v7-sql-20261108-r1/prefix/bin/psql",
+        "-X",
+        "-A",
+        "-t",
+        "-h",
+        "/home/reshke/allfuzz/btree-typed-v8-firstattr-20261109-r1/page-oracle-r1",
+        "-p",
+        "40881",
+        "-d",
+        "postgres",
+        "-v",
+        "ON_ERROR_STOP=1",
+        "-c",
+        "SELECT bt_index_parent_check('distincts_idx',true,true);"
+      ],
+      "rc": 0,
+      "log": "distincts_idx-amcheck.out"
+    },
+    {
+      "args": [
+        "/home/reshke/allfuzz/typed-leaf-v7-sql-20261108-r1/stage-v7assert/home/reshke/allfuzz/typed-leaf-v7-sql-20261108-r1/prefix/bin/psql",
+        "-X",
+        "-A",
+        "-t",
+        "-h",
+        "/home/reshke/allfuzz/btree-typed-v8-firstattr-20261109-r1/page-oracle-r1",
+        "-p",
+        "40881",
+        "-d",
+        "postgres",
+        "-v",
+        "ON_ERROR_STOP=1",
+        "-c",
+        "SELECT firstattr_probe_v6('duplicates_idx',ARRAY['-9223372036854775808',-50001,-50000,-49999,-1,0,1,2,3,4,5,49999,50000,50001,'9223372036854775807']::bigint[]);"
+      ],
+      "rc": 0,
+      "log": "duplicates_idx-V6.out"
+    },
+    {
+      "args": [
+        "/home/reshke/allfuzz/typed-leaf-v7-sql-20261108-r1/stage-v7assert/home/reshke/allfuzz/typed-leaf-v7-sql-20261108-r1/prefix/bin/psql",
+        "-X",
+        "-A",
+        "-t",
+        "-h",
+        "/home/reshke/allfuzz/btree-typed-v8-firstattr-20261109-r1/page-oracle-r1",
+        "-p",
+        "40881",
+        "-d",
+        "postgres",
+        "-v",
+        "ON_ERROR_STOP=1",
+        "-c",
+        "SELECT firstattr_probe_v8('duplicates_idx',ARRAY['-9223372036854775808',-50001,-50000,-49999,-1,0,1,2,3,4,5,49999,50000,50001,'9223372036854775807']::bigint[]);"
+      ],
+      "rc": 0,
+      "log": "duplicates_idx-V8.out"
+    },
+    {
+      "args": [
+        "/home/reshke/allfuzz/typed-leaf-v7-sql-20261108-r1/stage-v7assert/home/reshke/allfuzz/typed-leaf-v7-sql-20261108-r1/prefix/bin/psql",
+        "-X",
+        "-A",
+        "-t",
+        "-h",
+        "/home/reshke/allfuzz/btree-typed-v8-firstattr-20261109-r1/page-oracle-r1",
+        "-p",
+        "40881",
+        "-d",
+        "postgres",
+        "-v",
+        "ON_ERROR_STOP=1",
+        "-c",
+        "SELECT bt_index_parent_check('duplicates_idx',true,true);"
+      ],
+      "rc": 0,
+      "log": "duplicates_idx-amcheck.out"
+    },
+    {
+      "args": [
+        "/home/reshke/allfuzz/typed-leaf-v7-sql-20261108-r1/stage-v7assert/home/reshke/allfuzz/typed-leaf-v7-sql-20261108-r1/prefix/bin/psql",
+        "-X",
+        "-A",
+        "-t",
+        "-h",
+        "/home/reshke/allfuzz/btree-typed-v8-firstattr-20261109-r1/page-oracle-r1",
+        "-p",
+        "40881",
+        "-d",
+        "postgres",
+        "-v",
+        "ON_ERROR_STOP=1",
+        "-c",
+        "SELECT firstattr_probe_v6('empty_idx',ARRAY['-9223372036854775808',-50001,-50000,-49999,-1,0,1,2,3,4,5,49999,50000,50001,'9223372036854775807']::bigint[]);"
+      ],
+      "rc": 0,
+      "log": "empty_idx-V6.out"
+    },
+    {
+      "args": [
+        "/home/reshke/allfuzz/typed-leaf-v7-sql-20261108-r1/stage-v7assert/home/reshke/allfuzz/typed-leaf-v7-sql-20261108-r1/prefix/bin/psql",
+        "-X",
+        "-A",
+        "-t",
+        "-h",
+        "/home/reshke/allfuzz/btree-typed-v8-firstattr-20261109-r1/page-oracle-r1",
+        "-p",
+        "40881",
+        "-d",
+        "postgres",
+        "-v",
+        "ON_ERROR_STOP=1",
+        "-c",
+        "SELECT firstattr_probe_v8('empty_idx',ARRAY['-9223372036854775808',-50001,-50000,-49999,-1,0,1,2,3,4,5,49999,50000,50001,'9223372036854775807']::bigint[]);"
+      ],
+      "rc": 0,
+      "log": "empty_idx-V8.out"
+    },
+    {
+      "args": [
+        "/home/reshke/allfuzz/typed-leaf-v7-sql-20261108-r1/stage-v7assert/home/reshke/allfuzz/typed-leaf-v7-sql-20261108-r1/prefix/bin/psql",
+        "-X",
+        "-A",
+        "-t",
+        "-h",
+        "/home/reshke/allfuzz/btree-typed-v8-firstattr-20261109-r1/page-oracle-r1",
+        "-p",
+        "40881",
+        "-d",
+        "postgres",
+        "-v",
+        "ON_ERROR_STOP=1",
+        "-c",
+        "SELECT bt_index_parent_check('empty_idx',true,true);"
+      ],
+      "rc": 0,
+      "log": "empty_idx-amcheck.out"
+    },
+    {
+      "args": [
+        "/home/reshke/allfuzz/typed-leaf-v7-sql-20261108-r1/stage-v7assert/home/reshke/allfuzz/typed-leaf-v7-sql-20261108-r1/prefix/bin/psql",
+        "-X",
+        "-A",
+        "-t",
+        "-h",
+        "/home/reshke/allfuzz/btree-typed-v8-firstattr-20261109-r1/page-oracle-r1",
+        "-p",
+        "40881",
+        "-d",
+        "postgres",
+        "-v",
+        "ON_ERROR_STOP=1",
+        "-c",
+        "SELECT p.type,count(*) FILTER(WHERE i.nulls),count(*) FILTER(WHERE i.htid IS NOT NULL),count(*) FILTER(WHERE i.htid IS NULL AND i.data<>'') FROM generate_series(1,pg_relation_size('payload_last')/8192-1)b CROSS JOIN LATERAL bt_page_stats('payload_last',b)p CROSS JOIN LATERAL bt_page_items('payload_last',b)i WHERE p.type IN('i','r') GROUP BY p.type ORDER BY p.type;"
+      ],
+      "rc": 0,
+      "log": "pivot-shapes.out"
+    },
+    {
+      "args": [
+        "/home/reshke/allfuzz/typed-leaf-v7-sql-20261108-r1/stage-v7assert/home/reshke/allfuzz/typed-leaf-v7-sql-20261108-r1/prefix/bin/pg_ctl",
+        "-D",
+        "/home/reshke/allfuzz/btree-typed-v8-firstattr-20261109-r1/page-oracle-r1/data",
+        "-m",
+        "fast",
+        "-w",
+        "stop"
+      ],
+      "rc": 0,
+      "log": "stop.log"
+    }
+  ],
+  "results": {
+    "payload_last": {
+      "answers": {
+        "V6": "10800:179:1:1531254",
+        "V8": "10800:179:1:1531254"
+      },
+      "calls_each_role": 10800,
+      "leaf_pages": 179,
+      "internal_pages": 1,
+      "checksum": 1531254
+    },
+    "payload_first": {
+      "answers": {
+        "V6": "10800:179:1:1531314",
+        "V8": "10800:179:1:1531314"
+      },
+      "calls_each_role": 10800,
+      "leaf_pages": 179,
+      "internal_pages": 1,
+      "checksum": 1531314
+    },
+    "distincts_idx": {
+      "answers": {
+        "V6": "8280:137:1:1516468",
+        "V8": "8280:137:1:1516468"
+      },
+      "calls_each_role": 8280,
+      "leaf_pages": 137,
+      "internal_pages": 1,
+      "checksum": 1516468
+    },
+    "duplicates_idx": {
+      "answers": {
+        "V6": "360:5:1:1542",
+        "V8": "360:5:1:1542"
+      },
+      "calls_each_role": 360,
+      "leaf_pages": 5,
+      "internal_pages": 1,
+      "checksum": 1542
+    },
+    "empty_idx": {
+      "answers": {
+        "V6": "0:0:0:0",
+        "V8": "0:0:0:0"
+      },
+      "calls_each_role": 0,
+      "leaf_pages": 0,
+      "internal_pages": 0,
+      "checksum": 0
+    }
+  },
+  "modules": {
+    "V6": {
+      "path": "/home/reshke/allfuzz/btree-typed-v8-firstattr-20261109-r1/page-oracle-r1/V6-oracle.so",
+      "sha256": "c094efd9480581181011444fdad51f9fa1f52191ccdac4d8cccd94a9c2f5199f",
+      "source_sha256": "681db606e5285bacc18faf073dca9ae1adb8e0a8396ccf96a9c56fdfbf88048f",
+      "wrapper_sha256": "409a8adf497abca92432a8dbdc9a4a4aad06030c924df80999429b80693ec016"
+    },
+    "V8": {
+      "path": "/home/reshke/allfuzz/btree-typed-v8-firstattr-20261109-r1/page-oracle-r1/V8-oracle.so",
+      "sha256": "e247e2657ca2ac52a4e67d0d3c2e58921a376d3624df8ca787250008e6b5354b",
+      "source_sha256": "ea210169eba7bbdd60296871c05af699b1bb80ec43800e1dd0d6c3e6f85ada8f",
+      "wrapper_sha256": "99c76172f3486c4794f271a661c47c28eead4c0d43eaa4056eca864dc8f4c820"
+    }
+  },
+  "port": 40881,
+  "pivot_shapes": "r|0|42|136",
+  "installed_files_before_after_equal": true,
+  "cleanup": {
+    "pg_ctl_status_rc": 3,
+    "postmaster_pidfile_absent": true,
+    "postmaster_pid": 2533829,
+    "pid_absent": true,
+    "socket_absent": true
+  }
+}

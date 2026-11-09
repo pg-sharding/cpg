@@ -1,0 +1,44 @@
+diff --git a/src/backend/access/nbtree/nbtsearch.c b/src/backend/access/nbtree/nbtsearch.c
+--- a/src/backend/access/nbtree/nbtsearch.c
++++ b/src/backend/access/nbtree/nbtsearch.c
+@@ -70,25 +70,30 @@
+ 	while (low < high)
+ 	{
+ 		OffsetNumber mid = low + (high - low) / 2;
+-		int64 value = 0;
+-		bool isnull;
++		int64 value;
+ 		int32 result;
+ 
+ 		{
+ 			IndexTuple itup = (IndexTuple) PageGetItem(page,
+ 												PageGetItemId(page, mid));
+-			Datum datum;
+-
+-			if (BTreeTupleGetNAtts(itup, rel) != 1)
++
++			if (BTreeTupleGetNAtts(itup, rel) != 1 ||
++				IndexTupleHasNulls(itup))
+ 			{
+ 				result = _bt_compare(rel, key, page, mid);
+ 				goto compared;
+ 			}
+-			datum = index_getattr(itup, 1, RelationGetDescr(rel), &isnull);
+-			if (!isnull)
+-				value = DatumGetInt64(datum);
+-		}
+-		if (isnull || (!leaf && value == argument))
++
++			/*
++			 * Eligibility guarantees one int8 attribute.  Without a null
++			 * bitmap, its bytes start immediately after the aligned header.
++			 * Avoid descriptor/cache-offset and Datum representation checks
++			 * for every comparison; memcpy also works without an aligned load.
++			 */
++			memcpy(&value, (char *) itup + MAXALIGN(sizeof(IndexTupleData)),
++				   sizeof(value));
++		}
++		if (!leaf && value == argument)
+ 			result = _bt_compare(rel, key, page, mid);
+ 		else
+ 			result = argument > value ? 1 : (argument < value ? -1 : 0);

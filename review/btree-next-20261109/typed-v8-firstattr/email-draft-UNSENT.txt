@@ -1,0 +1,42 @@
+Status: UNSENT working notes; not ready as a performance report.
+Subject: Re: Support specialized B-tree page searches
+
+Hi,
+
+I am testing a small follow-up to a guarded single-column int8 B-tree search
+prototype. The current draft retains both internal-page and leaf-page typed
+searches, including the ordinary comparator fallback for NULLs, truncated
+tuples and internal equality.
+
+The change uses the already validated attribute type and position to load a
+non-NULL int8 key directly from the index tuple, instead of repeating the
+general attribute-extraction machinery at each binary-search comparison.
+It uses memcpy into an int64, and preserves the original eligibility checks.
+
+On Linux x86-64 with GCC 13.3 at -O2, the complete production TU compiles in
+release and assert configurations. The release helper shrinks from 674 to 421
+bytes and loses a 61-byte cold fragment. This is a code-generation result,
+not evidence of an execution-time improvement.
+
+An untimed diagnostic includes each complete production TU and compares its
+static helper with an independent linear walk using the ordinary comparator
+on the same read-locked page. Both versions pass 30,240 calls each across
+leaf/internal pages, unique and duplicate keys, NULLS FIRST/LAST, gaps and
+int64 extrema. The empty-index fixture has no searchable page. Five amcheck
+calls pass. This is not a linked candidate backend or a full correctness
+claim; broader pivot/platform coverage and full backend tests remain.
+
+I have not yet measured microbenchmark or SQL timings for this change. The
+planned comparison includes the unchanged baseline executable twin, the
+previous prototype, fresh and warmed exact probes, absent probes, range scans
+and write controls. The latest separate leaf-only experiment gave up much of
+the parent prototype's hot/absent lookup benefit, so this draft keeps typed
+internal descent. It does not remove the fresh-backend dispatch overhead.
+
+There is direct prior discussion of specialized B-tree page searches in [0].
+This draft is an implementation refinement, not a claim of a new algorithm.
+The incremental diff and standalone B72 alternative are alternatives, not a
+patch series. The exact reference revision is
+72b9498df9a369e747f8d96efb5a6cd33c2451e2, not current master.
+
+[0] https://www.postgresql.org/message-id/79FF16D2-B815-45C9-A24A-D0851981E78B%40yandex-team.ru

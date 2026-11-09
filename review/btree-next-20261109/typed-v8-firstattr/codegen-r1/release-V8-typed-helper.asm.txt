@@ -1,0 +1,120 @@
+0000000000000a10 <_bt_binsrch_int8_read>:
+     a10:	41 57                	push   %r15
+     a12:	41 56                	push   %r14
+     a14:	41 55                	push   %r13
+     a16:	49 89 fd             	mov    %rdi,%r13
+     a19:	41 54                	push   %r12
+     a1b:	55                   	push   %rbp
+     a1c:	48 89 f5             	mov    %rsi,%rbp
+     a1f:	53                   	push   %rbx
+     a20:	48 83 ec 18          	sub    $0x18,%rsp
+     a24:	85 d2                	test   %edx,%edx
+     a26:	0f 88 74 01 00 00    	js     ba0 <_bt_binsrch_int8_read+0x190>
+     a2c:	83 ea 01             	sub    $0x1,%edx
+     a2f:	48 63 d2             	movslq %edx,%rdx
+     a32:	48 c1 e2 0d          	shl    $0xd,%rdx
+     a36:	48 03 15 00 00 00 00 	add    0x0(%rip),%rdx        # a3d <_bt_binsrch_int8_read+0x2d>	a39: R_X86_64_PC32	BufferBlocks-0x4
+     a3d:	49 89 d4             	mov    %rdx,%r12
+     a40:	41 0f b7 4c 24 10    	movzwl 0x10(%r12),%ecx
+     a46:	41 0f b7 44 24 0c    	movzwl 0xc(%r12),%eax
+     a4c:	4c 01 e1             	add    %r12,%rcx
+     a4f:	83 79 04 01          	cmpl   $0x1,0x4(%rcx)
+     a53:	45 19 ff             	sbb    %r15d,%r15d
+     a56:	41 83 c7 02          	add    $0x2,%r15d
+     a5a:	66 83 f8 18          	cmp    $0x18,%ax
+     a5e:	0f 86 d8 00 00 00    	jbe    b3c <_bt_binsrch_int8_read+0x12c>
+     a64:	44 0f b7 c0          	movzwl %ax,%r8d
+     a68:	49 83 e8 18          	sub    $0x18,%r8
+     a6c:	49 c1 e8 02          	shr    $0x2,%r8
+     a70:	66 45 39 f8          	cmp    %r15w,%r8w
+     a74:	0f 82 c2 00 00 00    	jb     b3c <_bt_binsrch_int8_read+0x12c>
+     a7a:	0f b7 41 0c          	movzwl 0xc(%rcx),%eax
+     a7e:	45 8d 70 01          	lea    0x1(%r8),%r14d
+     a82:	83 e0 01             	and    $0x1,%eax
+     a85:	66 83 f8 01          	cmp    $0x1,%ax
+     a89:	66 89 44 24 06       	mov    %ax,0x6(%rsp)
+     a8e:	48 8b 45 58          	mov    0x58(%rbp),%rax
+     a92:	66 41 83 d7 00       	adc    $0x0,%r15w
+     a97:	48 89 44 24 08       	mov    %rax,0x8(%rsp)
+     a9c:	0f b6 45 03          	movzbl 0x3(%rbp),%eax
+     aa0:	83 f0 01             	xor    $0x1,%eax
+     aa3:	0f b6 c0             	movzbl %al,%eax
+     aa6:	89 04 24             	mov    %eax,(%rsp)
+     aa9:	0f 1f 80 00 00 00 00 	nopl   0x0(%rax)
+     ab0:	66 45 39 f7          	cmp    %r14w,%r15w
+     ab4:	73 7a                	jae    b30 <_bt_binsrch_int8_read+0x120>
+     ab6:	41 0f b7 cf          	movzwl %r15w,%ecx
+     aba:	41 0f b7 c6          	movzwl %r14w,%eax
+     abe:	29 c8                	sub    %ecx,%eax
+     ac0:	89 c3                	mov    %eax,%ebx
+     ac2:	c1 eb 1f             	shr    $0x1f,%ebx
+     ac5:	01 c3                	add    %eax,%ebx
+     ac7:	d1 fb                	sar    $1,%ebx
+     ac9:	44 01 fb             	add    %r15d,%ebx
+     acc:	0f b7 cb             	movzwl %bx,%ecx
+     acf:	8d 41 ff             	lea    -0x1(%rcx),%eax
+     ad2:	48 98                	cltq
+     ad4:	41 0f b7 44 84 18    	movzwl 0x18(%r12,%rax,4),%eax
+     ada:	25 ff 7f 00 00       	and    $0x7fff,%eax
+     adf:	4c 01 e0             	add    %r12,%rax
+     ae2:	44 0f b7 48 06       	movzwl 0x6(%rax),%r9d
+     ae7:	66 41 f7 c1 00 20    	test   $0x2000,%r9w
+     aed:	74 61                	je     b50 <_bt_binsrch_int8_read+0x140>
+     aef:	0f b7 70 04          	movzwl 0x4(%rax),%esi
+     af3:	66 f7 c6 00 20       	test   $0x2000,%si
+     af8:	75 56                	jne    b50 <_bt_binsrch_int8_read+0x140>
+     afa:	66 81 e6 ff 0f       	and    $0xfff,%si
+     aff:	66 83 fe 01          	cmp    $0x1,%si
+     b03:	75 59                	jne    b5e <_bt_binsrch_int8_read+0x14e>
+     b05:	66 45 85 c9          	test   %r9w,%r9w
+     b09:	78 53                	js     b5e <_bt_binsrch_int8_read+0x14e>
+     b0b:	66 83 7c 24 06 00    	cmpw   $0x0,0x6(%rsp)
+     b11:	48 8b 40 08          	mov    0x8(%rax),%rax
+     b15:	75 69                	jne    b80 <_bt_binsrch_int8_read+0x170>
+     b17:	48 39 44 24 08       	cmp    %rax,0x8(%rsp)
+     b1c:	74 40                	je     b5e <_bt_binsrch_int8_read+0x14e>
+     b1e:	7f 51                	jg     b71 <_bt_binsrch_int8_read+0x161>
+     b20:	41 89 de             	mov    %ebx,%r14d
+     b23:	66 45 39 f7          	cmp    %r14w,%r15w
+     b27:	72 8d                	jb     ab6 <_bt_binsrch_int8_read+0xa6>
+     b29:	0f 1f 80 00 00 00 00 	nopl   0x0(%rax)
+     b30:	66 83 7c 24 06 00    	cmpw   $0x0,0x6(%rsp)
+     b36:	75 58                	jne    b90 <_bt_binsrch_int8_read+0x180>
+     b38:	41 83 ef 01          	sub    $0x1,%r15d
+     b3c:	48 83 c4 18          	add    $0x18,%rsp
+     b40:	44 89 f8             	mov    %r15d,%eax
+     b43:	5b                   	pop    %rbx
+     b44:	5d                   	pop    %rbp
+     b45:	41 5c                	pop    %r12
+     b47:	41 5d                	pop    %r13
+     b49:	41 5e                	pop    %r14
+     b4b:	41 5f                	pop    %r15
+     b4d:	c3                   	ret
+     b4e:	66 90                	xchg   %ax,%ax
+     b50:	49 8b b5 48 01 00 00 	mov    0x148(%r13),%rsi
+     b57:	66 83 7e 08 01       	cmpw   $0x1,0x8(%rsi)
+     b5c:	74 a7                	je     b05 <_bt_binsrch_int8_read+0xf5>
+     b5e:	4c 89 e2             	mov    %r12,%rdx
+     b61:	48 89 ee             	mov    %rbp,%rsi
+     b64:	4c 89 ef             	mov    %r13,%rdi
+     b67:	e8 00 00 00 00       	call   b6c <_bt_binsrch_int8_read+0x15c>	b68: R_X86_64_PLT32	_bt_compare-0x4
+     b6c:	39 04 24             	cmp    %eax,(%rsp)
+     b6f:	7f af                	jg     b20 <_bt_binsrch_int8_read+0x110>
+     b71:	44 8d 7b 01          	lea    0x1(%rbx),%r15d
+     b75:	e9 36 ff ff ff       	jmp    ab0 <_bt_binsrch_int8_read+0xa0>
+     b7a:	66 0f 1f 44 00 00    	nopw   0x0(%rax,%rax,1)
+     b80:	48 39 44 24 08       	cmp    %rax,0x8(%rsp)
+     b85:	7f ea                	jg     b71 <_bt_binsrch_int8_read+0x161>
+     b87:	b8 00 00 00 00       	mov    $0x0,%eax
+     b8c:	7d de                	jge    b6c <_bt_binsrch_int8_read+0x15c>
+     b8e:	eb 90                	jmp    b20 <_bt_binsrch_int8_read+0x110>
+     b90:	80 7d 04 00          	cmpb   $0x0,0x4(%rbp)
+     b94:	74 a6                	je     b3c <_bt_binsrch_int8_read+0x12c>
+     b96:	eb a0                	jmp    b38 <_bt_binsrch_int8_read+0x128>
+     b98:	0f 1f 84 00 00 00 00 00 	nopl   0x0(%rax,%rax,1)
+     ba0:	48 8b 05 00 00 00 00 	mov    0x0(%rip),%rax        # ba7 <_bt_binsrch_int8_read+0x197>	ba3: R_X86_64_PC32	LocalBufferBlockPointers-0x4
+     ba7:	f7 d2                	not    %edx
+     ba9:	48 63 d2             	movslq %edx,%rdx
+     bac:	4c 8b 24 d0          	mov    (%rax,%rdx,8),%r12
+     bb0:	e9 8b fe ff ff       	jmp    a40 <_bt_binsrch_int8_read+0x30>
+     bb5:	66 66 2e 0f 1f 84 00 00 00 00 00 	data16 cs nopw 0x0(%rax,%rax,1)
