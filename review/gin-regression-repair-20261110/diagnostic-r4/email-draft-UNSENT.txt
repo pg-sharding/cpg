@@ -1,0 +1,33 @@
+Subject: GIN adaptive/lazy scans: OR and startup control follow-up
+Status: UNSENT ADDENDUM TO THE MAIN DRAFT
+
+Hi,
+
+I repeated the remaining OR and single-rare SQL controls and added direct real-AM loops for OR, dense AND and single rare. PostgreSQL source/builds stayed at C9; this is not another patch to stack. The same complete C9 diff is included for convenience.
+
+The earlier full25 SQL comparison had C9/B backend CPU +10.73/+1.75% for OR and +3.49/+2.34% for single rare. Those observations remain in the report. In this separate finite diagnostic, the unchanged SQL commands give -2.05 / -2.04% for OR and -1.51 / -1.53% for single rare.
+
+New actual-AM loop CPU medians, cohort0 / cohort1:
+case | B ms | C9 ms | C9/B paired CPU %
+am_inline | 19.1205 / 17.9211 | 15.4816 / 14.8468 | -17.34 / -17.03
+am_absent | 57.0882 / 57.4234 | 7.0499 / 7.4556 | -87.69 / -86.89
+am_skew1000 | 72.8112 / 71.4141 | 13.6487 / 13.2828 | -81.36 / -81.39
+am_full | 101.8003 / 100.8355 | 96.7056 / 95.5690 | -4.97 / -4.50
+am_or | 113.5217 / 114.5873 | 110.4483 / 111.7898 | -2.56 / -1.98
+am_dense | 44.9046 / 44.3340 | 42.7025 / 42.2457 | -4.93 / -4.38
+am_rare | 10.9662 / 10.8188 | 10.7824 / 10.5558 | -1.87 / -2.47
+
+The native loop uses real index_rescan/index_getbitmap/tbm_free, actual public server headers and the correct F_TS_MATCH_VQ key. It has no private modeled loader. Native CPU/wall is separate from full SQL executor/whole-command CPU/client wall. The new OR/dense/rare loops do not show a repeated inner-AM cost. This does not explain away the historical SQL positives. Seq still changes sign (-9.31/+7.90% versus B), and no source-cause or harmless-noise explanation is claimed.
+
+The original regression repairs remain: native inline is about 17% faster than B (about 25% versus lazy V4), absent CPU improves about 87% in the AM loop and 63–67% in the preceding full-SQL comparison, while selective SQL gains are preserved. Full-SQL inline versus B was mixed (+1.79/-4.94%); the new unchanged inline SQL repeat gives -0.11/-5.29%. Experiments/metrics/cohorts are kept separate, not pooled or normalized by the identical binary twin.
+
+Same VM158 and checked fixed-B72 build set, GCC 13.3, -O2 -g -fno-lto, OpenSSL, no ICU/readline; no new code/build/core-test execution in this addendum. The existing builds passed 239 original tests each. This diagnostic repeats all 25 ordered Seq/GIN multisets/scalars/paths and prepared rescans on all six builds, adds seven AM answers per build, then runs four roles with two warm+12 retained balanced rounds in each of two reversed cohorts:1232 raw / 1056 retained / 176 warm. All own clusters stop cleanly and source/install/seed/runtime/module identities match.
+
+The packet includes the same .diff, raw data, absolute ranges, SD/MAD, every direct pair, software-stack diagnostics, exact revision/flags/dependencies/setup and both native/SQL reproduction commands in REPRODUCE.md. The concrete contribution remains the known-algorithm GIN integration and exact first-page cardinality preservation; no priority, current-master or CREATE INDEX claim is made. The fast-scan and extraction-series references are unchanged in PRIOR-ART.md [1,2].
+
+Code: https://github.com/pg-sharding/cpg/tree/experiments/gin-combined-v9-b72-20261110
+Prior full results: https://github.com/pg-sharding/cpg/tree/experiments/gin-regression-repair-results-b72-20261110/review/gin-regression-repair-20261110
+This diagnostic: https://github.com/pg-sharding/cpg/tree/experiments/gin-or-startup-diagnostic-b72-20261110/review/gin-regression-repair-20261110/diagnostic-r4
+
+[1] https://www.postgresql.org/message-id/52F36245.6070006%40vmware.com
+[2] https://www.postgresql.org/message-id/10afd923-38f4-451c-af89-34f8654533cb%40googlemail.com

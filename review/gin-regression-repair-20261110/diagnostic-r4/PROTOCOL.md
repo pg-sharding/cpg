@@ -1,0 +1,7 @@
+# R4 diagnostic: OR and rare startup
+
+No PostgreSQL source change or new build. Use the same verified R3 installed B/L4/C9, identical B/T ELF, and all six builds for qualification. Preserve completed R3 full results separately. The full comparison found C9/B OR CPU +10.73/+1.75%, single rare +3.49/+2.34%; relative to T the second cohort is slightly negative. These are unresolved SQL movements, not an established AM cause.
+
+Extend the actual public-header AM adapter with OR (10 scans, 200000 TIDs each), dense AND (10,33333), single rare (1000,200). Keep prior four AM cases and unchanged OR/single_rare/inline/Seq SQL controls. Four roles B/T/L4/C9, two warm+12 retained balanced rounds, two reversed CPU/slot/session/case-order cohorts:1232 raw/1056 retained/176 warm. No trimming, pooling, twin normalization or new source tuning. Every seven-case AM answer must qualify exactly before timing, including the 33333 dense intersection count. All25 ordered row/scalar/path and eight prepared tests on all six builds stay required. Software profiles of OR/rare/Seq on B and C9 occur separately before fresh timing clusters. The module contains no private GIN fields or modeled loader.
+
+The purpose is to distinguish a repeated inner-AM cost from SQL/executor/control variability before choosing another code change. No PostgreSQL patch is changed during this campaign. Final checks cover the shared R3 installs/final source inventory, owned R4 seeds/runtime/modules, postmasters/backends/sockets. No foreign job, configuration or archive database is modified.
