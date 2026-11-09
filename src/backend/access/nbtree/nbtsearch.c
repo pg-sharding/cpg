@@ -19,11 +19,14 @@
 #include "access/relscan.h"
 #include "access/xact.h"
 #include "catalog/catalog.h"
+#include "catalog/pg_type_d.h"
 #include "executor/instrument_node.h"
 #include "miscadmin.h"
 #include "pgstat.h"
 #include "storage/predicate.h"
 #include "utils/injection_point.h"
+#include "utils/fmgroids.h"
+#include "utils/fmgrprotos.h"
 #include "utils/lsyscache.h"
 #include "utils/rel.h"
 
@@ -46,6 +49,101 @@ static Buffer _bt_lock_and_validate_left(Relation rel, BlockNumber *blkno,
 										 BlockNumber lastcurrblkno);
 static bool _bt_endpoint(IndexScanDesc scan, ScanDirection dir);
 
+
+/*
+ * Search with one ordinary ascending int8 key.  Internal equality and all
+ * NULL tuples still use _bt_compare(), preserving heap-TID truncation and
+ * backward-scan rules.  A leaf equality has no omitted user key or search TID
+ * and can compare equal directly.
+ */
+static OffsetNumber
+_bt_binsrch_int8(Relation rel, BTScanInsert key, Page page,
+				 OffsetNumber first, OffsetNumber last)
+{
+	BTPageOpaque opaque = BTPageGetOpaque(page);
+	bool leaf = P_ISLEAF(opaque);
+	OffsetNumber low = leaf ? first : OffsetNumberNext(first);
+	OffsetNumber high = OffsetNumberNext(last);
+	int64 argument = DatumGetInt64(key->scankeys->sk_argument);
+	int32 cmpval = key->nextkey ? 0 : 1;
+
+	while (low < high)
+	{
+		OffsetNumber mid = low + (high - low) / 2;
+		int64 value = 0;
+		bool isnull;
+		int32 result;
+
+		{
+			IndexTuple itup = (IndexTuple) PageGetItem(page,
+												PageGetItemId(page, mid));
+			Datum datum;
+
+			if (BTreeTupleGetNAtts(itup, rel) != 1)
+			{
+				result = _bt_compare(rel, key, page, mid);
+				goto compared;
+			}
+			datum = index_getattr(itup, 1, RelationGetDescr(rel), &isnull);
+			if (!isnull)
+				value = DatumGetInt64(datum);
+		}
+		if (isnull || (!leaf && value == argument))
+			result = _bt_compare(rel, key, page, mid);
+		else
+			result = argument > value ? 1 : (argument < value ? -1 : 0);
+compared:
+		if (result >= cmpval)
+			low = OffsetNumberNext(mid);
+		else
+			high = mid;
+	}
+	return leaf && !key->backward ? low : OffsetNumberPrev(low);
+}
+
+/* Typed read searches keep the generic loop untouched for other callers. */
+static OffsetNumber
+_bt_binsrch_int8_read(Relation rel, BTScanInsert key, Buffer buf)
+{
+	Page		page = BufferGetPage(buf);
+	BTPageOpaque opaque = BTPageGetOpaque(page);
+	OffsetNumber first = P_FIRSTDATAKEY(opaque);
+	OffsetNumber last = PageGetMaxOffsetNumber(page);
+	OffsetNumber result;
+
+	Assert(key->scantid == NULL);
+	if (unlikely(last < first))
+		return first;
+	result = _bt_binsrch_int8(rel, key, page, first, last);
+#ifdef USE_ASSERT_CHECKING
+	/* Compare both algorithms while the same page remains pinned and locked. */
+	Assert(result == _bt_binsrch(rel, key, buf));
+#endif
+	return result;
+}
+
+/*
+ * Keep optional typed positioning out of the tree descent and its caller.
+ * This is called only after _bt_first has found a pinned, locked leaf page.
+ */
+static pg_noinline OffsetNumber
+_bt_binsrch_read(Relation rel, BTScanInsert key, Buffer buf)
+{
+	Assert(P_ISLEAF(BTPageGetOpaque(BufferGetPage(buf))));
+
+	/* Apply exactly the typed read contract, after all key fields are set. */
+	if (key->keysz == 1 &&
+		key->scankeys->sk_func.fn_oid == F_BTINT8CMP &&
+		key->scankeys->sk_func.fn_addr == btint8cmp &&
+		key->heapkeyspace && key->scantid == NULL &&
+		!(key->scankeys->sk_flags & (SK_ISNULL | SK_BT_DESC)) &&
+		key->scankeys->sk_attno == 1 &&
+		IndexRelationGetNumberOfAttributes(rel) == 1 &&
+		TupleDescAttr(RelationGetDescr(rel), 0)->atttypid == INT8OID)
+		return _bt_binsrch_int8_read(rel, key, buf);
+
+	return _bt_binsrch(rel, key, buf);
+}
 
 /*
  *	_bt_drop_lock_and_maybe_pin()
@@ -1546,7 +1644,7 @@ _bt_first(IndexScanDesc scan, ScanDirection dir)
 	}
 
 	/* position to the precise item on the page */
-	offnum = _bt_binsrch(rel, &inskey, so->currPos.buf);
+	offnum = _bt_binsrch_read(rel, &inskey, so->currPos.buf);
 
 	/*
 	 * Now load data from the first page of the scan (usually the page
