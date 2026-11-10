@@ -1103,11 +1103,12 @@ static void
 XLogWalRcvSendArchiveResult(void)
 {
 	PgArchDelegateBatch batch;
-	TimestampTz now = GetCurrentTimestamp();
+	TimestampTz now;
 	bool		complete = false;
 
 	if (!ArchiveDelegateAccept)
 		return;
+	now = GetCurrentTimestamp();
 	SpinLockAcquire(&PgArch->lock);
 	if (PgArch->incoming.id != 0 && PgArch->incoming.complete &&
 		PgArch->incoming.deadline > now)

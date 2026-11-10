@@ -685,10 +685,11 @@ pgarch_delegate_confirmed(const char *xlog)
 	bool		confirmed = false;
 	bool		cancelled = false;
 	uint64		id = 0;
-	TimestampTz now = GetCurrentTimestamp();
+	TimestampTz now;
 
-	if (RecoveryInProgress())
+	if (ArchiveDelegateMaxFiles == 0 || RecoveryInProgress())
 		return false;
+	now = GetCurrentTimestamp();
 	SpinLockAcquire(&PgArch->lock);
 	if (PgArch->outgoing.id != 0)
 	{

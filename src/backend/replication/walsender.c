@@ -2894,7 +2894,7 @@ static void
 WalSndArchiveDelegateTask(void)
 {
 	PgArchDelegateBatch batch;
-	TimestampTz now = GetCurrentTimestamp();
+	TimestampTz now;
 	bool		found = false;
 	long		remaining;
 
@@ -2902,6 +2902,7 @@ WalSndArchiveDelegateTask(void)
 	if (!ArchiveDelegationEnabled || am_db_walsender || RecoveryInProgress() ||
 		!WalSndArchiveReportEnabled())
 		return;
+	now = GetCurrentTimestamp();
 	SpinLockAcquire(&PgArch->lock);
 	if (PgArch->outgoing.id != 0 && !PgArch->outgoing.sent &&
 		PgArch->outgoing.deadline > now)
