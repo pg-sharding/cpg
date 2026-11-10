@@ -1,0 +1,65 @@
+Subject: [DRAFT, UNSENT] Bounded GIN startup and one-byte decoding experiments
+
+These are independent alternatives over fixed B, not a patch series. S1 checks
+exact query-entry existence before materializing the main scan's first posting
+pages, returning early only when the original ternary consistent function proves
+FALSE. Positive scans pay the extra dictionary pass; partial/category/fuzzy
+paths, frequency/pin state and final cleanup follow existing behavior. D1 batches
+four complete one-byte deltas in ginPostingListDecodeAllSegments, preserving the
+current format, API, allocation policy and scalar long-delta/tail fallback. The
+baseline per-integer decoder was already unrolled.
+
+All six fresh release/assert builds passed unchanged core239 and posting-list
+tests. Ordinary SQL, ordered Seq/GIN oracles, repeated prepared queries,
+single-session lifecycle cases and valid actual-decoder checks passed before a
+fixed 4920-observation B/T/S1/D1/C9 screen (4100 retained, 820 warm). Every case
+and all ten same-round role pairs remain in the attached evidence. Independent
+reconstruction checked all 188500 numerical values, plus every raw semantic and
+schedule field. Both fresh cohorts are reported separately.
+
+The screen is explicitly a SHARED-LOAD DIAGNOSTIC on VM84, with host load near
+11–12 on eight guest CPUs. It is not clean-host confirmation. Whole-command
+backend CPU/client wall, full SQL executor time, actual-AM inner CPU/wall and
+actual decoder allocation/materialization/free CPU are separate metrics. A
+literal-answer command provides the same extra warming before each measure.
+
+Observed target and negative results (cohort 0 / cohort 1, direct paired median):
+
+* S1 absent SQL whole CPU: -72.27% / -70.30%, B medians 2.529 / 2.265 ms and
+  S1 0.714 / 0.680 ms. Actual-AM absent inner CPU: -90.78% / -90.82%, B
+  98.283 / 97.104 ms and S1 9.125 / 9.059 ms for 5000 complete scans.
+* S1 actual-AM inline whole CPU: +22.25% / +24.22%, B 31.103 / 30.863 ms and
+  S1 38.056 / 38.440 ms for 10000 scans. SQL inline executor time regressed
+  +13.01% / +9.18%. The targeted startup saving has a material positive-path cost.
+* D1 dense128 decoder inner CPU: -12.87% / -13.34%, B 4.706 / 4.888 ms and D1
+  4.089 / 4.164 ms. Dense multi-segment: -17.57% / -14.97%.
+* D1 long delta2: +38.60% / +41.31%, B 6.274 / 6.112 ms and D1 9.203 / 9.995 ms.
+  Delta3 regressed +18.80% / +18.78%, delta4 +19.03% / +18.44%. These large
+  negatives are retained; D1 is not a general decoder recommendation.
+
+Absolute medians and paired-ratio medians are different summaries; the latter
+need not equal the ratio of the former. Full min/median/max, sample stdev/MAD,
+every direct range and raw values are included for all 41 cells and metrics.
+Full-read/OR/dense SQL/AM cases show smaller or mixed observations. The matrix
+does not contain D1+C9 and establishes no decoder benefit on C9.
+
+Unchanged controls also moved. Seq T/B whole CPU was -4.61% / -3.12%, S1/B
++2.78% / +11.86%, and D1/B -6.18% / +0.42%. S1's unchanged decoder delta3 moved
+-9.39% / -9.35%. We do not normalize with the twin, pool cohorts or infer causal
+attribution, significance or clean-host gains. All own clusters were shut down;
+source, seed, installed trees and input freezes were checked unchanged.
+
+Output-array sizing in CF7352 [1] is direct prior art and deliberately excluded
+from D1. Heikki's 2014 discussion [2] already proposed consistent-result caching
+and deferred compressed-segment consumption. The separate K1 builtin-only memo
+has untimed callback/native-prototype evidence, but no K1 performance result is
+claimed in this draft. No novelty claim is made for these prior ideas.
+
+The packet includes standalone alternative patches, source/ELF/header/build
+bindings, every raw observation, exact analyzer replay, fixture/setup, commands,
+flags/revisions and cleanup receipts. Canonical source commits were published
+with root <localhost> identity and identical source trees; historical build
+receipts remain unchanged. Nothing has been sent to the mailing list.
+
+[1] https://commitfest.postgresql.org/patch/7352/
+[2] https://www.postgresql.org/message-id/52F373CC.4050800%40vmware.com

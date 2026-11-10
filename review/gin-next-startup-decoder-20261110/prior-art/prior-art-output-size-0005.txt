@@ -1,0 +1,40 @@
+From d574ce3d77d97535cd45f73cd9ab2d41c037a066 Mon Sep 17 00:00:00 2001
+From: Sehrope Sarkuni <sehrope@jackdb.com>
+Date: Sat, 26 Sep 2026 18:56:26 +0000
+Subject: [PATCH v1 5/7] gin: size the posting list decode output array from
+ len
+
+ginPostingListDecodeAllSegments() sized its output array from the first
+segment's nbytes, read before the loop had checked that the segment lies
+within the posting list, so a len smaller than a segment header read nbytes
+out of bounds.
+
+len bounds the item count, since every item takes at least one byte, so
+size the array from len instead.  This also avoids repalloc() on a valid
+multi-segment list.
+---
+ src/backend/access/gin/ginpostinglist.c | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/src/backend/access/gin/ginpostinglist.c b/src/backend/access/gin/ginpostinglist.c
+index e66f69d04f7..56bb8c1e6eb 100644
+--- a/src/backend/access/gin/ginpostinglist.c
++++ b/src/backend/access/gin/ginpostinglist.c
+@@ -279,9 +279,12 @@ ginPostingListDecodeAllSegments(GinPostingList *segment, int len, int *ndecoded_
+ 	unsigned char *endptr;
+ 
+ 	/*
+-	 * Guess an initial size of the array.
++	 * Size from len, not segment->nbytes.  len can be smaller than a segment
++	 * header, so reading nbytes here could run off the buffer.  len also
++	 * bounds the item count, since every item costs at least a byte, so a
++	 * valid list never grows the array.
+ 	 */
+-	nallocated = segment->nbytes * 2 + 1;
++	nallocated = Max(len, 1);
+ 	result = palloc_array(ItemPointerData, nallocated);
+ 
+ 	ndecoded = 0;
+-- 
+2.17.1
+

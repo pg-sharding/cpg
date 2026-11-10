@@ -1,0 +1,7 @@
+{
+  "scope": "Known output-allocation attachment metadata only; other patches excluded",
+  "query": "BEGIN READ ONLY;\nSET LOCAL statement_timeout='10s';\nSELECT id,message_id,file_name,content_type,length(body) AS body_chars,left(body,48) AS encoding_prefix\nFROM attachments WHERE message_id=1155925 AND file_name LIKE 'v1-0005-%' ORDER BY id LIMIT 5;\nCOMMIT;\n",
+  "returncode": 0,
+  "stdout": "BEGIN\nSET\n   id   | message_id |                            file_name                            |                                             content_type                                             | body_chars |                 encoding_prefix                  \n--------+------------+-----------------------------------------------------------------+------------------------------------------------------------------------------------------------------+------------+--------------------------------------------------\n 157871 |    1155925 | v1-0005-gin-size-the-posting-list-decode-output-array-fro.patch | text/x-patch; charset=US-ASCII; name=v1-0005-gin-size-the-posting-list-decode-output-array-fro.patch |       2119 | RnJvbSBkNTc0Y2UzZDc3ZDk3NTM1Y2Q0NWY3M2NkOWFiMmQ0\n(1 row)\n\nCOMMIT\n",
+  "stderr": ""
+}

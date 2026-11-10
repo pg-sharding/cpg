@@ -1,0 +1,166 @@
+diff --git a/src/backend/access/gin/ginget.c b/src/backend/access/gin/ginget.c
+index b70ea5071d9..29790ad10e2 100644
+--- a/src/backend/access/gin/ginget.c
++++ b/src/backend/access/gin/ginget.c
+@@ -633,13 +633,134 @@ startScanKey(GinState *ginstate, GinScanOpaque so, GinScanKey key)
+ 	MemoryContextSwitchTo(oldCtx);
+ }
+ 
+-static void
++/*
++ * Check exact entry existence without materializing any posting lists.  A
++ * missing entry is FALSE; every other entry remains MAYBE.  Only the opclass
++ * can decide whether those facts prove that the main scan cannot match.
++ *
++ * Keep the usual predicate locks even though the posting trees are not opened
++ * here.  This is an extra lookup pass for nonempty scans, not a replacement
++ * for their normal initialization or frequency estimates.
++ */
++static bool
++scanEntriesCanMatch(IndexScanDesc scan)
++{
++	GinScanOpaque so = (GinScanOpaque) scan->opaque;
++	GinState   *ginstate = &so->ginstate;
++	MemoryContext oldCtx;
++	bool	   *missing;
++	bool		haveMissing = false;
++	bool		canMatch = true;
++
++	if (so->totalentries <= 1 || GinFuzzySearchLimit != 0)
++		return true;
++
++	for (uint32 i = 0; i < so->totalentries; i++)
++	{
++		GinScanEntry entry = so->entries[i];
++
++		if (entry->isPartialMatch ||
++			entry->queryCategory != GIN_CAT_NORM_KEY ||
++			entry->searchMode != GIN_SEARCH_MODE_DEFAULT)
++			return true;
++	}
++
++	oldCtx = MemoryContextSwitchTo(so->tempCtx);
++	missing = palloc_array(bool, so->totalentries);
++	for (uint32 i = 0; i < so->totalentries; i++)
++	{
++		GinScanEntry entry = so->entries[i];
++		GinBtreeData btree;
++		GinBtreeStack *stack;
++		Page		page;
++
++		ginPrepareEntryScan(&btree, entry->attnum, entry->queryKey,
++							entry->queryCategory, ginstate);
++		stack = ginFindLeafPage(&btree, true, false);
++		page = BufferGetPage(stack->buffer);
++		missing[i] = true;
++		if (btree.findItem(&btree, stack))
++		{
++			IndexTuple itup = (IndexTuple) PageGetItem(page,
++												PageGetItemId(page, stack->off));
++
++			if (GinIsPostingTree(itup))
++			{
++				PredicateLockPage(ginstate->index, GinGetPostingTree(itup),
++								  scan->xs_snapshot);
++				missing[i] = false;
++			}
++			else
++			{
++				PredicateLockPage(ginstate->index,
++								  BufferGetBlockNumber(stack->buffer),
++								  scan->xs_snapshot);
++				missing[i] = (GinGetNPosting(itup) == 0);
++			}
++		}
++		else
++			PredicateLockPage(ginstate->index,
++							  BufferGetBlockNumber(stack->buffer),
++							  scan->xs_snapshot);
++		haveMissing |= missing[i];
++		LockBuffer(stack->buffer, GIN_UNLOCK);
++		freeGinBtreeStack(stack);
++		CHECK_FOR_INTERRUPTS();
++	}
++
++	if (haveMissing)
++	{
++		for (uint32 k = 0; k < so->nkeys; k++)
++		{
++			GinScanKey key = so->keys + k;
++			bool		keyHasMissing = false;
++
++			for (uint32 j = 0; j < key->nentries; j++)
++			{
++				key->entryRes[j] = GIN_MAYBE;
++				for (uint32 i = 0; i < so->totalentries; i++)
++				{
++					if (key->scanEntry[j] == so->entries[i] && missing[i])
++					{
++						key->entryRes[j] = GIN_FALSE;
++						keyHasMissing = true;
++						break;
++					}
++				}
++			}
++			if (keyHasMissing && key->triConsistentFn(key) == GIN_FALSE)
++			{
++				canMatch = false;
++				break;
++			}
++			CHECK_FOR_INTERRUPTS();
++		}
++	}
++
++	/* Restore the state manufactured by ginNewScanKey for normal startup. */
++	for (uint32 k = 0; k < so->nkeys; k++)
++	{
++		GinScanKey key = so->keys + k;
++
++		memset(key->entryRes, GIN_FALSE,
++			   key->nentries * sizeof(GinTernaryValue));
++		key->recheckCurItem = false;
++	}
++	MemoryContextSwitchTo(oldCtx);
++	MemoryContextReset(so->tempCtx);
++	return canMatch;
++}
++
++static bool
+ startScan(IndexScanDesc scan)
+ {
+ 	GinScanOpaque so = (GinScanOpaque) scan->opaque;
+ 	GinState   *ginstate = &so->ginstate;
+ 	uint32		i;
+ 
++	if (!scanEntriesCanMatch(scan))
++		return false;
++
+ 	for (i = 0; i < so->totalentries; i++)
+ 		startScanEntry(ginstate, so->entries[i], scan->xs_snapshot);
+ 
+@@ -677,6 +798,7 @@ startScan(IndexScanDesc scan)
+ 	 */
+ 	for (i = 0; i < so->nkeys; i++)
+ 		startScanKey(ginstate, so, so->keys + i);
++	return true;
+ }
+ 
+ /*
+@@ -2043,7 +2165,8 @@ gingetbitmap(IndexScanDesc scan, TIDBitmap *tbm)
+ 	/*
+ 	 * Now scan the main index.
+ 	 */
+-	startScan(scan);
++	if (!startScan(scan))
++		goto done;
+ 
+ 	ItemPointerSetMin(&iptr);
+ 
+@@ -2063,6 +2186,7 @@ gingetbitmap(IndexScanDesc scan, TIDBitmap *tbm)
+ 		ntids++;
+ 	}
+ 
++done:
+ 	if (seen.tids)
+ 		pfree(seen.tids);
+ 

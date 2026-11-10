@@ -1,0 +1,667 @@
+{
+  "status": "FROZEN_SHARED_LOAD_SCREEN_INPUTS_NOT_EXECUTED",
+  "files": {
+    "screen/analyze.py": {
+      "bytes": 5240,
+      "sha256": "7a63888f2a3ce71753d00f8bdc2120dbf1e8a088ed3f4ca18595d809789f0371"
+    },
+    "screen/campaign.py": {
+      "bytes": 16966,
+      "sha256": "9b6a395c878a0d0939e73cb6bbf17193f12b1e41e368dfa44aaf36e75c6b448e"
+    },
+    "screen/common.py": {
+      "bytes": 244,
+      "sha256": "86822a4e1c16945d5d633ccd7b8a06755c1d4469faca37f30f0c13ff4d6f8eeb"
+    },
+    "screen/gin-am-micro.c": {
+      "bytes": 2119,
+      "sha256": "add8e8b481a7d0cc6d1ea2c075fbe1f74cbed647accec5da432244ed51fb1bb6"
+    },
+    "screen/protocol.py": {
+      "bytes": 4704,
+      "sha256": "a117bf679821a7ee020afeebf53b6351f1170d63ffd0250b4afd2b2fd30596bd"
+    },
+    "screen/run.py": {
+      "bytes": 8031,
+      "sha256": "91f8a113335ead42e13e0960921d92843b9bcdb649cad5bd4a5822b20931a365"
+    },
+    "screen/session.py": {
+      "bytes": 3121,
+      "sha256": "3bf4f1d614175137f5779ac3df5ec5203305a1d090faa337e659bab268dd18e4"
+    },
+    "screen/validate.py": {
+      "bytes": 2411,
+      "sha256": "51c006c049f45384e63a0360177c8923b52bda6d72d444690d5173f1accf461f"
+    }
+  },
+  "protocol": {
+    "roles": [
+      "B",
+      "T",
+      "S1",
+      "D1",
+      "C9"
+    ],
+    "cases": [
+      {
+        "name": "skew1000",
+        "table": "docs",
+        "predicate": "d @@ 'common & rare0'::tsquery",
+        "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'common & rare0'::tsquery",
+        "sql": "SELECT sum(q.n) FROM generate_series(1,100) p(i) CROSS JOIN LATERAL (SELECT count(*) n FROM g1.docs WHERE d @@ to_tsquery('simple','common & rare'||(p.i%2)::text) OFFSET 0) q",
+        "settings": "",
+        "index": "docs_d_gin",
+        "role": "query",
+        "probes": 100,
+        "kind": "sql"
+      },
+      {
+        "name": "skew127",
+        "table": "docs",
+        "predicate": "d @@ 'common & rare2'::tsquery",
+        "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'common & rare2'::tsquery",
+        "sql": "SELECT sum(q.n) FROM generate_series(1,100) p(i) CROSS JOIN LATERAL (SELECT count(*) n FROM g1.docs WHERE d @@ 'common & rare2'::tsquery OFFSET (p.i % 1)) q",
+        "settings": "",
+        "index": "docs_d_gin",
+        "role": "query",
+        "probes": 100,
+        "kind": "sql"
+      },
+      {
+        "name": "dense_and",
+        "table": "docs",
+        "predicate": "d @@ 'dense2 & dense3'::tsquery",
+        "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'dense2 & dense3'::tsquery",
+        "sql": "SELECT sum(q.n) FROM generate_series(1,10) p(i) CROSS JOIN LATERAL (SELECT count(*) n FROM g1.docs WHERE d @@ 'dense2 & dense3'::tsquery OFFSET (p.i % 1)) q",
+        "settings": "",
+        "index": "docs_d_gin",
+        "role": "query",
+        "probes": 10,
+        "kind": "sql"
+      },
+      {
+        "name": "or_forced",
+        "table": "docs",
+        "predicate": "d @@ 'common | rare0'::tsquery",
+        "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'common | rare0'::tsquery",
+        "sql": "SELECT sum(q.n) FROM generate_series(1,5) p(i) CROSS JOIN LATERAL (SELECT count(*) n FROM g1.docs WHERE d @@ 'common | rare0'::tsquery OFFSET (p.i % 1)) q",
+        "settings": "SET enable_seqscan=off;",
+        "index": "docs_d_gin",
+        "role": "forced negative",
+        "probes": 5,
+        "kind": "sql"
+      },
+      {
+        "name": "single_forced",
+        "table": "docs",
+        "predicate": "d @@ 'common'::tsquery",
+        "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'common'::tsquery",
+        "sql": "SELECT sum(q.n) FROM generate_series(1,5) p(i) CROSS JOIN LATERAL (SELECT count(*) n FROM g1.docs WHERE d @@ 'common'::tsquery OFFSET (p.i % 1)) q",
+        "settings": "SET enable_seqscan=off;",
+        "index": "docs_d_gin",
+        "role": "forced negative",
+        "probes": 5,
+        "kind": "sql"
+      },
+      {
+        "name": "single_rare",
+        "table": "docs",
+        "predicate": "d @@ 'rare0'::tsquery",
+        "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'rare0'::tsquery",
+        "sql": "SELECT sum(q.n) FROM generate_series(1,100) p(i) CROSS JOIN LATERAL (SELECT count(*) n FROM g1.docs WHERE d @@ 'rare0'::tsquery OFFSET (p.i % 1)) q",
+        "settings": "",
+        "index": "docs_d_gin",
+        "role": "negative",
+        "probes": 100,
+        "kind": "sql"
+      },
+      {
+        "name": "inline",
+        "table": "inline_docs",
+        "predicate": "d @@ 'common & token17'::tsquery",
+        "rows_sql": "SELECT id FROM g1.inline_docs WHERE d @@ 'common & token17'::tsquery",
+        "sql": "SELECT sum(q.n) FROM generate_series(1,100) p(i) CROSS JOIN LATERAL (SELECT count(*) n FROM g1.inline_docs WHERE d @@ 'common & token17'::tsquery OFFSET (p.i % 1)) q",
+        "settings": "SET enable_seqscan=off;",
+        "index": "inline_d_gin",
+        "role": "short inline negative",
+        "probes": 100,
+        "kind": "sql"
+      },
+      {
+        "name": "prefix",
+        "table": "docs",
+        "predicate": "d @@ 'group1:* & rare0'::tsquery",
+        "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'group1:* & rare0'::tsquery",
+        "sql": "SELECT sum(q.n) FROM generate_series(1,100) p(i) CROSS JOIN LATERAL (SELECT count(*) n FROM g1.docs WHERE d @@ 'group1:* & rare0'::tsquery OFFSET (p.i % 1)) q",
+        "settings": "",
+        "index": "docs_d_gin",
+        "role": "bitmap control",
+        "probes": 100,
+        "kind": "sql"
+      },
+      {
+        "name": "phrase",
+        "table": "docs",
+        "predicate": "d @@ 'common <-> rare0'::tsquery",
+        "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'common <-> rare0'::tsquery",
+        "sql": "SELECT sum(q.n) FROM generate_series(1,100) p(i) CROSS JOIN LATERAL (SELECT count(*) n FROM g1.docs WHERE d @@ 'common <-> rare0'::tsquery OFFSET (p.i % 1)) q",
+        "settings": "",
+        "index": "docs_d_gin",
+        "role": "recheck",
+        "probes": 100,
+        "kind": "sql"
+      },
+      {
+        "name": "not",
+        "table": "docs",
+        "predicate": "d @@ 'rare0 & !dense2'::tsquery",
+        "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'rare0 & !dense2'::tsquery",
+        "sql": "SELECT sum(q.n) FROM generate_series(1,100) p(i) CROSS JOIN LATERAL (SELECT count(*) n FROM g1.docs WHERE d @@ 'rare0 & !dense2'::tsquery OFFSET (p.i % 1)) q",
+        "settings": "",
+        "index": "docs_d_gin",
+        "role": "NOT",
+        "probes": 100,
+        "kind": "sql"
+      },
+      {
+        "name": "jsonb",
+        "table": "docs",
+        "predicate": "jb @> '{\"common\":true,\"rare\":42}'::jsonb",
+        "rows_sql": "SELECT id FROM g1.docs WHERE jb @> '{\"common\":true,\"rare\":42}'::jsonb",
+        "sql": "SELECT sum(q.n) FROM generate_series(1,100) p(i) CROSS JOIN LATERAL (SELECT count(*) n FROM g1.docs WHERE jb @> '{\"common\":true,\"rare\":42}'::jsonb OFFSET (p.i % 1)) q",
+        "settings": "",
+        "index": "docs_jb_gin",
+        "role": "query",
+        "probes": 100,
+        "kind": "sql"
+      },
+      {
+        "name": "lossy_and",
+        "table": "docs",
+        "predicate": "d @@ 'dense2 & dense3'::tsquery",
+        "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'dense2 & dense3'::tsquery",
+        "sql": "SELECT sum(q.n) FROM generate_series(1,5) p(i) CROSS JOIN LATERAL (SELECT count(*) n FROM g1.docs WHERE d @@ 'dense2 & dense3'::tsquery OFFSET (p.i % 1)) q",
+        "settings": "SET work_mem='64kB';SET enable_seqscan=off;",
+        "index": "docs_d_gin",
+        "role": "lossy/recheck",
+        "probes": 5,
+        "kind": "sql"
+      },
+      {
+        "name": "seq_control",
+        "table": "docs",
+        "predicate": "id % 1000 = 0",
+        "rows_sql": "SELECT id FROM g1.docs WHERE id % 1000 = 0",
+        "sql": "SELECT sum(q.n) FROM generate_series(1,5) p(i) CROSS JOIN LATERAL (SELECT count(*) n FROM g1.docs WHERE id % 1000 = 0 OFFSET (p.i % 1)) q",
+        "settings": "SET enable_bitmapscan=off;SET enable_indexscan=off;",
+        "index": null,
+        "role": "off-path control",
+        "probes": 5,
+        "kind": "sql"
+      },
+      {
+        "name": "skew_group4096",
+        "table": "docs",
+        "predicate": "d @@ 'common & group17'::tsquery",
+        "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'common & group17'::tsquery",
+        "sql": "SELECT sum(q.n) FROM generate_series(1,100) p(i) CROSS JOIN LATERAL (SELECT count(*) n FROM g1.docs WHERE d @@ 'common & group17'::tsquery OFFSET(p.i%1))q",
+        "settings": "",
+        "index": "docs_d_gin",
+        "role": "unmeasured holdout frozen after histogram and before release timing",
+        "probes": 100,
+        "kind": "sql"
+      },
+      {
+        "name": "inline_single",
+        "table": "inline_docs",
+        "predicate": "d @@ 'common'::tsquery",
+        "rows_sql": "SELECT id FROM g1.inline_docs WHERE d @@ 'common'::tsquery",
+        "sql": "SELECT sum(q.n) FROM generate_series(1,100) p(i) CROSS JOIN LATERAL (SELECT count(*) n FROM g1.inline_docs WHERE d @@ 'common'::tsquery OFFSET(p.i%1))q",
+        "settings": "SET enable_seqscan=off;",
+        "index": "inline_d_gin",
+        "role": "unmeasured holdout frozen after histogram and before release timing",
+        "probes": 100,
+        "kind": "sql"
+      },
+      {
+        "name": "absent",
+        "table": "docs",
+        "predicate": "d @@ 'common & missing'::tsquery",
+        "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'common & missing'::tsquery",
+        "sql": "SELECT sum(q.n) FROM generate_series(1,100) p(i) CROSS JOIN LATERAL (SELECT count(*) n FROM g1.docs WHERE d @@ 'common & missing'::tsquery OFFSET(p.i%1))q",
+        "settings": "",
+        "index": "docs_d_gin",
+        "role": "unmeasured holdout frozen after histogram and before release timing",
+        "probes": 100,
+        "kind": "sql"
+      },
+      {
+        "name": "am_inline",
+        "kind": "am",
+        "settings": "",
+        "index": "inline_d_gin",
+        "query": "common & token17",
+        "loops": 10000,
+        "tids_per_scan": 4,
+        "sql": "SELECT public.gin_am_micro('g1.inline_d_gin'::regclass, 'common & token17'::tsquery, 10000)"
+      },
+      {
+        "name": "am_absent",
+        "kind": "am",
+        "settings": "",
+        "index": "docs_d_gin",
+        "query": "common & missing",
+        "loops": 5000,
+        "tids_per_scan": 0,
+        "sql": "SELECT public.gin_am_micro('g1.docs_d_gin'::regclass, 'common & missing'::tsquery, 5000)"
+      },
+      {
+        "name": "am_skew1000",
+        "kind": "am",
+        "settings": "",
+        "index": "docs_d_gin",
+        "query": "common & rare0",
+        "loops": 100,
+        "tids_per_scan": 200,
+        "sql": "SELECT public.gin_am_micro('g1.docs_d_gin'::regclass, 'common & rare0'::tsquery, 100)"
+      },
+      {
+        "name": "am_full",
+        "kind": "am",
+        "settings": "",
+        "index": "docs_d_gin",
+        "query": "common",
+        "loops": 10,
+        "tids_per_scan": 200000,
+        "sql": "SELECT public.gin_am_micro('g1.docs_d_gin'::regclass, 'common'::tsquery, 10)"
+      },
+      {
+        "name": "am_or",
+        "kind": "am",
+        "settings": "",
+        "index": "docs_d_gin",
+        "query": "common | rare0",
+        "loops": 10,
+        "tids_per_scan": 200000,
+        "sql": "SELECT public.gin_am_micro('g1.docs_d_gin'::regclass, 'common | rare0'::tsquery, 10)"
+      },
+      {
+        "name": "am_dense",
+        "kind": "am",
+        "settings": "",
+        "index": "docs_d_gin",
+        "query": "dense2 & dense3",
+        "loops": 10,
+        "tids_per_scan": 33333,
+        "sql": "SELECT public.gin_am_micro('g1.docs_d_gin'::regclass, 'dense2 & dense3'::tsquery, 10)"
+      },
+      {
+        "name": "am_rare",
+        "kind": "am",
+        "settings": "",
+        "index": "docs_d_gin",
+        "query": "rare0",
+        "loops": 1000,
+        "tids_per_scan": 200,
+        "sql": "SELECT public.gin_am_micro('g1.docs_d_gin'::regclass, 'rare0'::tsquery, 1000)"
+      },
+      {
+        "name": "decode_one",
+        "decoder_case": "one",
+        "kind": "decoder",
+        "settings": "",
+        "loops": 200000,
+        "expected": {
+          "items_per_loop": 1,
+          "compressed_bytes": 8,
+          "segments": 1,
+          "checksum": "11126444148914698056",
+          "consumed": "400000"
+        },
+        "sql": "SELECT public.gin_decoder_bench('one', 200000)"
+      },
+      {
+        "name": "decode_tail1",
+        "decoder_case": "tail1",
+        "kind": "decoder",
+        "settings": "",
+        "loops": 200000,
+        "expected": {
+          "items_per_loop": 2,
+          "compressed_bytes": 10,
+          "segments": 1,
+          "checksum": "2930380596812854766",
+          "consumed": "800000"
+        },
+        "sql": "SELECT public.gin_decoder_bench('tail1', 200000)"
+      },
+      {
+        "name": "decode_tail2",
+        "decoder_case": "tail2",
+        "kind": "decoder",
+        "settings": "",
+        "loops": 200000,
+        "expected": {
+          "items_per_loop": 3,
+          "compressed_bytes": 10,
+          "segments": 1,
+          "checksum": "7365663790647520107",
+          "consumed": "1200000"
+        },
+        "sql": "SELECT public.gin_decoder_bench('tail2', 200000)"
+      },
+      {
+        "name": "decode_tail3",
+        "decoder_case": "tail3",
+        "kind": "decoder",
+        "settings": "",
+        "loops": 200000,
+        "expected": {
+          "items_per_loop": 4,
+          "compressed_bytes": 12,
+          "segments": 1,
+          "checksum": "10619454151411719151",
+          "consumed": "1600000"
+        },
+        "sql": "SELECT public.gin_decoder_bench('tail3', 200000)"
+      },
+      {
+        "name": "decode_batch4",
+        "decoder_case": "batch4",
+        "kind": "decoder",
+        "settings": "",
+        "loops": 200000,
+        "expected": {
+          "items_per_loop": 5,
+          "compressed_bytes": 12,
+          "segments": 1,
+          "checksum": "11538210831876136392",
+          "consumed": "2000000"
+        },
+        "sql": "SELECT public.gin_decoder_bench('batch4', 200000)"
+      },
+      {
+        "name": "decode_batch5",
+        "decoder_case": "batch5",
+        "kind": "decoder",
+        "settings": "",
+        "loops": 200000,
+        "expected": {
+          "items_per_loop": 6,
+          "compressed_bytes": 14,
+          "segments": 1,
+          "checksum": "18112599886148642618",
+          "consumed": "2400000"
+        },
+        "sql": "SELECT public.gin_decoder_bench('batch5', 200000)"
+      },
+      {
+        "name": "decode_batch8",
+        "decoder_case": "batch8",
+        "kind": "decoder",
+        "settings": "",
+        "loops": 200000,
+        "expected": {
+          "items_per_loop": 9,
+          "compressed_bytes": 16,
+          "segments": 1,
+          "checksum": "12958435956936672568",
+          "consumed": "3600000"
+        },
+        "sql": "SELECT public.gin_decoder_bench('batch8', 200000)"
+      },
+      {
+        "name": "decode_dense128",
+        "decoder_case": "dense128",
+        "kind": "decoder",
+        "settings": "",
+        "loops": 20000,
+        "expected": {
+          "items_per_loop": 128,
+          "compressed_bytes": 136,
+          "segments": 1,
+          "checksum": "12171772960443920899",
+          "consumed": "5120000"
+        },
+        "sql": "SELECT public.gin_decoder_bench('dense128', 20000)"
+      },
+      {
+        "name": "decode_dense4096",
+        "decoder_case": "dense4096",
+        "kind": "decoder",
+        "settings": "",
+        "loops": 2000,
+        "expected": {
+          "items_per_loop": 4096,
+          "compressed_bytes": 4134,
+          "segments": 1,
+          "checksum": "9056718761854035331",
+          "consumed": "8448000"
+        },
+        "sql": "SELECT public.gin_decoder_bench('dense4096', 2000)"
+      },
+      {
+        "name": "decode_dense_multi",
+        "decoder_case": "dense_multi",
+        "kind": "decoder",
+        "settings": "",
+        "loops": 1000,
+        "expected": {
+          "items_per_loop": 4096,
+          "compressed_bytes": 4390,
+          "segments": 33,
+          "checksum": "9056718761854035331",
+          "consumed": "4224000"
+        },
+        "sql": "SELECT public.gin_decoder_bench('dense_multi', 1000)"
+      },
+      {
+        "name": "decode_first_singleton_grow",
+        "decoder_case": "first_singleton_grow",
+        "kind": "decoder",
+        "settings": "",
+        "loops": 1000,
+        "expected": {
+          "items_per_loop": 4096,
+          "compressed_bytes": 4198,
+          "segments": 10,
+          "checksum": "9056718761854035331",
+          "consumed": "4224000"
+        },
+        "sql": "SELECT public.gin_decoder_bench('first_singleton_grow', 1000)"
+      },
+      {
+        "name": "decode_singletons",
+        "decoder_case": "singletons",
+        "kind": "decoder",
+        "settings": "",
+        "loops": 20000,
+        "expected": {
+          "items_per_loop": 64,
+          "compressed_bytes": 512,
+          "segments": 64,
+          "checksum": "2710828902479753283",
+          "consumed": "2560000"
+        },
+        "sql": "SELECT public.gin_decoder_bench('singletons', 20000)"
+      },
+      {
+        "name": "decode_delta2",
+        "decoder_case": "delta2",
+        "kind": "decoder",
+        "settings": "",
+        "loops": 20000,
+        "expected": {
+          "items_per_loop": 128,
+          "compressed_bytes": 262,
+          "segments": 1,
+          "checksum": "14174719091636702723",
+          "consumed": "2580000"
+        },
+        "sql": "SELECT public.gin_decoder_bench('delta2', 20000)"
+      },
+      {
+        "name": "decode_delta3",
+        "decoder_case": "delta3",
+        "kind": "decoder",
+        "settings": "",
+        "loops": 20000,
+        "expected": {
+          "items_per_loop": 128,
+          "compressed_bytes": 390,
+          "segments": 1,
+          "checksum": "1316269042087666051",
+          "consumed": "2580000"
+        },
+        "sql": "SELECT public.gin_decoder_bench('delta3', 20000)"
+      },
+      {
+        "name": "decode_delta4",
+        "decoder_case": "delta4",
+        "kind": "decoder",
+        "settings": "",
+        "loops": 20000,
+        "expected": {
+          "items_per_loop": 128,
+          "compressed_bytes": 516,
+          "segments": 1,
+          "checksum": "2917749172291453315",
+          "consumed": "2580000"
+        },
+        "sql": "SELECT public.gin_decoder_bench('delta4', 20000)"
+      },
+      {
+        "name": "decode_delta5",
+        "decoder_case": "delta5",
+        "kind": "decoder",
+        "settings": "",
+        "loops": 20000,
+        "expected": {
+          "items_per_loop": 128,
+          "compressed_bytes": 644,
+          "segments": 1,
+          "checksum": "12289641617252827523",
+          "consumed": "2580000"
+        },
+        "sql": "SELECT public.gin_decoder_bench('delta5', 20000)"
+      },
+      {
+        "name": "decode_delta6",
+        "decoder_case": "delta6",
+        "kind": "decoder",
+        "settings": "",
+        "loops": 20000,
+        "expected": {
+          "items_per_loop": 128,
+          "compressed_bytes": 770,
+          "segments": 1,
+          "checksum": "14260110858472800643",
+          "consumed": "2580000"
+        },
+        "sql": "SELECT public.gin_decoder_bench('delta6', 20000)"
+      },
+      {
+        "name": "decode_delta7",
+        "decoder_case": "delta7",
+        "kind": "decoder",
+        "settings": "",
+        "loops": 200000,
+        "expected": {
+          "items_per_loop": 2,
+          "compressed_bytes": 16,
+          "segments": 1,
+          "checksum": "2929973139707933755",
+          "consumed": "600000"
+        },
+        "sql": "SELECT public.gin_decoder_bench('delta7', 200000)"
+      }
+    ],
+    "orders": [
+      [
+        "B",
+        "T",
+        "C9",
+        "S1",
+        "D1"
+      ],
+      [
+        "T",
+        "S1",
+        "B",
+        "D1",
+        "C9"
+      ],
+      [
+        "S1",
+        "D1",
+        "T",
+        "C9",
+        "B"
+      ],
+      [
+        "D1",
+        "C9",
+        "S1",
+        "B",
+        "T"
+      ],
+      [
+        "C9",
+        "B",
+        "D1",
+        "T",
+        "S1"
+      ],
+      [
+        "D1",
+        "S1",
+        "C9",
+        "T",
+        "B"
+      ],
+      [
+        "C9",
+        "D1",
+        "B",
+        "S1",
+        "T"
+      ],
+      [
+        "B",
+        "C9",
+        "T",
+        "D1",
+        "S1"
+      ],
+      [
+        "T",
+        "B",
+        "S1",
+        "C9",
+        "D1"
+      ],
+      [
+        "S1",
+        "T",
+        "D1",
+        "B",
+        "C9"
+      ]
+    ],
+    "warmups": 2,
+    "retained_rounds": 10,
+    "cohorts": 2,
+    "raw": 4920,
+    "retained": 4100,
+    "warm": 820,
+    "scope": "16 SQL + 7 actual-AM + 18 actual-decoder cells; distinct metric boundaries, separate cohorts; all data retained"
+  },
+  "qualification_inputs_sha256": "478718d6be3e36f733fe8050248ecd226b06df34294e40ca3abaf8eaf695514f",
+  "build_inputs_sha256": "84a748df772dc6f72ca6cae87fabe035d4ae8d8e38e2d00415076aec6ea6b990",
+  "scope": "Prepare then205-observation smoke only after all own builds/probes/profiles stopped; run stage requires separate root smoke review; no clean-host claim on84",
+  "source_alternatives": {
+    "S1": "832af7d60b9d4c69a5f922dd1522a917bf337761",
+    "D1": "c2b5dd6f9012cc4a27628c9d6c507ac467795ac5"
+  },
+  "historical_build_commit_identity_mapping": "SOURCE-IDENTITY-CORRECTION-r1.json"
+}

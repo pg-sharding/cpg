@@ -1,0 +1,7 @@
+{
+  "scope": "Read-only attachment schema only",
+  "query": "BEGIN READ ONLY;\nSET LOCAL statement_timeout='10s';\nSELECT column_name,data_type FROM information_schema.columns WHERE table_schema='public' AND table_name='attachments' ORDER BY ordinal_position LIMIT 30;\nCOMMIT;\n",
+  "returncode": 0,
+  "stdout": "BEGIN\nSET\n column_name  |          data_type          \n--------------+-----------------------------\n id           | bigint\n message_id   | bigint\n file_name    | character varying\n content_type | character varying\n body         | text\n created_at   | timestamp without time zone\n updated_at   | timestamp without time zone\n(7 rows)\n\nCOMMIT\n",
+  "stderr": ""
+}

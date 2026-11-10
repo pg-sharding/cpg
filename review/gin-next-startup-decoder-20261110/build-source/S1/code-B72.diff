@@ -1,0 +1,327 @@
+diff --git a/src/backend/access/gin/ginget.c b/src/backend/access/gin/ginget.c
+index 2bcb32ca3d0..29790ad10e2 100644
+--- a/src/backend/access/gin/ginget.c
++++ b/src/backend/access/gin/ginget.c
+@@ -35,6 +35,37 @@ typedef struct pendingPosition
+ 	bool	   *hasMatchKey;
+ } pendingPosition;
+ 
++#define GP_SEEN_INITIAL		1024
++#define GP_SEEN_MAX			(16 * 1024 * 1024)
++
++typedef struct
++{
++	ItemPointerData *tids;		/* sorted, de-duplicated */
++	Size		n;				/* number of used slots */
++	Size		capacity;		/* allocated slots */
++	bool		recheckAll;		/* true if the tracker overflowed */
++} GinPendingSeen;
++
++static int
++ginItemPointerCmp(const void *a, const void *b)
++{
++	return ginCompareItemPointers((const ItemPointer) a, (const ItemPointer) b);
++}
++
++static bool
++ginPendingSeenCheck(GinPendingSeen *seen, ItemPointer tid)
++{
++	ItemPointerData *found;
++
++	if (seen->recheckAll)
++		return true;
++	if (seen->n == 0)
++		return false;
++	found = (ItemPointerData *) bsearch(tid, seen->tids, seen->n,
++										sizeof(ItemPointerData),
++										ginItemPointerCmp);
++	return found != NULL;
++}
+ 
+ /*
+  * Goes to the next page if current offset is outside of bounds
+@@ -602,13 +633,134 @@ startScanKey(GinState *ginstate, GinScanOpaque so, GinScanKey key)
+ 	MemoryContextSwitchTo(oldCtx);
+ }
+ 
+-static void
++/*
++ * Check exact entry existence without materializing any posting lists.  A
++ * missing entry is FALSE; every other entry remains MAYBE.  Only the opclass
++ * can decide whether those facts prove that the main scan cannot match.
++ *
++ * Keep the usual predicate locks even though the posting trees are not opened
++ * here.  This is an extra lookup pass for nonempty scans, not a replacement
++ * for their normal initialization or frequency estimates.
++ */
++static bool
++scanEntriesCanMatch(IndexScanDesc scan)
++{
++	GinScanOpaque so = (GinScanOpaque) scan->opaque;
++	GinState   *ginstate = &so->ginstate;
++	MemoryContext oldCtx;
++	bool	   *missing;
++	bool		haveMissing = false;
++	bool		canMatch = true;
++
++	if (so->totalentries <= 1 || GinFuzzySearchLimit != 0)
++		return true;
++
++	for (uint32 i = 0; i < so->totalentries; i++)
++	{
++		GinScanEntry entry = so->entries[i];
++
++		if (entry->isPartialMatch ||
++			entry->queryCategory != GIN_CAT_NORM_KEY ||
++			entry->searchMode != GIN_SEARCH_MODE_DEFAULT)
++			return true;
++	}
++
++	oldCtx = MemoryContextSwitchTo(so->tempCtx);
++	missing = palloc_array(bool, so->totalentries);
++	for (uint32 i = 0; i < so->totalentries; i++)
++	{
++		GinScanEntry entry = so->entries[i];
++		GinBtreeData btree;
++		GinBtreeStack *stack;
++		Page		page;
++
++		ginPrepareEntryScan(&btree, entry->attnum, entry->queryKey,
++							entry->queryCategory, ginstate);
++		stack = ginFindLeafPage(&btree, true, false);
++		page = BufferGetPage(stack->buffer);
++		missing[i] = true;
++		if (btree.findItem(&btree, stack))
++		{
++			IndexTuple itup = (IndexTuple) PageGetItem(page,
++												PageGetItemId(page, stack->off));
++
++			if (GinIsPostingTree(itup))
++			{
++				PredicateLockPage(ginstate->index, GinGetPostingTree(itup),
++								  scan->xs_snapshot);
++				missing[i] = false;
++			}
++			else
++			{
++				PredicateLockPage(ginstate->index,
++								  BufferGetBlockNumber(stack->buffer),
++								  scan->xs_snapshot);
++				missing[i] = (GinGetNPosting(itup) == 0);
++			}
++		}
++		else
++			PredicateLockPage(ginstate->index,
++							  BufferGetBlockNumber(stack->buffer),
++							  scan->xs_snapshot);
++		haveMissing |= missing[i];
++		LockBuffer(stack->buffer, GIN_UNLOCK);
++		freeGinBtreeStack(stack);
++		CHECK_FOR_INTERRUPTS();
++	}
++
++	if (haveMissing)
++	{
++		for (uint32 k = 0; k < so->nkeys; k++)
++		{
++			GinScanKey key = so->keys + k;
++			bool		keyHasMissing = false;
++
++			for (uint32 j = 0; j < key->nentries; j++)
++			{
++				key->entryRes[j] = GIN_MAYBE;
++				for (uint32 i = 0; i < so->totalentries; i++)
++				{
++					if (key->scanEntry[j] == so->entries[i] && missing[i])
++					{
++						key->entryRes[j] = GIN_FALSE;
++						keyHasMissing = true;
++						break;
++					}
++				}
++			}
++			if (keyHasMissing && key->triConsistentFn(key) == GIN_FALSE)
++			{
++				canMatch = false;
++				break;
++			}
++			CHECK_FOR_INTERRUPTS();
++		}
++	}
++
++	/* Restore the state manufactured by ginNewScanKey for normal startup. */
++	for (uint32 k = 0; k < so->nkeys; k++)
++	{
++		GinScanKey key = so->keys + k;
++
++		memset(key->entryRes, GIN_FALSE,
++			   key->nentries * sizeof(GinTernaryValue));
++		key->recheckCurItem = false;
++	}
++	MemoryContextSwitchTo(oldCtx);
++	MemoryContextReset(so->tempCtx);
++	return canMatch;
++}
++
++static bool
+ startScan(IndexScanDesc scan)
+ {
+ 	GinScanOpaque so = (GinScanOpaque) scan->opaque;
+ 	GinState   *ginstate = &so->ginstate;
+ 	uint32		i;
+ 
++	if (!scanEntriesCanMatch(scan))
++		return false;
++
+ 	for (i = 0; i < so->totalentries; i++)
+ 		startScanEntry(ginstate, so->entries[i], scan->xs_snapshot);
+ 
+@@ -646,6 +798,7 @@ startScan(IndexScanDesc scan)
+ 	 */
+ 	for (i = 0; i < so->nkeys; i++)
+ 		startScanKey(ginstate, so, so->keys + i);
++	return true;
+ }
+ 
+ /*
+@@ -1447,12 +1600,10 @@ scanGetItem(IndexScanDesc scan, ItemPointerData advancePast,
+ 	return true;
+ }
+ 
+-
+ /*
+  * Functions for scanning the pending list
+  */
+ 
+-
+ /*
+  * Get ItemPointer of next heap row to be checked from pending list.
+  * Returns false if there are no more. On pages with several heap rows
+@@ -1832,7 +1983,8 @@ collectMatchesForHeapRow(IndexScanDesc scan, pendingPosition *pos)
+  * Collect all matched rows from pending list into bitmap.
+  */
+ static void
+-scanPendingInsert(IndexScanDesc scan, TIDBitmap *tbm, int64 *ntids)
++scanPendingInsert(IndexScanDesc scan, TIDBitmap *tbm, int64 *ntids,
++				  GinPendingSeen *seen)
+ {
+ 	GinScanOpaque so = (GinScanOpaque) scan->opaque;
+ 	MemoryContext oldCtx;
+@@ -1878,6 +2030,40 @@ scanPendingInsert(IndexScanDesc scan, TIDBitmap *tbm, int64 *ntids)
+ 	 */
+ 	while (scanGetCandidate(scan, &pos))
+ 	{
++		if (!seen->recheckAll)
++		{
++			if (seen->n == seen->capacity)
++			{
++				Size		newcap = seen->capacity ? seen->capacity * 2 : GP_SEEN_INITIAL;
++
++				if (newcap > GP_SEEN_MAX ||
++					newcap * sizeof(ItemPointerData) > MaxAllocSize)
++				{
++					seen->recheckAll = true;
++					if (seen->tids)
++						pfree(seen->tids);
++					seen->tids = NULL;
++					seen->n = seen->capacity = 0;
++				}
++				else
++				{
++					ItemPointerData *newtids = (ItemPointerData *)
++						palloc(newcap * sizeof(ItemPointerData));
++
++					if (seen->tids)
++					{
++						memcpy(newtids, seen->tids,
++							   seen->n * sizeof(ItemPointerData));
++						pfree(seen->tids);
++					}
++					seen->tids = newtids;
++					seen->capacity = newcap;
++				}
++			}
++			if (!seen->recheckAll)
++				seen->tids[seen->n++] = pos.item;
++		}
++
+ 		/*
+ 		 * Check entries in tuple and set up entryRes array.
+ 		 *
+@@ -1921,7 +2107,6 @@ scanPendingInsert(IndexScanDesc scan, TIDBitmap *tbm, int64 *ntids)
+ 	pfree(pos.hasMatchKey);
+ }
+ 
+-
+ #define GinIsVoidRes(s)		( ((GinScanOpaque) scan->opaque)->isVoidRes )
+ 
+ int64
+@@ -1931,6 +2116,7 @@ gingetbitmap(IndexScanDesc scan, TIDBitmap *tbm)
+ 	int64		ntids;
+ 	ItemPointerData iptr;
+ 	bool		recheck;
++	GinPendingSeen seen;
+ 
+ 	/*
+ 	 * Set up the scan keys, and check for unsatisfiable query.
+@@ -1943,6 +2129,10 @@ gingetbitmap(IndexScanDesc scan, TIDBitmap *tbm)
+ 		return 0;
+ 
+ 	ntids = 0;
++	seen.tids = NULL;
++	seen.n = 0;
++	seen.capacity = 0;
++	seen.recheckAll = false;
+ 
+ 	/*
+ 	 * First, scan the pending list and collect any matching entries into the
+@@ -1954,12 +2144,29 @@ gingetbitmap(IndexScanDesc scan, TIDBitmap *tbm)
+ 	 * to scan the main index before the pending list, since concurrent
+ 	 * cleanup could then make us miss entries entirely.
+ 	 */
+-	scanPendingInsert(scan, tbm, &ntids);
++	scanPendingInsert(scan, tbm, &ntids, &seen);
++
++	if (seen.n > 1)
++	{
++		Size		out;
++
++		qsort(seen.tids, seen.n, sizeof(ItemPointerData), ginItemPointerCmp);
++		out = 1;
++		for (Size i = 1; i < seen.n; i++)
++		{
++			if (!ItemPointerEquals(&seen.tids[out - 1], &seen.tids[i]))
++			{
++				seen.tids[out++] = seen.tids[i];
++			}
++		}
++		seen.n = out;
++	}
+ 
+ 	/*
+ 	 * Now scan the main index.
+ 	 */
+-	startScan(scan);
++	if (!startScan(scan))
++		goto done;
+ 
+ 	ItemPointerSetMin(&iptr);
+ 
+@@ -1971,9 +2178,17 @@ gingetbitmap(IndexScanDesc scan, TIDBitmap *tbm)
+ 		if (ItemPointerIsLossyPage(&iptr))
+ 			tbm_add_page(tbm, ItemPointerGetBlockNumber(&iptr));
+ 		else
++		{
++			if (seen.recheckAll || ginPendingSeenCheck(&seen, &iptr))
++				recheck = true;
+ 			tbm_add_tuples(tbm, &iptr, 1, recheck);
++		}
+ 		ntids++;
+ 	}
+ 
++done:
++	if (seen.tids)
++		pfree(seen.tids);
++
+ 	return ntids;
+ }
