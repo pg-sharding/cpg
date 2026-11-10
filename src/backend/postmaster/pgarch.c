@@ -600,7 +600,6 @@ pgarch_delegate_start(void)
 	TimeLineID current_tli;
 	int			backlog = 0;
 	TimestampTz now = GetCurrentTimestamp();
-	static uint64 next_id = 0;
 
 	if (ArchiveDelegateMaxFiles == 0)
 	{
@@ -666,11 +665,12 @@ pgarch_delegate_start(void)
 		memmove(batch.files, batch.files + 1,
 				(--batch.nfiles) * sizeof(batch.files[0]));
 	}
-	if (next_id == 0)
-		next_id = (uint64) now;
-	batch.id = ++next_id;
+	now = GetCurrentTimestamp();
 	batch.deadline = TimestampTzPlusMilliseconds(now, ArchiveDelegateTimeout);
 	SpinLockAcquire(&PgArch->lock);
+	batch.id = ++PgArch->next_delegate_id;
+	if (batch.id == 0)
+		batch.id = ++PgArch->next_delegate_id;
 	PgArch->outgoing = batch;
 	SpinLockRelease(&PgArch->lock);
 	WalSndWakeup(true, false);
@@ -795,11 +795,17 @@ pgarch_delegate_execute(void)
 void
 PgArchDelegateDisconnect(pid_t owner)
 {
+	bool		cancelled = false;
+
 	SpinLockAcquire(&PgArch->lock);
-	if (PgArch->outgoing.owner == owner)
+	if (PgArch->outgoing.id != 0 && PgArch->outgoing.owner == owner)
+	{
 		PgArch->outgoing.id = 0;
+		cancelled = true;
+	}
 	SpinLockRelease(&PgArch->lock);
-	PgArchWakeup();
+	if (cancelled)
+		PgArchWakeup();
 }
 
 /*

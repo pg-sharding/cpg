@@ -2956,6 +2956,7 @@ ProcessArchiveDelegateResult(void)
 		PgArchWakeup();
 }
 
+/* Send the ordinary ordered archive frontier, independently of task results. */
 static void
 WalSndArchivalReport(void)
 {

@@ -78,6 +78,7 @@ typedef struct PgArchData
 	pg_atomic_uint32 force_dir_scan;
 
 	/* Both batches are protected by lock. Zero id means no active batch. */
+	uint64		next_delegate_id;
 	PgArchDelegateBatch outgoing;
 	PgArchDelegateBatch incoming;
 } PgArchData;
