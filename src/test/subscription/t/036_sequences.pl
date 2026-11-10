@@ -432,4 +432,68 @@ $node_subscriber->wait_for_log(
 	qr/ERROR: ( [A-Z0-9]+:)? role "regress_seq_sub_owner" cannot SET ROLE to "regress_seq_other"\n.*CONTEXT:  synchronizing sequence "public\.regress_s4" for subscription "regress_seq_sub"/,
 	$log_offset);
 
+##########
+# A sequence synchronization connection for a non-superuser subscription owner
+# must use password authentication, without requesting physical archive reports.
+##########
+
+$node_subscriber->safe_psql('postgres',
+	'ALTER SUBSCRIPTION regress_seq_sub DISABLE');
+$node_subscriber->poll_query_until('postgres',
+	q{SELECT count(*) = 0 FROM pg_stat_subscription
+      WHERE subname = 'regress_seq_sub' AND pid IS NOT NULL})
+  or die 'Timed out waiting for the previous subscription to stop';
+
+$node_publisher->safe_psql('postgres',
+	"ALTER ROLE regress_seq_repl PASSWORD 'sequence_secret'");
+my $hba = slurp_file($node_publisher->data_dir . '/pg_hba.conf');
+unlink($node_publisher->data_dir . '/pg_hba.conf');
+$node_publisher->append_conf(
+	'pg_hba.conf', qq(
+local all regress_seq_repl scram-sha-256
+host all regress_seq_repl 0.0.0.0/0 scram-sha-256
+host all regress_seq_repl ::0/0 scram-sha-256
+$hba));
+$node_publisher->reload;
+
+# Use a separate database to keep this positive authentication test independent
+# of the intentionally failing synchronization above.
+$node_publisher->safe_psql('postgres', 'CREATE DATABASE seq_password');
+$node_subscriber->safe_psql('postgres', 'CREATE DATABASE seq_password');
+$node_publisher->safe_psql(
+	'seq_password', qq(
+	CREATE SEQUENCE password_seq;
+	SELECT setval('password_seq', 1234);
+	GRANT SELECT ON SEQUENCE password_seq TO regress_seq_repl;
+	CREATE PUBLICATION password_pub FOR ALL SEQUENCES;
+));
+$node_subscriber->safe_psql(
+	'seq_password', qq(
+	CREATE SEQUENCE password_seq;
+	ALTER SEQUENCE password_seq OWNER TO regress_seq_sub_owner;
+	GRANT pg_create_subscription TO regress_seq_sub_owner;
+	GRANT CREATE ON DATABASE seq_password TO regress_seq_sub_owner;
+));
+my $password_connstr = $node_publisher->connstr('seq_password')
+  . ' user=regress_seq_repl password=sequence_secret';
+$password_connstr =~ s/'/''/g;
+$node_subscriber->safe_psql(
+	'seq_password', qq(
+	SET SESSION AUTHORIZATION regress_seq_sub_owner;
+	CREATE SUBSCRIPTION password_sub CONNECTION '$password_connstr'
+	  PUBLICATION password_pub;
+));
+is($node_subscriber->safe_psql(
+		'seq_password', q{
+	SELECT NOT r.rolsuper AND s.subpasswordrequired
+	FROM pg_subscription s JOIN pg_roles r ON r.oid = s.subowner
+	WHERE s.subname = 'password_sub'
+}), 't', 'sequence subscription has a non-superuser owner and requires a password');
+$node_subscriber->poll_query_until(
+	'seq_password', 'SELECT last_value = 1234 FROM password_seq')
+  or die 'Timed out waiting for password-authenticated sequence synchronization';
+is($node_subscriber->safe_psql('seq_password',
+		'SELECT last_value, is_called FROM password_seq'),
+	'1234|t', 'sequences sync for a non-superuser owner using a password');
+
 done_testing();

@@ -906,8 +906,8 @@ LogicalRepSyncSequences(void)
 	 * Establish the connection to the publisher for sequence synchronization.
 	 */
 	LogRepWorkerWalRcvConn =
-		walrcv_connect(MySubscriptionConninfo, true, true, false,
-					   must_use_password,
+		walrcv_connect(MySubscriptionConninfo, true, true,
+					   must_use_password, false,
 					   app_name.data, &err);
 	if (LogRepWorkerWalRcvConn == NULL)
 		ereport(ERROR,
