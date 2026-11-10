@@ -1,0 +1,64 @@
+Subject: [DRAFT UNSENT] Required-entry heap prototype: wide-OR SQL measurements
+
+Hi,
+
+I measured ordinary SQL equivalents of seven previously tested GIN AM unions
+using an unchanged required-entry heap prototype. The heap selects the next
+required entry for keys with at least eight required entries, with fuzzy search
+disabled. It repairs copied monotone lower bounds rather than sorting mutable
+shared-entry pointers. Tiny cases and fuzzy reduction keep the existing path.
+This is an independent alternative over fixed historical B72, not a series
+with the memo/startup/decoder experiments. No new production code was added
+for this SQL follow-up.
+
+The exact old AM predicates at widths1/2/7/8/32/128/512 became
+SELECT count(*),sum(id) statements. A Seq control remains. All positive cases
+force GIN and return200000 rows, so this demonstrates the selected GIN path,
+not a default-planner application improvement. A selective natural-planner
+workload remains a separate question.
+
+Two fresh cohorts completed384 raw /288 retained /96 warm observations.
+B/T are exact executable twins; all six role orders, three pairs and six
+retained rounds are preserved. Literal count/sum, ordered Seq/GIN digests
+and full measured plans/rows/loops agreed. Independent arithmetic and root
+replay checked8208 numerical fields,144 absolute groups,144 pair groups
+and864 direct pairs. All nine new smoke/accepted cluster lifetimes stopped;
+held source/install/seed/input identities stayed unchanged.
+
+Observed executor paired medians versus B, cohort0 /cohort1:
+
+* Width8: -5.66% /-5.90%.
+* Width32: -16.64% /-17.41%.
+* Width128: -25.58% /-24.50%.
+* Width512: -25.79% /-26.44%; absolute B medians1120.672/1129.477ms,
+  Heap831.914/832.355ms for one complete SQL statement.
+
+Negatives remain: widths1/2/7 are near B and about0.45–2.85% above T.
+Unchanged Seq executor Heap/B is +7.40% /+5.03%. Exact twins also vary:
+width512 T/B is +8.46% in cohort0 and +0.84% in cohort1. Neither cohort is
+dropped or normalized. Full min/median/max, mean, sample SD, MAD, raw vectors
+and every direct pair are included for all three separate metrics: whole
+backend CPU, client wall and EXPLAIN Execution Time. An extra literal command
+before each measured EXPLAIN adds warming. Retained reads/writes and faults
+were zero; runqueue14.462/11.187ms per cohort is diagnostic, not an exclusion.
+
+VM158 used an own quiet window without our compilers/profiles; hardware
+isolation and source-level causal attribution are not claimed. These are
+serial synthetic results, with no pooling, trimming or significance claim.
+The earlier AM and shared-entry SQL negatives remain in the unchanged
+historical parent packet rather than being relabelled as these SQL samples.
+
+Heikki discussed heap selection and the shared-entry issue in2014[1]. No
+novelty claim is made for a heap algorithm. The concrete work is a bounded
+prototype with shared-entry handling, valid-input/native/SQL checks and
+reproducible positive and negative workload evidence.
+
+The packet includes standalone .diff and git format-patch source, all raw
+observations and independent numerical replay, exact setup/build flags,
+earlier micro/AM replay and new SQL commands. Fresh convenience SQL is not
+claimed as an independently executed matched benchmark. Canonical source is
+03dff8bfa5075e5838c7fbffc712d0b79d03f13d; fixed B is
+8a8c475037bfde101da23cc9b0364c9c020eca93, raw historical B72 is
+72b9498df9a369e747f8d96efb5a6cd33c2451e2. These are not current-master results.
+
+[1] https://www.postgresql.org/message-id/52F373CC.4050800%40vmware.com

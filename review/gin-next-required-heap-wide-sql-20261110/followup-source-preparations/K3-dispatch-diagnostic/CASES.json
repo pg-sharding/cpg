@@ -1,0 +1,192 @@
+{
+  "status": "PROSPECTIVE_UNTIMED_ONLY_NOT_EXECUTED",
+  "reports": 18,
+  "cases": [
+    {
+      "name": "sql/dense_and",
+      "kind": "sql",
+      "sql": "SELECT sum(q.n) FROM generate_series(1,10) p(i) CROSS JOIN LATERAL (SELECT count(*) n FROM g1.docs WHERE d @@ 'dense2 & dense3'::tsquery OFFSET (p.i % 1)) q",
+      "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'dense2 & dense3'::tsquery",
+      "settings": "",
+      "answer": "333330",
+      "expected_keys_max": 128,
+      "expected_nuserentries": 2
+    },
+    {
+      "name": "sql/single_rare",
+      "kind": "sql",
+      "sql": "SELECT sum(q.n) FROM generate_series(1,100) p(i) CROSS JOIN LATERAL (SELECT count(*) n FROM g1.docs WHERE d @@ 'rare0'::tsquery OFFSET (p.i % 1)) q",
+      "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'rare0'::tsquery",
+      "settings": "",
+      "answer": "20000",
+      "expected_keys_max": 128,
+      "expected_nuserentries": 1
+    },
+    {
+      "name": "sql/single_forced",
+      "kind": "sql",
+      "sql": "SELECT sum(q.n) FROM generate_series(1,5) p(i) CROSS JOIN LATERAL (SELECT count(*) n FROM g1.docs WHERE d @@ 'common'::tsquery OFFSET (p.i % 1)) q",
+      "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'common'::tsquery",
+      "settings": "SET enable_seqscan=off;",
+      "answer": "1000000",
+      "expected_keys_max": 128,
+      "expected_nuserentries": 1
+    },
+    {
+      "name": "sql/or_forced",
+      "kind": "sql",
+      "sql": "SELECT sum(q.n) FROM generate_series(1,5) p(i) CROSS JOIN LATERAL (SELECT count(*) n FROM g1.docs WHERE d @@ 'common | rare0'::tsquery OFFSET (p.i % 1)) q",
+      "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'common | rare0'::tsquery",
+      "settings": "SET enable_seqscan=off;",
+      "answer": "1000000",
+      "expected_keys_max": 128,
+      "expected_nuserentries": 2
+    },
+    {
+      "name": "sql/seq_control",
+      "kind": "sql",
+      "sql": "SELECT sum(q.n) FROM generate_series(1,5) p(i) CROSS JOIN LATERAL (SELECT count(*) n FROM g1.docs WHERE id % 1000 = 0 OFFSET (p.i % 1)) q",
+      "rows_sql": "SELECT id FROM g1.docs WHERE id % 1000 = 0",
+      "settings": "SET enable_bitmapscan=off;SET enable_indexscan=off;",
+      "answer": "1000",
+      "expected_keys_max": 0,
+      "expected_nuserentries": 1
+    },
+    {
+      "name": "sql/prefix",
+      "kind": "sql",
+      "sql": "SELECT sum(q.n) FROM generate_series(1,100) p(i) CROSS JOIN LATERAL (SELECT count(*) n FROM g1.docs WHERE d @@ 'group1:* & rare0'::tsquery OFFSET (p.i % 1)) q",
+      "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'group1:* & rare0'::tsquery",
+      "settings": "",
+      "answer": "5300",
+      "expected_keys_max": 128,
+      "expected_nuserentries": 2
+    },
+    {
+      "name": "am_dense/loops1",
+      "kind": "am",
+      "index": "g1.docs_d_gin",
+      "query": "dense2 & dense3",
+      "loops": 1,
+      "total_tids": 33333,
+      "expected_nuserentries": 2
+    },
+    {
+      "name": "am_dense/loops3",
+      "kind": "am",
+      "index": "g1.docs_d_gin",
+      "query": "dense2 & dense3",
+      "loops": 3,
+      "total_tids": 99999,
+      "expected_nuserentries": 2
+    },
+    {
+      "name": "am_rare/loops1",
+      "kind": "am",
+      "index": "g1.docs_d_gin",
+      "query": "rare0",
+      "loops": 1,
+      "total_tids": 200,
+      "expected_nuserentries": 1
+    },
+    {
+      "name": "am_rare/loops3",
+      "kind": "am",
+      "index": "g1.docs_d_gin",
+      "query": "rare0",
+      "loops": 3,
+      "total_tids": 600,
+      "expected_nuserentries": 1
+    },
+    {
+      "name": "am_full/loops1",
+      "kind": "am",
+      "index": "g1.docs_d_gin",
+      "query": "common",
+      "loops": 1,
+      "total_tids": 200000,
+      "expected_nuserentries": 1
+    },
+    {
+      "name": "am_full/loops3",
+      "kind": "am",
+      "index": "g1.docs_d_gin",
+      "query": "common",
+      "loops": 3,
+      "total_tids": 600000,
+      "expected_nuserentries": 1
+    },
+    {
+      "name": "am_or/loops1",
+      "kind": "am",
+      "index": "g1.docs_d_gin",
+      "query": "common | rare0",
+      "loops": 1,
+      "total_tids": 200000,
+      "expected_nuserentries": 2
+    },
+    {
+      "name": "am_or/loops3",
+      "kind": "am",
+      "index": "g1.docs_d_gin",
+      "query": "common | rare0",
+      "loops": 3,
+      "total_tids": 600000,
+      "expected_nuserentries": 2
+    },
+    {
+      "name": "am_inline/loops1",
+      "kind": "am",
+      "index": "g1.inline_d_gin",
+      "query": "common & token17",
+      "loops": 1,
+      "total_tids": 4,
+      "expected_nuserentries": 2
+    },
+    {
+      "name": "am_inline/loops3",
+      "kind": "am",
+      "index": "g1.inline_d_gin",
+      "query": "common & token17",
+      "loops": 3,
+      "total_tids": 12,
+      "expected_nuserentries": 2
+    },
+    {
+      "name": "am_absent/loops1",
+      "kind": "am",
+      "index": "g1.docs_d_gin",
+      "query": "common & missing",
+      "loops": 1,
+      "total_tids": 0,
+      "expected_nuserentries": 2
+    },
+    {
+      "name": "am_absent/loops3",
+      "kind": "am",
+      "index": "g1.docs_d_gin",
+      "query": "common & missing",
+      "loops": 3,
+      "total_tids": 0,
+      "expected_nuserentries": 2
+    }
+  ],
+  "common_settings": "SET search_path=g1,public,pg_catalog;SET jit=off;SET max_parallel_workers_per_gather=0;SET enable_memoize=off;SET gin_fuzzy_search_limit=0;SET statement_timeout='180s';SET lock_timeout='10s';SET work_mem='64MB'",
+  "max_keys_per_capture": 128,
+  "vector_run_hist_bins": [
+    "1",
+    "2",
+    "3",
+    "4",
+    "5..8",
+    "9..16",
+    "17..32",
+    "33..63",
+    "64",
+    "65..127",
+    "128..255",
+    "256+"
+  ],
+  "miss_run_hist_bins": "exact lengths0..64;0mustremainzero",
+  "timing_samples": 0
+}

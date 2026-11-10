@@ -1,0 +1,154 @@
+{
+  "cases": [
+    {
+      "name": "sql_or_dense1",
+      "kind": "sql",
+      "settings": "SET enable_seqscan=off;SET enable_bitmapscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET work_mem='64MB';",
+      "index": "docs_d_gin",
+      "probes": 1,
+      "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'common'::tsquery",
+      "sql": "SELECT count(*),sum(id) FROM g1.docs WHERE d @@ 'common'::tsquery",
+      "answer": "200000|20000100000",
+      "expected_rows_digest": {
+        "bytes": 1288894,
+        "rows": 200000,
+        "sha256": "01b59173dc3205893607560d9f6caca711aa6c0f3303db7bbccb99552a9fc33a"
+      },
+      "origin_case": "am_or_dense1",
+      "origin_query": "common",
+      "origin_query_sha256": "92a5dc04bd6f9fb8f29f8066fed8a5c1e81bc59ad48a11283b63736867e4f2a8",
+      "heap_threshold_negative": true
+    },
+    {
+      "name": "sql_or_dense2",
+      "kind": "sql",
+      "settings": "SET enable_seqscan=off;SET enable_bitmapscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET work_mem='64MB';",
+      "index": "docs_d_gin",
+      "probes": 1,
+      "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'common | group0'::tsquery",
+      "sql": "SELECT count(*),sum(id) FROM g1.docs WHERE d @@ 'common | group0'::tsquery",
+      "answer": "200000|20000100000",
+      "expected_rows_digest": {
+        "bytes": 1288894,
+        "rows": 200000,
+        "sha256": "01b59173dc3205893607560d9f6caca711aa6c0f3303db7bbccb99552a9fc33a"
+      },
+      "origin_case": "am_or_dense2",
+      "origin_query": "common | group0",
+      "origin_query_sha256": "89f52246b40be9b6f45f57c11224be06cb9797914b083e88627e048d10075be1",
+      "heap_threshold_negative": true
+    },
+    {
+      "name": "sql_or_dense7",
+      "kind": "sql",
+      "settings": "SET enable_seqscan=off;SET enable_bitmapscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET work_mem='64MB';",
+      "index": "docs_d_gin",
+      "probes": 1,
+      "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'common | group0 | group1 | group2 | group3 | group4 | group5'::tsquery",
+      "sql": "SELECT count(*),sum(id) FROM g1.docs WHERE d @@ 'common | group0 | group1 | group2 | group3 | group4 | group5'::tsquery",
+      "answer": "200000|20000100000",
+      "expected_rows_digest": {
+        "bytes": 1288894,
+        "rows": 200000,
+        "sha256": "01b59173dc3205893607560d9f6caca711aa6c0f3303db7bbccb99552a9fc33a"
+      },
+      "origin_case": "am_or_dense7",
+      "origin_query": "common | group0 | group1 | group2 | group3 | group4 | group5",
+      "origin_query_sha256": "44de0cdfe0c8ea558c8f3faaf55d7e70c2358a49cb7e032fddbb6c20d057eee9",
+      "heap_threshold_negative": true
+    },
+    {
+      "name": "sql_or_dense8",
+      "kind": "sql",
+      "settings": "SET enable_seqscan=off;SET enable_bitmapscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET work_mem='64MB';",
+      "index": "docs_d_gin",
+      "probes": 1,
+      "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'common | group0 | group1 | group2 | group3 | group4 | group5 | group6'::tsquery",
+      "sql": "SELECT count(*),sum(id) FROM g1.docs WHERE d @@ 'common | group0 | group1 | group2 | group3 | group4 | group5 | group6'::tsquery",
+      "answer": "200000|20000100000",
+      "expected_rows_digest": {
+        "bytes": 1288894,
+        "rows": 200000,
+        "sha256": "01b59173dc3205893607560d9f6caca711aa6c0f3303db7bbccb99552a9fc33a"
+      },
+      "origin_case": "am_or_dense8",
+      "origin_query": "common | group0 | group1 | group2 | group3 | group4 | group5 | group6",
+      "origin_query_sha256": "5654b9d9a0f623dd17df81b4dea78924169e555e8b7f442ec8afb808b67edc67",
+      "heap_threshold_negative": false
+    },
+    {
+      "name": "sql_or_dense32",
+      "kind": "sql",
+      "settings": "SET enable_seqscan=off;SET enable_bitmapscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET work_mem='64MB';",
+      "index": "docs_d_gin",
+      "probes": 1,
+      "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'common | group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7 | group8 | group9 | group10 | group11 | group12 | group13 | group14 | group15 | group16 | group17 | group18 | group19 | group20 | group21 | group22 | group23 | group24 | group25 | group26 | group27 | group28 | group29 | group30'::tsquery",
+      "sql": "SELECT count(*),sum(id) FROM g1.docs WHERE d @@ 'common | group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7 | group8 | group9 | group10 | group11 | group12 | group13 | group14 | group15 | group16 | group17 | group18 | group19 | group20 | group21 | group22 | group23 | group24 | group25 | group26 | group27 | group28 | group29 | group30'::tsquery",
+      "answer": "200000|20000100000",
+      "expected_rows_digest": {
+        "bytes": 1288894,
+        "rows": 200000,
+        "sha256": "01b59173dc3205893607560d9f6caca711aa6c0f3303db7bbccb99552a9fc33a"
+      },
+      "origin_case": "am_or_dense32",
+      "origin_query": "common | group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7 | group8 | group9 | group10 | group11 | group12 | group13 | group14 | group15 | group16 | group17 | group18 | group19 | group20 | group21 | group22 | group23 | group24 | group25 | group26 | group27 | group28 | group29 | group30",
+      "origin_query_sha256": "18cca3ab27a3e0d526e33ff2d439c8eb8fc89f76cfa3402f6ef0af3fbb88f085",
+      "heap_threshold_negative": false
+    },
+    {
+      "name": "sql_or_dense128",
+      "kind": "sql",
+      "settings": "SET enable_seqscan=off;SET enable_bitmapscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET work_mem='64MB';",
+      "index": "docs_d_gin",
+      "probes": 1,
+      "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'common | group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7 | group8 | group9 | group10 | group11 | group12 | group13 | group14 | group15 | group16 | group17 | group18 | group19 | group20 | group21 | group22 | group23 | group24 | group25 | group26 | group27 | group28 | group29 | group30 | group31 | group32 | group33 | group34 | group35 | group36 | group37 | group38 | group39 | group40 | group41 | group42 | group43 | group44 | group45 | group46 | group47 | group48 | group49 | group50 | group51 | group52 | group53 | group54 | group55 | group56 | group57 | group58 | group59 | group60 | group61 | group62 | group63 | group64 | group65 | group66 | group67 | group68 | group69 | group70 | group71 | group72 | group73 | group74 | group75 | group76 | group77 | group78 | group79 | group80 | group81 | group82 | group83 | group84 | group85 | group86 | group87 | group88 | group89 | group90 | group91 | group92 | group93 | group94 | group95 | group96 | group97 | group98 | group99 | group100 | group101 | group102 | group103 | group104 | group105 | group106 | group107 | group108 | group109 | group110 | group111 | group112 | group113 | group114 | group115 | group116 | group117 | group118 | group119 | group120 | group121 | group122 | group123 | group124 | group125 | group126'::tsquery",
+      "sql": "SELECT count(*),sum(id) FROM g1.docs WHERE d @@ 'common | group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7 | group8 | group9 | group10 | group11 | group12 | group13 | group14 | group15 | group16 | group17 | group18 | group19 | group20 | group21 | group22 | group23 | group24 | group25 | group26 | group27 | group28 | group29 | group30 | group31 | group32 | group33 | group34 | group35 | group36 | group37 | group38 | group39 | group40 | group41 | group42 | group43 | group44 | group45 | group46 | group47 | group48 | group49 | group50 | group51 | group52 | group53 | group54 | group55 | group56 | group57 | group58 | group59 | group60 | group61 | group62 | group63 | group64 | group65 | group66 | group67 | group68 | group69 | group70 | group71 | group72 | group73 | group74 | group75 | group76 | group77 | group78 | group79 | group80 | group81 | group82 | group83 | group84 | group85 | group86 | group87 | group88 | group89 | group90 | group91 | group92 | group93 | group94 | group95 | group96 | group97 | group98 | group99 | group100 | group101 | group102 | group103 | group104 | group105 | group106 | group107 | group108 | group109 | group110 | group111 | group112 | group113 | group114 | group115 | group116 | group117 | group118 | group119 | group120 | group121 | group122 | group123 | group124 | group125 | group126'::tsquery",
+      "answer": "200000|20000100000",
+      "expected_rows_digest": {
+        "bytes": 1288894,
+        "rows": 200000,
+        "sha256": "01b59173dc3205893607560d9f6caca711aa6c0f3303db7bbccb99552a9fc33a"
+      },
+      "origin_case": "am_or_dense128",
+      "origin_query": "common | group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7 | group8 | group9 | group10 | group11 | group12 | group13 | group14 | group15 | group16 | group17 | group18 | group19 | group20 | group21 | group22 | group23 | group24 | group25 | group26 | group27 | group28 | group29 | group30 | group31 | group32 | group33 | group34 | group35 | group36 | group37 | group38 | group39 | group40 | group41 | group42 | group43 | group44 | group45 | group46 | group47 | group48 | group49 | group50 | group51 | group52 | group53 | group54 | group55 | group56 | group57 | group58 | group59 | group60 | group61 | group62 | group63 | group64 | group65 | group66 | group67 | group68 | group69 | group70 | group71 | group72 | group73 | group74 | group75 | group76 | group77 | group78 | group79 | group80 | group81 | group82 | group83 | group84 | group85 | group86 | group87 | group88 | group89 | group90 | group91 | group92 | group93 | group94 | group95 | group96 | group97 | group98 | group99 | group100 | group101 | group102 | group103 | group104 | group105 | group106 | group107 | group108 | group109 | group110 | group111 | group112 | group113 | group114 | group115 | group116 | group117 | group118 | group119 | group120 | group121 | group122 | group123 | group124 | group125 | group126",
+      "origin_query_sha256": "5f446832962955499b2bdadc945819636b3e1c6b22a0974630ebaef73a76478e",
+      "heap_threshold_negative": false
+    },
+    {
+      "name": "sql_or_dense512",
+      "kind": "sql",
+      "settings": "SET enable_seqscan=off;SET enable_bitmapscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET work_mem='64MB';",
+      "index": "docs_d_gin",
+      "probes": 1,
+      "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'common | group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7 | group8 | group9 | group10 | group11 | group12 | group13 | group14 | group15 | group16 | group17 | group18 | group19 | group20 | group21 | group22 | group23 | group24 | group25 | group26 | group27 | group28 | group29 | group30 | group31 | group32 | group33 | group34 | group35 | group36 | group37 | group38 | group39 | group40 | group41 | group42 | group43 | group44 | group45 | group46 | group47 | group48 | group49 | group50 | group51 | group52 | group53 | group54 | group55 | group56 | group57 | group58 | group59 | group60 | group61 | group62 | group63 | group64 | group65 | group66 | group67 | group68 | group69 | group70 | group71 | group72 | group73 | group74 | group75 | group76 | group77 | group78 | group79 | group80 | group81 | group82 | group83 | group84 | group85 | group86 | group87 | group88 | group89 | group90 | group91 | group92 | group93 | group94 | group95 | group96 | group97 | group98 | group99 | group100 | group101 | group102 | group103 | group104 | group105 | group106 | group107 | group108 | group109 | group110 | group111 | group112 | group113 | group114 | group115 | group116 | group117 | group118 | group119 | group120 | group121 | group122 | group123 | group124 | group125 | group126 | group127 | group128 | group129 | group130 | group131 | group132 | group133 | group134 | group135 | group136 | group137 | group138 | group139 | group140 | group141 | group142 | group143 | group144 | group145 | group146 | group147 | group148 | group149 | group150 | group151 | group152 | group153 | group154 | group155 | group156 | group157 | group158 | group159 | group160 | group161 | group162 | group163 | group164 | group165 | group166 | group167 | group168 | group169 | group170 | group171 | group172 | group173 | group174 | group175 | group176 | group177 | group178 | group179 | group180 | group181 | group182 | group183 | group184 | group185 | group186 | group187 | group188 | group189 | group190 | group191 | group192 | group193 | group194 | group195 | group196 | group197 | group198 | group199 | group200 | group201 | group202 | group203 | group204 | group205 | group206 | group207 | group208 | group209 | group210 | group211 | group212 | group213 | group214 | group215 | group216 | group217 | group218 | group219 | group220 | group221 | group222 | group223 | group224 | group225 | group226 | group227 | group228 | group229 | group230 | group231 | group232 | group233 | group234 | group235 | group236 | group237 | group238 | group239 | group240 | group241 | group242 | group243 | group244 | group245 | group246 | group247 | group248 | group249 | group250 | group251 | group252 | group253 | group254 | group255 | group256 | group257 | group258 | group259 | group260 | group261 | group262 | group263 | group264 | group265 | group266 | group267 | group268 | group269 | group270 | group271 | group272 | group273 | group274 | group275 | group276 | group277 | group278 | group279 | group280 | group281 | group282 | group283 | group284 | group285 | group286 | group287 | group288 | group289 | group290 | group291 | group292 | group293 | group294 | group295 | group296 | group297 | group298 | group299 | group300 | group301 | group302 | group303 | group304 | group305 | group306 | group307 | group308 | group309 | group310 | group311 | group312 | group313 | group314 | group315 | group316 | group317 | group318 | group319 | group320 | group321 | group322 | group323 | group324 | group325 | group326 | group327 | group328 | group329 | group330 | group331 | group332 | group333 | group334 | group335 | group336 | group337 | group338 | group339 | group340 | group341 | group342 | group343 | group344 | group345 | group346 | group347 | group348 | group349 | group350 | group351 | group352 | group353 | group354 | group355 | group356 | group357 | group358 | group359 | group360 | group361 | group362 | group363 | group364 | group365 | group366 | group367 | group368 | group369 | group370 | group371 | group372 | group373 | group374 | group375 | group376 | group377 | group378 | group379 | group380 | group381 | group382 | group383 | group384 | group385 | group386 | group387 | group388 | group389 | group390 | group391 | group392 | group393 | group394 | group395 | group396 | group397 | group398 | group399 | group400 | group401 | group402 | group403 | group404 | group405 | group406 | group407 | group408 | group409 | group410 | group411 | group412 | group413 | group414 | group415 | group416 | group417 | group418 | group419 | group420 | group421 | group422 | group423 | group424 | group425 | group426 | group427 | group428 | group429 | group430 | group431 | group432 | group433 | group434 | group435 | group436 | group437 | group438 | group439 | group440 | group441 | group442 | group443 | group444 | group445 | group446 | group447 | group448 | group449 | group450 | group451 | group452 | group453 | group454 | group455 | group456 | group457 | group458 | group459 | group460 | group461 | group462 | group463 | group464 | group465 | group466 | group467 | group468 | group469 | group470 | group471 | group472 | group473 | group474 | group475 | group476 | group477 | group478 | group479 | group480 | group481 | group482 | group483 | group484 | group485 | group486 | group487 | group488 | group489 | group490 | group491 | group492 | group493 | group494 | group495 | group496 | group497 | group498 | group499 | group500 | group501 | group502 | group503 | group504 | group505 | group506 | group507 | group508 | group509 | group510'::tsquery",
+      "sql": "SELECT count(*),sum(id) FROM g1.docs WHERE d @@ 'common | group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7 | group8 | group9 | group10 | group11 | group12 | group13 | group14 | group15 | group16 | group17 | group18 | group19 | group20 | group21 | group22 | group23 | group24 | group25 | group26 | group27 | group28 | group29 | group30 | group31 | group32 | group33 | group34 | group35 | group36 | group37 | group38 | group39 | group40 | group41 | group42 | group43 | group44 | group45 | group46 | group47 | group48 | group49 | group50 | group51 | group52 | group53 | group54 | group55 | group56 | group57 | group58 | group59 | group60 | group61 | group62 | group63 | group64 | group65 | group66 | group67 | group68 | group69 | group70 | group71 | group72 | group73 | group74 | group75 | group76 | group77 | group78 | group79 | group80 | group81 | group82 | group83 | group84 | group85 | group86 | group87 | group88 | group89 | group90 | group91 | group92 | group93 | group94 | group95 | group96 | group97 | group98 | group99 | group100 | group101 | group102 | group103 | group104 | group105 | group106 | group107 | group108 | group109 | group110 | group111 | group112 | group113 | group114 | group115 | group116 | group117 | group118 | group119 | group120 | group121 | group122 | group123 | group124 | group125 | group126 | group127 | group128 | group129 | group130 | group131 | group132 | group133 | group134 | group135 | group136 | group137 | group138 | group139 | group140 | group141 | group142 | group143 | group144 | group145 | group146 | group147 | group148 | group149 | group150 | group151 | group152 | group153 | group154 | group155 | group156 | group157 | group158 | group159 | group160 | group161 | group162 | group163 | group164 | group165 | group166 | group167 | group168 | group169 | group170 | group171 | group172 | group173 | group174 | group175 | group176 | group177 | group178 | group179 | group180 | group181 | group182 | group183 | group184 | group185 | group186 | group187 | group188 | group189 | group190 | group191 | group192 | group193 | group194 | group195 | group196 | group197 | group198 | group199 | group200 | group201 | group202 | group203 | group204 | group205 | group206 | group207 | group208 | group209 | group210 | group211 | group212 | group213 | group214 | group215 | group216 | group217 | group218 | group219 | group220 | group221 | group222 | group223 | group224 | group225 | group226 | group227 | group228 | group229 | group230 | group231 | group232 | group233 | group234 | group235 | group236 | group237 | group238 | group239 | group240 | group241 | group242 | group243 | group244 | group245 | group246 | group247 | group248 | group249 | group250 | group251 | group252 | group253 | group254 | group255 | group256 | group257 | group258 | group259 | group260 | group261 | group262 | group263 | group264 | group265 | group266 | group267 | group268 | group269 | group270 | group271 | group272 | group273 | group274 | group275 | group276 | group277 | group278 | group279 | group280 | group281 | group282 | group283 | group284 | group285 | group286 | group287 | group288 | group289 | group290 | group291 | group292 | group293 | group294 | group295 | group296 | group297 | group298 | group299 | group300 | group301 | group302 | group303 | group304 | group305 | group306 | group307 | group308 | group309 | group310 | group311 | group312 | group313 | group314 | group315 | group316 | group317 | group318 | group319 | group320 | group321 | group322 | group323 | group324 | group325 | group326 | group327 | group328 | group329 | group330 | group331 | group332 | group333 | group334 | group335 | group336 | group337 | group338 | group339 | group340 | group341 | group342 | group343 | group344 | group345 | group346 | group347 | group348 | group349 | group350 | group351 | group352 | group353 | group354 | group355 | group356 | group357 | group358 | group359 | group360 | group361 | group362 | group363 | group364 | group365 | group366 | group367 | group368 | group369 | group370 | group371 | group372 | group373 | group374 | group375 | group376 | group377 | group378 | group379 | group380 | group381 | group382 | group383 | group384 | group385 | group386 | group387 | group388 | group389 | group390 | group391 | group392 | group393 | group394 | group395 | group396 | group397 | group398 | group399 | group400 | group401 | group402 | group403 | group404 | group405 | group406 | group407 | group408 | group409 | group410 | group411 | group412 | group413 | group414 | group415 | group416 | group417 | group418 | group419 | group420 | group421 | group422 | group423 | group424 | group425 | group426 | group427 | group428 | group429 | group430 | group431 | group432 | group433 | group434 | group435 | group436 | group437 | group438 | group439 | group440 | group441 | group442 | group443 | group444 | group445 | group446 | group447 | group448 | group449 | group450 | group451 | group452 | group453 | group454 | group455 | group456 | group457 | group458 | group459 | group460 | group461 | group462 | group463 | group464 | group465 | group466 | group467 | group468 | group469 | group470 | group471 | group472 | group473 | group474 | group475 | group476 | group477 | group478 | group479 | group480 | group481 | group482 | group483 | group484 | group485 | group486 | group487 | group488 | group489 | group490 | group491 | group492 | group493 | group494 | group495 | group496 | group497 | group498 | group499 | group500 | group501 | group502 | group503 | group504 | group505 | group506 | group507 | group508 | group509 | group510'::tsquery",
+      "answer": "200000|20000100000",
+      "expected_rows_digest": {
+        "bytes": 1288894,
+        "rows": 200000,
+        "sha256": "01b59173dc3205893607560d9f6caca711aa6c0f3303db7bbccb99552a9fc33a"
+      },
+      "origin_case": "am_or_dense512",
+      "origin_query": "common | group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7 | group8 | group9 | group10 | group11 | group12 | group13 | group14 | group15 | group16 | group17 | group18 | group19 | group20 | group21 | group22 | group23 | group24 | group25 | group26 | group27 | group28 | group29 | group30 | group31 | group32 | group33 | group34 | group35 | group36 | group37 | group38 | group39 | group40 | group41 | group42 | group43 | group44 | group45 | group46 | group47 | group48 | group49 | group50 | group51 | group52 | group53 | group54 | group55 | group56 | group57 | group58 | group59 | group60 | group61 | group62 | group63 | group64 | group65 | group66 | group67 | group68 | group69 | group70 | group71 | group72 | group73 | group74 | group75 | group76 | group77 | group78 | group79 | group80 | group81 | group82 | group83 | group84 | group85 | group86 | group87 | group88 | group89 | group90 | group91 | group92 | group93 | group94 | group95 | group96 | group97 | group98 | group99 | group100 | group101 | group102 | group103 | group104 | group105 | group106 | group107 | group108 | group109 | group110 | group111 | group112 | group113 | group114 | group115 | group116 | group117 | group118 | group119 | group120 | group121 | group122 | group123 | group124 | group125 | group126 | group127 | group128 | group129 | group130 | group131 | group132 | group133 | group134 | group135 | group136 | group137 | group138 | group139 | group140 | group141 | group142 | group143 | group144 | group145 | group146 | group147 | group148 | group149 | group150 | group151 | group152 | group153 | group154 | group155 | group156 | group157 | group158 | group159 | group160 | group161 | group162 | group163 | group164 | group165 | group166 | group167 | group168 | group169 | group170 | group171 | group172 | group173 | group174 | group175 | group176 | group177 | group178 | group179 | group180 | group181 | group182 | group183 | group184 | group185 | group186 | group187 | group188 | group189 | group190 | group191 | group192 | group193 | group194 | group195 | group196 | group197 | group198 | group199 | group200 | group201 | group202 | group203 | group204 | group205 | group206 | group207 | group208 | group209 | group210 | group211 | group212 | group213 | group214 | group215 | group216 | group217 | group218 | group219 | group220 | group221 | group222 | group223 | group224 | group225 | group226 | group227 | group228 | group229 | group230 | group231 | group232 | group233 | group234 | group235 | group236 | group237 | group238 | group239 | group240 | group241 | group242 | group243 | group244 | group245 | group246 | group247 | group248 | group249 | group250 | group251 | group252 | group253 | group254 | group255 | group256 | group257 | group258 | group259 | group260 | group261 | group262 | group263 | group264 | group265 | group266 | group267 | group268 | group269 | group270 | group271 | group272 | group273 | group274 | group275 | group276 | group277 | group278 | group279 | group280 | group281 | group282 | group283 | group284 | group285 | group286 | group287 | group288 | group289 | group290 | group291 | group292 | group293 | group294 | group295 | group296 | group297 | group298 | group299 | group300 | group301 | group302 | group303 | group304 | group305 | group306 | group307 | group308 | group309 | group310 | group311 | group312 | group313 | group314 | group315 | group316 | group317 | group318 | group319 | group320 | group321 | group322 | group323 | group324 | group325 | group326 | group327 | group328 | group329 | group330 | group331 | group332 | group333 | group334 | group335 | group336 | group337 | group338 | group339 | group340 | group341 | group342 | group343 | group344 | group345 | group346 | group347 | group348 | group349 | group350 | group351 | group352 | group353 | group354 | group355 | group356 | group357 | group358 | group359 | group360 | group361 | group362 | group363 | group364 | group365 | group366 | group367 | group368 | group369 | group370 | group371 | group372 | group373 | group374 | group375 | group376 | group377 | group378 | group379 | group380 | group381 | group382 | group383 | group384 | group385 | group386 | group387 | group388 | group389 | group390 | group391 | group392 | group393 | group394 | group395 | group396 | group397 | group398 | group399 | group400 | group401 | group402 | group403 | group404 | group405 | group406 | group407 | group408 | group409 | group410 | group411 | group412 | group413 | group414 | group415 | group416 | group417 | group418 | group419 | group420 | group421 | group422 | group423 | group424 | group425 | group426 | group427 | group428 | group429 | group430 | group431 | group432 | group433 | group434 | group435 | group436 | group437 | group438 | group439 | group440 | group441 | group442 | group443 | group444 | group445 | group446 | group447 | group448 | group449 | group450 | group451 | group452 | group453 | group454 | group455 | group456 | group457 | group458 | group459 | group460 | group461 | group462 | group463 | group464 | group465 | group466 | group467 | group468 | group469 | group470 | group471 | group472 | group473 | group474 | group475 | group476 | group477 | group478 | group479 | group480 | group481 | group482 | group483 | group484 | group485 | group486 | group487 | group488 | group489 | group490 | group491 | group492 | group493 | group494 | group495 | group496 | group497 | group498 | group499 | group500 | group501 | group502 | group503 | group504 | group505 | group506 | group507 | group508 | group509 | group510",
+      "origin_query_sha256": "2d7871a89e318f8f9237bb29a2f3bd7fdb668ee1acb9b2526ff2da7accf8d320",
+      "heap_threshold_negative": false
+    },
+    {
+      "name": "seq_control",
+      "kind": "sql",
+      "settings": "SET enable_seqscan=on;SET enable_bitmapscan=off;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET work_mem='64MB';",
+      "index": null,
+      "probes": 1,
+      "rows_sql": "SELECT id FROM g1.docs WHERE id BETWEEN 1 AND 200000",
+      "sql": "SELECT count(*),sum(id) FROM g1.docs WHERE id BETWEEN 1 AND 200000",
+      "answer": "200000|20000100000",
+      "expected_rows_digest": {
+        "bytes": 1288894,
+        "rows": 200000,
+        "sha256": "01b59173dc3205893607560d9f6caca711aa6c0f3303db7bbccb99552a9fc33a"
+      },
+      "origin_case": null,
+      "heap_threshold_negative": true
+    }
+  ]
+}
