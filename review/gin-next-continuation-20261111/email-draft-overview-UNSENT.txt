@@ -1,0 +1,12 @@
+UNSENT OVERVIEW DRAFT
+Subject: GIN heap SQL follow-ups and dispatcher observations
+
+The unchanged required-entry heap prototype reduces natural GIN OR32/OR128 executor time by about 10–11% in two fixed-B72 cohorts. Short single-query negatives and exact-twin variation remain. A separate 100-rescan command experiment gives OR8 about 4.5–5.3% lower executor time; it does not replace the single-scan evidence.
+
+An independent K3 observer confirms dense switches to the direct callback after 64 consecutive misses. Eighteen untimed reports do not explain the remaining old K3 latency regression. No threshold or production policy was retuned. Complete packets retain all raw data, negative controls, absolute dispersions, source patches and reproduction instructions.
+
+The heap/caching direction has prior context, not an algorithmic novelty claim: https://www.postgresql.org/message-id/52F373CC.4050800%40vmware.com
+
+HEAP-NATURAL-SQL: https://github.com/pg-sharding/cpg/tree/51c2b347093c0b80cc6166de89b7783c2f906d27/review/gin-next-heap-natural-sql-20261111/
+HEAP-SHORT-BATCH-SQL: https://github.com/pg-sharding/cpg/tree/a095314f7b1e2e328446e0dcc139482e293c1e4f/review/gin-next-heap-short-batch-sql-20261111/
+K3-DISPATCH: https://github.com/pg-sharding/cpg/tree/0aefa33ffe82a37c7012f0a9cf255f8b9140a1c2/review/gin-next-k3-dispatch-diagnostic-20261111/
