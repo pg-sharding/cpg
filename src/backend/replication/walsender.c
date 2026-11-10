@@ -221,8 +221,8 @@ static bool shutdown_stream_done_queued = false;
 
 /*
  * Last archived WAL file. This is fetched from pgstat periodically and sent
- * to the standby. last_archival_report_timestamp tracks when we last sent
- * the report to avoid excessive pgstat access.
+ * to the standby. last_archival_report_timestamp tracks when we last checked
+ * the archive status to avoid excessive pgstat access.
  */
 static char last_archived_report_wal[MAX_XFN_CHARS + 1];
 static TimestampTz last_archival_report_timestamp = 0;
@@ -315,6 +315,7 @@ static void ProcessStandbyMessage(void);
 static void ProcessStandbyReplyMessage(void);
 static void ProcessStandbyHSFeedbackMessage(void);
 static void ProcessStandbyPSRequestMessage(void);
+static bool WalSndArchiveReportEnabled(void);
 static void WalSndArchivalReport(void);
 static void ProcessRepliesIfAny(void);
 static void ProcessPendingWrites(void);
@@ -2868,6 +2869,18 @@ ProcessStandbyHSFeedbackMessage(void)
 	}
 }
 
+/* Are archive status reports enabled for the current streaming phase? */
+static bool
+WalSndArchiveReportEnabled(void)
+{
+	return archive_status_report_interval > 0 &&
+		!streamingDoneSending &&
+		(MyWalSnd->state == WALSNDSTATE_CATCHUP ||
+		 MyWalSnd->state == WALSNDSTATE_STREAMING) &&
+		(MyReplicationSlot == NULL ||
+		 MyReplicationSlot->data.persistency != RS_TEMPORARY);
+}
+
 /*
  * Send archival status report to standby.
  *
@@ -2883,20 +2896,8 @@ WalSndArchivalReport(void)
 	TimestampTz now;
 	char		last_archived[MAX_XFN_CHARS + 1];
 
-	/* Only send reports when requested */
-	if (archive_status_report_interval <= 0)
-		return;
-
-	if (MyWalSnd->state != WALSNDSTATE_CATCHUP &&
-		MyWalSnd->state != WALSNDSTATE_STREAMING)
-		return;
-
-	/*
-	 * Don't send to temporary replication slots (used by pg_basebackup).
-	 * Connections without slots (regular standbys) are OK.
-	 */
-	if (MyReplicationSlot != NULL &&
-		MyReplicationSlot->data.persistency == RS_TEMPORARY)
+	/* Reports are opt-in and must stop before CopyDone. */
+	if (!WalSndArchiveReportEnabled())
 		return;
 
 	now = GetCurrentTimestamp();
@@ -2961,6 +2962,10 @@ WalSndArchivalReport(void)
 	pq_sendbytes(&output_message, last_archived, strlen(last_archived));
 	/* ... and send it wrapped in CopyData */
 	pq_putmessage_noblock(PqMsg_CopyData, output_message.data, output_message.len);
+
+	/* Reports must make progress even when keepalive timeouts are disabled. */
+	if (pq_flush_if_writable() != 0)
+		WalSndShutdown();
 }
 
 /*
@@ -3060,6 +3065,8 @@ ProcessStandbyPSRequestMessage(void)
  *
  * If wal_sender_shutdown_timeout is enabled, during shutdown, we want to
  * wake up in time to exit when it expires.
+ *
+ * Archive reports have a separate deadline even when timeouts are disabled.
  */
 static long
 WalSndComputeSleeptime(TimestampTz now)
@@ -3087,6 +3094,16 @@ WalSndComputeSleeptime(TimestampTz now)
 
 		/* Compute relative time until wakeup. */
 		sleeptime = TimestampDifferenceMilliseconds(now, wakeup_time);
+	}
+
+	if (WalSndArchiveReportEnabled())
+	{
+		long		archive_sleeptime;
+
+		wakeup_time = TimestampTzPlusMilliseconds(last_archival_report_timestamp,
+												  archive_status_report_interval);
+		archive_sleeptime = TimestampDifferenceMilliseconds(now, wakeup_time);
+		sleeptime = Min(sleeptime, archive_sleeptime);
 	}
 
 	if (shutdown_request_timestamp != 0 && wal_sender_shutdown_timeout > 0)
@@ -4627,6 +4644,9 @@ WalSndKeepaliveIfNecessary(void)
 {
 	TimestampTz ping_time;
 
+	/* Archive reports have their own deadline, independent of keepalives. */
+	WalSndArchivalReport();
+
 	/*
 	 * Don't send keepalive messages if timeouts are globally disabled or
 	 * we're doing something not partaking in timeouts.
@@ -4652,9 +4672,6 @@ WalSndKeepaliveIfNecessary(void)
 		if (pq_flush_if_writable() != 0)
 			WalSndShutdown();
 	}
-
-	/* Send archival status report if needed */
-	WalSndArchivalReport();
 }
 
 /*
