@@ -194,6 +194,7 @@ ginFillScanKey(GinScanOpaque so, OffsetNumber attnum,
 	key->nrequired = 0;
 	key->nadditional = 0;
 	key->requiredEntries = NULL;
+	key->requiredHeap = NULL;
 	key->additionalEntries = NULL;
 
 	ginInitConsistentFunction(ginstate, key);

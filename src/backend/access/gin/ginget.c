@@ -534,6 +534,26 @@ entryIndexByFrequencyCmp(const void *a1, const void *a2, void *arg)
 		return 1;
 }
 
+/* Sift a node down; cached bounds are only raised during scans. */
+static void
+ginRequiredHeapSiftDown(GinRequiredHeapItem *heap, int count, int root)
+{
+	GinRequiredHeapItem item = heap[root];
+	int			child;
+
+	while ((child = root * 2 + 1) < count)
+	{
+		if (child + 1 < count &&
+			ginCompareItemPointers(&heap[child + 1].item, &heap[child].item) < 0)
+			child++;
+		if (ginCompareItemPointers(&item.item, &heap[child].item) <= 0)
+			break;
+		heap[root] = heap[child];
+		root = child;
+	}
+	heap[root] = item;
+}
+
 static void
 startScanKey(GinState *ginstate, GinScanOpaque so, GinScanKey key)
 {
@@ -629,6 +649,25 @@ startScanKey(GinState *ginstate, GinScanOpaque so, GinScanKey key)
 		key->nadditional = 0;
 		key->requiredEntries = palloc_array(GinScanEntry, 1);
 		key->requiredEntries[0] = key->scanEntry[0];
+	}
+	/* Tiny keys and fuzzy result reduction retain their existing scan order. */
+	key->requiredHeap = NULL;
+	if (key->nrequired >= 8 && GinFuzzySearchLimit == 0)
+	{
+		MemoryContextSwitchTo(so->keyCtx);
+		key->requiredHeap = palloc_array(GinRequiredHeapItem, key->nrequired);
+		for (int i = 0; i < key->nrequired; i++)
+		{
+			GinScanEntry entry = key->requiredEntries[i];
+
+			key->requiredHeap[i].entry = entry;
+			if (entry->isFinished)
+				ItemPointerSetMax(&key->requiredHeap[i].item);
+			else
+				key->requiredHeap[i].item = entry->curItem;
+		}
+		for (int i = key->nrequired / 2; i > 0; i--)
+			ginRequiredHeapSiftDown(key->requiredHeap, key->nrequired, i - 1);
 	}
 	MemoryContextSwitchTo(oldCtx);
 }
@@ -1013,6 +1052,51 @@ entryGetItem(GinState *ginstate, GinScanEntry entry,
 }
 
 /*
+ * Every cached item is a lower bound on its entry's current position.  An
+ * entry can also be advanced by another scan key, so never order this heap
+ * by dereferencing mutable entries.  Repair stale roots before using them.
+ */
+static bool
+ginRequiredHeapGetItem(GinState *ginstate, GinScanKey key,
+					   ItemPointerData advancePast, ItemPointerData *minItem)
+{
+	GinRequiredHeapItem *heap = key->requiredHeap;
+
+	for (;;)
+	{
+		GinScanEntry entry = heap[0].entry;
+		ItemPointerData current;
+
+		CHECK_FOR_INTERRUPTS();
+		if (entry->isFinished)
+			ItemPointerSetMax(&current);
+		else
+			current = entry->curItem;
+		Assert(ginCompareItemPointers(&heap[0].item, &current) <= 0);
+		if (ginCompareItemPointers(&heap[0].item, &current) != 0)
+		{
+			heap[0].item = current;
+			ginRequiredHeapSiftDown(heap, key->nrequired, 0);
+			continue;
+		}
+		if (entry->isFinished)
+			return false;
+		if (ginCompareItemPointers(&current, &advancePast) > 0)
+		{
+			*minItem = current;
+			return true;
+		}
+
+		entryGetItem(ginstate, entry, advancePast);
+		if (entry->isFinished)
+			ItemPointerSetMax(&heap[0].item);
+		else
+			heap[0].item = entry->curItem;
+		ginRequiredHeapSiftDown(heap, key->nrequired, 0);
+	}
+}
+
+/*
  * Identify the "current" item among the input entry streams for this scan key
  * that is greater than advancePast, and test whether it passes the scan key
  * qual condition.
@@ -1064,31 +1148,36 @@ keyGetItem(GinState *ginstate, MemoryContext tempCtx, GinScanKey key,
 	 * pointers, which is good.
 	 */
 	ItemPointerSetMax(&minItem);
-	allFinished = true;
-	for (int i = 0; i < key->nrequired; i++)
+	if (key->requiredHeap)
+		allFinished = !ginRequiredHeapGetItem(ginstate, key, advancePast, &minItem);
+	else
 	{
-		entry = key->requiredEntries[i];
-
-		if (entry->isFinished)
-			continue;
-
-		/*
-		 * Advance this stream if necessary.
-		 *
-		 * In particular, since entry->curItem was initialized with
-		 * ItemPointerSetMin, this ensures we fetch the first item for each
-		 * entry on the first call.
-		 */
-		if (ginCompareItemPointers(&entry->curItem, &advancePast) <= 0)
+		allFinished = true;
+		for (int i = 0; i < key->nrequired; i++)
 		{
-			entryGetItem(ginstate, entry, advancePast);
+			entry = key->requiredEntries[i];
+
 			if (entry->isFinished)
 				continue;
-		}
 
-		allFinished = false;
-		if (ginCompareItemPointers(&entry->curItem, &minItem) < 0)
-			minItem = entry->curItem;
+			/*
+			 * Advance this stream if necessary.
+			 *
+			 * In particular, since entry->curItem was initialized with
+			 * ItemPointerSetMin, this ensures we fetch the first item for each
+			 * entry on the first call.
+			 */
+			if (ginCompareItemPointers(&entry->curItem, &advancePast) <= 0)
+			{
+				entryGetItem(ginstate, entry, advancePast);
+				if (entry->isFinished)
+					continue;
+			}
+
+			allFinished = false;
+			if (ginCompareItemPointers(&entry->curItem, &minItem) < 0)
+				minItem = entry->curItem;
+		}
 	}
 
 	if (allFinished && !key->excludeOnly)

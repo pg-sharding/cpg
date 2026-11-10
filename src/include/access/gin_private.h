@@ -262,6 +262,13 @@ typedef struct GinScanKeyData *GinScanKey;
 
 typedef struct GinScanEntryData *GinScanEntry;
 
+/* Cached lower bounds remain valid when another key advances a shared entry. */
+typedef struct GinRequiredHeapItem
+{
+	GinScanEntry entry;
+	ItemPointerData item;
+} GinRequiredHeapItem;
+
 typedef struct GinScanKeyData
 {
 	/* Real number of entries in scanEntry[] (always > 0) */
@@ -282,6 +289,7 @@ typedef struct GinScanKeyData
 	 */
 	GinScanEntry *requiredEntries;
 	int			nrequired;
+	GinRequiredHeapItem *requiredHeap;
 	GinScanEntry *additionalEntries;
 	int			nadditional;
 
