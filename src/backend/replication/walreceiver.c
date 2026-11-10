@@ -737,10 +737,13 @@ WalReceiverMain(const void *startup_data, size_t startup_data_len)
 								xlogfname)));
 
 			/*
-			 * Create .done file forcibly to prevent the streamed segment from
-			 * being archived later.
+			 * In shared mode, reaching the end of a historical timeline does
+			 * not confirm archival by the primary.  Leave the segment pending,
+			 * as in always mode, so it can be archived after promotion or by
+			 * the standby's fallback archiver.
 			 */
-			if (XLogArchiveMode != ARCHIVE_MODE_ALWAYS)
+			if (XLogArchiveMode != ARCHIVE_MODE_ALWAYS &&
+				XLogArchiveMode != ARCHIVE_MODE_SHARED)
 				XLogArchiveForceDone(xlogfname);
 			else
 				XLogArchiveNotify(xlogfname);
