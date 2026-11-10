@@ -1,0 +1,36 @@
+diff --git a/src/include/access/gin_private.h b/src/include/access/gin_private.h
+index 3c5fd6ba817..cbaddc64fc0 100644
+--- a/src/include/access/gin_private.h
++++ b/src/include/access/gin_private.h
+@@ -488,11 +488,29 @@ extern ItemPointer ginMergeItemPointers(ItemPointerData *a, uint32 na,
+  * Merging the results of several gin scans compares item pointers a lot,
+  * so we want this to be inlined.
+  */
++/*
++ * Form a logical block/offset key without assuming four-byte TID alignment.
++ * BlockId stores the high 16-bit word before the low word in host byte order.
++ */
++static inline uint64
++ginItemPointerKey(const ItemPointerData *item)
++{
++	uint32		block;
++
++	StaticAssertStmt(sizeof(item->ip_blkid) == sizeof(block),
++					 "unexpected block identifier size");
++	memcpy(&block, &item->ip_blkid, sizeof(block));
++#ifndef WORDS_BIGENDIAN
++	block = (block << 16) | (block >> 16);
++#endif
++	return (uint64) block << 32 | GinItemPointerGetOffsetNumber(item);
++}
++
+ static inline int
+ ginCompareItemPointers(const ItemPointerData *a, const ItemPointerData *b)
+ {
+-	uint64		ia = (uint64) GinItemPointerGetBlockNumber(a) << 32 | GinItemPointerGetOffsetNumber(a);
+-	uint64		ib = (uint64) GinItemPointerGetBlockNumber(b) << 32 | GinItemPointerGetOffsetNumber(b);
++	uint64		ia = ginItemPointerKey(a);
++	uint64		ib = ginItemPointerKey(b);
+ 
+ 	return pg_cmp_u64(ia, ib);
+ }

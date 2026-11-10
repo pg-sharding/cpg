@@ -1,0 +1,15 @@
+# Preserved-layout follow-up, declared before execution
+
+The completed first screen found P10/B SQL absent CPU +5.98/+4.39% and actual-AM absent +5.05/+3.94%, despite selective SQL gains. C10/C9 retained smaller native benefits and had Seq CPU +1.55/+3.13%. No full SQL or CREATE INDEX promotion was made. These observations remain in the separate immutable R1 packet.
+
+P11 keeps the same bounded four-byte BlockId load but restores the original transient key expression, block <<32 | offset. C11 is the identical incremental change authored on C10 and actually cherry-picked to P10 to make P11. The hypothesis is that separating the load change from compact-key construction may retain the selective gains while changing the repeated absent cost. This is not an established diagnosis or a verified repair. It also removes an unnecessary difference from the prior 32-bit key layout. Storage and alignment remain unchanged.
+
+Preflight compiles real P11/C11 production units with release/assert headers from the checked R1 installs and runs 1,009,216 ordering plus exact-key properties per release variant. C11 has production-unit/property coverage only in this phase: no full C11 build or C11 timing is implied.
+
+Four fresh clean matched builds B/P10/P11/P11_assert use identical source/build/compiled-prefix paths and flags, separate installs, original239 core tests and test_ginpostinglist each. Release backend objects outside GIN must be byte-identical to B. Preserve all source/header/expected/install identities.
+
+Screen has B/T/P10/P11, exact B/T executable twins, 13 unchanged SQL and seven unchanged actual-AM cases, two warm plus12 retained Williams4 rounds and two reversed CPU/slot/session/case-order cohorts:2240raw/1920retained/320warm. Main comparisons are P11/P10 for the layout change, P11/B for the remaining complete change, and P10/B as the freshly rebuilt regression reference. All six pairs, all metrics, controls and negatives remain. No trimming, pooling, twin normalization or cross-wave percentage subtraction.
+
+Each of four builds qualifies25 ordered Seq/GIN multisets, scalar answers, expected paths, eight prepared/cached rescans and seven actual-AM answers. All25 multisets repeat for every measured role/cohort. Separate software profiles cover B/P10/P11 × original SQL inline/OR/absent plus actual-AM absent wrapped to return only its stable TID count:12 profiles,3sec cpu-clock:u199Hz/DWARF each, before fresh timing clusters. These are diagnostics, not PMU/latency evidence.
+
+Only owned VM158 work; no archive-host tests or foreign changes. Use new ports45140+ for core/modules and45200+ for ordinary clusters. The finite controller stops at completed screen for manual review; it does not promote full SQL or CREATE INDEX automatically. Preserve all failed attempts. The public outcome must distinguish measured R1 from pending R2, and source-only C11 from fully built/timed P11. Every owned cluster must shut down cleanly and all its processes/sockets must be absent before collection.

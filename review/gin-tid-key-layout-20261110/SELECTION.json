@@ -1,0 +1,33 @@
+{
+  "status": "NEGATIVE_REPAIR_EXPERIMENT_NOT_PROMOTED",
+  "phases_completed": [
+    "screen-r1"
+  ],
+  "full_sql_executed": false,
+  "create_index_executed": false,
+  "verdict": "Restoring the old transient key does not remove the absent regression. Keep selective gains and all negative controls as experimental observations; no general improvement or merge-ready repair claim.",
+  "direct_results": {
+    "P11_B_SQL_absent": [
+      4.039052938627819,
+      4.168017578124539
+    ],
+    "P11_B_AM_absent": [
+      5.793719790071583,
+      5.949028981512483
+    ],
+    "P11_P10_AM_absent": [
+      1.362240618959365,
+      1.272204188725512
+    ],
+    "P11_B_SQL_inline": [
+      2.5481892382792526,
+      1.469679311226646
+    ],
+    "P11_B_Seq": [
+      0.6311063633235636,
+      -1.8833104287772795
+    ]
+  },
+  "attribution": "Matched P10/P11 ELF symbols are identical; .text differs only in54 SHL immediates16->32. This rules out a function-placement change between these two ELFs, not ASLR/process/environment effects or a causal explanation of timing.",
+  "scope": "P11 fully built and screened; C11 has production-unit/property coverage only"
+}

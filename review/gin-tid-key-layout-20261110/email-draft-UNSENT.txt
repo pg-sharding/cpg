@@ -1,0 +1,43 @@
+To: pgsql-hackers@lists.postgresql.org
+Subject: [RFC PATCH] GIN BlockId load experiment: selective gains and an absent-query cost
+Status: UNSENT EXPERIMENTAL DRAFT; not a merge-ready fix
+
+Hi,
+
+I tested loading the four-byte GIN BlockId with memcpy, followed by a halfword reorder on little-endian hosts, instead of separate halfword loads. The attached P11 diff retains the original unsigned comparison key expression, block <<32 | offset. It does not change six-byte TID storage or assume four-byte alignment.
+
+This follows an experiment using the compact block <<16 key, P10. Restoring the old key values does not remove the absent-query cost. The proposed load change therefore remains experimental, despite useful selective-query wins.
+
+The new matched screen uses fixed B72, not current master. Below, percentages are medians of direct same-round backend-CPU changes, cohort0 / cohort1, with all observations retained:
+
+case | P11/B CPU % | P11/P10 CPU %
+skew1000 | -22.14 / -20.65 | -0.95 / +0.25
+skew127 | -14.42 / -12.88 | -5.84 / -0.24
+jsonb | -18.69 / -22.91 | -0.32 / -0.03
+skew_group4096 | -22.60 / -19.54 | -0.01 / +0.49
+or_forced | -1.87 / -0.38 | -1.21 / -1.70
+inline | +2.55 / +1.47 | +0.00 / +2.63
+single_rare | -0.25 / -1.58 | +0.39 / +0.62
+absent | +4.04 / +4.17 | -0.67 / -1.97
+seq_control | +0.63 / -1.88 | -3.46 / -2.04
+
+Absolute backend CPU medians for skew1000: B 78.752187 / 79.087297 ms, P11 61.431648 / 62.404414 ms. SQL absent: B 1.525174 / 1.403482 ms, P11 1.594207 / 1.456145 ms. The packet provides complete min/median/max, SD/MAD, all metrics and raw pairs. Paired percentage medians are not ratios of aggregate medians.
+
+The actual index_rescan/index_getbitmap/tbm_free adapter also retains the absent cost: P11/B +5.79 / +5.95% internal process CPU for5,000 scans, with B medians 56.159826 / 55.615619 ms and P11 58.981171 / 58.677464 ms per loop. These are native loop times, not SQL latency. Its selective loop improves -23.08 / -23.05%. Native and SQL boundaries, all negatives and exact B/T twins remain separate, without trimming,pooling or normalization.
+
+P10/P11 have identical linked symbol addresses/sizes. Their .text sections differ only in54 SHL immediates16->32. Separate absent profiles are dominated by ginPostingListDecodeAllSegments in all three variants. Neither observation explains the runtime difference; no instruction-trace, hardware-cycle or causal claim is made. No full25-query or CREATE INDEX timing was promoted.
+
+Setup: B72 72b9498df9a369e747f8d96efb5a6cd33c2451e2 plus the same supplied prerequisite; GCC13.3 -O2 -g -fno-lto, four clean matched builds, release timings, warm-cache200,000-doc FTS/JSONB/array fixture, JIT/parallel/memoize/autovacuum off,512MB shared_buffers. Four roles B/T/P10/P11,13 SQL plus seven real-AM cases, two warm and12 retained Williams4 rounds, two reversed CPU/slot/session/case-order cohorts:2,240 raw observations.
+
+All four builds passed the original239 core tests and test_ginpostinglist, including assertions. Ordered Seq/GIN multisets, scalar answers, expected paths, prepared/cached rescans and native answers matched. Both P11 and its combined C11 counterpart passed1,009,216 actual-header ordering/exact-key properties; C11 has only production-unit/property coverage, no full C11 timing. Non-GIN release backend objects matched baseline byte-for-byte. Only x86-64 little-endian execution was tested.
+
+Previous discussion: integer TID comparisons and private compressed-segment copying with deferred decoding were explicitly proposed in2014 [1]. This directly precedes the earlier lazy/adaptive C9 experiment. The current contribution is a bounded load/code-generation experiment and its measured tradeoffs, not a new algorithm or priority claim. The2015 uint64/32-bit compiler discussion [2] is portability context, not a reproduced issue here. The earlier R1 screen and complete negative data are linked in [3].
+
+Attachment: patches/P11-over-parent-candidate.diff after fixed baseline8a8c475037bfde101da23cc9b0364c9c020eca93. The C11 diff is an alternative after C9, not a second patch to stack. REPRODUCE.md provides the pinned source, dependencies, flags, data setup and actual-AM/SQL repetition commands.
+
+Code: https://github.com/pg-sharding/cpg/tree/experiments/gin-logical-tid-key-baseline-p11-b72-20261110
+Results: https://github.com/pg-sharding/cpg/tree/experiments/gin-logical-tid-layout-results-b72-20261110/review/gin-tid-key-layout-20261110
+
+[1] https://www.postgresql.org/message-id/52F373CC.4050800%40vmware.com
+[2] https://www.postgresql.org/message-id/20150719195033.GB1300191%40tornado.leadboat.com
+[3] https://github.com/pg-sharding/cpg/tree/experiments/gin-logical-tid-key-results-b72-20261110/review/gin-tid-key-20261110

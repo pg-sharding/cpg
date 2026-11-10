@@ -1,0 +1,28 @@
+From ca6ad39111cd67f20ff2dd3a8f619239d0360a10 Mon Sep 17 00:00:00 2001
+From: root <localhost>
+Date: Tue, 10 Nov 2026 08:28:48 +0500
+Subject: [PATCH] Retain the original GIN logical TID comparison key layout
+
+Keep the four-byte BlockId load, but retain the previous block-number
+shift. This separates the load experiment from the transient key layout
+change and permits a direct check of the absent-query timing result.
+---
+ src/include/access/gin_private.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/include/access/gin_private.h b/src/include/access/gin_private.h
+index e5734dce3c7..dccae22d442 100644
+--- a/src/include/access/gin_private.h
++++ b/src/include/access/gin_private.h
+@@ -508,7 +508,7 @@ ginItemPointerKey(const ItemPointerData *item)
+ #ifndef WORDS_BIGENDIAN
+ 	block = (block << 16) | (block >> 16);
+ #endif
+-	return (uint64) block << 16 | GinItemPointerGetOffsetNumber(item);
++	return (uint64) block << 32 | GinItemPointerGetOffsetNumber(item);
+ }
+ 
+ static inline int
+-- 
+2.50.1 (Apple Git-155)
+

@@ -1,0 +1,54 @@
+diff --git a/src/backend/access/gin/ginget.c b/src/backend/access/gin/ginget.c
+index 79eb15c0030..a1544438ec3 100644
+--- a/src/backend/access/gin/ginget.c
++++ b/src/backend/access/gin/ginget.c
+@@ -1013,12 +1013,7 @@ static inline bool
+ ginItemPointerIsAfter(const ItemPointerData *item,
+ 					  const ItemPointerData *advancePast)
+ {
+-	uint64		itemKey = (uint64) GinItemPointerGetBlockNumber(item) << 32 |
+-						GinItemPointerGetOffsetNumber(item);
+-	uint64		pastKey = (uint64) GinItemPointerGetBlockNumber(advancePast) << 32 |
+-						GinItemPointerGetOffsetNumber(advancePast);
+-
+-	return itemKey > pastKey;
++	return ginItemPointerKey(item) > ginItemPointerKey(advancePast);
+ }
+ 
+ static int
+diff --git a/src/include/access/gin_private.h b/src/include/access/gin_private.h
+index 49d36fe4117..dccae22d442 100644
+--- a/src/include/access/gin_private.h
++++ b/src/include/access/gin_private.h
+@@ -493,11 +493,29 @@ extern ItemPointer ginMergeItemPointers(ItemPointerData *a, uint32 na,
+  * Merging the results of several gin scans compares item pointers a lot,
+  * so we want this to be inlined.
+  */
++/*
++ * Form a logical block/offset key without assuming four-byte TID alignment.
++ * BlockId stores the high 16-bit word before the low word in host byte order.
++ */
++static inline uint64
++ginItemPointerKey(const ItemPointerData *item)
++{
++	uint32		block;
++
++	StaticAssertStmt(sizeof(item->ip_blkid) == sizeof(block),
++					 "unexpected block identifier size");
++	memcpy(&block, &item->ip_blkid, sizeof(block));
++#ifndef WORDS_BIGENDIAN
++	block = (block << 16) | (block >> 16);
++#endif
++	return (uint64) block << 32 | GinItemPointerGetOffsetNumber(item);
++}
++
+ static inline int
+ ginCompareItemPointers(const ItemPointerData *a, const ItemPointerData *b)
+ {
+-	uint64		ia = (uint64) GinItemPointerGetBlockNumber(a) << 32 | GinItemPointerGetOffsetNumber(a);
+-	uint64		ib = (uint64) GinItemPointerGetBlockNumber(b) << 32 | GinItemPointerGetOffsetNumber(b);
++	uint64		ia = ginItemPointerKey(a);
++	uint64		ib = ginItemPointerKey(b);
+ 
+ 	return pg_cmp_u64(ia, ib);
+ }
