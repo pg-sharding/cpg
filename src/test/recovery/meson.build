@@ -72,6 +72,7 @@ tests += {
       't/061_archive_shared.pl',
       't/062_archive_shared_checkpoint.pl',
       't/063_archive_shared_hazards.pl',
+      't/064_archive_shared_timelines.pl',
     ],
   },
 }

@@ -875,10 +875,12 @@ WalRcvFetchTimeLineHistoryFiles(TimeLineID first, TimeLineID last)
 			writeTimeLineHistoryFile(tli, content, len);
 
 			/*
-			 * Mark the streamed history file as ready for archiving if
-			 * archive_mode is always.
+			 * Archive streamed history files in shared mode too.  An archive
+			 * report confirms WAL segments, not individual history files, so
+			 * it cannot justify marking this file as done.
 			 */
-			if (XLogArchiveMode != ARCHIVE_MODE_ALWAYS)
+			if (XLogArchiveMode != ARCHIVE_MODE_ALWAYS &&
+				XLogArchiveMode != ARCHIVE_MODE_SHARED)
 				XLogArchiveForceDone(fname);
 			else
 				XLogArchiveNotify(fname);
