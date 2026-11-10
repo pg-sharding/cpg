@@ -1,0 +1,35 @@
+--- gin-tid-key/common.py
++++ gin-c11/common.py
+@@ -9,7 +9,7 @@
+ 
+ HERE = pathlib.Path(__file__).resolve().parent
+ BASE = '72b9498df9a369e747f8d96efb5a6cd33c2451e2'
+-ROLES = ('B', 'P10', 'C9', 'C10')
++ROLES = ('B', 'C9', 'C10', 'C11')
+ 
+ 
+ def sha(path):
+@@ -159,19 +159,18 @@
+             snapshot = path.parent / role / name
+             assert snapshot.stat().st_size == value['bytes']
+             assert sha(snapshot) == value['sha256']
+-    assert set(spec['variants']['P10']['source_files']) == {'src/backend/access/gin/ginget.c', 'src/include/access/gin_private.h'}
+-    assert all(set(spec['variants'][r]['source_files']) == {'src/backend/access/gin/ginget.c', 'src/backend/access/gin/ginscan.c', 'src/include/access/gin_private.h'} for r in ['C9','C10'])
++    assert all(set(spec['variants'][r]['source_files']) == {'src/backend/access/gin/ginget.c', 'src/backend/access/gin/ginscan.c', 'src/include/access/gin_private.h'} for r in ['C9','C10','C11'])
+     return spec, expected
+ 
+ 
+ def checked_build(path):
+     path = pathlib.Path(path).resolve()
+     receipt = json.loads((path / 'build-receipt.json').read_text())
+-    assert receipt['status'] == 'PASS_GIN_TID_KEY_BUILDS'
++    assert receipt['status'] == 'PASS_GIN_C11_BUILDS'
+     assert json.loads((path / 'status.json').read_text())['status'] == receipt['status']
+     assert receipt['base'] == BASE and receipt['core239_each'] is True
+-    assert set(receipt['variants']) == {'B', 'P10', 'C9', 'C10', 'C10_assert'}
+-    assert receipt['role_to_variant'] == {'B': 'B', 'T': 'B', 'P10': 'P10', 'C9': 'C9', 'U': 'C9', 'C10': 'C10'}
++    assert set(receipt['variants']) == {'B', 'C9', 'C10', 'C11', 'C11_assert'}
++    assert receipt['role_to_variant'] == {'B': 'B', 'T': 'B', 'C9': 'C9', 'C10': 'C10', 'C11': 'C11'}
+     for variant in receipt['variants'].values():
+         prefix = pathlib.Path(variant['prefix'])
+         assert sha(prefix / 'bin/postgres') == variant['postgres_sha256']

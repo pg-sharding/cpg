@@ -1,0 +1,257 @@
+--- gin-tid-key/campaign.py
++++ C11/campaign.py
+@@ -16,7 +16,7 @@
+ sys.path.insert(0, str(HERE / 'harness'))
+ from session import Session
+ from protocol import plan as campaign_plan, micro_cases
+-from runtime_helpers import compile_micro, qualify_micro, profile
++from runtime_helpers import compile_micro, qualify_micro
+ 
+ loader = importlib.util.spec_from_file_location('build_common', HERE / 'build-harness/common.py')
+ bc = importlib.util.module_from_spec(loader)
+@@ -48,9 +48,9 @@
+     parser = argparse.ArgumentParser(description=__doc__)
+     parser.add_argument('--build', type=pathlib.Path, required=True)
+     parser.add_argument('--output', type=pathlib.Path, required=True)
+-    parser.add_argument('--first-port', type=int, default=44800)
+-    parser.add_argument('--mode', choices=['screen', 'full'], default='screen')
+-    parser.add_argument('--profiles', action='store_true')
++    parser.add_argument('--first-port', type=int, default=45400)
++    parser.add_argument('--mode', choices=['qualify', 'screen', 'full'], default='screen')
++    parser.add_argument('--qualified-from', type=pathlib.Path, help='Previously PASS qualification in this own namespace; seed/modules read-only, no repeat qualification')
+     args = parser.parse_args()
+     protocol = campaign_plan(args.mode)
+     ROLES = protocol['roles']
+@@ -60,6 +60,8 @@
+     assert {0, 4} <= os.sched_getaffinity(0)
+     receipt = bc.checked_build(args.build)
+     prefixes = {name: pathlib.Path(item['prefix']) for name, item in receipt['variants'].items()}
++    final_source = json.loads((args.build / 'C11_assert-source-inventory.json').read_text())
++    assert bc.inventory(pathlib.Path(receipt['common_source'])) == final_source
+     state = dict(status='RUNNING', phase='seed', build_receipt_sha256=bc.sha(args.build / 'build-receipt.json'),
+                  source_plan_sha256=receipt['source_plan_sha256'], mode=args.mode, host_before=host(),
+                  clusters=[], cleanup=[], timing_samples=0)
+@@ -134,26 +136,43 @@
+ 
+     try:
+         os.sched_setaffinity(0, {4})
+-        module = compile_micro(HERE, out, prefixes['B'], bc)
+-        seed = out / 'seed'
+-        bc.run([prefixes['B'] / 'bin/initdb', '-D', seed, '--no-locale', '--encoding=UTF8',
+-                '--auth=trust', '--data-checksums'], out / 'seed-initdb.log', prefix=prefixes['B'])
+-        seed_item, dsn = start('seed', 'B', seed, 0, args.first_port)
+-        s = session('seed', 'B', dsn)
+-        try:
+-            s.sql((HERE / 'harness/inputs/setup.sql').read_text())
+-            s.sql("CREATE FUNCTION public.gin_am_micro(regclass,tsquery,integer) RETURNS jsonb AS '" + str(module) + "', 'gin_am_micro' LANGUAGE C STRICT")
+-            seed_info = s.json("SELECT json_build_object('version',version(),'clock',current_setting('timing_clock_source'),"
+-                               "'docs_rows',(SELECT count(*) FROM g1.docs),'docs_bytes',pg_total_relation_size('g1.docs'),"
+-                               "'database_bytes',pg_database_size(current_database()))")
+-            assert seed_info['docs_rows'] == 200002
+-            s.sql('CHECKPOINT')
+-            bc.save(out / 'seed-info.json', seed_info)
+-        finally:
+-            s.close()
+-            stop(seed_item)
+-        seed_manifest = bc.inventory(seed)
+-        bc.save(out / 'seed-manifest.json', seed_manifest)
++        if args.qualified_from:
++            origin = args.qualified_from.resolve()
++            old_state = json.loads((origin / 'status.json').read_text())
++            assert args.mode != 'qualify' and old_state['status'] == 'PASS' and old_state['mode'] == 'qualify'
++            assert old_state['build_receipt_sha256'] == state['build_receipt_sha256'] and not old_state['cleanup_errors']
++            module = origin / 'gin-am-micro.so'
++            module_receipt = json.loads((origin / 'module.json').read_text())
++            assert bc.sha(module) == module_receipt['module_sha256'] and bc.sha(HERE / 'gin-am-micro.c') == module_receipt['source_sha256']
++            bc.save(out / 'module.json', module_receipt)
++            seed = origin / 'seed'
++            bc.stopped(prefixes['B'], seed)
++            seed_manifest = json.loads((origin / 'seed-manifest.json').read_text())
++            assert bc.inventory(seed) == seed_manifest
++            bc.save(out / 'seed-manifest.json', seed_manifest)
++            bc.save(out / 'seed-info.json', json.loads((origin / 'seed-info.json').read_text()))
++            bc.save(out / 'seed-origin.json', dict(origin=str(origin), module=str(module), seed=str(seed), qualification_status_sha256=bc.sha(origin / 'status.json')))
++        else:
++            module = compile_micro(HERE, out, prefixes['B'], bc)
++            seed = out / 'seed'
++            bc.run([prefixes['B'] / 'bin/initdb', '-D', seed, '--no-locale', '--encoding=UTF8',
++                    '--auth=trust', '--data-checksums'], out / 'seed-initdb.log', prefix=prefixes['B'])
++            seed_item, dsn = start('seed', 'B', seed, 0, args.first_port)
++            s = session('seed', 'B', dsn)
++            try:
++                s.sql((HERE / 'harness/inputs/setup.sql').read_text())
++                s.sql("CREATE FUNCTION public.gin_am_micro(regclass,tsquery,integer) RETURNS jsonb AS '" + str(module) + "', 'gin_am_micro' LANGUAGE C STRICT")
++                seed_info = s.json("SELECT json_build_object('version',version(),'clock',current_setting('timing_clock_source'),"
++                                   "'docs_rows',(SELECT count(*) FROM g1.docs),'docs_bytes',pg_total_relation_size('g1.docs'),"
++                                   "'database_bytes',pg_database_size(current_database()))")
++                assert seed_info['docs_rows'] == 200002
++                s.sql('CHECKPOINT')
++                bc.save(out / 'seed-info.json', seed_info)
++            finally:
++                s.close()
++                stop(seed_item)
++            seed_manifest = bc.inventory(seed)
++            bc.save(out / 'seed-manifest.json', seed_manifest)
+ 
+         def clone(label):
+             data = out / ('data-' + label)
+@@ -162,76 +181,81 @@
+             bc.sync(data)
+             return data
+ 
+-        state['phase'] = 'ordinary-qualification'
+-        bc.save(out / 'status.json', state)
+-        reference, qualifications = {}, {}
+-        prepared_queries = ['common & rare0', 'common & rare1', 'common & group17',
+-                            'dense2 & dense3', 'common', 'common | rare0',
+-                            'dense2 <-> rare0', 'missing']
+-        for ix, variant in enumerate(['B','P10','C9','C10','C10_assert']):
+-            label = 'qual-' + variant
+-            item, dsn = start(label, variant, clone(label), 0, args.first_port + 1 + ix)
+-            s = session(label, variant, dsn)
+-            result = dict(status='RUNNING', variant=variant, source_commit=receipt['variants'][variant]['commit'],
+-                          postgres_sha256=receipt['variants'][variant]['postgres_sha256'],
+-                          cases={}, prepared={}, asserts=s.sql('SHOW debug_assertions'))
+-            try:
+-                assert (result['asserts'] == 'on') == (variant == 'C10_assert')
+-                for case in cases:
+-                    s.sql(reset + seq)
+-                    query = 'SELECT id FROM (' + case['rows_sql'] + ') q ORDER BY id'
+-                    ref = s.sql(query)
+-                    s.sql(gin)
+-                    actual = s.sql(query)
+-                    assert ref == actual, (variant, case['name'], 'ordered Seq/GIN multiset')
+-                    key = digest(ref)
+-                    if variant == 'B':
+-                        reference[case['name']] = key
+-                    assert key == reference[case['name']], (variant, case['name'], 'cross-role multiset')
+-                    s.sql(reset + case['settings'])
+-                    scalar = s.sql(case['sql'])
+-                    assert scalar == answers[case['name']], (variant, case['name'], 'frozen scalar')
+-                    plan = s.json('EXPLAIN(FORMAT JSON) ' + case['sql'])[0]['Plan']
+-                    indexes = [n['Index Name'] for n in nodes(plan) if 'Index Name' in n]
+-                    assert (case['index'] in indexes) if case['index'] else not indexes
+-                    result['cases'][case['name']] = dict(**key, literal_answer=scalar, indexes=indexes)
+-                s.sql(reset + "SET plan_cache_mode=force_generic_plan;PREPARE ordinary_gin(tsquery) AS SELECT id FROM g1.docs WHERE d @@ $1 ORDER BY id")
+-                for text in prepared_queries:
+-                    query = "EXECUTE ordinary_gin('" + text + "'::tsquery)"
+-                    s.sql(seq + 'DISCARD PLANS')
+-                    ref = s.sql(query)
+-                    ref_plan = s.json('EXPLAIN(FORMAT JSON) ' + query)[0]['Plan']
+-                    assert any(n['Node Type'] == 'Seq Scan' for n in nodes(ref_plan))
+-                    s.sql(gin + 'DISCARD PLANS')
+-                    actual = s.sql(query)
+-                    assert ref == actual, (variant, text, 'prepared rescan multiset')
+-                    actual_plan = s.json('EXPLAIN(FORMAT JSON) ' + query)[0]['Plan']
+-                    assert any(n.get('Index Name') == 'docs_d_gin' for n in nodes(actual_plan))
+-                    assert s.sql(query) == ref, (variant, text, 'cached plan rescan')
+-                    result['prepared'][text] = dict(**digest(actual), seq_and_gin_paths_verified=True,
+-                                                   repeated_cached_execution_equal=True)
+-                s.sql('DEALLOCATE ordinary_gin')
+-                result['micro'] = qualify_micro(s, micro_cases())
+-                if args.profiles and variant in ['B','P10','C9','C10']:
+-                    result['profiles'] = {}
++        if args.qualified_from:
++            origin = args.qualified_from.resolve()
++            old_qualification = json.loads((origin / 'qualification-summary.json').read_text())
++            assert old_qualification['status'] == 'PASS'
++            reference, qualifications = old_qualification['reference'], old_qualification['variants']
++            for variant, artifact in qualifications.items():
++                assert bc.sha(artifact['path']) == artifact['sha256']
++                proof = json.loads(pathlib.Path(artifact['path']).read_text())
++                assert proof['status'] == 'PASS' and proof['postgres_sha256'] == receipt['variants'][variant]['postgres_sha256']
++            bc.save(out / 'qualification-summary.json', old_qualification)
++        else:
++            state['phase'] = 'ordinary-qualification'
++            bc.save(out / 'status.json', state)
++            reference, qualifications = {}, {}
++            prepared_queries = ['common & rare0', 'common & rare1', 'common & group17',
++                                'dense2 & dense3', 'common', 'common | rare0',
++                                'dense2 <-> rare0', 'missing']
++            for ix, variant in enumerate(['B','C9','C10','C11','C11_assert']):
++                label = 'qual-' + variant
++                item, dsn = start(label, variant, clone(label), 0, args.first_port + 1 + ix)
++                s = session(label, variant, dsn)
++                result = dict(status='RUNNING', variant=variant, source_commit=receipt['variants'][variant]['commit'],
++                              postgres_sha256=receipt['variants'][variant]['postgres_sha256'],
++                              cases={}, prepared={}, asserts=s.sql('SHOW debug_assertions'))
++                try:
++                    assert (result['asserts'] == 'on') == (variant == 'C11_assert')
+                     for case in cases:
+-                        if case['name'] in ['or_forced','inline']:
+-                            selected = dict(case, answer=answers[case['name']])
+-                            result['profiles'][case['name']] = profile(s, selected, out / ('profile-' + variant + '-' + case['name']), bc)
+-                result['backend_pid'] = s.pid
+-                result['status'] = 'PASS'
+-            finally:
+-                s.close(failed=result['status'] != 'PASS')
+-                stop(item)
+-                bc.save(out / (label + '.json'), result)
+-            qualifications[variant] = dict(path=str(out / (label + '.json')),
+-                                            sha256=bc.sha(out / (label + '.json')))
+-        bc.save(out / 'qualification-summary.json', dict(status='PASS', variants=qualifications,
+-                ordered_seq_gin_comparisons=125, frozen_scalar_checks=125,
+-                prepared_seq_gin_comparisons=40, reference=reference,
+-                reference_rows_per_variant=sum(x['rows'] for x in reference.values())))
+-
+-        for cohort in [0, 1]:
++                        s.sql(reset + seq)
++                        query = 'SELECT id FROM (' + case['rows_sql'] + ') q ORDER BY id'
++                        ref = s.sql(query)
++                        s.sql(gin)
++                        actual = s.sql(query)
++                        assert ref == actual, (variant, case['name'], 'ordered Seq/GIN multiset')
++                        key = digest(ref)
++                        if variant == 'B':
++                            reference[case['name']] = key
++                        assert key == reference[case['name']], (variant, case['name'], 'cross-role multiset')
++                        s.sql(reset + case['settings'])
++                        scalar = s.sql(case['sql'])
++                        assert scalar == answers[case['name']], (variant, case['name'], 'frozen scalar')
++                        plan = s.json('EXPLAIN(FORMAT JSON) ' + case['sql'])[0]['Plan']
++                        indexes = [n['Index Name'] for n in nodes(plan) if 'Index Name' in n]
++                        assert (case['index'] in indexes) if case['index'] else not indexes
++                        result['cases'][case['name']] = dict(**key, literal_answer=scalar, indexes=indexes)
++                    s.sql(reset + "SET plan_cache_mode=force_generic_plan;PREPARE ordinary_gin(tsquery) AS SELECT id FROM g1.docs WHERE d @@ $1 ORDER BY id")
++                    for text in prepared_queries:
++                        query = "EXECUTE ordinary_gin('" + text + "'::tsquery)"
++                        s.sql(seq + 'DISCARD PLANS')
++                        ref = s.sql(query)
++                        ref_plan = s.json('EXPLAIN(FORMAT JSON) ' + query)[0]['Plan']
++                        assert any(n['Node Type'] == 'Seq Scan' for n in nodes(ref_plan))
++                        s.sql(gin + 'DISCARD PLANS')
++                        actual = s.sql(query)
++                        assert ref == actual, (variant, text, 'prepared rescan multiset')
++                        actual_plan = s.json('EXPLAIN(FORMAT JSON) ' + query)[0]['Plan']
++                        assert any(n.get('Index Name') == 'docs_d_gin' for n in nodes(actual_plan))
++                        assert s.sql(query) == ref, (variant, text, 'cached plan rescan')
++                        result['prepared'][text] = dict(**digest(actual), seq_and_gin_paths_verified=True,
++                                                       repeated_cached_execution_equal=True)
++                    s.sql('DEALLOCATE ordinary_gin')
++                    result['micro'] = qualify_micro(s, micro_cases())
++                    result['backend_pid'] = s.pid
++                    result['status'] = 'PASS'
++                finally:
++                    s.close(failed=result['status'] != 'PASS')
++                    stop(item)
++                    bc.save(out / (label + '.json'), result)
++                qualifications[variant] = dict(path=str(out / (label + '.json')),
++                                                sha256=bc.sha(out / (label + '.json')))
++            bc.save(out / 'qualification-summary.json', dict(status='PASS', variants=qualifications,
++                    ordered_seq_gin_comparisons=125, frozen_scalar_checks=125,
++                    prepared_seq_gin_comparisons=40, reference=reference,
++                    reference_rows_per_variant=sum(x['rows'] for x in reference.values())))
++
++        for cohort in range(protocol['cohorts']):
+             state['phase'] = 'cohort-' + str(cohort)
+             state['host_cohort_' + str(cohort)] = host()
+             bc.save(out / 'status.json', state)
+@@ -273,6 +297,8 @@
+             assert bc.inventory(seed) == seed_manifest
+ 
+         bc.checked_build(args.build)
++        assert bc.inventory(pathlib.Path(receipt['common_source'])) == final_source
++        state['full_source_unchanged'] = True
+         assert bc.sha(module) == json.loads((out / 'module.json').read_text())['module_sha256']
+         state['actual_am_module_unchanged'] = True
+         assert bc.inventory(seed) == seed_manifest

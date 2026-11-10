@@ -1,0 +1,55 @@
+Subject: [UNSENT experimental results] GIN C11 logical-key comparison screen
+
+This reports a new finite screen of the already published C11 experiment,
+not a new version of its source. C11 is ca6ad39111cd67f20ff2dd3a8f619239d0360a10,
+on C10 cf6df20681101bc58dcb5cf47d3fafd738aaa458 and C9
+0ab3bd65c8957ea5e25f9ef8981401f0616d99de. It restores the original logical
+block<<32|offset comparison-key values while retaining the bounded four-byte
+BlockId load used by C10. Stored TID size and alignment remain unchanged.
+
+The general uint64 comparison and deferred-decoding ideas were discussed by
+Heikki Linnakangas in 2014; this experiment makes no novelty claim:
+https://www.postgresql.org/message-id/52F373CC.4050800%40vmware.com
+The previously published header-only P11 screen is a separate experiment;
+these combined-tree results do not establish that its absent regression was
+repaired.
+
+Five fresh fullclean builds (B/C9/C10/C11 release and C11 assertions) passed
+core239 and posting-list tests. All25 original SQL cases passed independent
+ordered Seq/GIN multisets and frozen scalar answers on all5 trees, with
+40 prepared-rescan checks and35 real index_rescan/index_getbitmap/tbm_free
+oracles. All private clusters stopped cleanly.
+
+The fixed screen retained2000 of2400 observations across two CPU/clone/session
+placements:13 SQL controls plus7 real-AM cases, B/T/C9/C10/C11 roles, two warm
+and ten retained Williams-order rounds. B and T use the exact same ELF.
+GCC13.3, -O2 -g -fno-lto, 512MB shared_buffers, JIT/parallel/autovacuum off,
+normal durability, static synthetic data and no cache dropping were used.
+The full25 timing matrix was not run.
+
+C11 retains large combined-tree benefits over fixed B, chiefly inherited from
+C9. For skew1000 SQL, B/C11 executor medians were76.5385/19.1005ms and
+78.4990/19.8435ms. Relative to C9, actual-AM skew loop CPU improved by
+4.39%/4.84%, dense by7.89%/7.92%, and OR by5.00%/5.23% in the two placements.
+These are whole declared loops, not per-lookup latencies.
+
+C11 is not a consistent improvement over C10. Full-AM C10/C11 loop CPU was
+89.049319/94.269207ms (C11 range94.046298..94.958467ms) in placement0:
+the median direct paired regression was+5.93%. Placement1 was88.741035/
+88.966939ms (+0.28%). Absent SQL C11/C10 was+1.60%/-5.38%; actual-AM absent
+was+0.98%/-0.35%. The SQL Seq control C11/B was+1.27%/+5.27%, with exact T/B
+drift-3.93%/-1.97%. Small differences need caution; no twin correction,
+trimming, pooling, selective rerun or source-causal attribution was used.
+
+The packet retains every raw observation, all CPU/client-wall/executor/AM
+clock metrics, all pairs, absolute min/median/max/mean/sampleSD/MAD and exact
+scripts/source/build/setup identities. Independent recount passed670 absolute
+groups,1340 pair groups and13400 direct pairs; all plan/row/loop signatures
+matched and retained I/O counters were zero. This is finite serial ordinary
+coverage, not concurrency qualification or a general merge recommendation.
+
+The standalone diff over fixed B and the exact C11-over-C10 incremental patch
+are clearly labelled alternatives/dependencies. The independent bitmap-offset
+and wide-heap prototypes are not included in C11 and have separate evidence.
+
+UNSENT. This draft has not been mailed. Publication is coordinated separately.
