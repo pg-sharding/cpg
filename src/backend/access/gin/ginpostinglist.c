@@ -338,6 +338,27 @@ ginPostingListDecodeAllSegments(GinPostingList *segment, int len, int *ndecoded_
 				result = repalloc_array(result, ItemPointerData, nallocated);
 			}
 
+			/*
+			 * Decode a run of four complete one-byte deltas together.  Both
+			 * the input and output bounds are checked before touching the
+			 * batch.  Longer deltas and short tails use the usual decoder.
+			 * The allocation policy and on-disk representation are unchanged.
+			 */
+			if (endptr - ptr >= 4 && nallocated - ndecoded >= 4 &&
+				((ptr[0] | ptr[1] | ptr[2] | ptr[3]) & 0x80) == 0)
+			{
+				val += ptr[0];
+				uint64_to_itemptr(val, &result[ndecoded++]);
+				val += ptr[1];
+				uint64_to_itemptr(val, &result[ndecoded++]);
+				val += ptr[2];
+				uint64_to_itemptr(val, &result[ndecoded++]);
+				val += ptr[3];
+				uint64_to_itemptr(val, &result[ndecoded++]);
+				ptr += 4;
+				continue;
+			}
+
 			val += decode_varbyte(&ptr);
 
 			uint64_to_itemptr(val, &result[ndecoded]);
