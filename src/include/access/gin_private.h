@@ -503,7 +503,7 @@ ginItemPointerKey(const ItemPointerData *item)
 #ifndef WORDS_BIGENDIAN
 	block = (block << 16) | (block >> 16);
 #endif
-	return (uint64) block << 16 | GinItemPointerGetOffsetNumber(item);
+	return (uint64) block << 32 | GinItemPointerGetOffsetNumber(item);
 }
 
 static inline int
