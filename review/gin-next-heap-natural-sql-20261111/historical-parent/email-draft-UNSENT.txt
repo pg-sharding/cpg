@@ -1,0 +1,54 @@
+UNSENT DRAFT
+Subject: [WIP] GIN required-entry copied-key heap: wide-OR AM gains and SQL negatives
+
+Hi,
+
+I implemented a per-key min-heap for at least eight required GIN entries.
+Heap keys are copied TID lower bounds. If another key advances a shared
+GinScanEntry, the copied bound remains monotone and the stale root is
+repaired before returning the minimum. Tiny/fuzzy/exclude-only cases keep
+the baseline path, and the consistent/entryRes/additional-entry handling
+remains in place. This is independent on fixed B72, not combined with C11
+or the bitmap-offset search prototype.
+
+Heikki Linnakangas proposed heap-based GIN stream merging and explicitly
+noted the shared-entry problem in 2014:
+https://www.postgresql.org/message-id/52F373CC.4050800%40vmware.com
+I am not claiming a new heap idea. The concrete contribution here is a
+copied-lower-bound lazy repair implementation plus separately checked
+shared-entry, valid-stream and actual-AM measurements. Source commit:
+03dff8bfa5075e5838c7fbffc712d0b79d03f13d.
+
+All three fresh full builds passed 239 core tests and the posting-list
+test, including an assert candidate. Normal and UBSan valid-stream runs
+agreed on 2080 cases, covering equal minima, root finishing, stale nonroot
+advancement, shared streams and lossy TIDs. Real-AM/SQL qualification used
+ordered independent Seq/GIN multisets and frozen scalars. An untimed actual
+array_ops scan probe, built with each variant's private headers, observed
+NULL extra_data, pointer sharing, unique-versus-summed entry counts and
+heap thresholds. Tsquery multiqual alone was not mistaken for deduplication.
+
+The fixed screen used B/exact twin/Heap, two CPU/clone placements and six
+retained paired rounds after two warm rounds: 576 raw / 432 retained / 144
+warm commands. Actual-AM loop CPU at OR widths 8/32/128/512 improved by
+11.98/22.65/28.32/27.12% in cohort 0 and 11.67/22.52/26.50/23.90% in
+cohort 1. The width-512 B/Heap CPU medians were 1113.065/810.601 ms and
+1108.378/842.687 ms. Startup allocation and complete bitmap consumption
+are included in these AM clocks.
+
+There are important negatives. Widths 1/2/7 were 1.1% to 2.0% slower.
+SQL sharing8 regressed +1.83% / +2.04%, sharing32 +3.02% / +3.86%, and
+absent512 +1.19% / +2.00%. Exact-twin Seq drift was -0.57% / +4.97%.
+Thus this is a useful wide-OR AM result, not a general SQL upgrade or a
+source-causal claim for small differences. No repeats, source tuning,
+trimming, pooling, control normalization or case removal followed.
+
+The packet retains all absolute AM/backend CPU, wall and SQL executor
+metrics, min/median/max/mean/sample SD/MAD, every direct pair, raw full
+plans, source and setup/reproduction scripts. All six screen clusters
+stopped and source/install/module/seed/input hashes remained unchanged.
+Original Linux execution is distinguished from offline/static replay.
+This finite synthetic serial evidence is not concurrency or general merge
+qualification; no second-host or write-operation result is claimed here.
+
+Regards,

@@ -1,0 +1,237 @@
+{
+  "roles": [
+    "B",
+    "T",
+    "Heap"
+  ],
+  "cases": [
+    {
+      "name": "sql_sparse_or1",
+      "kind": "sql",
+      "settings": "SET enable_seqscan=on;SET enable_bitmapscan=on;SET enable_indexscan=on;SET enable_indexonlyscan=on;SET enable_tidscan=on;SET work_mem='64MB';",
+      "index": "docs_d_gin",
+      "probes": 1,
+      "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'group0'::tsquery",
+      "sql": "SELECT count(*),sum(id) FROM g1.docs WHERE d @@ 'group0'::tsquery",
+      "answer": "48|4816896",
+      "expected_count": 48,
+      "expected_sum": 4816896,
+      "expected_rows_digest": {
+        "bytes": 309,
+        "sha256": "d16ae1896785236da56875c306856626f5fd676a38e9e257f4f5476281df3172",
+        "rows": 48
+      },
+      "oracle_settings": "SET enable_seqscan=off;SET enable_bitmapscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_tidscan=off;SET work_mem='64MB';",
+      "reference_settings": "SET enable_seqscan=on;SET enable_bitmapscan=off;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_tidscan=off;SET work_mem='64MB';",
+      "plan_policy": "NATURAL_ANY_VALID_PATH",
+      "heap_threshold_negative": true,
+      "width": 1,
+      "origin_query": "group0",
+      "origin_query_sha256": "6687ebd1d9c1f6cd91f8b1601916e6a534873aec45189dd3522e9f9ae8657eb9"
+    },
+    {
+      "name": "sql_sparse_or2",
+      "kind": "sql",
+      "settings": "SET enable_seqscan=on;SET enable_bitmapscan=on;SET enable_indexscan=on;SET enable_indexonlyscan=on;SET enable_tidscan=on;SET work_mem='64MB';",
+      "index": "docs_d_gin",
+      "probes": 1,
+      "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'group0 | group1'::tsquery",
+      "sql": "SELECT count(*),sum(id) FROM g1.docs WHERE d @@ 'group0 | group1'::tsquery",
+      "answer": "97|9633841",
+      "expected_count": 97,
+      "expected_sum": 9633841,
+      "expected_rows_digest": {
+        "bytes": 621,
+        "sha256": "25e853d847b4246e52cbe46945ae0e6391dbd9a92bac78f15b67855d4e30ffc7",
+        "rows": 97
+      },
+      "oracle_settings": "SET enable_seqscan=off;SET enable_bitmapscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_tidscan=off;SET work_mem='64MB';",
+      "reference_settings": "SET enable_seqscan=on;SET enable_bitmapscan=off;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_tidscan=off;SET work_mem='64MB';",
+      "plan_policy": "NATURAL_ANY_VALID_PATH",
+      "heap_threshold_negative": true,
+      "width": 2,
+      "origin_query": "group0 | group1",
+      "origin_query_sha256": "4e4d1550b0218020610119c3b2c6b24132d8a71cefc827b941c7d54c588dda02"
+    },
+    {
+      "name": "sql_sparse_or7",
+      "kind": "sql",
+      "settings": "SET enable_seqscan=on;SET enable_bitmapscan=on;SET enable_indexscan=on;SET enable_indexonlyscan=on;SET enable_tidscan=on;SET work_mem='64MB';",
+      "index": "docs_d_gin",
+      "probes": 1,
+      "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'group0 | group1 | group2 | group3 | group4 | group5 | group6'::tsquery",
+      "sql": "SELECT count(*),sum(id) FROM g1.docs WHERE d @@ 'group0 | group1 | group2 | group3 | group4 | group5 | group6'::tsquery",
+      "answer": "342|33719301",
+      "expected_count": 342,
+      "expected_sum": 33719301,
+      "expected_rows_digest": {
+        "bytes": 2181,
+        "sha256": "ef8c4181da51d38a47446f7d5624059aa3b73115f0331ad9fc3483f857281308",
+        "rows": 342
+      },
+      "oracle_settings": "SET enable_seqscan=off;SET enable_bitmapscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_tidscan=off;SET work_mem='64MB';",
+      "reference_settings": "SET enable_seqscan=on;SET enable_bitmapscan=off;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_tidscan=off;SET work_mem='64MB';",
+      "plan_policy": "NATURAL_ANY_VALID_PATH",
+      "heap_threshold_negative": true,
+      "width": 7,
+      "origin_query": "group0 | group1 | group2 | group3 | group4 | group5 | group6",
+      "origin_query_sha256": "4e9d6eb1a73952d49ac1d1f7aae17a3c10283bfdbdeedc3325c08aa694014db7"
+    },
+    {
+      "name": "sql_sparse_or8",
+      "kind": "sql",
+      "settings": "SET enable_seqscan=on;SET enable_bitmapscan=on;SET enable_indexscan=on;SET enable_indexonlyscan=on;SET enable_tidscan=on;SET work_mem='64MB';",
+      "index": "docs_d_gin",
+      "probes": 1,
+      "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7'::tsquery",
+      "sql": "SELECT count(*),sum(id) FROM g1.docs WHERE d @@ 'group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7'::tsquery",
+      "answer": "391|38536540",
+      "expected_count": 391,
+      "expected_sum": 38536540,
+      "expected_rows_digest": {
+        "bytes": 2493,
+        "sha256": "404d5b532e8695f4aefec9d0a1ea77706291b4d184c20fd23ff18851f249ed6a",
+        "rows": 391
+      },
+      "oracle_settings": "SET enable_seqscan=off;SET enable_bitmapscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_tidscan=off;SET work_mem='64MB';",
+      "reference_settings": "SET enable_seqscan=on;SET enable_bitmapscan=off;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_tidscan=off;SET work_mem='64MB';",
+      "plan_policy": "NATURAL_ANY_VALID_PATH",
+      "heap_threshold_negative": false,
+      "width": 8,
+      "origin_query": "group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7",
+      "origin_query_sha256": "3f9539d13dc82f704587b3fab5c4d2fe9b5e2b35a3f6c140a84da8654cbad38f"
+    },
+    {
+      "name": "sql_sparse_or32",
+      "kind": "sql",
+      "settings": "SET enable_seqscan=on;SET enable_bitmapscan=on;SET enable_indexscan=on;SET enable_indexonlyscan=on;SET enable_tidscan=on;SET work_mem='64MB';",
+      "index": "docs_d_gin",
+      "probes": 1,
+      "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7 | group8 | group9 | group10 | group11 | group12 | group13 | group14 | group15 | group16 | group17 | group18 | group19 | group20 | group21 | group22 | group23 | group24 | group25 | group26 | group27 | group28 | group29 | group30 | group31'::tsquery",
+      "sql": "SELECT count(*),sum(id) FROM g1.docs WHERE d @@ 'group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7 | group8 | group9 | group10 | group11 | group12 | group13 | group14 | group15 | group16 | group17 | group18 | group19 | group20 | group21 | group22 | group23 | group24 | group25 | group26 | group27 | group28 | group29 | group30 | group31'::tsquery",
+      "answer": "1567|154164976",
+      "expected_count": 1567,
+      "expected_sum": 154164976,
+      "expected_rows_digest": {
+        "bytes": 10003,
+        "sha256": "54c6080b00b71e35acbbb94102a5ebfd4e7a8bbba0b3dc1bd04f2121a0db15ae",
+        "rows": 1567
+      },
+      "oracle_settings": "SET enable_seqscan=off;SET enable_bitmapscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_tidscan=off;SET work_mem='64MB';",
+      "reference_settings": "SET enable_seqscan=on;SET enable_bitmapscan=off;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_tidscan=off;SET work_mem='64MB';",
+      "plan_policy": "NATURAL_ANY_VALID_PATH",
+      "heap_threshold_negative": false,
+      "width": 32,
+      "origin_query": "group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7 | group8 | group9 | group10 | group11 | group12 | group13 | group14 | group15 | group16 | group17 | group18 | group19 | group20 | group21 | group22 | group23 | group24 | group25 | group26 | group27 | group28 | group29 | group30 | group31",
+      "origin_query_sha256": "1f5a3783ffcba73e10fd21795f163ea164641a1c129074ff778b1b9c3f33bb4b"
+    },
+    {
+      "name": "sql_sparse_or128",
+      "kind": "sql",
+      "settings": "SET enable_seqscan=on;SET enable_bitmapscan=on;SET enable_indexscan=on;SET enable_indexonlyscan=on;SET enable_tidscan=on;SET work_mem='64MB';",
+      "index": "docs_d_gin",
+      "probes": 1,
+      "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7 | group8 | group9 | group10 | group11 | group12 | group13 | group14 | group15 | group16 | group17 | group18 | group19 | group20 | group21 | group22 | group23 | group24 | group25 | group26 | group27 | group28 | group29 | group30 | group31 | group32 | group33 | group34 | group35 | group36 | group37 | group38 | group39 | group40 | group41 | group42 | group43 | group44 | group45 | group46 | group47 | group48 | group49 | group50 | group51 | group52 | group53 | group54 | group55 | group56 | group57 | group58 | group59 | group60 | group61 | group62 | group63 | group64 | group65 | group66 | group67 | group68 | group69 | group70 | group71 | group72 | group73 | group74 | group75 | group76 | group77 | group78 | group79 | group80 | group81 | group82 | group83 | group84 | group85 | group86 | group87 | group88 | group89 | group90 | group91 | group92 | group93 | group94 | group95 | group96 | group97 | group98 | group99 | group100 | group101 | group102 | group103 | group104 | group105 | group106 | group107 | group108 | group109 | group110 | group111 | group112 | group113 | group114 | group115 | group116 | group117 | group118 | group119 | group120 | group121 | group122 | group123 | group124 | group125 | group126 | group127'::tsquery",
+      "sql": "SELECT count(*),sum(id) FROM g1.docs WHERE d @@ 'group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7 | group8 | group9 | group10 | group11 | group12 | group13 | group14 | group15 | group16 | group17 | group18 | group19 | group20 | group21 | group22 | group23 | group24 | group25 | group26 | group27 | group28 | group29 | group30 | group31 | group32 | group33 | group34 | group35 | group36 | group37 | group38 | group39 | group40 | group41 | group42 | group43 | group44 | group45 | group46 | group47 | group48 | group49 | group50 | group51 | group52 | group53 | group54 | group55 | group56 | group57 | group58 | group59 | group60 | group61 | group62 | group63 | group64 | group65 | group66 | group67 | group68 | group69 | group70 | group71 | group72 | group73 | group74 | group75 | group76 | group77 | group78 | group79 | group80 | group81 | group82 | group83 | group84 | group85 | group86 | group87 | group88 | group89 | group90 | group91 | group92 | group93 | group94 | group95 | group96 | group97 | group98 | group99 | group100 | group101 | group102 | group103 | group104 | group105 | group106 | group107 | group108 | group109 | group110 | group111 | group112 | group113 | group114 | group115 | group116 | group117 | group118 | group119 | group120 | group121 | group122 | group123 | group124 | group125 | group126 | group127'::tsquery",
+      "answer": "6271|616960960",
+      "expected_count": 6271,
+      "expected_sum": 616960960,
+      "expected_rows_digest": {
+        "bytes": 40079,
+        "sha256": "9ba4c940687040c879a88ce127ded8da66f492bda7418d491911ed59235b4c0e",
+        "rows": 6271
+      },
+      "oracle_settings": "SET enable_seqscan=off;SET enable_bitmapscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_tidscan=off;SET work_mem='64MB';",
+      "reference_settings": "SET enable_seqscan=on;SET enable_bitmapscan=off;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_tidscan=off;SET work_mem='64MB';",
+      "plan_policy": "NATURAL_ANY_VALID_PATH",
+      "heap_threshold_negative": false,
+      "width": 128,
+      "origin_query": "group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7 | group8 | group9 | group10 | group11 | group12 | group13 | group14 | group15 | group16 | group17 | group18 | group19 | group20 | group21 | group22 | group23 | group24 | group25 | group26 | group27 | group28 | group29 | group30 | group31 | group32 | group33 | group34 | group35 | group36 | group37 | group38 | group39 | group40 | group41 | group42 | group43 | group44 | group45 | group46 | group47 | group48 | group49 | group50 | group51 | group52 | group53 | group54 | group55 | group56 | group57 | group58 | group59 | group60 | group61 | group62 | group63 | group64 | group65 | group66 | group67 | group68 | group69 | group70 | group71 | group72 | group73 | group74 | group75 | group76 | group77 | group78 | group79 | group80 | group81 | group82 | group83 | group84 | group85 | group86 | group87 | group88 | group89 | group90 | group91 | group92 | group93 | group94 | group95 | group96 | group97 | group98 | group99 | group100 | group101 | group102 | group103 | group104 | group105 | group106 | group107 | group108 | group109 | group110 | group111 | group112 | group113 | group114 | group115 | group116 | group117 | group118 | group119 | group120 | group121 | group122 | group123 | group124 | group125 | group126 | group127",
+      "origin_query_sha256": "a1f3ea67398a78a478aa39d105fc04e614c5abfe2b0672c050bfd46904327191"
+    },
+    {
+      "name": "sql_sparse_or512",
+      "kind": "sql",
+      "settings": "SET enable_seqscan=on;SET enable_bitmapscan=on;SET enable_indexscan=on;SET enable_indexonlyscan=on;SET enable_tidscan=on;SET work_mem='64MB';",
+      "index": "docs_d_gin",
+      "probes": 1,
+      "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7 | group8 | group9 | group10 | group11 | group12 | group13 | group14 | group15 | group16 | group17 | group18 | group19 | group20 | group21 | group22 | group23 | group24 | group25 | group26 | group27 | group28 | group29 | group30 | group31 | group32 | group33 | group34 | group35 | group36 | group37 | group38 | group39 | group40 | group41 | group42 | group43 | group44 | group45 | group46 | group47 | group48 | group49 | group50 | group51 | group52 | group53 | group54 | group55 | group56 | group57 | group58 | group59 | group60 | group61 | group62 | group63 | group64 | group65 | group66 | group67 | group68 | group69 | group70 | group71 | group72 | group73 | group74 | group75 | group76 | group77 | group78 | group79 | group80 | group81 | group82 | group83 | group84 | group85 | group86 | group87 | group88 | group89 | group90 | group91 | group92 | group93 | group94 | group95 | group96 | group97 | group98 | group99 | group100 | group101 | group102 | group103 | group104 | group105 | group106 | group107 | group108 | group109 | group110 | group111 | group112 | group113 | group114 | group115 | group116 | group117 | group118 | group119 | group120 | group121 | group122 | group123 | group124 | group125 | group126 | group127 | group128 | group129 | group130 | group131 | group132 | group133 | group134 | group135 | group136 | group137 | group138 | group139 | group140 | group141 | group142 | group143 | group144 | group145 | group146 | group147 | group148 | group149 | group150 | group151 | group152 | group153 | group154 | group155 | group156 | group157 | group158 | group159 | group160 | group161 | group162 | group163 | group164 | group165 | group166 | group167 | group168 | group169 | group170 | group171 | group172 | group173 | group174 | group175 | group176 | group177 | group178 | group179 | group180 | group181 | group182 | group183 | group184 | group185 | group186 | group187 | group188 | group189 | group190 | group191 | group192 | group193 | group194 | group195 | group196 | group197 | group198 | group199 | group200 | group201 | group202 | group203 | group204 | group205 | group206 | group207 | group208 | group209 | group210 | group211 | group212 | group213 | group214 | group215 | group216 | group217 | group218 | group219 | group220 | group221 | group222 | group223 | group224 | group225 | group226 | group227 | group228 | group229 | group230 | group231 | group232 | group233 | group234 | group235 | group236 | group237 | group238 | group239 | group240 | group241 | group242 | group243 | group244 | group245 | group246 | group247 | group248 | group249 | group250 | group251 | group252 | group253 | group254 | group255 | group256 | group257 | group258 | group259 | group260 | group261 | group262 | group263 | group264 | group265 | group266 | group267 | group268 | group269 | group270 | group271 | group272 | group273 | group274 | group275 | group276 | group277 | group278 | group279 | group280 | group281 | group282 | group283 | group284 | group285 | group286 | group287 | group288 | group289 | group290 | group291 | group292 | group293 | group294 | group295 | group296 | group297 | group298 | group299 | group300 | group301 | group302 | group303 | group304 | group305 | group306 | group307 | group308 | group309 | group310 | group311 | group312 | group313 | group314 | group315 | group316 | group317 | group318 | group319 | group320 | group321 | group322 | group323 | group324 | group325 | group326 | group327 | group328 | group329 | group330 | group331 | group332 | group333 | group334 | group335 | group336 | group337 | group338 | group339 | group340 | group341 | group342 | group343 | group344 | group345 | group346 | group347 | group348 | group349 | group350 | group351 | group352 | group353 | group354 | group355 | group356 | group357 | group358 | group359 | group360 | group361 | group362 | group363 | group364 | group365 | group366 | group367 | group368 | group369 | group370 | group371 | group372 | group373 | group374 | group375 | group376 | group377 | group378 | group379 | group380 | group381 | group382 | group383 | group384 | group385 | group386 | group387 | group388 | group389 | group390 | group391 | group392 | group393 | group394 | group395 | group396 | group397 | group398 | group399 | group400 | group401 | group402 | group403 | group404 | group405 | group406 | group407 | group408 | group409 | group410 | group411 | group412 | group413 | group414 | group415 | group416 | group417 | group418 | group419 | group420 | group421 | group422 | group423 | group424 | group425 | group426 | group427 | group428 | group429 | group430 | group431 | group432 | group433 | group434 | group435 | group436 | group437 | group438 | group439 | group440 | group441 | group442 | group443 | group444 | group445 | group446 | group447 | group448 | group449 | group450 | group451 | group452 | group453 | group454 | group455 | group456 | group457 | group458 | group459 | group460 | group461 | group462 | group463 | group464 | group465 | group466 | group467 | group468 | group469 | group470 | group471 | group472 | group473 | group474 | group475 | group476 | group477 | group478 | group479 | group480 | group481 | group482 | group483 | group484 | group485 | group486 | group487 | group488 | group489 | group490 | group491 | group492 | group493 | group494 | group495 | group496 | group497 | group498 | group499 | group500 | group501 | group502 | group503 | group504 | group505 | group506 | group507 | group508 | group509 | group510 | group511'::tsquery",
+      "sql": "SELECT count(*),sum(id) FROM g1.docs WHERE d @@ 'group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7 | group8 | group9 | group10 | group11 | group12 | group13 | group14 | group15 | group16 | group17 | group18 | group19 | group20 | group21 | group22 | group23 | group24 | group25 | group26 | group27 | group28 | group29 | group30 | group31 | group32 | group33 | group34 | group35 | group36 | group37 | group38 | group39 | group40 | group41 | group42 | group43 | group44 | group45 | group46 | group47 | group48 | group49 | group50 | group51 | group52 | group53 | group54 | group55 | group56 | group57 | group58 | group59 | group60 | group61 | group62 | group63 | group64 | group65 | group66 | group67 | group68 | group69 | group70 | group71 | group72 | group73 | group74 | group75 | group76 | group77 | group78 | group79 | group80 | group81 | group82 | group83 | group84 | group85 | group86 | group87 | group88 | group89 | group90 | group91 | group92 | group93 | group94 | group95 | group96 | group97 | group98 | group99 | group100 | group101 | group102 | group103 | group104 | group105 | group106 | group107 | group108 | group109 | group110 | group111 | group112 | group113 | group114 | group115 | group116 | group117 | group118 | group119 | group120 | group121 | group122 | group123 | group124 | group125 | group126 | group127 | group128 | group129 | group130 | group131 | group132 | group133 | group134 | group135 | group136 | group137 | group138 | group139 | group140 | group141 | group142 | group143 | group144 | group145 | group146 | group147 | group148 | group149 | group150 | group151 | group152 | group153 | group154 | group155 | group156 | group157 | group158 | group159 | group160 | group161 | group162 | group163 | group164 | group165 | group166 | group167 | group168 | group169 | group170 | group171 | group172 | group173 | group174 | group175 | group176 | group177 | group178 | group179 | group180 | group181 | group182 | group183 | group184 | group185 | group186 | group187 | group188 | group189 | group190 | group191 | group192 | group193 | group194 | group195 | group196 | group197 | group198 | group199 | group200 | group201 | group202 | group203 | group204 | group205 | group206 | group207 | group208 | group209 | group210 | group211 | group212 | group213 | group214 | group215 | group216 | group217 | group218 | group219 | group220 | group221 | group222 | group223 | group224 | group225 | group226 | group227 | group228 | group229 | group230 | group231 | group232 | group233 | group234 | group235 | group236 | group237 | group238 | group239 | group240 | group241 | group242 | group243 | group244 | group245 | group246 | group247 | group248 | group249 | group250 | group251 | group252 | group253 | group254 | group255 | group256 | group257 | group258 | group259 | group260 | group261 | group262 | group263 | group264 | group265 | group266 | group267 | group268 | group269 | group270 | group271 | group272 | group273 | group274 | group275 | group276 | group277 | group278 | group279 | group280 | group281 | group282 | group283 | group284 | group285 | group286 | group287 | group288 | group289 | group290 | group291 | group292 | group293 | group294 | group295 | group296 | group297 | group298 | group299 | group300 | group301 | group302 | group303 | group304 | group305 | group306 | group307 | group308 | group309 | group310 | group311 | group312 | group313 | group314 | group315 | group316 | group317 | group318 | group319 | group320 | group321 | group322 | group323 | group324 | group325 | group326 | group327 | group328 | group329 | group330 | group331 | group332 | group333 | group334 | group335 | group336 | group337 | group338 | group339 | group340 | group341 | group342 | group343 | group344 | group345 | group346 | group347 | group348 | group349 | group350 | group351 | group352 | group353 | group354 | group355 | group356 | group357 | group358 | group359 | group360 | group361 | group362 | group363 | group364 | group365 | group366 | group367 | group368 | group369 | group370 | group371 | group372 | group373 | group374 | group375 | group376 | group377 | group378 | group379 | group380 | group381 | group382 | group383 | group384 | group385 | group386 | group387 | group388 | group389 | group390 | group391 | group392 | group393 | group394 | group395 | group396 | group397 | group398 | group399 | group400 | group401 | group402 | group403 | group404 | group405 | group406 | group407 | group408 | group409 | group410 | group411 | group412 | group413 | group414 | group415 | group416 | group417 | group418 | group419 | group420 | group421 | group422 | group423 | group424 | group425 | group426 | group427 | group428 | group429 | group430 | group431 | group432 | group433 | group434 | group435 | group436 | group437 | group438 | group439 | group440 | group441 | group442 | group443 | group444 | group445 | group446 | group447 | group448 | group449 | group450 | group451 | group452 | group453 | group454 | group455 | group456 | group457 | group458 | group459 | group460 | group461 | group462 | group463 | group464 | group465 | group466 | group467 | group468 | group469 | group470 | group471 | group472 | group473 | group474 | group475 | group476 | group477 | group478 | group479 | group480 | group481 | group482 | group483 | group484 | group485 | group486 | group487 | group488 | group489 | group490 | group491 | group492 | group493 | group494 | group495 | group496 | group497 | group498 | group499 | group500 | group501 | group502 | group503 | group504 | group505 | group506 | group507 | group508 | group509 | group510 | group511'::tsquery",
+      "answer": "25087|2472660736",
+      "expected_count": 25087,
+      "expected_sum": 2472660736,
+      "expected_rows_digest": {
+        "bytes": 160655,
+        "sha256": "7a02a76929203149826a62c34eaa5d024f76fa1945e506b25b8050117d5f0bd9",
+        "rows": 25087
+      },
+      "oracle_settings": "SET enable_seqscan=off;SET enable_bitmapscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_tidscan=off;SET work_mem='64MB';",
+      "reference_settings": "SET enable_seqscan=on;SET enable_bitmapscan=off;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_tidscan=off;SET work_mem='64MB';",
+      "plan_policy": "NATURAL_ANY_VALID_PATH",
+      "heap_threshold_negative": false,
+      "width": 512,
+      "origin_query": "group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7 | group8 | group9 | group10 | group11 | group12 | group13 | group14 | group15 | group16 | group17 | group18 | group19 | group20 | group21 | group22 | group23 | group24 | group25 | group26 | group27 | group28 | group29 | group30 | group31 | group32 | group33 | group34 | group35 | group36 | group37 | group38 | group39 | group40 | group41 | group42 | group43 | group44 | group45 | group46 | group47 | group48 | group49 | group50 | group51 | group52 | group53 | group54 | group55 | group56 | group57 | group58 | group59 | group60 | group61 | group62 | group63 | group64 | group65 | group66 | group67 | group68 | group69 | group70 | group71 | group72 | group73 | group74 | group75 | group76 | group77 | group78 | group79 | group80 | group81 | group82 | group83 | group84 | group85 | group86 | group87 | group88 | group89 | group90 | group91 | group92 | group93 | group94 | group95 | group96 | group97 | group98 | group99 | group100 | group101 | group102 | group103 | group104 | group105 | group106 | group107 | group108 | group109 | group110 | group111 | group112 | group113 | group114 | group115 | group116 | group117 | group118 | group119 | group120 | group121 | group122 | group123 | group124 | group125 | group126 | group127 | group128 | group129 | group130 | group131 | group132 | group133 | group134 | group135 | group136 | group137 | group138 | group139 | group140 | group141 | group142 | group143 | group144 | group145 | group146 | group147 | group148 | group149 | group150 | group151 | group152 | group153 | group154 | group155 | group156 | group157 | group158 | group159 | group160 | group161 | group162 | group163 | group164 | group165 | group166 | group167 | group168 | group169 | group170 | group171 | group172 | group173 | group174 | group175 | group176 | group177 | group178 | group179 | group180 | group181 | group182 | group183 | group184 | group185 | group186 | group187 | group188 | group189 | group190 | group191 | group192 | group193 | group194 | group195 | group196 | group197 | group198 | group199 | group200 | group201 | group202 | group203 | group204 | group205 | group206 | group207 | group208 | group209 | group210 | group211 | group212 | group213 | group214 | group215 | group216 | group217 | group218 | group219 | group220 | group221 | group222 | group223 | group224 | group225 | group226 | group227 | group228 | group229 | group230 | group231 | group232 | group233 | group234 | group235 | group236 | group237 | group238 | group239 | group240 | group241 | group242 | group243 | group244 | group245 | group246 | group247 | group248 | group249 | group250 | group251 | group252 | group253 | group254 | group255 | group256 | group257 | group258 | group259 | group260 | group261 | group262 | group263 | group264 | group265 | group266 | group267 | group268 | group269 | group270 | group271 | group272 | group273 | group274 | group275 | group276 | group277 | group278 | group279 | group280 | group281 | group282 | group283 | group284 | group285 | group286 | group287 | group288 | group289 | group290 | group291 | group292 | group293 | group294 | group295 | group296 | group297 | group298 | group299 | group300 | group301 | group302 | group303 | group304 | group305 | group306 | group307 | group308 | group309 | group310 | group311 | group312 | group313 | group314 | group315 | group316 | group317 | group318 | group319 | group320 | group321 | group322 | group323 | group324 | group325 | group326 | group327 | group328 | group329 | group330 | group331 | group332 | group333 | group334 | group335 | group336 | group337 | group338 | group339 | group340 | group341 | group342 | group343 | group344 | group345 | group346 | group347 | group348 | group349 | group350 | group351 | group352 | group353 | group354 | group355 | group356 | group357 | group358 | group359 | group360 | group361 | group362 | group363 | group364 | group365 | group366 | group367 | group368 | group369 | group370 | group371 | group372 | group373 | group374 | group375 | group376 | group377 | group378 | group379 | group380 | group381 | group382 | group383 | group384 | group385 | group386 | group387 | group388 | group389 | group390 | group391 | group392 | group393 | group394 | group395 | group396 | group397 | group398 | group399 | group400 | group401 | group402 | group403 | group404 | group405 | group406 | group407 | group408 | group409 | group410 | group411 | group412 | group413 | group414 | group415 | group416 | group417 | group418 | group419 | group420 | group421 | group422 | group423 | group424 | group425 | group426 | group427 | group428 | group429 | group430 | group431 | group432 | group433 | group434 | group435 | group436 | group437 | group438 | group439 | group440 | group441 | group442 | group443 | group444 | group445 | group446 | group447 | group448 | group449 | group450 | group451 | group452 | group453 | group454 | group455 | group456 | group457 | group458 | group459 | group460 | group461 | group462 | group463 | group464 | group465 | group466 | group467 | group468 | group469 | group470 | group471 | group472 | group473 | group474 | group475 | group476 | group477 | group478 | group479 | group480 | group481 | group482 | group483 | group484 | group485 | group486 | group487 | group488 | group489 | group490 | group491 | group492 | group493 | group494 | group495 | group496 | group497 | group498 | group499 | group500 | group501 | group502 | group503 | group504 | group505 | group506 | group507 | group508 | group509 | group510 | group511",
+      "origin_query_sha256": "941885424da8ac84750d102256df61a9b81dd15b4e891b0e149f9698ceba13d1"
+    },
+    {
+      "name": "seq_control",
+      "kind": "sql",
+      "settings": "SET enable_seqscan=on;SET enable_bitmapscan=on;SET enable_indexscan=on;SET enable_indexonlyscan=on;SET enable_tidscan=on;SET work_mem='64MB';",
+      "index": null,
+      "probes": 1,
+      "rows_sql": "SELECT id FROM g1.docs WHERE id BETWEEN 1 AND 200000",
+      "sql": "SELECT count(*),sum(id) FROM g1.docs WHERE id BETWEEN 1 AND 200000",
+      "answer": "200000|20000100000",
+      "expected_count": 200000,
+      "expected_sum": 20000100000,
+      "expected_rows_digest": {
+        "bytes": 1288894,
+        "sha256": "01b59173dc3205893607560d9f6caca711aa6c0f3303db7bbccb99552a9fc33a",
+        "rows": 200000
+      },
+      "oracle_settings": "SET enable_seqscan=on;SET enable_bitmapscan=off;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_tidscan=off;SET work_mem='64MB';",
+      "reference_settings": "SET enable_seqscan=on;SET enable_bitmapscan=off;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_tidscan=off;SET work_mem='64MB';",
+      "plan_policy": "NATURAL_ANY_VALID_PATH",
+      "heap_threshold_negative": false
+    }
+  ],
+  "orders": [
+    [
+      "B",
+      "T",
+      "Heap"
+    ],
+    [
+      "T",
+      "Heap",
+      "B"
+    ],
+    [
+      "Heap",
+      "B",
+      "T"
+    ],
+    [
+      "Heap",
+      "T",
+      "B"
+    ],
+    [
+      "B",
+      "Heap",
+      "T"
+    ],
+    [
+      "T",
+      "B",
+      "Heap"
+    ]
+  ],
+  "warmups": 2,
+  "retained_rounds": 6,
+  "cohorts": 2,
+  "raw": 384,
+  "retained": 288,
+  "warm": 96,
+  "scope": "Eight natural-plan SQL cells; seven sparse OR predicates without common plus ID-range control. Held source/ELFs/seed; all plans and all three pairs retained."
+}

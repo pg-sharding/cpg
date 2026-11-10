@@ -1,0 +1,44 @@
+UNSENT DRAFT
+Subject: GIN required-entry heap: selective OR under natural planner choices
+
+Hi,
+
+I completed a separate SQL follow-up for the unchanged required-entry heap
+prototype 03dff8bfa5075e5838c7fbffc712d0b79d03f13d. It uses the same fixed-B72
+builds and qualified fixture, with B/an exact-ELF twin/Heap. Seven fixed ORs
+contain group terms without common, at widths 1/2/7/8/32/128/512, plus an
+ID-range control. All scan types are enabled under frozen GUCs; no source,
+threshold, costs or statistics were tuned after observing plans.
+
+The actual planner chose GIN bitmap paths through width 128, Seq at 512, and
+Index Only for the ID control in every observation. Natural GIN width32
+executor Heap/B paired medians were −10.53%/−10.30%, with B/Heap medians
+0.847/0.753 ms and 0.8195/0.727 ms. At 128 they were −11.43%/−11.46%, with
+11.4115/10.096 ms and 11.359/10.0825 ms. Backend CPU, client elapsed and SQL
+Execution Time have separate columns; these are not old AM loop timings.
+
+There are material negatives. Width 8 was −5.50%/+16.31% executor; below-threshold
+width 7 was +4.20%/+5.57% (+13.68%/+11.40% backend CPU). At width 1 the cohort 0
+exact-twin executor median was +56.13% around a 0.046 ms baseline median.
+Even width 512's Seq path showed −3.86%/−3.97% Heap/B, which cannot be attributed
+to the required-entry heap execution. The Index Only control was +0.21%/+1.42%.
+The cause of unchanged-path variation is unidentified; no control correction
+or general adoption/source-causal claim is made.
+
+The fixed matrix retained all 384 raw / 288 retained / 96 warm commands, two fresh
+cohorts, all six role orders and all three pairs. Separate untimed forced
+Seq/GIN ordered oracles and frozen residue-formula scalar/digest answers
+passed. An independent arithmetic audit checked 8208 numbers; full raw plans,
+absolute min/median/max/sample SD/MAD and every direct pair are retained.
+The final root live check verified all nine owned lifetimes stopped, no owned
+PIDs/sockets, all three installed prefixes, 7726 source files, two seeds and
+frozen inputs unchanged. No second-host or new portable Linux run is claimed.
+
+The inherited heap idea and shared-entry context were discussed by Heikki
+Linnakangas in 2014:
+https://www.postgresql.org/message-id/52F373CC.4050800%40vmware.com
+This follow-up adds workload evidence, not a new source idea. Earlier
+common-superset forced-GIN SQL and actual-AM results remain separate, with
+all their negative controls preserved.
+
+Regards,

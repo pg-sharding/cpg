@@ -1,0 +1,195 @@
+{
+  "mode": "screen",
+  "roles": [
+    "B",
+    "T",
+    "Heap"
+  ],
+  "cases": [
+    {
+      "name": "heap_shared8",
+      "kind": "sql",
+      "settings": "SET enable_seqscan=off;SET enable_bitmapscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET work_mem='64MB';",
+      "index": "builtin_tags_gin",
+      "rows_sql": "SELECT id FROM g1.builtin_arrays WHERE tags OPERATOR(pg_catalog.&&) ARRAY[1,2,3,4,5,1001,1002,10000]::integer[] AND tags OPERATOR(pg_catalog.&&) ARRAY[1001]::integer[]",
+      "sql": "SELECT count(*),sum(id) FROM g1.builtin_arrays WHERE tags OPERATOR(pg_catalog.&&) ARRAY[1,2,3,4,5,1001,1002,10000]::integer[] AND tags OPERATOR(pg_catalog.&&) ARRAY[1001]::integer[]",
+      "expected_rows_digest": {
+        "bytes": 1291,
+        "rows": 200,
+        "sha256": "b05b2c6b15a2bc723fdb05fa27bce6aba0af0f48fac98da90bae71bce33caa5c"
+      },
+      "answer": "200|20100000",
+      "require_lossy_heap": false,
+      "require_single_index_multiqual": true
+    },
+    {
+      "name": "heap_shared32",
+      "kind": "sql",
+      "settings": "SET enable_seqscan=off;SET enable_bitmapscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET work_mem='64MB';",
+      "index": "builtin_tags_gin",
+      "rows_sql": "SELECT id FROM g1.builtin_arrays WHERE tags OPERATOR(pg_catalog.&&) ARRAY[1,2,3,4,5,1001,1002,10000,10001,10002,10003,10004,10005,10006,10007,10008,10009,10010,10011,10012,10013,10014,10015,10016,10017,10018,10019,10020,10021,10022,10023,10024]::integer[] AND tags OPERATOR(pg_catalog.&&) ARRAY[1001]::integer[]",
+      "sql": "SELECT count(*),sum(id) FROM g1.builtin_arrays WHERE tags OPERATOR(pg_catalog.&&) ARRAY[1,2,3,4,5,1001,1002,10000,10001,10002,10003,10004,10005,10006,10007,10008,10009,10010,10011,10012,10013,10014,10015,10016,10017,10018,10019,10020,10021,10022,10023,10024]::integer[] AND tags OPERATOR(pg_catalog.&&) ARRAY[1001]::integer[]",
+      "expected_rows_digest": {
+        "bytes": 1291,
+        "rows": 200,
+        "sha256": "b05b2c6b15a2bc723fdb05fa27bce6aba0af0f48fac98da90bae71bce33caa5c"
+      },
+      "answer": "200|20100000",
+      "require_lossy_heap": false,
+      "require_single_index_multiqual": true
+    },
+    {
+      "name": "heap_lossy8",
+      "kind": "sql",
+      "settings": "SET enable_seqscan=off;SET enable_bitmapscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET work_mem='64kB';",
+      "index": "docs_d_gin",
+      "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'group:* | rare0 | rare1 | rare2 | rare3 | dense2 | dense3 | group0'::tsquery",
+      "sql": "SELECT count(*),sum(id) FROM g1.docs WHERE d @@ 'group:* | rare0 | rare1 | rare2 | rare3 | dense2 | dense3 | group0'::tsquery",
+      "expected_rows_digest": {
+        "bytes": 1288894,
+        "rows": 200000,
+        "sha256": "01b59173dc3205893607560d9f6caca711aa6c0f3303db7bbccb99552a9fc33a"
+      },
+      "answer": "200000|20000100000",
+      "require_lossy_heap": true,
+      "require_single_index_multiqual": false
+    },
+    {
+      "name": "heap_absent512",
+      "kind": "sql",
+      "settings": "SET enable_seqscan=off;SET enable_bitmapscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET work_mem='64MB';",
+      "index": "docs_d_gin",
+      "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'missing0 | missing1 | missing2 | missing3 | missing4 | missing5 | missing6 | missing7 | missing8 | missing9 | missing10 | missing11 | missing12 | missing13 | missing14 | missing15 | missing16 | missing17 | missing18 | missing19 | missing20 | missing21 | missing22 | missing23 | missing24 | missing25 | missing26 | missing27 | missing28 | missing29 | missing30 | missing31 | missing32 | missing33 | missing34 | missing35 | missing36 | missing37 | missing38 | missing39 | missing40 | missing41 | missing42 | missing43 | missing44 | missing45 | missing46 | missing47 | missing48 | missing49 | missing50 | missing51 | missing52 | missing53 | missing54 | missing55 | missing56 | missing57 | missing58 | missing59 | missing60 | missing61 | missing62 | missing63 | missing64 | missing65 | missing66 | missing67 | missing68 | missing69 | missing70 | missing71 | missing72 | missing73 | missing74 | missing75 | missing76 | missing77 | missing78 | missing79 | missing80 | missing81 | missing82 | missing83 | missing84 | missing85 | missing86 | missing87 | missing88 | missing89 | missing90 | missing91 | missing92 | missing93 | missing94 | missing95 | missing96 | missing97 | missing98 | missing99 | missing100 | missing101 | missing102 | missing103 | missing104 | missing105 | missing106 | missing107 | missing108 | missing109 | missing110 | missing111 | missing112 | missing113 | missing114 | missing115 | missing116 | missing117 | missing118 | missing119 | missing120 | missing121 | missing122 | missing123 | missing124 | missing125 | missing126 | missing127 | missing128 | missing129 | missing130 | missing131 | missing132 | missing133 | missing134 | missing135 | missing136 | missing137 | missing138 | missing139 | missing140 | missing141 | missing142 | missing143 | missing144 | missing145 | missing146 | missing147 | missing148 | missing149 | missing150 | missing151 | missing152 | missing153 | missing154 | missing155 | missing156 | missing157 | missing158 | missing159 | missing160 | missing161 | missing162 | missing163 | missing164 | missing165 | missing166 | missing167 | missing168 | missing169 | missing170 | missing171 | missing172 | missing173 | missing174 | missing175 | missing176 | missing177 | missing178 | missing179 | missing180 | missing181 | missing182 | missing183 | missing184 | missing185 | missing186 | missing187 | missing188 | missing189 | missing190 | missing191 | missing192 | missing193 | missing194 | missing195 | missing196 | missing197 | missing198 | missing199 | missing200 | missing201 | missing202 | missing203 | missing204 | missing205 | missing206 | missing207 | missing208 | missing209 | missing210 | missing211 | missing212 | missing213 | missing214 | missing215 | missing216 | missing217 | missing218 | missing219 | missing220 | missing221 | missing222 | missing223 | missing224 | missing225 | missing226 | missing227 | missing228 | missing229 | missing230 | missing231 | missing232 | missing233 | missing234 | missing235 | missing236 | missing237 | missing238 | missing239 | missing240 | missing241 | missing242 | missing243 | missing244 | missing245 | missing246 | missing247 | missing248 | missing249 | missing250 | missing251 | missing252 | missing253 | missing254 | missing255 | missing256 | missing257 | missing258 | missing259 | missing260 | missing261 | missing262 | missing263 | missing264 | missing265 | missing266 | missing267 | missing268 | missing269 | missing270 | missing271 | missing272 | missing273 | missing274 | missing275 | missing276 | missing277 | missing278 | missing279 | missing280 | missing281 | missing282 | missing283 | missing284 | missing285 | missing286 | missing287 | missing288 | missing289 | missing290 | missing291 | missing292 | missing293 | missing294 | missing295 | missing296 | missing297 | missing298 | missing299 | missing300 | missing301 | missing302 | missing303 | missing304 | missing305 | missing306 | missing307 | missing308 | missing309 | missing310 | missing311 | missing312 | missing313 | missing314 | missing315 | missing316 | missing317 | missing318 | missing319 | missing320 | missing321 | missing322 | missing323 | missing324 | missing325 | missing326 | missing327 | missing328 | missing329 | missing330 | missing331 | missing332 | missing333 | missing334 | missing335 | missing336 | missing337 | missing338 | missing339 | missing340 | missing341 | missing342 | missing343 | missing344 | missing345 | missing346 | missing347 | missing348 | missing349 | missing350 | missing351 | missing352 | missing353 | missing354 | missing355 | missing356 | missing357 | missing358 | missing359 | missing360 | missing361 | missing362 | missing363 | missing364 | missing365 | missing366 | missing367 | missing368 | missing369 | missing370 | missing371 | missing372 | missing373 | missing374 | missing375 | missing376 | missing377 | missing378 | missing379 | missing380 | missing381 | missing382 | missing383 | missing384 | missing385 | missing386 | missing387 | missing388 | missing389 | missing390 | missing391 | missing392 | missing393 | missing394 | missing395 | missing396 | missing397 | missing398 | missing399 | missing400 | missing401 | missing402 | missing403 | missing404 | missing405 | missing406 | missing407 | missing408 | missing409 | missing410 | missing411 | missing412 | missing413 | missing414 | missing415 | missing416 | missing417 | missing418 | missing419 | missing420 | missing421 | missing422 | missing423 | missing424 | missing425 | missing426 | missing427 | missing428 | missing429 | missing430 | missing431 | missing432 | missing433 | missing434 | missing435 | missing436 | missing437 | missing438 | missing439 | missing440 | missing441 | missing442 | missing443 | missing444 | missing445 | missing446 | missing447 | missing448 | missing449 | missing450 | missing451 | missing452 | missing453 | missing454 | missing455 | missing456 | missing457 | missing458 | missing459 | missing460 | missing461 | missing462 | missing463 | missing464 | missing465 | missing466 | missing467 | missing468 | missing469 | missing470 | missing471 | missing472 | missing473 | missing474 | missing475 | missing476 | missing477 | missing478 | missing479 | missing480 | missing481 | missing482 | missing483 | missing484 | missing485 | missing486 | missing487 | missing488 | missing489 | missing490 | missing491 | missing492 | missing493 | missing494 | missing495 | missing496 | missing497 | missing498 | missing499 | missing500 | missing501 | missing502 | missing503 | missing504 | missing505 | missing506 | missing507 | missing508 | missing509 | missing510 | missing511'::tsquery",
+      "sql": "SELECT count(*),sum(id) FROM g1.docs WHERE d @@ 'missing0 | missing1 | missing2 | missing3 | missing4 | missing5 | missing6 | missing7 | missing8 | missing9 | missing10 | missing11 | missing12 | missing13 | missing14 | missing15 | missing16 | missing17 | missing18 | missing19 | missing20 | missing21 | missing22 | missing23 | missing24 | missing25 | missing26 | missing27 | missing28 | missing29 | missing30 | missing31 | missing32 | missing33 | missing34 | missing35 | missing36 | missing37 | missing38 | missing39 | missing40 | missing41 | missing42 | missing43 | missing44 | missing45 | missing46 | missing47 | missing48 | missing49 | missing50 | missing51 | missing52 | missing53 | missing54 | missing55 | missing56 | missing57 | missing58 | missing59 | missing60 | missing61 | missing62 | missing63 | missing64 | missing65 | missing66 | missing67 | missing68 | missing69 | missing70 | missing71 | missing72 | missing73 | missing74 | missing75 | missing76 | missing77 | missing78 | missing79 | missing80 | missing81 | missing82 | missing83 | missing84 | missing85 | missing86 | missing87 | missing88 | missing89 | missing90 | missing91 | missing92 | missing93 | missing94 | missing95 | missing96 | missing97 | missing98 | missing99 | missing100 | missing101 | missing102 | missing103 | missing104 | missing105 | missing106 | missing107 | missing108 | missing109 | missing110 | missing111 | missing112 | missing113 | missing114 | missing115 | missing116 | missing117 | missing118 | missing119 | missing120 | missing121 | missing122 | missing123 | missing124 | missing125 | missing126 | missing127 | missing128 | missing129 | missing130 | missing131 | missing132 | missing133 | missing134 | missing135 | missing136 | missing137 | missing138 | missing139 | missing140 | missing141 | missing142 | missing143 | missing144 | missing145 | missing146 | missing147 | missing148 | missing149 | missing150 | missing151 | missing152 | missing153 | missing154 | missing155 | missing156 | missing157 | missing158 | missing159 | missing160 | missing161 | missing162 | missing163 | missing164 | missing165 | missing166 | missing167 | missing168 | missing169 | missing170 | missing171 | missing172 | missing173 | missing174 | missing175 | missing176 | missing177 | missing178 | missing179 | missing180 | missing181 | missing182 | missing183 | missing184 | missing185 | missing186 | missing187 | missing188 | missing189 | missing190 | missing191 | missing192 | missing193 | missing194 | missing195 | missing196 | missing197 | missing198 | missing199 | missing200 | missing201 | missing202 | missing203 | missing204 | missing205 | missing206 | missing207 | missing208 | missing209 | missing210 | missing211 | missing212 | missing213 | missing214 | missing215 | missing216 | missing217 | missing218 | missing219 | missing220 | missing221 | missing222 | missing223 | missing224 | missing225 | missing226 | missing227 | missing228 | missing229 | missing230 | missing231 | missing232 | missing233 | missing234 | missing235 | missing236 | missing237 | missing238 | missing239 | missing240 | missing241 | missing242 | missing243 | missing244 | missing245 | missing246 | missing247 | missing248 | missing249 | missing250 | missing251 | missing252 | missing253 | missing254 | missing255 | missing256 | missing257 | missing258 | missing259 | missing260 | missing261 | missing262 | missing263 | missing264 | missing265 | missing266 | missing267 | missing268 | missing269 | missing270 | missing271 | missing272 | missing273 | missing274 | missing275 | missing276 | missing277 | missing278 | missing279 | missing280 | missing281 | missing282 | missing283 | missing284 | missing285 | missing286 | missing287 | missing288 | missing289 | missing290 | missing291 | missing292 | missing293 | missing294 | missing295 | missing296 | missing297 | missing298 | missing299 | missing300 | missing301 | missing302 | missing303 | missing304 | missing305 | missing306 | missing307 | missing308 | missing309 | missing310 | missing311 | missing312 | missing313 | missing314 | missing315 | missing316 | missing317 | missing318 | missing319 | missing320 | missing321 | missing322 | missing323 | missing324 | missing325 | missing326 | missing327 | missing328 | missing329 | missing330 | missing331 | missing332 | missing333 | missing334 | missing335 | missing336 | missing337 | missing338 | missing339 | missing340 | missing341 | missing342 | missing343 | missing344 | missing345 | missing346 | missing347 | missing348 | missing349 | missing350 | missing351 | missing352 | missing353 | missing354 | missing355 | missing356 | missing357 | missing358 | missing359 | missing360 | missing361 | missing362 | missing363 | missing364 | missing365 | missing366 | missing367 | missing368 | missing369 | missing370 | missing371 | missing372 | missing373 | missing374 | missing375 | missing376 | missing377 | missing378 | missing379 | missing380 | missing381 | missing382 | missing383 | missing384 | missing385 | missing386 | missing387 | missing388 | missing389 | missing390 | missing391 | missing392 | missing393 | missing394 | missing395 | missing396 | missing397 | missing398 | missing399 | missing400 | missing401 | missing402 | missing403 | missing404 | missing405 | missing406 | missing407 | missing408 | missing409 | missing410 | missing411 | missing412 | missing413 | missing414 | missing415 | missing416 | missing417 | missing418 | missing419 | missing420 | missing421 | missing422 | missing423 | missing424 | missing425 | missing426 | missing427 | missing428 | missing429 | missing430 | missing431 | missing432 | missing433 | missing434 | missing435 | missing436 | missing437 | missing438 | missing439 | missing440 | missing441 | missing442 | missing443 | missing444 | missing445 | missing446 | missing447 | missing448 | missing449 | missing450 | missing451 | missing452 | missing453 | missing454 | missing455 | missing456 | missing457 | missing458 | missing459 | missing460 | missing461 | missing462 | missing463 | missing464 | missing465 | missing466 | missing467 | missing468 | missing469 | missing470 | missing471 | missing472 | missing473 | missing474 | missing475 | missing476 | missing477 | missing478 | missing479 | missing480 | missing481 | missing482 | missing483 | missing484 | missing485 | missing486 | missing487 | missing488 | missing489 | missing490 | missing491 | missing492 | missing493 | missing494 | missing495 | missing496 | missing497 | missing498 | missing499 | missing500 | missing501 | missing502 | missing503 | missing504 | missing505 | missing506 | missing507 | missing508 | missing509 | missing510 | missing511'::tsquery",
+      "expected_rows_digest": {
+        "bytes": 0,
+        "rows": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "answer": "0|",
+      "require_lossy_heap": false,
+      "require_single_index_multiqual": false
+    },
+    {
+      "name": "seq_control",
+      "table": "docs",
+      "predicate": "id % 1000 = 0",
+      "rows_sql": "SELECT id FROM g1.docs WHERE id % 1000 = 0",
+      "sql": "SELECT sum(q.n) FROM generate_series(1,5) p(i) CROSS JOIN LATERAL (SELECT count(*) n FROM g1.docs WHERE id % 1000 = 0 OFFSET (p.i % 1)) q",
+      "settings": "SET enable_bitmapscan=off;SET enable_indexscan=off;",
+      "index": null,
+      "role": "off-path control",
+      "probes": 5,
+      "kind": "sql"
+    },
+    {
+      "name": "am_or_dense1",
+      "kind": "am",
+      "settings": "",
+      "index": "docs_d_gin",
+      "query": "common",
+      "loops": 1,
+      "tids_per_scan": 200000,
+      "sql": "SELECT public.gin_am_micro('g1.docs_d_gin'::regclass, 'common'::tsquery, 1)"
+    },
+    {
+      "name": "am_or_dense2",
+      "kind": "am",
+      "settings": "",
+      "index": "docs_d_gin",
+      "query": "common | group0",
+      "loops": 1,
+      "tids_per_scan": 200000,
+      "sql": "SELECT public.gin_am_micro('g1.docs_d_gin'::regclass, 'common | group0'::tsquery, 1)"
+    },
+    {
+      "name": "am_or_dense7",
+      "kind": "am",
+      "settings": "",
+      "index": "docs_d_gin",
+      "query": "common | group0 | group1 | group2 | group3 | group4 | group5",
+      "loops": 1,
+      "tids_per_scan": 200000,
+      "sql": "SELECT public.gin_am_micro('g1.docs_d_gin'::regclass, 'common | group0 | group1 | group2 | group3 | group4 | group5'::tsquery, 1)"
+    },
+    {
+      "name": "am_or_dense8",
+      "kind": "am",
+      "settings": "",
+      "index": "docs_d_gin",
+      "query": "common | group0 | group1 | group2 | group3 | group4 | group5 | group6",
+      "loops": 1,
+      "tids_per_scan": 200000,
+      "sql": "SELECT public.gin_am_micro('g1.docs_d_gin'::regclass, 'common | group0 | group1 | group2 | group3 | group4 | group5 | group6'::tsquery, 1)"
+    },
+    {
+      "name": "am_or_dense32",
+      "kind": "am",
+      "settings": "",
+      "index": "docs_d_gin",
+      "query": "common | group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7 | group8 | group9 | group10 | group11 | group12 | group13 | group14 | group15 | group16 | group17 | group18 | group19 | group20 | group21 | group22 | group23 | group24 | group25 | group26 | group27 | group28 | group29 | group30",
+      "loops": 1,
+      "tids_per_scan": 200000,
+      "sql": "SELECT public.gin_am_micro('g1.docs_d_gin'::regclass, 'common | group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7 | group8 | group9 | group10 | group11 | group12 | group13 | group14 | group15 | group16 | group17 | group18 | group19 | group20 | group21 | group22 | group23 | group24 | group25 | group26 | group27 | group28 | group29 | group30'::tsquery, 1)"
+    },
+    {
+      "name": "am_or_dense128",
+      "kind": "am",
+      "settings": "",
+      "index": "docs_d_gin",
+      "query": "common | group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7 | group8 | group9 | group10 | group11 | group12 | group13 | group14 | group15 | group16 | group17 | group18 | group19 | group20 | group21 | group22 | group23 | group24 | group25 | group26 | group27 | group28 | group29 | group30 | group31 | group32 | group33 | group34 | group35 | group36 | group37 | group38 | group39 | group40 | group41 | group42 | group43 | group44 | group45 | group46 | group47 | group48 | group49 | group50 | group51 | group52 | group53 | group54 | group55 | group56 | group57 | group58 | group59 | group60 | group61 | group62 | group63 | group64 | group65 | group66 | group67 | group68 | group69 | group70 | group71 | group72 | group73 | group74 | group75 | group76 | group77 | group78 | group79 | group80 | group81 | group82 | group83 | group84 | group85 | group86 | group87 | group88 | group89 | group90 | group91 | group92 | group93 | group94 | group95 | group96 | group97 | group98 | group99 | group100 | group101 | group102 | group103 | group104 | group105 | group106 | group107 | group108 | group109 | group110 | group111 | group112 | group113 | group114 | group115 | group116 | group117 | group118 | group119 | group120 | group121 | group122 | group123 | group124 | group125 | group126",
+      "loops": 1,
+      "tids_per_scan": 200000,
+      "sql": "SELECT public.gin_am_micro('g1.docs_d_gin'::regclass, 'common | group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7 | group8 | group9 | group10 | group11 | group12 | group13 | group14 | group15 | group16 | group17 | group18 | group19 | group20 | group21 | group22 | group23 | group24 | group25 | group26 | group27 | group28 | group29 | group30 | group31 | group32 | group33 | group34 | group35 | group36 | group37 | group38 | group39 | group40 | group41 | group42 | group43 | group44 | group45 | group46 | group47 | group48 | group49 | group50 | group51 | group52 | group53 | group54 | group55 | group56 | group57 | group58 | group59 | group60 | group61 | group62 | group63 | group64 | group65 | group66 | group67 | group68 | group69 | group70 | group71 | group72 | group73 | group74 | group75 | group76 | group77 | group78 | group79 | group80 | group81 | group82 | group83 | group84 | group85 | group86 | group87 | group88 | group89 | group90 | group91 | group92 | group93 | group94 | group95 | group96 | group97 | group98 | group99 | group100 | group101 | group102 | group103 | group104 | group105 | group106 | group107 | group108 | group109 | group110 | group111 | group112 | group113 | group114 | group115 | group116 | group117 | group118 | group119 | group120 | group121 | group122 | group123 | group124 | group125 | group126'::tsquery, 1)"
+    },
+    {
+      "name": "am_or_dense512",
+      "kind": "am",
+      "settings": "",
+      "index": "docs_d_gin",
+      "query": "common | group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7 | group8 | group9 | group10 | group11 | group12 | group13 | group14 | group15 | group16 | group17 | group18 | group19 | group20 | group21 | group22 | group23 | group24 | group25 | group26 | group27 | group28 | group29 | group30 | group31 | group32 | group33 | group34 | group35 | group36 | group37 | group38 | group39 | group40 | group41 | group42 | group43 | group44 | group45 | group46 | group47 | group48 | group49 | group50 | group51 | group52 | group53 | group54 | group55 | group56 | group57 | group58 | group59 | group60 | group61 | group62 | group63 | group64 | group65 | group66 | group67 | group68 | group69 | group70 | group71 | group72 | group73 | group74 | group75 | group76 | group77 | group78 | group79 | group80 | group81 | group82 | group83 | group84 | group85 | group86 | group87 | group88 | group89 | group90 | group91 | group92 | group93 | group94 | group95 | group96 | group97 | group98 | group99 | group100 | group101 | group102 | group103 | group104 | group105 | group106 | group107 | group108 | group109 | group110 | group111 | group112 | group113 | group114 | group115 | group116 | group117 | group118 | group119 | group120 | group121 | group122 | group123 | group124 | group125 | group126 | group127 | group128 | group129 | group130 | group131 | group132 | group133 | group134 | group135 | group136 | group137 | group138 | group139 | group140 | group141 | group142 | group143 | group144 | group145 | group146 | group147 | group148 | group149 | group150 | group151 | group152 | group153 | group154 | group155 | group156 | group157 | group158 | group159 | group160 | group161 | group162 | group163 | group164 | group165 | group166 | group167 | group168 | group169 | group170 | group171 | group172 | group173 | group174 | group175 | group176 | group177 | group178 | group179 | group180 | group181 | group182 | group183 | group184 | group185 | group186 | group187 | group188 | group189 | group190 | group191 | group192 | group193 | group194 | group195 | group196 | group197 | group198 | group199 | group200 | group201 | group202 | group203 | group204 | group205 | group206 | group207 | group208 | group209 | group210 | group211 | group212 | group213 | group214 | group215 | group216 | group217 | group218 | group219 | group220 | group221 | group222 | group223 | group224 | group225 | group226 | group227 | group228 | group229 | group230 | group231 | group232 | group233 | group234 | group235 | group236 | group237 | group238 | group239 | group240 | group241 | group242 | group243 | group244 | group245 | group246 | group247 | group248 | group249 | group250 | group251 | group252 | group253 | group254 | group255 | group256 | group257 | group258 | group259 | group260 | group261 | group262 | group263 | group264 | group265 | group266 | group267 | group268 | group269 | group270 | group271 | group272 | group273 | group274 | group275 | group276 | group277 | group278 | group279 | group280 | group281 | group282 | group283 | group284 | group285 | group286 | group287 | group288 | group289 | group290 | group291 | group292 | group293 | group294 | group295 | group296 | group297 | group298 | group299 | group300 | group301 | group302 | group303 | group304 | group305 | group306 | group307 | group308 | group309 | group310 | group311 | group312 | group313 | group314 | group315 | group316 | group317 | group318 | group319 | group320 | group321 | group322 | group323 | group324 | group325 | group326 | group327 | group328 | group329 | group330 | group331 | group332 | group333 | group334 | group335 | group336 | group337 | group338 | group339 | group340 | group341 | group342 | group343 | group344 | group345 | group346 | group347 | group348 | group349 | group350 | group351 | group352 | group353 | group354 | group355 | group356 | group357 | group358 | group359 | group360 | group361 | group362 | group363 | group364 | group365 | group366 | group367 | group368 | group369 | group370 | group371 | group372 | group373 | group374 | group375 | group376 | group377 | group378 | group379 | group380 | group381 | group382 | group383 | group384 | group385 | group386 | group387 | group388 | group389 | group390 | group391 | group392 | group393 | group394 | group395 | group396 | group397 | group398 | group399 | group400 | group401 | group402 | group403 | group404 | group405 | group406 | group407 | group408 | group409 | group410 | group411 | group412 | group413 | group414 | group415 | group416 | group417 | group418 | group419 | group420 | group421 | group422 | group423 | group424 | group425 | group426 | group427 | group428 | group429 | group430 | group431 | group432 | group433 | group434 | group435 | group436 | group437 | group438 | group439 | group440 | group441 | group442 | group443 | group444 | group445 | group446 | group447 | group448 | group449 | group450 | group451 | group452 | group453 | group454 | group455 | group456 | group457 | group458 | group459 | group460 | group461 | group462 | group463 | group464 | group465 | group466 | group467 | group468 | group469 | group470 | group471 | group472 | group473 | group474 | group475 | group476 | group477 | group478 | group479 | group480 | group481 | group482 | group483 | group484 | group485 | group486 | group487 | group488 | group489 | group490 | group491 | group492 | group493 | group494 | group495 | group496 | group497 | group498 | group499 | group500 | group501 | group502 | group503 | group504 | group505 | group506 | group507 | group508 | group509 | group510",
+      "loops": 1,
+      "tids_per_scan": 200000,
+      "sql": "SELECT public.gin_am_micro('g1.docs_d_gin'::regclass, 'common | group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7 | group8 | group9 | group10 | group11 | group12 | group13 | group14 | group15 | group16 | group17 | group18 | group19 | group20 | group21 | group22 | group23 | group24 | group25 | group26 | group27 | group28 | group29 | group30 | group31 | group32 | group33 | group34 | group35 | group36 | group37 | group38 | group39 | group40 | group41 | group42 | group43 | group44 | group45 | group46 | group47 | group48 | group49 | group50 | group51 | group52 | group53 | group54 | group55 | group56 | group57 | group58 | group59 | group60 | group61 | group62 | group63 | group64 | group65 | group66 | group67 | group68 | group69 | group70 | group71 | group72 | group73 | group74 | group75 | group76 | group77 | group78 | group79 | group80 | group81 | group82 | group83 | group84 | group85 | group86 | group87 | group88 | group89 | group90 | group91 | group92 | group93 | group94 | group95 | group96 | group97 | group98 | group99 | group100 | group101 | group102 | group103 | group104 | group105 | group106 | group107 | group108 | group109 | group110 | group111 | group112 | group113 | group114 | group115 | group116 | group117 | group118 | group119 | group120 | group121 | group122 | group123 | group124 | group125 | group126 | group127 | group128 | group129 | group130 | group131 | group132 | group133 | group134 | group135 | group136 | group137 | group138 | group139 | group140 | group141 | group142 | group143 | group144 | group145 | group146 | group147 | group148 | group149 | group150 | group151 | group152 | group153 | group154 | group155 | group156 | group157 | group158 | group159 | group160 | group161 | group162 | group163 | group164 | group165 | group166 | group167 | group168 | group169 | group170 | group171 | group172 | group173 | group174 | group175 | group176 | group177 | group178 | group179 | group180 | group181 | group182 | group183 | group184 | group185 | group186 | group187 | group188 | group189 | group190 | group191 | group192 | group193 | group194 | group195 | group196 | group197 | group198 | group199 | group200 | group201 | group202 | group203 | group204 | group205 | group206 | group207 | group208 | group209 | group210 | group211 | group212 | group213 | group214 | group215 | group216 | group217 | group218 | group219 | group220 | group221 | group222 | group223 | group224 | group225 | group226 | group227 | group228 | group229 | group230 | group231 | group232 | group233 | group234 | group235 | group236 | group237 | group238 | group239 | group240 | group241 | group242 | group243 | group244 | group245 | group246 | group247 | group248 | group249 | group250 | group251 | group252 | group253 | group254 | group255 | group256 | group257 | group258 | group259 | group260 | group261 | group262 | group263 | group264 | group265 | group266 | group267 | group268 | group269 | group270 | group271 | group272 | group273 | group274 | group275 | group276 | group277 | group278 | group279 | group280 | group281 | group282 | group283 | group284 | group285 | group286 | group287 | group288 | group289 | group290 | group291 | group292 | group293 | group294 | group295 | group296 | group297 | group298 | group299 | group300 | group301 | group302 | group303 | group304 | group305 | group306 | group307 | group308 | group309 | group310 | group311 | group312 | group313 | group314 | group315 | group316 | group317 | group318 | group319 | group320 | group321 | group322 | group323 | group324 | group325 | group326 | group327 | group328 | group329 | group330 | group331 | group332 | group333 | group334 | group335 | group336 | group337 | group338 | group339 | group340 | group341 | group342 | group343 | group344 | group345 | group346 | group347 | group348 | group349 | group350 | group351 | group352 | group353 | group354 | group355 | group356 | group357 | group358 | group359 | group360 | group361 | group362 | group363 | group364 | group365 | group366 | group367 | group368 | group369 | group370 | group371 | group372 | group373 | group374 | group375 | group376 | group377 | group378 | group379 | group380 | group381 | group382 | group383 | group384 | group385 | group386 | group387 | group388 | group389 | group390 | group391 | group392 | group393 | group394 | group395 | group396 | group397 | group398 | group399 | group400 | group401 | group402 | group403 | group404 | group405 | group406 | group407 | group408 | group409 | group410 | group411 | group412 | group413 | group414 | group415 | group416 | group417 | group418 | group419 | group420 | group421 | group422 | group423 | group424 | group425 | group426 | group427 | group428 | group429 | group430 | group431 | group432 | group433 | group434 | group435 | group436 | group437 | group438 | group439 | group440 | group441 | group442 | group443 | group444 | group445 | group446 | group447 | group448 | group449 | group450 | group451 | group452 | group453 | group454 | group455 | group456 | group457 | group458 | group459 | group460 | group461 | group462 | group463 | group464 | group465 | group466 | group467 | group468 | group469 | group470 | group471 | group472 | group473 | group474 | group475 | group476 | group477 | group478 | group479 | group480 | group481 | group482 | group483 | group484 | group485 | group486 | group487 | group488 | group489 | group490 | group491 | group492 | group493 | group494 | group495 | group496 | group497 | group498 | group499 | group500 | group501 | group502 | group503 | group504 | group505 | group506 | group507 | group508 | group509 | group510'::tsquery, 1)"
+    }
+  ],
+  "orders": [
+    [
+      "B",
+      "T",
+      "Heap"
+    ],
+    [
+      "T",
+      "Heap",
+      "B"
+    ],
+    [
+      "Heap",
+      "B",
+      "T"
+    ],
+    [
+      "Heap",
+      "T",
+      "B"
+    ],
+    [
+      "B",
+      "Heap",
+      "T"
+    ],
+    [
+      "T",
+      "B",
+      "Heap"
+    ]
+  ],
+  "warmups": 2,
+  "retained_rounds": 6,
+  "cohorts": 2,
+  "raw": 576,
+  "retained": 432,
+  "warm": 144,
+  "timing": "New independent candidate campaign; B/T exact ELF; keep cohorts/metrics/negatives separate, no trimming or normalization. Smoke has zero accepted samples; no automatic promotion."
+}
