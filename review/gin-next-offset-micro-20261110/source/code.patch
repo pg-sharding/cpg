@@ -1,0 +1,88 @@
+From cc5c47d525e01a7eb6af7b6d6fed66fcbde5d7f9 Mon Sep 17 00:00:00 2001
+From: root <localhost>
+Date: Tue, 10 Nov 2026 18:52:05 +0500
+Subject: [PATCH] Use bounded offset advancement for GIN partial-match bitmaps
+
+---
+ src/backend/access/gin/ginget.c | 57 +++++++++++++++++++++++++++++++--
+ 1 file changed, 55 insertions(+), 2 deletions(-)
+
+diff --git a/src/backend/access/gin/ginget.c b/src/backend/access/gin/ginget.c
+index b70ea5071d9..5aee0104479 100644
+--- a/src/backend/access/gin/ginget.c
++++ b/src/backend/access/gin/ginget.c
+@@ -824,6 +824,52 @@ entryLoadMoreItems(GinState *ginstate, GinScanEntry entry,
+ 	}
+ }
+ 
++/*
++ * Find the first remaining exact-page offset strictly after advancePast.
++ * The caller has already proved that the last offset is after advancePast.
++ */
++static inline int
++ginAdvanceMatchOffsets(const OffsetNumber *offsets, int offset, int ntuples,
++					   OffsetNumber advancePast)
++{
++	int			lower;
++	int			upper = ntuples;
++	int			step = 1;
++	int			remaining = ntuples - offset;
++
++	Assert(offset >= 0 && offset < ntuples);
++	Assert(offsets[ntuples - 1] > advancePast);
++	if (offsets[offset] > advancePast)
++		return offset;
++
++	lower = offset + 1;
++	while (step < remaining)
++	{
++		int			probe = offset + step;
++
++		if (offsets[probe] > advancePast)
++		{
++			upper = probe;
++			break;
++		}
++		lower = probe + 1;
++		if (step > remaining / 2)
++			break;
++		step *= 2;
++	}
++
++	while (lower < upper)
++	{
++		int			middle = lower + (upper - lower) / 2;
++
++		if (offsets[middle] <= advancePast)
++			lower = middle + 1;
++		else
++			upper = middle;
++	}
++	return lower;
++}
++
+ #define gin_rand() pg_prng_double(&pg_global_prng_state)
+ #define dropItem(e) ( gin_rand() > ((double)GinFuzzySearchLimit)/((double)((e)->predictNumberResult)) )
+ 
+@@ -935,9 +981,16 @@ entryGetItem(GinState *ginstate, GinScanEntry entry,
+ 					continue;
+ 				}
+ 
+-				/* Otherwise scan to find the first item > advancePast */
+-				while (entry->matchOffsets[entry->offset] <= advancePastOff)
++				/* Keep zero- and one-offset advances on the short path. */
++				if (entry->matchOffsets[entry->offset] <= advancePastOff)
++				{
+ 					entry->offset++;
++					if (entry->matchOffsets[entry->offset] <= advancePastOff)
++						entry->offset = ginAdvanceMatchOffsets(entry->matchOffsets,
++																entry->offset + 1,
++																entry->matchNtuples,
++																advancePastOff);
++				}
+ 			}
+ 
+ 			ItemPointerSet(&entry->curItem,
+-- 
+2.50.1 (Apple Git-155)
+

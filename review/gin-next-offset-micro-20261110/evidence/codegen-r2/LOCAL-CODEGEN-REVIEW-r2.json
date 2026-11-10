@@ -1,0 +1,24 @@
+{
+  "status": "PASS_LOCAL_ASM_LOOP_REVIEW_NOT_TIMING_APPROVAL",
+  "executable_sha256": "083547328038388adf27fbabb4377eb37abac21fac5b82e089117bd9bb9a8572",
+  "asm_sha256": "85f7ff6a31f5741099d6c0e4a5958338374db87521eedb235bdac834a84b4a15",
+  "source_sha256": "9f72d8459cbe7876574b62ef4d53fcdb5f6f969a5be0cfd593fe3cdf58c476f9",
+  "headers": 907,
+  "headers_identical_B_Bitmap": true,
+  "main_loop": {
+    "counter_initialize": "0x1234 mov $0x3d090,%ebx",
+    "entry_offset_zero": "0x1265 movw %cx,0x2dc(%rsp)",
+    "volatile_pointer_reload": "0x125a mov 0x28(%rsp),%rax",
+    "indirect_call": "0x126d call *%rax",
+    "counter_decrement": "0x1274 sub $1,%ebx",
+    "backedge": "0x1277 jne 0x1258",
+    "indirect_call_each_iteration": true
+  },
+  "symbol_code_bytes": {
+    "main": 541,
+    "offset_baseline": 77,
+    "offset_candidate": 263
+  },
+  "fragment_scope": "Actual PG private types and exact extracted fragments; no full-AM claim. Candidate has long-path rbp/rbx pushes; all negatives retained.",
+  "timing_executed": false
+}

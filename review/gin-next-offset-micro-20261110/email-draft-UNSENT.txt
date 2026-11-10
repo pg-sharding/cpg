@@ -1,0 +1,55 @@
+UNSENT DRAFT
+Subject: [WIP] Supplement: bitmap-offset skip micro gains and short-skip negatives
+
+Hi,
+
+This is a separate extracted-fragment supplement to the uint16 matchBitmap
+offset prototype cc5c47d525e01a7eb6af7b6d6fed66fcbde5d7f9. It does not
+replace or improve the main packet's mixed/negative SQL results, and no
+production source, threshold or case was tuned after either screen.
+
+The micro uses actual PostgreSQL GinScanEntryData/OffsetNumber types and
+exact baseline/candidate fragments, with one shared executable. B/T invoke
+identical selector0 commands, and candidate selects the other static
+function. Each fixed command makes 250,000 calls through a common volatile
+function pointer. Actual normal ASM was reviewed to verify the reset,
+reload, indirect call and result consumption inside every loop iteration.
+Kernel CPU/wall exclude process startup and validation; outer clocks retain
+them, and all clock scopes stay separate.
+
+The 15 cells cover n8/64/291 and skip0/1/2/4/(n-1), with two CPU placements,
+two warm and six retained rounds: 720 raw / 540 retained / 180 warm commands.
+The separate smoke had 45 commands and zero retained. Independent recount
+verified every checksum, all 360 absolute groups, 360 pair groups and 2160
+direct pairs.
+
+Large-skip paired kernel CPU improved -56.82% / -51.70% at n64/skip63 and
+-87.81% / -87.45% at n291/skip290. There are substantial negatives:
+n8/skip4 +45.01% / +51.84%, n8/skip7 +30.58% / +19.68%, and n291/skip4
++15.57% / +31.16%. Short kernels were noisy: exact B/T paired kernel CPU
+drift reached -25.40% to +15.61% across cells. Recorded pre/post load was
+3.18/1.13/0.55 and 3.22/1.21/0.59. Thus this is diagnostic fragment evidence,
+not a clean small-difference, full-AM or SQL optimization claim. No repeat,
+trimming, normalization or source tuning followed.
+
+The first compile-only harness failed before invoking the compiler because
+it assumed include/server. A separate test-only r2 used each installed
+pg_config server-header path, with containment and 907-header equality.
+Production/fragment C, cases and loops remained unchanged. The failed r1,
+exact correction, actual normal ASM and all raw results are preserved.
+
+The supplement provides every absolute CPU/wall spread and direct pair,
+reproduction scripts, a fresh-build binding helper and the unchanged source
+patch. The helper only creates new provenance from separately qualified
+receipts; it cannot create a runtime PASS. Original Linux measurements are
+distinguished from later offline/static helper checks. All child commands
+returned and the final VM158 release proof confirms no live owned runtime.
+The actual full-AM/SQL and ordinary correctness evidence remains in the
+separate main bitmap packet. No concurrency or general merge claim follows.
+
+For broader GIN scan optimization context and attribution, see Heikki
+Linnakangas's 2014 discussion:
+https://www.postgresql.org/message-id/52F373CC.4050800%40vmware.com
+No novelty is claimed for galloping or upper-bound search.
+
+Regards,

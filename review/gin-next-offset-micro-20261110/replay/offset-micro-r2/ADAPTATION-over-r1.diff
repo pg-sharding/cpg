@@ -1,0 +1,67 @@
+--- r1/prepare-build.py
++++ r2/prepare-build.py
+@@ -35,10 +35,15 @@
+     assert build['source_plan_sha256'] == pins['source_plan_sha256']
+     prefix = pathlib.Path(build['variants']['B']['prefix'])
+     candidate = pathlib.Path(build['variants']['Bitmap']['prefix'])
+-    headers = prefix / 'include/server'
++    pg = prefix / 'bin/pg_config'
++    headers = pathlib.Path(bc.capture([pg, '--includedir-server'], prefix).strip())
++    candidate_headers = pathlib.Path(bc.capture([candidate / 'bin/pg_config', '--includedir-server'], candidate).strip())
++    assert headers.is_dir() and candidate_headers.is_dir()
++    headers.relative_to(prefix)
++    candidate_headers.relative_to(candidate)
+     header_inventory = bc.inventory(headers)
+     assert len(header_inventory) == 907
+-    assert header_inventory == bc.inventory(candidate / 'include/server')
++    assert header_inventory == bc.inventory(candidate_headers)
+     fragments = extractor.extract((HERE / 'inputs/ginget-B.c').read_bytes(),
+                                   (HERE / 'inputs/ginget-Bitmap.c').read_bytes())
+     for name, value in fragments.items():
+--- r1/README.md
++++ r2/README.md
+@@ -45,10 +45,11 @@
+ 
+ ```sh
+ ROOT=/home/reshke/allfuzz/gin-next-c11-bitmap-20261110
+-INPUTS="$ROOT/offset-micro-inputs-r1"
++INPUTS="$ROOT/offset-micro-inputs-r2"
+ nice -n 10 python3 -B "$INPUTS/prepare-build.py" \
+   --build "$ROOT/bitmap-build" --qualified-from "$ROOT/bq-r1" \
+-  --output-new "$ROOT/offset-micro-build-r1"+# Stop here. Independently inspect normal-ASM.txt, including main's loop.
++  --output-new "$ROOT/offset-micro-build-r2"
++# Stop here. Independently inspect normal-ASM.txt, including main's loop.
+ ```
+ 
+ The independent review JSON must have status
+@@ -59,14 +60,14 @@
+ 
+ ```sh
+ nice -n 10 python3 -B "$INPUTS/run.py" --build "$ROOT/bitmap-build" \
+-  --micro-build "$ROOT/offset-micro-build-r1" \
+-  --codegen-review "$ROOT/OFFSET-MICRO-CODEGEN-REVIEW-r1.json" \
+-  --output-new "$ROOT/offset-micro-smoke-r1" --mode smoke
++  --micro-build "$ROOT/offset-micro-build-r2" \
++  --codegen-review "$ROOT/OFFSET-MICRO-CODEGEN-REVIEW-r2.json" \
++  --output-new "$ROOT/offset-micro-smoke-r2" --mode smoke
+ # Review the zero-retained smoke and quiet host, then separately approve:
+ nice -n 10 python3 -B "$INPUTS/run.py" --build "$ROOT/bitmap-build" \
+-  --micro-build "$ROOT/offset-micro-build-r1" \
+-  --codegen-review "$ROOT/OFFSET-MICRO-CODEGEN-REVIEW-r1.json" \
+-  --output-new "$ROOT/offset-micro-screen-r1" --mode screen
++  --micro-build "$ROOT/offset-micro-build-r2" \
++  --codegen-review "$ROOT/OFFSET-MICRO-CODEGEN-REVIEW-r2.json" \
++  --output-new "$ROOT/offset-micro-screen-r2" --mode screen
+ ```
+ 
+ Current state: local AST/help and exact fragment replay only. No compiler,
+@@ -76,3 +77,9 @@
+ fragment cannot establish a full-AM or SQL improvement, concurrency safety,
+ or a general merge recommendation. Preserve skip-0/1/2/4 negatives as well
+ as large-skip gains.
++
++The r1 importer failed before compilation because it assumed include/server.
++This r2 resolves the actual staged server header paths with each pg_config,
++requires both paths inside their corresponding prefixes, and still requires
++exactly 907 identical server headers. Production and fragment C bytes, cases,
++loops, roles and timing protocol are unchanged. See ERRATUM-r1.json.

@@ -1,0 +1,559 @@
+
+/home/reshke/allfuzz/gin-next-c11-bitmap-20261110/offset-micro-build-r2/offset-micro:     file format elf64-x86-64
+
+
+Disassembly of section .init:
+
+0000000000001000 <_init>:
+    1000:	f3 0f 1e fa          	endbr64
+    1004:	48 83 ec 08          	sub    $0x8,%rsp
+    1008:	48 8b 05 d9 2f 00 00 	mov    0x2fd9(%rip),%rax        # 3fe8 <__gmon_start__@Base>
+    100f:	48 85 c0             	test   %rax,%rax
+    1012:	74 02                	je     1016 <_init+0x16>
+    1014:	ff d0                	call   *%rax
+    1016:	48 83 c4 08          	add    $0x8,%rsp
+    101a:	c3                   	ret
+
+Disassembly of section .plt:
+
+0000000000001020 <.plt>:
+    1020:	ff 35 7a 2f 00 00    	push   0x2f7a(%rip)        # 3fa0 <_GLOBAL_OFFSET_TABLE_+0x8>
+    1026:	ff 25 7c 2f 00 00    	jmp    *0x2f7c(%rip)        # 3fa8 <_GLOBAL_OFFSET_TABLE_+0x10>
+    102c:	0f 1f 40 00          	nopl   0x0(%rax)
+    1030:	f3 0f 1e fa          	endbr64
+    1034:	68 00 00 00 00       	push   $0x0
+    1039:	e9 e2 ff ff ff       	jmp    1020 <_init+0x20>
+    103e:	66 90                	xchg   %ax,%ax
+    1040:	f3 0f 1e fa          	endbr64
+    1044:	68 01 00 00 00       	push   $0x1
+    1049:	e9 d2 ff ff ff       	jmp    1020 <_init+0x20>
+    104e:	66 90                	xchg   %ax,%ax
+    1050:	f3 0f 1e fa          	endbr64
+    1054:	68 02 00 00 00       	push   $0x2
+    1059:	e9 c2 ff ff ff       	jmp    1020 <_init+0x20>
+    105e:	66 90                	xchg   %ax,%ax
+    1060:	f3 0f 1e fa          	endbr64
+    1064:	68 03 00 00 00       	push   $0x3
+    1069:	e9 b2 ff ff ff       	jmp    1020 <_init+0x20>
+    106e:	66 90                	xchg   %ax,%ax
+    1070:	f3 0f 1e fa          	endbr64
+    1074:	68 04 00 00 00       	push   $0x4
+    1079:	e9 a2 ff ff ff       	jmp    1020 <_init+0x20>
+    107e:	66 90                	xchg   %ax,%ax
+
+Disassembly of section .plt.got:
+
+0000000000001080 <__cxa_finalize@plt>:
+    1080:	f3 0f 1e fa          	endbr64
+    1084:	ff 25 6e 2f 00 00    	jmp    *0x2f6e(%rip)        # 3ff8 <__cxa_finalize@GLIBC_2.2.5>
+    108a:	66 0f 1f 44 00 00    	nopw   0x0(%rax,%rax,1)
+
+Disassembly of section .plt.sec:
+
+0000000000001090 <clock_gettime@plt>:
+    1090:	f3 0f 1e fa          	endbr64
+    1094:	ff 25 16 2f 00 00    	jmp    *0x2f16(%rip)        # 3fb0 <clock_gettime@GLIBC_2.17>
+    109a:	66 0f 1f 44 00 00    	nopw   0x0(%rax,%rax,1)
+
+00000000000010a0 <__stack_chk_fail@plt>:
+    10a0:	f3 0f 1e fa          	endbr64
+    10a4:	ff 25 0e 2f 00 00    	jmp    *0x2f0e(%rip)        # 3fb8 <__stack_chk_fail@GLIBC_2.4>
+    10aa:	66 0f 1f 44 00 00    	nopw   0x0(%rax,%rax,1)
+
+00000000000010b0 <__isoc23_strtol@plt>:
+    10b0:	f3 0f 1e fa          	endbr64
+    10b4:	ff 25 06 2f 00 00    	jmp    *0x2f06(%rip)        # 3fc0 <__isoc23_strtol@GLIBC_2.38>
+    10ba:	66 0f 1f 44 00 00    	nopw   0x0(%rax,%rax,1)
+
+00000000000010c0 <__printf_chk@plt>:
+    10c0:	f3 0f 1e fa          	endbr64
+    10c4:	ff 25 fe 2e 00 00    	jmp    *0x2efe(%rip)        # 3fc8 <__printf_chk@GLIBC_2.3.4>
+    10ca:	66 0f 1f 44 00 00    	nopw   0x0(%rax,%rax,1)
+
+00000000000010d0 <exit@plt>:
+    10d0:	f3 0f 1e fa          	endbr64
+    10d4:	ff 25 f6 2e 00 00    	jmp    *0x2ef6(%rip)        # 3fd0 <exit@GLIBC_2.2.5>
+    10da:	66 0f 1f 44 00 00    	nopw   0x0(%rax,%rax,1)
+
+Disassembly of section .text:
+
+00000000000010e0 <main>:
+	return (uint64) ts.tv_sec * UINT64CONST(1000000000) + ts.tv_nsec;
+}
+
+int
+main(int argc, char **argv)
+{
+    10e0:	f3 0f 1e fa          	endbr64
+    10e4:	41 57                	push   %r15
+    10e6:	41 56                	push   %r14
+    10e8:	41 55                	push   %r13
+    10ea:	41 54                	push   %r12
+    10ec:	55                   	push   %rbp
+    10ed:	53                   	push   %rbx
+    10ee:	48 81 ec 78 03 00 00 	sub    $0x378,%rsp
+	uint64 wall_start;
+	uint64 cpu;
+	uint64 wall;
+
+	if (argc != 5)
+		return 10;
+    10f5:	64 48 8b 04 25 28 00 00 00 	mov    %fs:0x28,%rax
+    10fe:	48 89 84 24 68 03 00 00 	mov    %rax,0x368(%rsp)
+    1106:	b8 0a 00 00 00       	mov    $0xa,%eax
+	if (argc != 5)
+    110b:	83 ff 05             	cmp    $0x5,%edi
+    110e:	74 29                	je     1139 <main+0x59>
+		return 13;
+	printf("{\"status\":\"PASS_OFFSET_FRAGMENT\",\"n\":%d,\"skip\":%d,\"loops\":%d,\"checksum\":%llu,\"cpu_ns\":%llu,\"wall_ns\":%llu}\n",
+		   n, skip, loops, (unsigned long long) checksum,
+		   (unsigned long long) cpu, (unsigned long long) wall);
+	return 0;
+}
+    1110:	48 8b 94 24 68 03 00 00 	mov    0x368(%rsp),%rdx
+    1118:	64 48 2b 14 25 28 00 00 00 	sub    %fs:0x28,%rdx
+    1121:	0f 85 d1 01 00 00    	jne    12f8 <main+0x218>
+    1127:	48 81 c4 78 03 00 00 	add    $0x378,%rsp
+    112e:	5b                   	pop    %rbx
+    112f:	5d                   	pop    %rbp
+    1130:	41 5c                	pop    %r12
+    1132:	41 5d                	pop    %r13
+    1134:	41 5e                	pop    %r14
+    1136:	41 5f                	pop    %r15
+    1138:	c3                   	ret
+
+#ifdef __USE_EXTERN_INLINES
+__extern_inline int
+__NTH (atoi (const char *__nptr))
+{
+  return (int) strtol (__nptr, (char **) NULL, 10);
+    1139:	48 8b 7e 08          	mov    0x8(%rsi),%rdi
+    113d:	48 89 f3             	mov    %rsi,%rbx
+    1140:	ba 0a 00 00 00       	mov    $0xa,%edx
+    1145:	31 f6                	xor    %esi,%esi
+    1147:	e8 64 ff ff ff       	call   10b0 <__isoc23_strtol@plt>
+    114c:	48 8b 7b 10          	mov    0x10(%rbx),%rdi
+    1150:	ba 0a 00 00 00       	mov    $0xa,%edx
+    1155:	31 f6                	xor    %esi,%esi
+    1157:	49 89 c5             	mov    %rax,%r13
+    115a:	e8 51 ff ff ff       	call   10b0 <__isoc23_strtol@plt>
+    115f:	48 8b 7b 18          	mov    0x18(%rbx),%rdi
+    1163:	ba 0a 00 00 00       	mov    $0xa,%edx
+    1168:	31 f6                	xor    %esi,%esi
+    116a:	48 89 c5             	mov    %rax,%rbp
+    116d:	e8 3e ff ff ff       	call   10b0 <__isoc23_strtol@plt>
+    1172:	48 8b 7b 20          	mov    0x20(%rbx),%rdi
+    1176:	ba 0a 00 00 00       	mov    $0xa,%edx
+    117b:	31 f6                	xor    %esi,%esi
+    117d:	89 44 24 0c          	mov    %eax,0xc(%rsp)
+    1181:	49 89 c6             	mov    %rax,%r14
+    1184:	e8 27 ff ff ff       	call   10b0 <__isoc23_strtol@plt>
+	if ((selector != 0 && selector != 1) || n < 1 || n > TBM_MAX_TUPLES_PER_PAGE ||
+    1189:	8d 55 ff             	lea    -0x1(%rbp),%edx
+    118c:	81 fa 22 01 00 00    	cmp    $0x122,%edx
+    1192:	0f 87 4c 01 00 00    	ja     12e4 <main+0x204>
+    1198:	41 83 fd 01          	cmp    $0x1,%r13d
+    119c:	0f 87 42 01 00 00    	ja     12e4 <main+0x204>
+    11a2:	45 85 f6             	test   %r14d,%r14d
+    11a5:	0f 88 39 01 00 00    	js     12e4 <main+0x204>
+    11ab:	41 89 ef             	mov    %ebp,%r15d
+		skip < 0 || skip >= n || loops != 250000)
+    11ae:	41 39 ee             	cmp    %ebp,%r14d
+    11b1:	0f 8d 2d 01 00 00    	jge    12e4 <main+0x204>
+    11b7:	3d 90 d0 03 00       	cmp    $0x3d090,%eax
+    11bc:	0f 85 22 01 00 00    	jne    12e4 <main+0x204>
+	entry.matchNtuples = n;
+    11c2:	89 ac 24 c8 02 00 00 	mov    %ebp,0x2c8(%rsp)
+    11c9:	b8 01 00 00 00       	mov    $0x1,%eax
+    11ce:	4c 8d 64 24 30       	lea    0x30(%rsp),%r12
+    11d3:	0f 1f 44 00 00       	nopl   0x0(%rax,%rax,1)
+		entry.matchOffsets[i] = i + 1;
+    11d8:	66 41 89 44 44 4e    	mov    %ax,0x4e(%r12,%rax,2)
+	for (int i = 0; i < n; i++)
+    11de:	48 83 c0 01          	add    $0x1,%rax
+    11e2:	8d 50 ff             	lea    -0x1(%rax),%edx
+    11e5:	44 39 fa             	cmp    %r15d,%edx
+    11e8:	7c ee                	jl     11d8 <main+0xf8>
+	invoke = selector ? offset_candidate : offset_baseline;
+    11ea:	45 85 ed             	test   %r13d,%r13d
+	if (invoke(&entry, threshold) != skip)
+    11ed:	45 0f b7 ee          	movzwl %r14w,%r13d
+    11f1:	4c 89 e7             	mov    %r12,%rdi
+	entry.offset = 0;
+    11f4:	66 c7 84 24 dc 02 00 00 00 00 	movw   $0x0,0x2dc(%rsp)
+	invoke = selector ? offset_candidate : offset_baseline;
+    11fe:	48 8d 15 3b 02 00 00 	lea    0x23b(%rip),%rdx        # 1440 <offset_candidate>
+    1205:	48 8d 05 e4 01 00 00 	lea    0x1e4(%rip),%rax        # 13f0 <offset_baseline>
+	if (invoke(&entry, threshold) != skip)
+    120c:	44 89 ee             	mov    %r13d,%esi
+	invoke = selector ? offset_candidate : offset_baseline;
+    120f:	48 0f 45 c2          	cmovne %rdx,%rax
+    1213:	48 89 44 24 28       	mov    %rax,0x28(%rsp)
+	if (invoke(&entry, threshold) != skip)
+    1218:	48 8b 44 24 28       	mov    0x28(%rsp),%rax
+    121d:	ff d0                	call   *%rax
+    121f:	89 c2                	mov    %eax,%edx
+		return 12;
+    1221:	b8 0c 00 00 00       	mov    $0xc,%eax
+	if (invoke(&entry, threshold) != skip)
+    1226:	44 39 f2             	cmp    %r14d,%edx
+    1229:	0f 85 e1 fe ff ff    	jne    1110 <main+0x30>
+	cpu_start = nanoseconds(CLOCK_PROCESS_CPUTIME_ID);
+    122f:	bf 02 00 00 00       	mov    $0x2,%edi
+	wall_start = nanoseconds(CLOCK_MONOTONIC);
+    1234:	bb 90 d0 03 00       	mov    $0x3d090,%ebx
+	uint64 checksum = 0;
+    1239:	31 ed                	xor    %ebp,%ebp
+	cpu_start = nanoseconds(CLOCK_PROCESS_CPUTIME_ID);
+    123b:	e8 10 03 00 00       	call   1550 <nanoseconds>
+	wall_start = nanoseconds(CLOCK_MONOTONIC);
+    1240:	bf 01 00 00 00       	mov    $0x1,%edi
+	cpu_start = nanoseconds(CLOCK_PROCESS_CPUTIME_ID);
+    1245:	48 89 44 24 10       	mov    %rax,0x10(%rsp)
+	wall_start = nanoseconds(CLOCK_MONOTONIC);
+    124a:	e8 01 03 00 00       	call   1550 <nanoseconds>
+    124f:	48 89 44 24 18       	mov    %rax,0x18(%rsp)
+	for (int i = 0; i < loops; i++)
+    1254:	0f 1f 40 00          	nopl   0x0(%rax)
+		entry.offset = 0;
+    1258:	31 c9                	xor    %ecx,%ecx
+		checksum += invoke(&entry, threshold);
+    125a:	48 8b 44 24 28       	mov    0x28(%rsp),%rax
+    125f:	44 89 ee             	mov    %r13d,%esi
+    1262:	4c 89 e7             	mov    %r12,%rdi
+		entry.offset = 0;
+    1265:	66 89 8c 24 dc 02 00 00 	mov    %cx,0x2dc(%rsp)
+		checksum += invoke(&entry, threshold);
+    126d:	ff d0                	call   *%rax
+    126f:	48 98                	cltq
+    1271:	48 01 c5             	add    %rax,%rbp
+	for (int i = 0; i < loops; i++)
+    1274:	83 eb 01             	sub    $0x1,%ebx
+    1277:	75 df                	jne    1258 <main+0x178>
+	wall = nanoseconds(CLOCK_MONOTONIC) - wall_start;
+    1279:	bf 01 00 00 00       	mov    $0x1,%edi
+    127e:	e8 cd 02 00 00       	call   1550 <nanoseconds>
+	cpu = nanoseconds(CLOCK_PROCESS_CPUTIME_ID) - cpu_start;
+    1283:	bf 02 00 00 00       	mov    $0x2,%edi
+	wall = nanoseconds(CLOCK_MONOTONIC) - wall_start;
+    1288:	48 89 c3             	mov    %rax,%rbx
+	cpu = nanoseconds(CLOCK_PROCESS_CPUTIME_ID) - cpu_start;
+    128b:	e8 c0 02 00 00       	call   1550 <nanoseconds>
+	if (checksum != (uint64) skip * loops || cpu == 0 || wall == 0)
+    1290:	49 63 d6             	movslq %r14d,%rdx
+    1293:	48 69 d2 90 d0 03 00 	imul   $0x3d090,%rdx,%rdx
+    129a:	48 39 ea             	cmp    %rbp,%rdx
+    129d:	75 4f                	jne    12ee <main+0x20e>
+	wall = nanoseconds(CLOCK_MONOTONIC) - wall_start;
+    129f:	48 8b 4c 24 18       	mov    0x18(%rsp),%rcx
+    12a4:	48 29 cb             	sub    %rcx,%rbx
+	if (checksum != (uint64) skip * loops || cpu == 0 || wall == 0)
+    12a7:	48 8b 4c 24 10       	mov    0x10(%rsp),%rcx
+    12ac:	48 29 c8             	sub    %rcx,%rax
+    12af:	74 3d                	je     12ee <main+0x20e>
+    12b1:	48 85 db             	test   %rbx,%rbx
+    12b4:	74 38                	je     12ee <main+0x20e>
+}
+
+__fortify_function int
+printf (const char *__restrict __fmt, ...)
+{
+  return __printf_chk (__USE_FORTIFY_LEVEL - 1, __fmt, __va_arg_pack ());
+    12b6:	53                   	push   %rbx
+    12b7:	44 89 fa             	mov    %r15d,%edx
+    12ba:	49 89 e9             	mov    %rbp,%r9
+    12bd:	41 b8 90 d0 03 00    	mov    $0x3d090,%r8d
+    12c3:	50                   	push   %rax
+    12c4:	8b 4c 24 1c          	mov    0x1c(%rsp),%ecx
+    12c8:	48 8d 35 39 0d 00 00 	lea    0xd39(%rip),%rsi        # 2008 <_IO_stdin_used+0x8>
+    12cf:	31 c0                	xor    %eax,%eax
+    12d1:	bf 02 00 00 00       	mov    $0x2,%edi
+    12d6:	e8 e5 fd ff ff       	call   10c0 <__printf_chk@plt>
+	return 0;
+    12db:	58                   	pop    %rax
+    12dc:	31 c0                	xor    %eax,%eax
+    12de:	5a                   	pop    %rdx
+    12df:	e9 2c fe ff ff       	jmp    1110 <main+0x30>
+		return 11;
+    12e4:	b8 0b 00 00 00       	mov    $0xb,%eax
+    12e9:	e9 22 fe ff ff       	jmp    1110 <main+0x30>
+		return 13;
+    12ee:	b8 0d 00 00 00       	mov    $0xd,%eax
+    12f3:	e9 18 fe ff ff       	jmp    1110 <main+0x30>
+}
+    12f8:	e8 a3 fd ff ff       	call   10a0 <__stack_chk_fail@plt>
+    12fd:	0f 1f 00             	nopl   (%rax)
+
+0000000000001300 <_start>:
+    1300:	f3 0f 1e fa          	endbr64
+    1304:	31 ed                	xor    %ebp,%ebp
+    1306:	49 89 d1             	mov    %rdx,%r9
+    1309:	5e                   	pop    %rsi
+    130a:	48 89 e2             	mov    %rsp,%rdx
+    130d:	48 83 e4 f0          	and    $0xfffffffffffffff0,%rsp
+    1311:	50                   	push   %rax
+    1312:	54                   	push   %rsp
+    1313:	45 31 c0             	xor    %r8d,%r8d
+    1316:	31 c9                	xor    %ecx,%ecx
+    1318:	48 8d 3d c1 fd ff ff 	lea    -0x23f(%rip),%rdi        # 10e0 <main>
+    131f:	ff 15 b3 2c 00 00    	call   *0x2cb3(%rip)        # 3fd8 <__libc_start_main@GLIBC_2.34>
+    1325:	f4                   	hlt
+    1326:	66 2e 0f 1f 84 00 00 00 00 00 	cs nopw 0x0(%rax,%rax,1)
+
+0000000000001330 <deregister_tm_clones>:
+    1330:	48 8d 3d d9 2c 00 00 	lea    0x2cd9(%rip),%rdi        # 4010 <__TMC_END__>
+    1337:	48 8d 05 d2 2c 00 00 	lea    0x2cd2(%rip),%rax        # 4010 <__TMC_END__>
+    133e:	48 39 f8             	cmp    %rdi,%rax
+    1341:	74 15                	je     1358 <deregister_tm_clones+0x28>
+    1343:	48 8b 05 96 2c 00 00 	mov    0x2c96(%rip),%rax        # 3fe0 <_ITM_deregisterTMCloneTable@Base>
+    134a:	48 85 c0             	test   %rax,%rax
+    134d:	74 09                	je     1358 <deregister_tm_clones+0x28>
+    134f:	ff e0                	jmp    *%rax
+    1351:	0f 1f 80 00 00 00 00 	nopl   0x0(%rax)
+    1358:	c3                   	ret
+    1359:	0f 1f 80 00 00 00 00 	nopl   0x0(%rax)
+
+0000000000001360 <register_tm_clones>:
+    1360:	48 8d 3d a9 2c 00 00 	lea    0x2ca9(%rip),%rdi        # 4010 <__TMC_END__>
+    1367:	48 8d 35 a2 2c 00 00 	lea    0x2ca2(%rip),%rsi        # 4010 <__TMC_END__>
+    136e:	48 29 fe             	sub    %rdi,%rsi
+    1371:	48 89 f0             	mov    %rsi,%rax
+    1374:	48 c1 ee 3f          	shr    $0x3f,%rsi
+    1378:	48 c1 f8 03          	sar    $0x3,%rax
+    137c:	48 01 c6             	add    %rax,%rsi
+    137f:	48 d1 fe             	sar    $1,%rsi
+    1382:	74 14                	je     1398 <register_tm_clones+0x38>
+    1384:	48 8b 05 65 2c 00 00 	mov    0x2c65(%rip),%rax        # 3ff0 <_ITM_registerTMCloneTable@Base>
+    138b:	48 85 c0             	test   %rax,%rax
+    138e:	74 08                	je     1398 <register_tm_clones+0x38>
+    1390:	ff e0                	jmp    *%rax
+    1392:	66 0f 1f 44 00 00    	nopw   0x0(%rax,%rax,1)
+    1398:	c3                   	ret
+    1399:	0f 1f 80 00 00 00 00 	nopl   0x0(%rax)
+
+00000000000013a0 <__do_global_dtors_aux>:
+    13a0:	f3 0f 1e fa          	endbr64
+    13a4:	80 3d 65 2c 00 00 00 	cmpb   $0x0,0x2c65(%rip)        # 4010 <__TMC_END__>
+    13ab:	75 2b                	jne    13d8 <__do_global_dtors_aux+0x38>
+    13ad:	55                   	push   %rbp
+    13ae:	48 83 3d 42 2c 00 00 00 	cmpq   $0x0,0x2c42(%rip)        # 3ff8 <__cxa_finalize@GLIBC_2.2.5>
+    13b6:	48 89 e5             	mov    %rsp,%rbp
+    13b9:	74 0c                	je     13c7 <__do_global_dtors_aux+0x27>
+    13bb:	48 8b 3d 46 2c 00 00 	mov    0x2c46(%rip),%rdi        # 4008 <__dso_handle>
+    13c2:	e8 b9 fc ff ff       	call   1080 <__cxa_finalize@plt>
+    13c7:	e8 64 ff ff ff       	call   1330 <deregister_tm_clones>
+    13cc:	c6 05 3d 2c 00 00 01 	movb   $0x1,0x2c3d(%rip)        # 4010 <__TMC_END__>
+    13d3:	5d                   	pop    %rbp
+    13d4:	c3                   	ret
+    13d5:	0f 1f 00             	nopl   (%rax)
+    13d8:	c3                   	ret
+    13d9:	0f 1f 80 00 00 00 00 	nopl   0x0(%rax)
+
+00000000000013e0 <frame_dummy>:
+    13e0:	f3 0f 1e fa          	endbr64
+    13e4:	e9 77 ff ff ff       	jmp    1360 <register_tm_clones>
+    13e9:	0f 1f 80 00 00 00 00 	nopl   0x0(%rax)
+
+00000000000013f0 <offset_baseline>:
+{
+    13f0:	f3 0f 1e fa          	endbr64
+	if (entry->matchOffsets[entry->matchNtuples - 1] <= advancePastOff)
+    13f4:	8b 97 98 02 00 00    	mov    0x298(%rdi),%edx
+{
+    13fa:	41 89 f0             	mov    %esi,%r8d
+	if (entry->matchOffsets[entry->matchNtuples - 1] <= advancePastOff)
+    13fd:	8d 42 ff             	lea    -0x1(%rdx),%eax
+    1400:	48 98                	cltq
+    1402:	66 39 74 47 50       	cmp    %si,0x50(%rdi,%rax,2)
+    1407:	76 31                	jbe    143a <offset_baseline+0x4a>
+				/* Otherwise scan to find the first item > advancePast */
+				while (entry->matchOffsets[entry->offset] <= advancePastOff)
+    1409:	0f b7 97 ac 02 00 00 	movzwl 0x2ac(%rdi),%edx
+    1410:	0f b7 ca             	movzwl %dx,%ecx
+    1413:	89 d0                	mov    %edx,%eax
+    1415:	66 39 74 4f 50       	cmp    %si,0x50(%rdi,%rcx,2)
+    141a:	77 1e                	ja     143a <offset_baseline+0x4a>
+    141c:	83 c0 01             	add    $0x1,%eax
+    141f:	90                   	nop
+    1420:	0f b7 c8             	movzwl %ax,%ecx
+    1423:	89 c6                	mov    %eax,%esi
+    1425:	83 c0 01             	add    $0x1,%eax
+    1428:	48 89 ca             	mov    %rcx,%rdx
+    142b:	66 44 3b 44 4f 50    	cmp    0x50(%rdi,%rcx,2),%r8w
+    1431:	73 ed                	jae    1420 <offset_baseline+0x30>
+    1433:	66 89 b7 ac 02 00 00 	mov    %si,0x2ac(%rdi)
+}
+    143a:	89 d0                	mov    %edx,%eax
+    143c:	c3                   	ret
+    143d:	0f 1f 00             	nopl   (%rax)
+
+0000000000001440 <offset_candidate>:
+{
+    1440:	f3 0f 1e fa          	endbr64
+	if (entry->matchOffsets[entry->matchNtuples - 1] <= advancePastOff)
+    1444:	8b 97 98 02 00 00    	mov    0x298(%rdi),%edx
+    144a:	8d 42 ff             	lea    -0x1(%rdx),%eax
+    144d:	48 98                	cltq
+    144f:	66 39 74 47 50       	cmp    %si,0x50(%rdi,%rax,2)
+    1454:	76 3d                	jbe    1493 <offset_candidate+0x53>
+				/* Keep zero- and one-offset advances on the short path. */
+				if (entry->matchOffsets[entry->offset] <= advancePastOff)
+    1456:	44 0f b7 8f ac 02 00 00 	movzwl 0x2ac(%rdi),%r9d
+    145e:	48 89 f9             	mov    %rdi,%rcx
+    1461:	41 0f b7 f9          	movzwl %r9w,%edi
+    1465:	44 89 c8             	mov    %r9d,%eax
+    1468:	66 39 74 79 50       	cmp    %si,0x50(%rcx,%rdi,2)
+    146d:	77 21                	ja     1490 <offset_candidate+0x50>
+				{
+					entry->offset++;
+    146f:	83 c0 01             	add    $0x1,%eax
+    1472:	66 89 81 ac 02 00 00 	mov    %ax,0x2ac(%rcx)
+					if (entry->matchOffsets[entry->offset] <= advancePastOff)
+    1479:	44 0f b7 d0          	movzwl %ax,%r10d
+    147d:	0f b7 c0             	movzwl %ax,%eax
+    1480:	66 39 74 41 50       	cmp    %si,0x50(%rcx,%rax,2)
+    1485:	76 19                	jbe    14a0 <offset_candidate+0x60>
+    1487:	44 89 d2             	mov    %r10d,%edx
+}
+    148a:	89 d0                	mov    %edx,%eax
+    148c:	c3                   	ret
+    148d:	0f 1f 00             	nopl   (%rax)
+    1490:	44 89 ca             	mov    %r9d,%edx
+    1493:	89 d0                	mov    %edx,%eax
+    1495:	c3                   	ret
+    1496:	66 2e 0f 1f 84 00 00 00 00 00 	cs nopw 0x0(%rax,%rax,1)
+						entry->offset = ginAdvanceMatchOffsets(entry->matchOffsets,
+    14a0:	41 8d 7a 01          	lea    0x1(%r10),%edi
+    14a4:	4c 8d 49 50          	lea    0x50(%rcx),%r9
+	int			step = 1;
+	int			remaining = ntuples - offset;
+
+	Assert(offset >= 0 && offset < ntuples);
+	Assert(offsets[ntuples - 1] > advancePast);
+	if (offsets[offset] > advancePast)
+    14a8:	48 63 c7             	movslq %edi,%rax
+    14ab:	66 39 74 41 50       	cmp    %si,0x50(%rcx,%rax,2)
+    14b0:	0f 87 82 00 00 00    	ja     1538 <offset_candidate+0xf8>
+{
+    14b6:	55                   	push   %rbp
+    14b7:	41 89 f0             	mov    %esi,%r8d
+		return offset;
+
+	lower = offset + 1;
+    14ba:	41 83 c2 02          	add    $0x2,%r10d
+    14be:	53                   	push   %rbx
+	int			remaining = ntuples - offset;
+    14bf:	89 d3                	mov    %edx,%ebx
+    14c1:	29 fb                	sub    %edi,%ebx
+	while (step < remaining)
+    14c3:	83 fb 01             	cmp    $0x1,%ebx
+    14c6:	7e 2d                	jle    14f5 <offset_candidate+0xb5>
+		{
+			upper = probe;
+			break;
+		}
+		lower = probe + 1;
+		if (step > remaining / 2)
+    14c8:	89 dd                	mov    %ebx,%ebp
+	int			step = 1;
+    14ca:	b8 01 00 00 00       	mov    $0x1,%eax
+		if (step > remaining / 2)
+    14cf:	d1 fd                	sar    $1,%ebp
+    14d1:	eb 13                	jmp    14e6 <offset_candidate+0xa6>
+    14d3:	0f 1f 44 00 00       	nopl   0x0(%rax,%rax,1)
+		lower = probe + 1;
+    14d8:	44 8d 56 01          	lea    0x1(%rsi),%r10d
+		if (step > remaining / 2)
+    14dc:	39 e8                	cmp    %ebp,%eax
+    14de:	7f 15                	jg     14f5 <offset_candidate+0xb5>
+			break;
+		step *= 2;
+    14e0:	01 c0                	add    %eax,%eax
+	while (step < remaining)
+    14e2:	39 c3                	cmp    %eax,%ebx
+    14e4:	7e 0f                	jle    14f5 <offset_candidate+0xb5>
+		int			probe = offset + step;
+    14e6:	8d 34 38             	lea    (%rax,%rdi,1),%esi
+		if (offsets[probe] > advancePast)
+    14e9:	4c 63 de             	movslq %esi,%r11
+    14ec:	66 47 3b 04 59       	cmp    (%r9,%r11,2),%r8w
+    14f1:	73 e5                	jae    14d8 <offset_candidate+0x98>
+			upper = probe;
+    14f3:	89 f2                	mov    %esi,%edx
+    14f5:	44 89 d7             	mov    %r10d,%edi
+    14f8:	eb 21                	jmp    151b <offset_candidate+0xdb>
+    14fa:	66 0f 1f 44 00 00    	nopw   0x0(%rax,%rax,1)
+	}
+
+	while (lower < upper)
+	{
+		int			middle = lower + (upper - lower) / 2;
+    1500:	89 d6                	mov    %edx,%esi
+    1502:	29 fe                	sub    %edi,%esi
+    1504:	89 f0                	mov    %esi,%eax
+    1506:	c1 e8 1f             	shr    $0x1f,%eax
+    1509:	01 f0                	add    %esi,%eax
+    150b:	d1 f8                	sar    $1,%eax
+    150d:	01 f8                	add    %edi,%eax
+
+		if (offsets[middle] <= advancePast)
+    150f:	48 63 f0             	movslq %eax,%rsi
+    1512:	66 45 3b 04 71       	cmp    (%r9,%rsi,2),%r8w
+    1517:	73 17                	jae    1530 <offset_candidate+0xf0>
+			lower = middle + 1;
+		else
+			upper = middle;
+    1519:	89 c2                	mov    %eax,%edx
+	while (lower < upper)
+    151b:	39 fa                	cmp    %edi,%edx
+    151d:	7f e1                	jg     1500 <offset_candidate+0xc0>
+    151f:	0f b7 d7             	movzwl %di,%edx
+    1522:	66 89 b9 ac 02 00 00 	mov    %di,0x2ac(%rcx)
+}
+    1529:	5b                   	pop    %rbx
+    152a:	89 d0                	mov    %edx,%eax
+    152c:	5d                   	pop    %rbp
+    152d:	c3                   	ret
+    152e:	66 90                	xchg   %ax,%ax
+			lower = middle + 1;
+    1530:	8d 78 01             	lea    0x1(%rax),%edi
+    1533:	eb e6                	jmp    151b <offset_candidate+0xdb>
+    1535:	0f 1f 00             	nopl   (%rax)
+    1538:	66 89 b9 ac 02 00 00 	mov    %di,0x2ac(%rcx)
+    153f:	0f b7 d7             	movzwl %di,%edx
+    1542:	e9 4c ff ff ff       	jmp    1493 <offset_candidate+0x53>
+    1547:	66 0f 1f 84 00 00 00 00 00 	nopw   0x0(%rax,%rax,1)
+
+0000000000001550 <nanoseconds>:
+{
+    1550:	48 83 ec 28          	sub    $0x28,%rsp
+    1554:	64 48 8b 04 25 28 00 00 00 	mov    %fs:0x28,%rax
+    155d:	48 89 44 24 18       	mov    %rax,0x18(%rsp)
+    1562:	31 c0                	xor    %eax,%eax
+	if (clock_gettime(clock, &ts) != 0)
+    1564:	48 89 e6             	mov    %rsp,%rsi
+    1567:	e8 24 fb ff ff       	call   1090 <clock_gettime@plt>
+    156c:	85 c0                	test   %eax,%eax
+    156e:	75 22                	jne    1592 <nanoseconds+0x42>
+	return (uint64) ts.tv_sec * UINT64CONST(1000000000) + ts.tv_nsec;
+    1570:	48 69 04 24 00 ca 9a 3b 	imul   $0x3b9aca00,(%rsp),%rax
+    1578:	48 03 44 24 08       	add    0x8(%rsp),%rax
+}
+    157d:	48 8b 54 24 18       	mov    0x18(%rsp),%rdx
+    1582:	64 48 2b 14 25 28 00 00 00 	sub    %fs:0x28,%rdx
+    158b:	75 0f                	jne    159c <nanoseconds+0x4c>
+    158d:	48 83 c4 28          	add    $0x28,%rsp
+    1591:	c3                   	ret
+		exit(15);
+    1592:	bf 0f 00 00 00       	mov    $0xf,%edi
+    1597:	e8 34 fb ff ff       	call   10d0 <exit@plt>
+}
+    159c:	e8 ff fa ff ff       	call   10a0 <__stack_chk_fail@plt>
+
+Disassembly of section .fini:
+
+00000000000015a4 <_fini>:
+    15a4:	f3 0f 1e fa          	endbr64
+    15a8:	48 83 ec 08          	sub    $0x8,%rsp
+    15ac:	48 83 c4 08          	add    $0x8,%rsp
+    15b0:	c3                   	ret
