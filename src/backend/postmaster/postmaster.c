@@ -3406,7 +3406,7 @@ LaunchMissingBackgroundProcesses(void)
 	 * archive_mode=always or =shared it also runs during recovery, since in
 	 * those modes the standby has archiving work of its own to do.
 	 */
-	if (PgArchPMChild == NULL && PgArchCanRestart())
+	if (PgArchPMChild == NULL)
 	{
 		bool		start_archiver = false;
 
@@ -3415,7 +3415,8 @@ LaunchMissingBackgroundProcesses(void)
 		else if (pmState == PM_RECOVERY || pmState == PM_HOT_STANDBY)
 			start_archiver = XLogArchivingAlways() || XLogArchivingShared();
 
-		if (start_archiver)
+		/* PgArchCanRestart() records an attempted launch, so call it last. */
+		if (start_archiver && PgArchCanRestart())
 			PgArchPMChild = StartChildProcess(B_ARCHIVER);
 	}
 
