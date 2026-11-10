@@ -262,6 +262,8 @@ typedef struct GinScanKeyData *GinScanKey;
 
 typedef struct GinScanEntryData *GinScanEntry;
 
+typedef struct GinTriConsistentCacheData GinTriConsistentCacheData;
+
 typedef struct GinScanKeyData
 {
 	/* Real number of entries in scanEntry[] (always > 0) */
@@ -328,6 +330,9 @@ typedef struct GinScanKeyData
 	bool		curItemMatches;
 	bool		recheckCurItem;
 	bool		isFinished;
+
+	/* Optional scan-key-local memo for the builtin tsquery ternary function. */
+	GinTriConsistentCacheData *triCache;
 } GinScanKeyData;
 
 typedef struct GinScanEntryData
