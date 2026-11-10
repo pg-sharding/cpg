@@ -135,6 +135,9 @@ WalSnd	   *MyWalSnd = NULL;
 bool		am_walsender = false;	/* Am I a walsender process? */
 bool		am_cascading_walsender = false; /* Am I cascading WAL to another
 											 * standby? */
+int			archive_status_report_interval = 0; /* interval (ms) between
+												 * archive status reports; 0
+												 * disables them */
 bool		am_db_walsender = false;	/* Connected to a database? */
 
 /* GUC variables */
@@ -215,6 +218,14 @@ static TimestampTz shutdown_request_timestamp = 0;
  * from queueing the same message twice.
  */
 static bool shutdown_stream_done_queued = false;
+
+/*
+ * Last archived WAL file. This is fetched from pgstat periodically and sent
+ * to the standby. last_archival_report_timestamp tracks when we last checked
+ * the archive status to avoid excessive pgstat access.
+ */
+static char last_archived_report_wal[MAX_XFN_CHARS + 1];
+static TimestampTz last_archival_report_timestamp = 0;
 
 /*
  * While streaming WAL in Copy mode, streamingDoneSending is set to true
@@ -304,6 +315,10 @@ static void ProcessStandbyMessage(void);
 static void ProcessStandbyReplyMessage(void);
 static void ProcessStandbyHSFeedbackMessage(void);
 static void ProcessStandbyPSRequestMessage(void);
+static bool WalSndArchiveReportEnabled(void);
+static void WalSndArchivalReport(void);
+static void WalSndArchiveDelegateTask(void);
+static void ProcessArchiveDelegateResult(void);
 static void ProcessRepliesIfAny(void);
 static void ProcessPendingWrites(void);
 static void WalSndKeepalive(bool requestReply, XLogRecPtr writePtr);
@@ -2507,6 +2522,10 @@ ProcessStandbyMessage(void)
 			ProcessStandbyPSRequestMessage();
 			break;
 
+		case PqReplMsg_ArchiveDelegateResult:
+			ProcessArchiveDelegateResult();
+			break;
+
 		default:
 			ereport(COMMERROR,
 					(errcode(ERRCODE_PROTOCOL_VIOLATION),
@@ -2856,6 +2875,168 @@ ProcessStandbyHSFeedbackMessage(void)
 	}
 }
 
+/* Are archive status reports enabled for the current streaming phase? */
+static bool
+WalSndArchiveReportEnabled(void)
+{
+	return archive_status_report_interval > 0 &&
+		!streamingDoneSending &&
+		(MyWalSnd->state == WALSNDSTATE_CATCHUP ||
+		 MyWalSnd->state == WALSNDSTATE_STREAMING) &&
+		(MyReplicationSlot == NULL ||
+		 MyReplicationSlot->data.persistency != RS_TEMPORARY);
+}
+
+/*
+ * Claim and dispatch the one pending batch to an explicitly capable peer.
+ */
+static void
+WalSndArchiveDelegateTask(void)
+{
+	PgArchDelegateBatch batch;
+	TimestampTz now;
+	bool		found = false;
+	long		remaining;
+
+	/* Only explicitly opted-in physical peers of the primary receive tasks. */
+	if (!ArchiveDelegationEnabled || am_db_walsender || RecoveryInProgress() ||
+		!WalSndArchiveReportEnabled())
+		return;
+	now = GetCurrentTimestamp();
+	SpinLockAcquire(&PgArch->lock);
+	if (PgArch->outgoing.id != 0 && !PgArch->outgoing.sent &&
+		PgArch->outgoing.deadline > now)
+	{
+		PgArch->outgoing.sent = true;
+		PgArch->outgoing.owner = MyProcPid;
+		batch = PgArch->outgoing;
+		found = true;
+	}
+	SpinLockRelease(&PgArch->lock);
+	if (!found)
+		return;
+	remaining = TimestampDifferenceMilliseconds(now, batch.deadline);
+	resetStringInfo(&output_message);
+	pq_sendbyte(&output_message, PqReplMsg_ArchiveDelegateTask);
+	pq_sendint64(&output_message, batch.id);
+	pq_sendint32(&output_message, remaining);
+	pq_sendint16(&output_message, batch.nfiles);
+	for (int i = 0; i < batch.nfiles; i++)
+		pq_sendbytes(&output_message, batch.files[i], PGARCH_DELEGATE_FILENAME_LEN);
+	pq_putmessage_noblock(PqMsg_CopyData, output_message.data, output_message.len);
+	elog(DEBUG1, "delegated archive batch " UINT64_FORMAT " with %d files", batch.id, batch.nfiles);
+	if (pq_flush_if_writable() != 0)
+		WalSndShutdown();
+}
+
+static void
+ProcessArchiveDelegateResult(void)
+{
+	uint64		id = (uint64) pq_getmsgint64(&reply_message);
+	int			nfiles = pq_getmsgint(&reply_message, 2);
+	TimestampTz now = GetCurrentTimestamp();
+	bool		accepted = false;
+
+	pq_getmsgend(&reply_message);
+	if (!ArchiveDelegationEnabled || am_db_walsender || RecoveryInProgress())
+		ereport(ERROR,
+				(errcode(ERRCODE_PROTOCOL_VIOLATION),
+				 errmsg("archive delegation result received without opting in")));
+	SpinLockAcquire(&PgArch->lock);
+	if (PgArch->outgoing.id == id && PgArch->outgoing.owner == MyProcPid &&
+		PgArch->outgoing.nfiles == nfiles && now < PgArch->outgoing.deadline &&
+		ArchiveDelegateMaxFiles > 0)
+	{
+		PgArch->outgoing.complete = true;
+		accepted = true;
+	}
+	SpinLockRelease(&PgArch->lock);
+	elog(DEBUG1, "%s archive delegation result " UINT64_FORMAT,
+		 accepted ? "accepted" : "ignored stale", id);
+	if (accepted)
+		PgArchWakeup();
+}
+
+/* Send the ordinary ordered archive frontier, independently of task results. */
+static void
+WalSndArchivalReport(void)
+{
+	PgStat_ArchiverStats *archiver_stats;
+	TimestampTz now;
+	char		last_archived[MAX_XFN_CHARS + 1];
+
+	/* Reports are opt-in and must stop before CopyDone. */
+	if (!WalSndArchiveReportEnabled())
+		return;
+
+	now = GetCurrentTimestamp();
+
+	/*
+	 * Send report at most once per configured interval.
+	 * This avoids excessive pgstat access.
+	 */
+	if (now < TimestampTzPlusMilliseconds(last_archival_report_timestamp,
+										  archive_status_report_interval))
+		return;
+
+	last_archival_report_timestamp = now;
+
+	/* In recovery, simply relay received message downstream. */
+	if (RecoveryInProgress())
+	{
+		SpinLockAcquire(&PgArch->lock);
+		if (PgArch->primary_last_archived[0] == '\0')
+		{
+			SpinLockRelease(&PgArch->lock);
+			return;
+		}
+		memcpy(last_archived, PgArch->primary_last_archived, sizeof(last_archived));
+		SpinLockRelease(&PgArch->lock);
+	}
+	else
+	{
+		/*
+		* Get archiver statistics.  The pgstat snapshot is cached per-session and
+		* is only invalidated at transaction boundaries.  The walsender runs
+		* without transaction boundaries, so we must clear the snapshot explicitly
+		* to avoid reading stale data (e.g. last_archived_wal stuck at its initial
+		* empty value even after the archiver has archived new segments).
+		*/
+		pgstat_clear_snapshot();
+		archiver_stats = pgstat_fetch_stat_archiver();
+		if (archiver_stats == NULL)
+			return;
+
+		memcpy(last_archived, archiver_stats->last_archived_wal, sizeof(last_archived));
+	}
+	/*
+	 * Only send a report if the last archived WAL has changed. This is both
+	 * an optimization and ensures we don't send empty reports on startup.
+	 */
+	if (strcmp(last_archived, last_archived_report_wal) == 0)
+		return;
+
+	/* Only send reports for WAL segments, not backup history files or other archived files */
+	if (!IsXLogFileName(last_archived))
+		return;
+
+	elog(DEBUG2, "sending archival report: %s", last_archived);
+
+	/* Remember what we sent */
+	strlcpy(last_archived_report_wal, last_archived, sizeof(last_archived_report_wal));
+
+	/* Construct the message... */
+	resetStringInfo(&output_message);
+	pq_sendbyte(&output_message, PqReplMsg_ArchiveStatusReport);
+	pq_sendbytes(&output_message, last_archived, strlen(last_archived));
+	/* ... and send it wrapped in CopyData */
+	pq_putmessage_noblock(PqMsg_CopyData, output_message.data, output_message.len);
+
+	/* Reports must make progress even when keepalive timeouts are disabled. */
+	if (pq_flush_if_writable() != 0)
+		WalSndShutdown();
+}
+
 /*
  * Process the request for a primary status update message.
  */
@@ -2953,6 +3134,8 @@ ProcessStandbyPSRequestMessage(void)
  *
  * If wal_sender_shutdown_timeout is enabled, during shutdown, we want to
  * wake up in time to exit when it expires.
+ *
+ * Archive reports have a separate deadline even when timeouts are disabled.
  */
 static long
 WalSndComputeSleeptime(TimestampTz now)
@@ -2980,6 +3163,16 @@ WalSndComputeSleeptime(TimestampTz now)
 
 		/* Compute relative time until wakeup. */
 		sleeptime = TimestampDifferenceMilliseconds(now, wakeup_time);
+	}
+
+	if (WalSndArchiveReportEnabled())
+	{
+		long		archive_sleeptime;
+
+		wakeup_time = TimestampTzPlusMilliseconds(last_archival_report_timestamp,
+												  archive_status_report_interval);
+		archive_sleeptime = TimestampDifferenceMilliseconds(now, wakeup_time);
+		sleeptime = Min(sleeptime, archive_sleeptime);
 	}
 
 	if (shutdown_request_timestamp != 0 && wal_sender_shutdown_timeout > 0)
@@ -3303,6 +3496,7 @@ WalSndKill(int code, Datum arg)
 	WalSnd	   *walsnd = MyWalSnd;
 
 	Assert(walsnd != NULL);
+	PgArchDelegateDisconnect(MyProcPid);
 
 	MyWalSnd = NULL;
 
@@ -4519,6 +4713,10 @@ static void
 WalSndKeepaliveIfNecessary(void)
 {
 	TimestampTz ping_time;
+
+	/* Archive reports have their own deadline, independent of keepalives. */
+	WalSndArchiveDelegateTask();
+	WalSndArchivalReport();
 
 	/*
 	 * Don't send keepalive messages if timeouts are globally disabled or

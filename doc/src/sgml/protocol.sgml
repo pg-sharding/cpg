@@ -2838,6 +2838,65 @@ psql "dbname=postgres replication=database" -c "IDENTIFY_SYSTEM;"
          </variablelist>
         </listitem>
        </varlistentry>
+
+       <varlistentry id="protocol-replication-archive-delegate-task">
+        <term>Experimental archive delegation task (D)</term>
+        <listitem>
+         <para>
+          Sent only to physical clients that explicitly set the startup
+          session option <literal>archive_delegation=on</literal>, in addition
+          to requesting archive status reports.  A shared-archive standby
+          advertises this capability when
+          <xref linkend="guc-archive-delegate-accept"/> is enabled.
+         </para>
+         <para>
+          The payload is Byte1('D'), Int64 batch identifier, Int32 remaining
+          validity in milliseconds, Int16 file count, then exactly 24 bytes
+          for each regular WAL filename, without zero terminators.  Counts
+          range from 1 to 100.  Filenames are strictly increasing and belong
+          to the streaming timeline.  The batch duration does not require
+          synchronized clocks between the nodes.
+         </para>
+         <para>
+          After every requested archive callback succeeds, the standby sends
+          a CopyData result containing Byte1('D'), Int64 batch identifier,
+          and Int16 original file count.  There is no partial-success result.
+          The primary ignores results from an expired, cancelled, disconnected,
+          or replaced batch.  Receiving a result does not immediately advance
+          its ordered archive frontier.
+         </para>
+        </listitem>
+       </varlistentry>
+
+       <varlistentry id="protocol-replication-archive-status-report">
+        <term>WAL archival report message (a)</term>
+        <listitem>
+         <variablelist>
+          <varlistentry>
+           <term>Byte1('a')</term>
+           <listitem>
+            <para>
+             Identifies the message as a last archived WAL segment update.
+            </para>
+           </listitem>
+          </varlistentry>
+
+          <varlistentry>
+           <term>Byte<replaceable>n</replaceable></term>
+           <listitem>
+            <para>
+             Filename of the latest archived WAL segment, without a terminating
+             zero byte.  The message is sent only to physical replication
+             clients that request it with a positive
+             <literal>archive_status_report_interval</literal> startup parameter
+             (in milliseconds).
+            </para>
+           </listitem>
+          </varlistentry>
+         </variablelist>
+        </listitem>
+       </varlistentry>
+
       </variablelist>
 
       <para>

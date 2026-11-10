@@ -18,10 +18,12 @@
  *-------------------------------------------------------------------------
  */
 #include "postgres.h"
+#include "postmaster/pgarch.h"
 
 #include <unistd.h>
 #include <sys/time.h>
 
+#include "access/xlog.h"
 #include "common/connect.h"
 #include "common/pg_parse_lsn.h"
 #include "funcapi.h"
@@ -58,6 +60,7 @@ struct WalReceiverConn
 static WalReceiverConn *libpqrcv_connect(const char *conninfo,
 										 bool replication, bool logical,
 										 bool must_use_password,
+										 bool expect_archive_reports,
 										 const char *appname, char **err);
 static void libpqrcv_check_conninfo(const char *conninfo,
 									bool must_use_password);
@@ -149,13 +152,14 @@ _PG_init(void)
  */
 static WalReceiverConn *
 libpqrcv_connect(const char *conninfo, bool replication, bool logical,
-				 bool must_use_password, const char *appname, char **err)
+				 bool must_use_password, bool expect_archive_reports, const char *appname, char **err)
 {
 	WalReceiverConn *conn;
-	const char *keys[6];
-	const char *vals[6];
+	const char *keys[8];
+	const char *vals[8];
 	int			i = 0;
 	char	   *options_val = NULL;
+	char	   *archive_interval_val = NULL;
 	bool		allow_unsafe_opts = false;
 
 	/*
@@ -250,6 +254,26 @@ libpqrcv_connect(const char *conninfo, bool replication, bool logical,
 	keys[++i] = "fallback_application_name";
 	vals[i] = appname;
 
+	/* A physical shared-archive receiver explicitly advertises task support. */
+	if (expect_archive_reports && AmWalReceiverProcess() && ArchiveDelegateAccept)
+	{
+		char	   *opt = libpqrcv_get_option_from_conninfo(conninfo, "options");
+
+		Assert(replication && !logical);
+		options_val = psprintf("%s -c archive_delegation=on", opt ? opt : "");
+		keys[++i] = "options";
+		vals[i] = options_val;
+		if (opt != NULL)
+			pfree(opt);
+	}
+
+	if (expect_archive_reports)
+	{
+		archive_interval_val = psprintf("%d", XLogArchiveStatusReportInterval);
+		keys[++i] = "archive_status_report_interval";
+		vals[i] = archive_interval_val;
+	}
+
 	keys[++i] = NULL;
 	vals[i] = NULL;
 
@@ -266,6 +290,8 @@ libpqrcv_connect(const char *conninfo, bool replication, bool logical,
 
 	if (options_val != NULL)
 		pfree(options_val);
+	if (archive_interval_val != NULL)
+		pfree(archive_interval_val);
 
 	if (PQstatus(conn->streamConn) != CONNECTION_OK)
 		goto bad_connection_errmsg;

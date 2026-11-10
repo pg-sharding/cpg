@@ -69,6 +69,12 @@ tests += {
       't/058_shutdown_crash_restart.pl',
       't/059_remote_apply_status_interval.pl',
       't/060_multixact_crashed_updater.pl',
+      't/061_archive_shared.pl',
+      't/062_archive_shared_checkpoint.pl',
+      't/063_archive_shared_hazards.pl',
+      't/064_archive_shared_timelines.pl',
+      't/065_archive_shared_reports.pl',
+      't/066_archive_delegation.pl',
     ],
   },
 }

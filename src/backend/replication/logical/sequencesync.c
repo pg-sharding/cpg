@@ -907,7 +907,7 @@ LogicalRepSyncSequences(void)
 	 */
 	LogRepWorkerWalRcvConn =
 		walrcv_connect(MySubscriptionConninfo, true, true,
-					   must_use_password,
+					   must_use_password, false,
 					   app_name.data, &err);
 	if (LogRepWorkerWalRcvConn == NULL)
 		ereport(ERROR,

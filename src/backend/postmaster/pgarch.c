@@ -31,6 +31,7 @@
 
 #include "access/xlog.h"
 #include "access/xlog_internal.h"
+#include "access/xlogarchive.h"
 #include "archive/archive_module.h"
 #include "archive/shell_archive.h"
 #include "lib/binaryheap.h"
@@ -39,6 +40,8 @@
 #include "postmaster/auxprocess.h"
 #include "postmaster/interrupt.h"
 #include "postmaster/pgarch.h"
+#include "replication/walreceiver.h"
+#include "replication/walsender.h"
 #include "storage/condition_variable.h"
 #include "storage/aio_subsys.h"
 #include "storage/fd.h"
@@ -50,6 +53,7 @@
 #include "storage/shmem.h"
 #include "storage/subsystems.h"
 #include "utils/guc.h"
+#include "utils/injection_point.h"
 #include "utils/memutils.h"
 #include "utils/ps_status.h"
 #include "utils/resowner.h"
@@ -65,6 +69,15 @@
 									 * archive status directory; in seconds. */
 #define PGARCH_RESTART_INTERVAL 10	/* How often to attempt to restart a
 									 * failed archiver; in seconds. */
+
+/*
+ * In archive_mode=shared, a standby normally relies on the primary's archival
+ * status reports and does not archive segments itself.  If reports stop
+ * arriving, the standby must fall back to archiving on its own to avoid
+ * accumulating WAL forever.  We wait for this many report intervals to pass
+ * with no report before starting to archive locally.
+ */
+#define PGARCH_SHARED_FALLBACK_INTERVALS 3
 
 /*
  * Maximum number of retries allowed when attempting to archive a WAL
@@ -83,19 +96,15 @@
  */
 #define NUM_FILES_PER_DIRECTORY_SCAN 64
 
-/* Shared memory area for archiver process */
-typedef struct PgArchData
-{
-	int			pgprocno;		/* proc number of archiver process */
-
-	/*
-	 * Forces a directory scan in pgarch_readyXlog().
-	 */
-	pg_atomic_uint32 force_dir_scan;
-} PgArchData;
 
 char	   *XLogArchiveLibrary = "";
 char	   *arch_module_check_errdetail_string;
+
+int			ArchiveDelegateMaxFiles = 0;
+int			ArchiveDelegateMinBacklog = 1000;
+int			ArchiveDelegateTimeout = 60000;
+bool		ArchiveDelegateAccept = false;
+bool		ArchiveDelegationEnabled = false;
 
 
 /* ----------
@@ -103,7 +112,7 @@ char	   *arch_module_check_errdetail_string;
  * ----------
  */
 static time_t last_sigterm_time = 0;
-static PgArchData *PgArch = NULL;
+PgArchData *PgArch = NULL;
 static const ArchiveModuleCallbacks *ArchiveCallbacks;
 static ArchiveModuleState *archive_module_state;
 static MemoryContext archive_context;
@@ -154,6 +163,9 @@ static void ProcessPgArchInterrupts(void);
 static int	ready_file_comparator(Datum a, Datum b, void *arg);
 static void LoadArchiveLibrary(void);
 static void pgarch_call_module_shutdown_cb(int code, Datum arg);
+static void pgarch_delegate_start(void);
+static bool pgarch_delegate_confirmed(const char *xlog);
+static void pgarch_delegate_execute(void);
 
 static void PgArchShmemRequest(void *arg);
 static void PgArchShmemInit(void *arg);
@@ -180,6 +192,19 @@ PgArchShmemInit(void *arg)
 	MemSet(PgArch, 0, sizeof(PgArchData));
 	PgArch->pgprocno = INVALID_PROC_NUMBER;
 	pg_atomic_init_u32(&PgArch->force_dir_scan, 0);
+
+	PgArch->primary_last_archived[0] = '\0';
+
+	/*
+	 * Seed the report timestamp when starting up during recovery so that the
+	 * archiver does not rush to archive segments itself right after startup.
+	 * We give the primary a chance to send its first archival report before
+	 * the fallback timeout (see pgarch_MainLoop) elapses.
+	 */
+	if (RecoveryInProgress())
+		PgArch->last_archival_report_timestamp = GetCurrentTimestamp();
+
+	SpinLockInit(&PgArch->lock);
 }
 
 /*
@@ -313,6 +338,8 @@ static void
 pgarch_MainLoop(void)
 {
 	bool		time_to_stop;
+	bool		do_copy_loop;
+	TimestampTz last_archival_report_timestamp;
 
 	/*
 	 * There shouldn't be anything for the archiver to do except to wait for a
@@ -323,11 +350,17 @@ pgarch_MainLoop(void)
 	{
 		ResetLatch(MyLatch);
 
+		INJECTION_POINT("pgarch-main-loop", NULL);
+
 		/* When we get SIGUSR2, we do one more archive cycle, then exit */
 		time_to_stop = ready_to_stop;
 
 		/* Check for barrier events and config update */
 		ProcessPgArchInterrupts();
+
+		/* Explicit tasks do not depend on the shared-archive fallback timer. */
+		if (RecoveryInProgress() && XLogArchivingShared() && ArchiveDelegateAccept)
+			pgarch_delegate_execute();
 
 		/*
 		 * If we've gotten SIGTERM, we normally just sit and do nothing until
@@ -348,8 +381,45 @@ pgarch_MainLoop(void)
 				break;
 		}
 
-		/* Do what we're here for */
-		pgarch_ArchiverCopyLoop();
+		if (RecoveryInProgress() && XLogArchivingShared())
+		{
+			int64		fallback_ms;
+
+			SpinLockAcquire(&PgArch->lock);
+			last_archival_report_timestamp = PgArch->last_archival_report_timestamp;
+			SpinLockRelease(&PgArch->lock);
+
+			/*
+			 * Compute the fallback timeout in 64-bit arithmetic:
+			 * XLogArchiveStatusReportInterval can be as large as INT_MAX / 2,
+			 * so multiplying it as an int would overflow.
+			 */
+			fallback_ms = (int64) XLogArchiveStatusReportInterval *
+				PGARCH_SHARED_FALLBACK_INTERVALS;
+
+			/*
+			 * Only archive locally once we have gone long enough without a
+			 * report from the primary.  Note that an incoming report does not
+			 * set our latch, so we may notice the timeout up to
+			 * PGARCH_AUTOWAKE_INTERVAL late; that coarse granularity is fine
+			 * for a fallback path.
+			 */
+			do_copy_loop = GetCurrentTimestamp() >
+				TimestampTzPlusMilliseconds(last_archival_report_timestamp,
+											fallback_ms);
+		}
+		else
+		{
+			do_copy_loop = true;
+		}
+
+		if (do_copy_loop)
+		{
+			/* Do what we're here for */
+			pgarch_ArchiverCopyLoop();
+
+			INJECTION_POINT("pgarch-main-loop-after-copy", NULL);
+		}
 
 		/*
 		 * Sleep until a signal is received, or until a poll is forced by
@@ -387,6 +457,9 @@ pgarch_ArchiverCopyLoop(void)
 
 	/* force directory scan in the first call to pgarch_readyXlog() */
 	arch_files->arch_files_size = 0;
+
+	if (!RecoveryInProgress())
+		pgarch_delegate_start();
 
 	/*
 	 * loop through all xlogs with archive_status of .ready and archive
@@ -475,7 +548,7 @@ pgarch_ArchiverCopyLoop(void)
 				continue;
 			}
 
-			if (pgarch_archiveXlog(xlog))
+			if (pgarch_delegate_confirmed(xlog) || pgarch_archiveXlog(xlog))
 			{
 				/* successful */
 				pgarch_archiveDone(xlog);
@@ -507,6 +580,233 @@ pgarch_ArchiverCopyLoop(void)
 			}
 		}
 	}
+}
+
+/*
+ * Choose the newest completed files on our current timeline.  The ordinary
+ * oldest-first queue retains all of their .ready files until it consumes the
+ * result.  In particular, an out-of-order result must not advance the archival
+ * frontier which shared-archive standbys use for retention.
+ *
+ * This prototype has one in-memory batch and one owner.  Losing that state
+ * merely causes ordinary local archiving to run again.
+ */
+static void
+pgarch_delegate_start(void)
+{
+	PgArchDelegateBatch batch = {0};
+	DIR		   *dir;
+	struct dirent *entry;
+	TimeLineID current_tli;
+	int			backlog = 0;
+	TimestampTz now = GetCurrentTimestamp();
+
+	if (ArchiveDelegateMaxFiles == 0)
+	{
+		SpinLockAcquire(&PgArch->lock);
+		PgArch->outgoing.id = 0;
+		SpinLockRelease(&PgArch->lock);
+		return;
+	}
+
+	SpinLockAcquire(&PgArch->lock);
+	if (PgArch->outgoing.id != 0 && PgArch->outgoing.deadline > now)
+	{
+		SpinLockRelease(&PgArch->lock);
+		return;
+	}
+	PgArch->outgoing.id = 0;
+	SpinLockRelease(&PgArch->lock);
+
+	current_tli = GetWALInsertionTimeLine();
+	dir = AllocateDir(XLOGDIR "/archive_status");
+	while ((entry = ReadDir(dir, XLOGDIR "/archive_status")) != NULL)
+	{
+		char		filename[PGARCH_DELEGATE_FILENAME_LEN + 1];
+		TimeLineID tli;
+		XLogSegNo segno;
+		int			pos;
+
+		if (strlen(entry->d_name) != PGARCH_DELEGATE_FILENAME_LEN + 6 ||
+			strcmp(entry->d_name + PGARCH_DELEGATE_FILENAME_LEN, ".ready") != 0)
+			continue;
+		memcpy(filename, entry->d_name, PGARCH_DELEGATE_FILENAME_LEN);
+		filename[PGARCH_DELEGATE_FILENAME_LEN] = '\0';
+		if (!IsXLogFileName(filename))
+			continue;
+		XLogFromFileName(filename, &tli, &segno, wal_segment_size);
+		if (tli != current_tli)
+			continue;
+		backlog++;
+
+		/* Keep a bounded, sorted suffix of the newest candidates. */
+		if (batch.nfiles == ArchiveDelegateMaxFiles)
+		{
+			if (strcmp(filename, batch.files[0]) <= 0)
+				continue;
+			memmove(batch.files, batch.files + 1,
+					(batch.nfiles - 1) * sizeof(batch.files[0]));
+			batch.nfiles--;
+		}
+		pos = batch.nfiles++;
+		while (pos > 0 && strcmp(filename, batch.files[pos - 1]) < 0)
+		{
+			strcpy(batch.files[pos], batch.files[pos - 1]);
+			pos--;
+		}
+		strcpy(batch.files[pos], filename);
+	}
+	FreeDir(dir);
+	if (backlog < ArchiveDelegateMinBacklog || backlog < 2)
+		return;
+	/* Leave at least one older file for local archiving. */
+	if (batch.nfiles == backlog)
+	{
+		memmove(batch.files, batch.files + 1,
+				(--batch.nfiles) * sizeof(batch.files[0]));
+	}
+	now = GetCurrentTimestamp();
+	batch.deadline = TimestampTzPlusMilliseconds(now, ArchiveDelegateTimeout);
+	SpinLockAcquire(&PgArch->lock);
+	batch.id = ++PgArch->next_delegate_id;
+	if (batch.id == 0)
+		batch.id = ++PgArch->next_delegate_id;
+	PgArch->outgoing = batch;
+	SpinLockRelease(&PgArch->lock);
+	WalSndWakeup(true, false);
+	/* The file already selected by readyXlog still gets normal processing. */
+	elog(DEBUG1, "created archive delegation batch " UINT64_FORMAT " with %d files", batch.id, batch.nfiles);
+}
+
+/* Called only as the ordinary oldest-first queue reaches this exact file. */
+static bool
+pgarch_delegate_confirmed(const char *xlog)
+{
+	bool		confirmed = false;
+	bool		cancelled = false;
+	uint64		id = 0;
+	TimestampTz now;
+
+	if (ArchiveDelegateMaxFiles == 0 || RecoveryInProgress())
+		return false;
+	now = GetCurrentTimestamp();
+	SpinLockAcquire(&PgArch->lock);
+	if (PgArch->outgoing.id != 0)
+	{
+		PgArchDelegateBatch *batch = &PgArch->outgoing;
+
+		id = batch->id;
+		if (ArchiveDelegateMaxFiles == 0 || now >= batch->deadline)
+		{
+			batch->id = 0;
+			cancelled = true;
+		}
+		else
+		{
+			for (int i = 0; i < batch->nfiles; i++)
+			{
+				if (strcmp(xlog, batch->files[i]) != 0)
+					continue;
+				confirmed = batch->complete;
+				if (!confirmed || ++batch->nprocessed == batch->nfiles)
+					batch->id = 0;
+				cancelled = !confirmed;
+				break;
+			}
+		}
+	}
+	SpinLockRelease(&PgArch->lock);
+	if (confirmed)
+		elog(DEBUG1, "consumed archive delegation batch " UINT64_FORMAT " result for %s", id, xlog);
+	else if (cancelled)
+		elog(DEBUG1, "archive delegation batch " UINT64_FORMAT " fell back to local archiving", id);
+	return confirmed;
+}
+
+/* Execute explicitly assigned work independently of shared fallback. */
+static void
+pgarch_delegate_execute(void)
+{
+	for (;;)
+	{
+		PgArchDelegateBatch batch;
+		char		path[MAXPGPATH];
+		char		ready[MAXPGPATH];
+		char		done[MAXPGPATH];
+		struct stat st;
+		const char *filename;
+		TimestampTz now = GetCurrentTimestamp();
+		XLogRecPtr end_lsn;
+		XLogSegNo segno;
+		TimeLineID file_tli;
+		TimeLineID receive_tli;
+
+		SpinLockAcquire(&PgArch->lock);
+		batch = PgArch->incoming;
+		if (batch.id != 0 && now >= batch.deadline)
+			PgArch->incoming.id = batch.id = 0;
+		SpinLockRelease(&PgArch->lock);
+		if (batch.id == 0 || batch.complete ||
+			ShutdownRequestPending || !RecoveryInProgress())
+			return;
+		ProcessPgArchInterrupts();
+		filename = batch.files[batch.nprocessed];
+		XLogFromFileName(filename, &file_tli, &segno, wal_segment_size);
+		XLogSegNoOffsetToRecPtr(segno + 1, 0, wal_segment_size, end_lsn);
+		if (GetWalRcvFlushRecPtr(NULL, &receive_tli) < end_lsn ||
+			receive_tli != file_tli)
+			return;
+		StatusFilePath(ready, filename, ".ready");
+		StatusFilePath(done, filename, ".done");
+		snprintf(path, sizeof(path), XLOGDIR "/%s", filename);
+
+		/* A preallocated or still-being-written file is not an archive input. */
+		if ((stat(ready, &st) != 0 && stat(done, &st) != 0) ||
+			stat(path, &st) != 0 || st.st_size != wal_segment_size)
+			return;
+		arch_module_check_errdetail_string = NULL;
+		if (ArchiveCallbacks->check_configured_cb != NULL &&
+			!ArchiveCallbacks->check_configured_cb(archive_module_state))
+			return;
+		if (!pgarch_archiveXlog((char *) filename))
+			return;
+
+		/*
+		 * Existing .done is not evidence of executing this job: shared mode
+		 * also creates it from upstream reports. Only callback success above
+		 * contributes to the job result. Do not publish out-of-order progress
+		 * in pg_stat_archiver, including across a subsequent promotion.
+		 */
+		XLogArchiveForceDone(filename);
+		SpinLockAcquire(&PgArch->lock);
+		if (PgArch->incoming.id == batch.id &&
+			PgArch->incoming.nprocessed == batch.nprocessed)
+		{
+			PgArch->incoming.nprocessed++;
+			if (PgArch->incoming.nprocessed == batch.nfiles)
+				PgArch->incoming.complete = true;
+		}
+		SpinLockRelease(&PgArch->lock);
+		/* Reuse the receiver's existing latch wakeup, including idle streams. */
+		WalRcvRequestApplyReply();
+	}
+}
+
+/* A connection loss makes the entire batch an ordinary local responsibility. */
+void
+PgArchDelegateDisconnect(pid_t owner)
+{
+	bool		cancelled = false;
+
+	SpinLockAcquire(&PgArch->lock);
+	if (PgArch->outgoing.id != 0 && PgArch->outgoing.owner == owner)
+	{
+		PgArch->outgoing.id = 0;
+		cancelled = true;
+	}
+	SpinLockRelease(&PgArch->lock);
+	if (cancelled)
+		PgArchWakeup();
 }
 
 /*

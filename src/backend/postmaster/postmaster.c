@@ -3401,14 +3401,24 @@ LaunchMissingBackgroundProcesses(void)
 	}
 
 	/*
-	 * If WAL archiving is enabled always, we are allowed to start archiver
-	 * even during recovery.
+	 * Decide whether the archiver may run in the current postmaster state.
+	 * It always runs while the server is running normally.  With
+	 * archive_mode=always or =shared it also runs during recovery, since in
+	 * those modes the standby has archiving work of its own to do.
 	 */
-	if (PgArchPMChild == NULL &&
-		((XLogArchivingActive() && pmState == PM_RUN) ||
-		 (XLogArchivingAlways() && (pmState == PM_RECOVERY || pmState == PM_HOT_STANDBY))) &&
-		PgArchCanRestart())
-		PgArchPMChild = StartChildProcess(B_ARCHIVER);
+	if (PgArchPMChild == NULL)
+	{
+		bool		start_archiver = false;
+
+		if (pmState == PM_RUN)
+			start_archiver = XLogArchivingActive();
+		else if (pmState == PM_RECOVERY || pmState == PM_HOT_STANDBY)
+			start_archiver = XLogArchivingAlways() || XLogArchivingShared();
+
+		/* PgArchCanRestart() records an attempted launch, so call it last. */
+		if (start_archiver && PgArchCanRestart())
+			PgArchPMChild = StartChildProcess(B_ARCHIVER);
+	}
 
 	/*
 	 * If we need to start a slot sync worker, try to do that now
@@ -3776,7 +3786,7 @@ process_pm_pmsignal(void)
 		 * files.
 		 */
 		Assert(PgArchPMChild == NULL);
-		if (XLogArchivingAlways())
+		if (XLogArchivingAlways() || XLogArchivingShared())
 			PgArchPMChild = StartChildProcess(B_ARCHIVER);
 
 		/*

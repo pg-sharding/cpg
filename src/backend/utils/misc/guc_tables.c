@@ -69,6 +69,7 @@
 #include "postmaster/bgworker_internals.h"
 #include "postmaster/bgwriter.h"
 #include "postmaster/postmaster.h"
+#include "postmaster/pgarch.h"
 #include "postmaster/startup.h"
 #include "postmaster/syslogger.h"
 #include "postmaster/walsummarizer.h"
