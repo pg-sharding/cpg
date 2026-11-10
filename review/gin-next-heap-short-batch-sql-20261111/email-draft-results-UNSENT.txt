@@ -1,0 +1,39 @@
+UNSENT DRAFT
+Subject: GIN required-entry heap: short predicates batched into 100 SQL rescans
+
+Hi,
+
+I completed a separate work-unit follow-up for unchanged fixed-B/exact twin/
+Heap builds. Widths 1/2/7/8 use the original group predicates inside 100 correlated
+LATERAL rescans per command; the original ID-range control remains one scan.
+Every untimed gate and every raw batch EXPLAIN showed 100 actual docs/index
+loops with the original rows per loop. Single-scan ordered Seq/GIN rowsets and
+independently multiplied aggregate answers agreed. All scan types were enabled.
+
+For width 8, whole-command SQL executor Heap/B paired medians were −5.31%/−4.51%,
+with B/Heap medians 8.858/8.383 ms and 8.8305/8.411 ms. Backend CPU was −4.90%/−4.04%,
+client wall −4.74%/−3.75%. Width 7 executor was −4.14%/−2.20%, width 2 −3.74%/−2.67%,
+and width 1 −0.71%/−0.47%. These are complete-command times, not divided by 100.
+This rescan context is different from 100 independent client requests and does
+not establish that earlier single-scan negatives are fixed or explain them.
+
+Important limits remain. Width 1 backend CPU was +0.02%/+0.12%, client wall
+−0.97%/+1.79%, with wide direct ranges. The one-probe Index Only control was
+−0.16%/+0.05% executor; its exact twin was −0.01%/+2.54% (CPU −0.11%/+2.58%).
+No filtering, control normalization, source-causal or general adoption claim
+is made. The immutable earlier natural and forced-GIN evidence remains separate.
+
+The fixed matrix retained 240 raw / 180 retained / 60 warm, two fresh cohorts, all six
+role orders, all three pairs and separate CPU/client/executor boundaries. The
+independent arithmetic audit checked 5130 values. The final root live check
+verified nine owned lifetimes stopped, no owned PIDs/sockets, all three install
+prefixes, 7726 source files, both seeds and frozen inputs unchanged. Full raw
+plans, absolute dispersions, direct pairs, source/setup/build/native replay
+and independent SQL scripts are retained. Fresh portable SQL was only generated
+and statically checked, not executed on a second Linux host.
+
+Heap source 03dff8bfa5075e5838c7fbffc712d0b79d03f13d is unchanged; no new source
+idea, threshold tuning or composition is proposed. Inherited heap context:
+https://www.postgresql.org/message-id/52F373CC.4050800%40vmware.com
+
+Regards,

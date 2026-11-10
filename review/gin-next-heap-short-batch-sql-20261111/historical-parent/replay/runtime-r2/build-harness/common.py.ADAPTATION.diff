@@ -1,0 +1,34 @@
+--- Bitmap/common.py
++++ Heap/common.py
+@@ -9,7 +9,7 @@
+ 
+ HERE = pathlib.Path(__file__).resolve().parent
+ BASE = '72b9498df9a369e747f8d96efb5a6cd33c2451e2'
+-ROLES = ('B', 'Bitmap')
++ROLES = ('B', 'Heap')
+ 
+ 
+ def sha(path):
+@@ -159,18 +159,18 @@
+             snapshot = path.parent / role / name
+             assert snapshot.stat().st_size == value['bytes']
+             assert sha(snapshot) == value['sha256']
+-    assert set(spec['variants']['Bitmap']['source_files']) == {'src/backend/access/gin/ginget.c'}
++    assert set(spec['variants']['Heap']['source_files']) == {'src/backend/access/gin/ginget.c', 'src/backend/access/gin/ginscan.c', 'src/include/access/gin_private.h'}
+     return spec, expected
+ 
+ 
+ def checked_build(path):
+     path = pathlib.Path(path).resolve()
+     receipt = json.loads((path / 'build-receipt.json').read_text())
+-    assert receipt['status'] == 'PASS_GIN_BITMAP_BUILDS'
++    assert receipt['status'] == 'PASS_GIN_HEAP_BUILDS'
+     assert json.loads((path / 'status.json').read_text())['status'] == receipt['status']
+     assert receipt['base'] == BASE and receipt['core239_each'] is True
+-    assert set(receipt['variants']) == {'B', 'Bitmap', 'Bitmap_assert'}
+-    assert receipt['role_to_variant'] == {'B': 'B', 'T': 'B', 'Bitmap': 'Bitmap'}
++    assert set(receipt['variants']) == {'B', 'Heap', 'Heap_assert'}
++    assert receipt['role_to_variant'] == {'B': 'B', 'T': 'B', 'Heap': 'Heap'}
+     for variant in receipt['variants'].values():
+         prefix = pathlib.Path(variant['prefix'])
+         assert sha(prefix / 'bin/postgres') == variant['postgres_sha256']

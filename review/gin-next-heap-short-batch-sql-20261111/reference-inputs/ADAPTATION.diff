@@ -1,0 +1,1376 @@
+--- completed-one-scan/campaign.py
++++ new-batch100/campaign.py
+@@ -48,7 +48,7 @@
+     p.add_argument('--build', type=pathlib.Path, required=True)
+     p.add_argument('--qualified', type=pathlib.Path, required=True)
+     p.add_argument('--output', type=pathlib.Path, required=True)
+-    p.add_argument('--first-port', type=int, default=46540)
++    p.add_argument('--first-port', type=int, default=46840)
+     p.add_argument('--previous-heap-run', type=pathlib.Path, required=True, help='Completed stopped Heap SQL timing output; no overlap allowed')
+     p.add_argument('--cpu-pairs', default='0:4,4:0', help='server:client for each cohort; topology is recorded')
+     p.add_argument('--environment-label', choices=['SHARED_LOAD_DIAGNOSTIC', 'FRESH_HOST_CLEAN_SCREEN'], default='SHARED_LOAD_DIAGNOSTIC')
+@@ -187,7 +187,7 @@
+                 mapping = dict(zip(spec['roles'], range(3) if cohort == 0 else reversed(range(3))))
+                 current = []
+                 label = 'smoke' if args.stage == 'smoke' else 'cohort' + str(cohort)
+-                runtime = dict(status='QUALIFIED_HEAP_SELECTIVE_NATURAL_SQL_INPUTS', base_commit=BASE, fixed_commit=FIXED,
++                runtime = dict(status='QUALIFIED_HEAP_SHORT_BATCH_SQL_INPUTS', base_commit=BASE, fixed_commit=FIXED,
+                                fix0001_sha256=build['fix0001_sha256'], roles={}, server_cpu=server, client_cpu=client,
+                                environment_label=args.environment_label, session_order=sorted(spec['roles'], key=mapping.get))
+                 try:
+--- completed-one-scan/run.py
++++ new-batch100/run.py
+@@ -1,5 +1,5 @@
+ #!/usr/bin/env python3
+-"""One finite natural-plan selective SQL cohort on already owned backends."""
++"""One finite 100-rescan short SQL cohort on already owned backends."""
+ import argparse
+ import hashlib
+ import json
+@@ -36,7 +36,7 @@
+     runtime = json.loads(a.runtime.read_text())
+     spec = plan()
+     roles = spec['roles']
+-    assert runtime['status'] == 'QUALIFIED_HEAP_SELECTIVE_NATURAL_SQL_INPUTS'
++    assert runtime['status'] == 'QUALIFIED_HEAP_SHORT_BATCH_SQL_INPUTS'
+     assert runtime['base_commit'] == BASE and runtime['fixed_commit'] == FIXED
+     assert list(runtime['roles']) == roles and os.sched_getaffinity(0) == {runtime['client_cpu']}
+     assert runtime['environment_label'] in {'SHARED_LOAD_DIAGNOSTIC', 'FRESH_HOST_CLEAN_SCREEN'}
+@@ -83,15 +83,15 @@
+                 oracle_plan = s.json('EXPLAIN(FORMAT JSON) ' + query)[0]['Plan']
+                 s.sql('ROLLBACK;BEGIN;' + c['settings'])
+                 natural_settings = s.json("SELECT json_build_object('enable_seqscan',current_setting('enable_seqscan'),'enable_bitmapscan',current_setting('enable_bitmapscan'),'enable_indexscan',current_setting('enable_indexscan'),'enable_indexonlyscan',current_setting('enable_indexonlyscan'),'enable_tidscan',current_setting('enable_tidscan'))")
+-                natural_plan_root = s.json('EXPLAIN(FORMAT JSON) ' + c['sql'])[0]['Plan']
++                natural_plan_root = s.json('EXPLAIN(ANALYZE,BUFFERS,WAL,TIMING OFF,FORMAT JSON) ' + c['sql'])[0]['Plan']
+                 s.sql('ROLLBACK')
+-                value = dict(natural_settings=natural_settings, natural_plan=natural_plan_root, reference_sha256=hashlib.sha256(reference.encode()).hexdigest(),
++                value = dict(natural_settings=natural_settings, natural_plan=natural_plan_root, natural_plan_executed=True, reference_sha256=hashlib.sha256(reference.encode()).hexdigest(),
+                              actual_sha256=hashlib.sha256(actual.encode()).hexdigest(),
+                              rows=len(actual.splitlines()) if actual else 0, reference_plan=reference_plan, plan=oracle_plan)
+                 oracles[role + '/' + c['name']] = value
+                 save(a.out_new / 'oracles.json', dict(status='RUNNING', answers=oracles))
+                 assert all(v == 'on' for v in natural_settings.values())
+-                natural_plan(c, natural_plan_root, False)
++                natural_plan(c, natural_plan_root, True)
+                 assert actual == reference
+                 assert dict(bytes=len(actual.encode()), rows=value['rows'], sha256=value['actual_sha256']) == c['expected_rows_digest']
+                 reference_nodes = list(nodes(reference_plan))
+--- completed-one-scan/protocol.py
++++ new-batch100/protocol.py
+@@ -1,4 +1,4 @@
+-"""Fixed natural-plan sparse OR workload; held Heap source and independent answers."""
++"""Fixed 100 actual SQL rescans for short predicates; independent new work unit."""
+ import collections
+ import json
+ import pathlib
+@@ -17,13 +17,14 @@
+     assert collections.Counter((r,i) for order in orders for i,r in enumerate(order)) == collections.Counter({(r,i):2 for r in roles for i in range(3)})
+     assert collections.Counter((a,b) for order in orders for a,b in zip(order,order[1:])) == collections.Counter({(a,b):2 for a in roles for b in roles if a!=b})
+     cases = sql_cases()
+-    assert len(cases)==8 and all(c['kind']=='sql' for c in cases)
+-    assert [c['name'] for c in cases] == ['sql_sparse_or'+str(n) for n in [1,2,7,8,32,128,512]] + ['seq_control']
++    assert len(cases)==5 and all(c['kind']=='sql' for c in cases)
++    assert [c['name'] for c in cases] == ['sql_batch_or'+str(n) for n in [1,2,7,8]] + ['seq_control']
+     assert all(c['plan_policy'] == 'NATURAL_ANY_VALID_PATH' for c in cases)
+     assert all('SET '+k+'=on;' in c['settings'] for c in cases for k in ['enable_seqscan','enable_bitmapscan','enable_indexscan','enable_indexonlyscan','enable_tidscan'])
++    assert [c['probes'] for c in cases] == [100,100,100,100,1]
+     return dict(roles=roles,cases=cases,orders=orders,warmups=2,retained_rounds=6,
+-                cohorts=2,raw=384,retained=288,warm=96,
+-                scope='Eight natural-plan SQL cells; seven sparse OR predicates without common plus ID-range control. Held source/ELFs/seed; all plans and all three pairs retained.')
++                cohorts=2,raw=240,retained=180,warm=60,
++                scope='Five natural-plan SQL cells; four 100-rescan aggregates plus one unchanged single-probe ID control. Held source/ELFs/seed; all plans and all three pairs retained.')
+ 
+ if __name__=='__main__':
+     print(json.dumps(plan(),indent=2))
+--- completed-one-scan/analyze.py
++++ new-batch100/analyze.py
+@@ -34,7 +34,7 @@
+     assert hashlib.sha256(literal).hexdigest() == status['literal_sha256']
+     timed_settings = json.loads((a.run / 'timed-settings.json').read_text())
+     assert hashlib.sha256((a.run / 'timed-settings.json').read_bytes()).hexdigest() == status['timed_settings_sha256']
+-    assert len(timed_settings) == 24
++    assert len(timed_settings) == 15
+     rows = [json.loads(line) for line in raw.splitlines()]
+     literals = [json.loads(line) for line in literal.splitlines()]
+     assert len(rows) == len(literals) == spec['raw'] // 2
+@@ -45,7 +45,7 @@
+     oracle_bytes = (a.run / 'oracles.json').read_bytes()
+     assert hashlib.sha256(oracle_bytes).hexdigest() == status['oracles_sha256']
+     oracles = json.loads(oracle_bytes)
+-    assert oracles['status'] == 'PASS' and len(oracles['answers']) == 24
++    assert oracles['status'] == 'PASS' and len(oracles['answers']) == 15
+     for case in cases:
+         for role in roles:
+             item = oracles['answers'][role+'/'+case['name']]
+@@ -55,7 +55,8 @@
+             assert not any('Index Name' in n for n in reference_nodes)
+             assert any(n['Node Type'] == 'Seq Scan' for n in reference_nodes)
+             assert set(item['natural_settings']) == set(SCAN_SETTINGS) and all(v == 'on' for v in item['natural_settings'].values())
+-            natural_plan(case, item['natural_plan'], False)
++            assert item['natural_plan_executed'] is True
++            natural_plan(case, item['natural_plan'], True)
+             plan_nodes = list(nodes(item['plan']))
+             indexes = [n for n in plan_nodes if 'Index Name' in n]
+             if case['index']:
+@@ -100,8 +101,8 @@
+                                   percent=spread([100 * (x['right'] / x['left'] - 1) for x in direct]),
+                                   difference=spread([x['right'] - x['left'] for x in direct])))
+     metrics_per_role = sum(len(v) for v in case_metrics.values())
+-    assert metrics_per_role == 24  # Eight complete SQL cells, three separate metrics each.
+-    assert len(absolute) == 72 and len(pairs) == 72
++    assert metrics_per_role == 15  # Five complete SQL work-unit cells, three separate metrics each.
++    assert len(absolute) == 45 and len(pairs) == 45
+     a.out_new.mkdir()
+     receipt = dict(status='PASS', cohort=status['cohort'], environment_label=status['environment_label'],
+                    raw=len(rows), retained=sum(x['retained'] for x in rows), warm=sum(not x['retained'] for x in rows),
+--- completed-one-scan/validate.py
++++ new-batch100/validate.py
+@@ -19,9 +19,12 @@
+     scans = [n for n in found if n.get('Relation Name') == 'docs' and n['Node Type'] in {'Seq Scan', 'Bitmap Heap Scan', 'Index Scan', 'Index Only Scan', 'Tid Scan', 'Tid Range Scan'}]
+     assert len(scans) == 1
+     if executed:
++        assert case['expected_count'] == case['per_scan_rows']
++        assert case['output_count'] == case['probes'] * case['per_scan_rows']
++        assert case['output_sum'] == case['probes'] * case['per_scan_sum']
+         assert root['Actual Rows'] == root['Actual Loops'] == 1
+-        assert scans[0]['Actual Rows'] == case['expected_count'] and scans[0]['Actual Loops'] == case['probes'] == 1
+-        assert all(n['Actual Loops'] == 1 for n in indexes)
++        assert scans[0]['Actual Rows'] == case['expected_count'] and scans[0]['Actual Loops'] == case['probes']
++        assert all(n['Actual Loops'] == case['probes'] for n in indexes)
+     return found
+ 
+ 
+--- completed-one-scan/cases.json
++++ new-batch100/cases.json
+@@ -1,14 +1,14 @@
+ {
+   "cases": [
+     {
+-      "name": "sql_sparse_or1",
++      "name": "sql_batch_or1",
+       "kind": "sql",
+       "settings": "SET enable_seqscan=on;SET enable_bitmapscan=on;SET enable_indexscan=on;SET enable_indexonlyscan=on;SET enable_tidscan=on;SET work_mem='64MB';",
+       "index": "docs_d_gin",
+-      "probes": 1,
++      "probes": 100,
+       "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'group0'::tsquery",
+-      "sql": "SELECT count(*),sum(id) FROM g1.docs WHERE d @@ 'group0'::tsquery",
+-      "answer": "48|4816896",
++      "sql": "SELECT sum(q.n),sum(q.s) FROM generate_series(1,100) p(i) CROSS JOIN LATERAL (SELECT count(*) n,sum(id) s FROM g1.docs WHERE d @@ 'group0'::tsquery OFFSET(p.i%1)) q",
++      "answer": "4800|481689600",
+       "expected_count": 48,
+       "expected_sum": 4816896,
+       "expected_rows_digest": {
+@@ -22,17 +22,24 @@
+       "heap_threshold_negative": true,
+       "width": 1,
+       "origin_query": "group0",
+-      "origin_query_sha256": "6687ebd1d9c1f6cd91f8b1601916e6a534873aec45189dd3522e9f9ae8657eb9"
++      "origin_query_sha256": "6687ebd1d9c1f6cd91f8b1601916e6a534873aec45189dd3522e9f9ae8657eb9",
++      "origin_single_scan_case": "sql_sparse_or1",
++      "origin_single_scan_sql": "SELECT count(*),sum(id) FROM g1.docs WHERE d @@ 'group0'::tsquery",
++      "per_scan_rows": 48,
++      "per_scan_sum": 4816896,
++      "output_count": 4800,
++      "output_sum": 481689600,
++      "answer_per_scan": "48|4816896"
+     },
+     {
+-      "name": "sql_sparse_or2",
++      "name": "sql_batch_or2",
+       "kind": "sql",
+       "settings": "SET enable_seqscan=on;SET enable_bitmapscan=on;SET enable_indexscan=on;SET enable_indexonlyscan=on;SET enable_tidscan=on;SET work_mem='64MB';",
+       "index": "docs_d_gin",
+-      "probes": 1,
++      "probes": 100,
+       "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'group0 | group1'::tsquery",
+-      "sql": "SELECT count(*),sum(id) FROM g1.docs WHERE d @@ 'group0 | group1'::tsquery",
+-      "answer": "97|9633841",
++      "sql": "SELECT sum(q.n),sum(q.s) FROM generate_series(1,100) p(i) CROSS JOIN LATERAL (SELECT count(*) n,sum(id) s FROM g1.docs WHERE d @@ 'group0 | group1'::tsquery OFFSET(p.i%1)) q",
++      "answer": "9700|963384100",
+       "expected_count": 97,
+       "expected_sum": 9633841,
+       "expected_rows_digest": {
+@@ -46,17 +53,24 @@
+       "heap_threshold_negative": true,
+       "width": 2,
+       "origin_query": "group0 | group1",
+-      "origin_query_sha256": "4e4d1550b0218020610119c3b2c6b24132d8a71cefc827b941c7d54c588dda02"
++      "origin_query_sha256": "4e4d1550b0218020610119c3b2c6b24132d8a71cefc827b941c7d54c588dda02",
++      "origin_single_scan_case": "sql_sparse_or2",
++      "origin_single_scan_sql": "SELECT count(*),sum(id) FROM g1.docs WHERE d @@ 'group0 | group1'::tsquery",
++      "per_scan_rows": 97,
++      "per_scan_sum": 9633841,
++      "output_count": 9700,
++      "output_sum": 963384100,
++      "answer_per_scan": "97|9633841"
+     },
+     {
+-      "name": "sql_sparse_or7",
++      "name": "sql_batch_or7",
+       "kind": "sql",
+       "settings": "SET enable_seqscan=on;SET enable_bitmapscan=on;SET enable_indexscan=on;SET enable_indexonlyscan=on;SET enable_tidscan=on;SET work_mem='64MB';",
+       "index": "docs_d_gin",
+-      "probes": 1,
++      "probes": 100,
+       "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'group0 | group1 | group2 | group3 | group4 | group5 | group6'::tsquery",
+-      "sql": "SELECT count(*),sum(id) FROM g1.docs WHERE d @@ 'group0 | group1 | group2 | group3 | group4 | group5 | group6'::tsquery",
+-      "answer": "342|33719301",
++      "sql": "SELECT sum(q.n),sum(q.s) FROM generate_series(1,100) p(i) CROSS JOIN LATERAL (SELECT count(*) n,sum(id) s FROM g1.docs WHERE d @@ 'group0 | group1 | group2 | group3 | group4 | group5 | group6'::tsquery OFFSET(p.i%1)) q",
++      "answer": "34200|3371930100",
+       "expected_count": 342,
+       "expected_sum": 33719301,
+       "expected_rows_digest": {
+@@ -70,17 +84,24 @@
+       "heap_threshold_negative": true,
+       "width": 7,
+       "origin_query": "group0 | group1 | group2 | group3 | group4 | group5 | group6",
+-      "origin_query_sha256": "4e9d6eb1a73952d49ac1d1f7aae17a3c10283bfdbdeedc3325c08aa694014db7"
++      "origin_query_sha256": "4e9d6eb1a73952d49ac1d1f7aae17a3c10283bfdbdeedc3325c08aa694014db7",
++      "origin_single_scan_case": "sql_sparse_or7",
++      "origin_single_scan_sql": "SELECT count(*),sum(id) FROM g1.docs WHERE d @@ 'group0 | group1 | group2 | group3 | group4 | group5 | group6'::tsquery",
++      "per_scan_rows": 342,
++      "per_scan_sum": 33719301,
++      "output_count": 34200,
++      "output_sum": 3371930100,
++      "answer_per_scan": "342|33719301"
+     },
+     {
+-      "name": "sql_sparse_or8",
++      "name": "sql_batch_or8",
+       "kind": "sql",
+       "settings": "SET enable_seqscan=on;SET enable_bitmapscan=on;SET enable_indexscan=on;SET enable_indexonlyscan=on;SET enable_tidscan=on;SET work_mem='64MB';",
+       "index": "docs_d_gin",
+-      "probes": 1,
++      "probes": 100,
+       "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7'::tsquery",
+-      "sql": "SELECT count(*),sum(id) FROM g1.docs WHERE d @@ 'group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7'::tsquery",
+-      "answer": "391|38536540",
++      "sql": "SELECT sum(q.n),sum(q.s) FROM generate_series(1,100) p(i) CROSS JOIN LATERAL (SELECT count(*) n,sum(id) s FROM g1.docs WHERE d @@ 'group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7'::tsquery OFFSET(p.i%1)) q",
++      "answer": "39100|3853654000",
+       "expected_count": 391,
+       "expected_sum": 38536540,
+       "expected_rows_digest": {
+@@ -94,79 +115,14 @@
+       "heap_threshold_negative": false,
+       "width": 8,
+       "origin_query": "group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7",
+-      "origin_query_sha256": "3f9539d13dc82f704587b3fab5c4d2fe9b5e2b35a3f6c140a84da8654cbad38f"
+-    },
+-    {
+-      "name": "sql_sparse_or32",
+-      "kind": "sql",
+-      "settings": "SET enable_seqscan=on;SET enable_bitmapscan=on;SET enable_indexscan=on;SET enable_indexonlyscan=on;SET enable_tidscan=on;SET work_mem='64MB';",
+-      "index": "docs_d_gin",
+-      "probes": 1,
+-      "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7 | group8 | group9 | group10 | group11 | group12 | group13 | group14 | group15 | group16 | group17 | group18 | group19 | group20 | group21 | group22 | group23 | group24 | group25 | group26 | group27 | group28 | group29 | group30 | group31'::tsquery",
+-      "sql": "SELECT count(*),sum(id) FROM g1.docs WHERE d @@ 'group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7 | group8 | group9 | group10 | group11 | group12 | group13 | group14 | group15 | group16 | group17 | group18 | group19 | group20 | group21 | group22 | group23 | group24 | group25 | group26 | group27 | group28 | group29 | group30 | group31'::tsquery",
+-      "answer": "1567|154164976",
+-      "expected_count": 1567,
+-      "expected_sum": 154164976,
+-      "expected_rows_digest": {
+-        "bytes": 10003,
+-        "sha256": "54c6080b00b71e35acbbb94102a5ebfd4e7a8bbba0b3dc1bd04f2121a0db15ae",
+-        "rows": 1567
+-      },
+-      "oracle_settings": "SET enable_seqscan=off;SET enable_bitmapscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_tidscan=off;SET work_mem='64MB';",
+-      "reference_settings": "SET enable_seqscan=on;SET enable_bitmapscan=off;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_tidscan=off;SET work_mem='64MB';",
+-      "plan_policy": "NATURAL_ANY_VALID_PATH",
+-      "heap_threshold_negative": false,
+-      "width": 32,
+-      "origin_query": "group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7 | group8 | group9 | group10 | group11 | group12 | group13 | group14 | group15 | group16 | group17 | group18 | group19 | group20 | group21 | group22 | group23 | group24 | group25 | group26 | group27 | group28 | group29 | group30 | group31",
+-      "origin_query_sha256": "1f5a3783ffcba73e10fd21795f163ea164641a1c129074ff778b1b9c3f33bb4b"
+-    },
+-    {
+-      "name": "sql_sparse_or128",
+-      "kind": "sql",
+-      "settings": "SET enable_seqscan=on;SET enable_bitmapscan=on;SET enable_indexscan=on;SET enable_indexonlyscan=on;SET enable_tidscan=on;SET work_mem='64MB';",
+-      "index": "docs_d_gin",
+-      "probes": 1,
+-      "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7 | group8 | group9 | group10 | group11 | group12 | group13 | group14 | group15 | group16 | group17 | group18 | group19 | group20 | group21 | group22 | group23 | group24 | group25 | group26 | group27 | group28 | group29 | group30 | group31 | group32 | group33 | group34 | group35 | group36 | group37 | group38 | group39 | group40 | group41 | group42 | group43 | group44 | group45 | group46 | group47 | group48 | group49 | group50 | group51 | group52 | group53 | group54 | group55 | group56 | group57 | group58 | group59 | group60 | group61 | group62 | group63 | group64 | group65 | group66 | group67 | group68 | group69 | group70 | group71 | group72 | group73 | group74 | group75 | group76 | group77 | group78 | group79 | group80 | group81 | group82 | group83 | group84 | group85 | group86 | group87 | group88 | group89 | group90 | group91 | group92 | group93 | group94 | group95 | group96 | group97 | group98 | group99 | group100 | group101 | group102 | group103 | group104 | group105 | group106 | group107 | group108 | group109 | group110 | group111 | group112 | group113 | group114 | group115 | group116 | group117 | group118 | group119 | group120 | group121 | group122 | group123 | group124 | group125 | group126 | group127'::tsquery",
+-      "sql": "SELECT count(*),sum(id) FROM g1.docs WHERE d @@ 'group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7 | group8 | group9 | group10 | group11 | group12 | group13 | group14 | group15 | group16 | group17 | group18 | group19 | group20 | group21 | group22 | group23 | group24 | group25 | group26 | group27 | group28 | group29 | group30 | group31 | group32 | group33 | group34 | group35 | group36 | group37 | group38 | group39 | group40 | group41 | group42 | group43 | group44 | group45 | group46 | group47 | group48 | group49 | group50 | group51 | group52 | group53 | group54 | group55 | group56 | group57 | group58 | group59 | group60 | group61 | group62 | group63 | group64 | group65 | group66 | group67 | group68 | group69 | group70 | group71 | group72 | group73 | group74 | group75 | group76 | group77 | group78 | group79 | group80 | group81 | group82 | group83 | group84 | group85 | group86 | group87 | group88 | group89 | group90 | group91 | group92 | group93 | group94 | group95 | group96 | group97 | group98 | group99 | group100 | group101 | group102 | group103 | group104 | group105 | group106 | group107 | group108 | group109 | group110 | group111 | group112 | group113 | group114 | group115 | group116 | group117 | group118 | group119 | group120 | group121 | group122 | group123 | group124 | group125 | group126 | group127'::tsquery",
+-      "answer": "6271|616960960",
+-      "expected_count": 6271,
+-      "expected_sum": 616960960,
+-      "expected_rows_digest": {
+-        "bytes": 40079,
+-        "sha256": "9ba4c940687040c879a88ce127ded8da66f492bda7418d491911ed59235b4c0e",
+-        "rows": 6271
+-      },
+-      "oracle_settings": "SET enable_seqscan=off;SET enable_bitmapscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_tidscan=off;SET work_mem='64MB';",
+-      "reference_settings": "SET enable_seqscan=on;SET enable_bitmapscan=off;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_tidscan=off;SET work_mem='64MB';",
+-      "plan_policy": "NATURAL_ANY_VALID_PATH",
+-      "heap_threshold_negative": false,
+-      "width": 128,
+-      "origin_query": "group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7 | group8 | group9 | group10 | group11 | group12 | group13 | group14 | group15 | group16 | group17 | group18 | group19 | group20 | group21 | group22 | group23 | group24 | group25 | group26 | group27 | group28 | group29 | group30 | group31 | group32 | group33 | group34 | group35 | group36 | group37 | group38 | group39 | group40 | group41 | group42 | group43 | group44 | group45 | group46 | group47 | group48 | group49 | group50 | group51 | group52 | group53 | group54 | group55 | group56 | group57 | group58 | group59 | group60 | group61 | group62 | group63 | group64 | group65 | group66 | group67 | group68 | group69 | group70 | group71 | group72 | group73 | group74 | group75 | group76 | group77 | group78 | group79 | group80 | group81 | group82 | group83 | group84 | group85 | group86 | group87 | group88 | group89 | group90 | group91 | group92 | group93 | group94 | group95 | group96 | group97 | group98 | group99 | group100 | group101 | group102 | group103 | group104 | group105 | group106 | group107 | group108 | group109 | group110 | group111 | group112 | group113 | group114 | group115 | group116 | group117 | group118 | group119 | group120 | group121 | group122 | group123 | group124 | group125 | group126 | group127",
+-      "origin_query_sha256": "a1f3ea67398a78a478aa39d105fc04e614c5abfe2b0672c050bfd46904327191"
+-    },
+-    {
+-      "name": "sql_sparse_or512",
+-      "kind": "sql",
+-      "settings": "SET enable_seqscan=on;SET enable_bitmapscan=on;SET enable_indexscan=on;SET enable_indexonlyscan=on;SET enable_tidscan=on;SET work_mem='64MB';",
+-      "index": "docs_d_gin",
+-      "probes": 1,
+-      "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7 | group8 | group9 | group10 | group11 | group12 | group13 | group14 | group15 | group16 | group17 | group18 | group19 | group20 | group21 | group22 | group23 | group24 | group25 | group26 | group27 | group28 | group29 | group30 | group31 | group32 | group33 | group34 | group35 | group36 | group37 | group38 | group39 | group40 | group41 | group42 | group43 | group44 | group45 | group46 | group47 | group48 | group49 | group50 | group51 | group52 | group53 | group54 | group55 | group56 | group57 | group58 | group59 | group60 | group61 | group62 | group63 | group64 | group65 | group66 | group67 | group68 | group69 | group70 | group71 | group72 | group73 | group74 | group75 | group76 | group77 | group78 | group79 | group80 | group81 | group82 | group83 | group84 | group85 | group86 | group87 | group88 | group89 | group90 | group91 | group92 | group93 | group94 | group95 | group96 | group97 | group98 | group99 | group100 | group101 | group102 | group103 | group104 | group105 | group106 | group107 | group108 | group109 | group110 | group111 | group112 | group113 | group114 | group115 | group116 | group117 | group118 | group119 | group120 | group121 | group122 | group123 | group124 | group125 | group126 | group127 | group128 | group129 | group130 | group131 | group132 | group133 | group134 | group135 | group136 | group137 | group138 | group139 | group140 | group141 | group142 | group143 | group144 | group145 | group146 | group147 | group148 | group149 | group150 | group151 | group152 | group153 | group154 | group155 | group156 | group157 | group158 | group159 | group160 | group161 | group162 | group163 | group164 | group165 | group166 | group167 | group168 | group169 | group170 | group171 | group172 | group173 | group174 | group175 | group176 | group177 | group178 | group179 | group180 | group181 | group182 | group183 | group184 | group185 | group186 | group187 | group188 | group189 | group190 | group191 | group192 | group193 | group194 | group195 | group196 | group197 | group198 | group199 | group200 | group201 | group202 | group203 | group204 | group205 | group206 | group207 | group208 | group209 | group210 | group211 | group212 | group213 | group214 | group215 | group216 | group217 | group218 | group219 | group220 | group221 | group222 | group223 | group224 | group225 | group226 | group227 | group228 | group229 | group230 | group231 | group232 | group233 | group234 | group235 | group236 | group237 | group238 | group239 | group240 | group241 | group242 | group243 | group244 | group245 | group246 | group247 | group248 | group249 | group250 | group251 | group252 | group253 | group254 | group255 | group256 | group257 | group258 | group259 | group260 | group261 | group262 | group263 | group264 | group265 | group266 | group267 | group268 | group269 | group270 | group271 | group272 | group273 | group274 | group275 | group276 | group277 | group278 | group279 | group280 | group281 | group282 | group283 | group284 | group285 | group286 | group287 | group288 | group289 | group290 | group291 | group292 | group293 | group294 | group295 | group296 | group297 | group298 | group299 | group300 | group301 | group302 | group303 | group304 | group305 | group306 | group307 | group308 | group309 | group310 | group311 | group312 | group313 | group314 | group315 | group316 | group317 | group318 | group319 | group320 | group321 | group322 | group323 | group324 | group325 | group326 | group327 | group328 | group329 | group330 | group331 | group332 | group333 | group334 | group335 | group336 | group337 | group338 | group339 | group340 | group341 | group342 | group343 | group344 | group345 | group346 | group347 | group348 | group349 | group350 | group351 | group352 | group353 | group354 | group355 | group356 | group357 | group358 | group359 | group360 | group361 | group362 | group363 | group364 | group365 | group366 | group367 | group368 | group369 | group370 | group371 | group372 | group373 | group374 | group375 | group376 | group377 | group378 | group379 | group380 | group381 | group382 | group383 | group384 | group385 | group386 | group387 | group388 | group389 | group390 | group391 | group392 | group393 | group394 | group395 | group396 | group397 | group398 | group399 | group400 | group401 | group402 | group403 | group404 | group405 | group406 | group407 | group408 | group409 | group410 | group411 | group412 | group413 | group414 | group415 | group416 | group417 | group418 | group419 | group420 | group421 | group422 | group423 | group424 | group425 | group426 | group427 | group428 | group429 | group430 | group431 | group432 | group433 | group434 | group435 | group436 | group437 | group438 | group439 | group440 | group441 | group442 | group443 | group444 | group445 | group446 | group447 | group448 | group449 | group450 | group451 | group452 | group453 | group454 | group455 | group456 | group457 | group458 | group459 | group460 | group461 | group462 | group463 | group464 | group465 | group466 | group467 | group468 | group469 | group470 | group471 | group472 | group473 | group474 | group475 | group476 | group477 | group478 | group479 | group480 | group481 | group482 | group483 | group484 | group485 | group486 | group487 | group488 | group489 | group490 | group491 | group492 | group493 | group494 | group495 | group496 | group497 | group498 | group499 | group500 | group501 | group502 | group503 | group504 | group505 | group506 | group507 | group508 | group509 | group510 | group511'::tsquery",
+-      "sql": "SELECT count(*),sum(id) FROM g1.docs WHERE d @@ 'group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7 | group8 | group9 | group10 | group11 | group12 | group13 | group14 | group15 | group16 | group17 | group18 | group19 | group20 | group21 | group22 | group23 | group24 | group25 | group26 | group27 | group28 | group29 | group30 | group31 | group32 | group33 | group34 | group35 | group36 | group37 | group38 | group39 | group40 | group41 | group42 | group43 | group44 | group45 | group46 | group47 | group48 | group49 | group50 | group51 | group52 | group53 | group54 | group55 | group56 | group57 | group58 | group59 | group60 | group61 | group62 | group63 | group64 | group65 | group66 | group67 | group68 | group69 | group70 | group71 | group72 | group73 | group74 | group75 | group76 | group77 | group78 | group79 | group80 | group81 | group82 | group83 | group84 | group85 | group86 | group87 | group88 | group89 | group90 | group91 | group92 | group93 | group94 | group95 | group96 | group97 | group98 | group99 | group100 | group101 | group102 | group103 | group104 | group105 | group106 | group107 | group108 | group109 | group110 | group111 | group112 | group113 | group114 | group115 | group116 | group117 | group118 | group119 | group120 | group121 | group122 | group123 | group124 | group125 | group126 | group127 | group128 | group129 | group130 | group131 | group132 | group133 | group134 | group135 | group136 | group137 | group138 | group139 | group140 | group141 | group142 | group143 | group144 | group145 | group146 | group147 | group148 | group149 | group150 | group151 | group152 | group153 | group154 | group155 | group156 | group157 | group158 | group159 | group160 | group161 | group162 | group163 | group164 | group165 | group166 | group167 | group168 | group169 | group170 | group171 | group172 | group173 | group174 | group175 | group176 | group177 | group178 | group179 | group180 | group181 | group182 | group183 | group184 | group185 | group186 | group187 | group188 | group189 | group190 | group191 | group192 | group193 | group194 | group195 | group196 | group197 | group198 | group199 | group200 | group201 | group202 | group203 | group204 | group205 | group206 | group207 | group208 | group209 | group210 | group211 | group212 | group213 | group214 | group215 | group216 | group217 | group218 | group219 | group220 | group221 | group222 | group223 | group224 | group225 | group226 | group227 | group228 | group229 | group230 | group231 | group232 | group233 | group234 | group235 | group236 | group237 | group238 | group239 | group240 | group241 | group242 | group243 | group244 | group245 | group246 | group247 | group248 | group249 | group250 | group251 | group252 | group253 | group254 | group255 | group256 | group257 | group258 | group259 | group260 | group261 | group262 | group263 | group264 | group265 | group266 | group267 | group268 | group269 | group270 | group271 | group272 | group273 | group274 | group275 | group276 | group277 | group278 | group279 | group280 | group281 | group282 | group283 | group284 | group285 | group286 | group287 | group288 | group289 | group290 | group291 | group292 | group293 | group294 | group295 | group296 | group297 | group298 | group299 | group300 | group301 | group302 | group303 | group304 | group305 | group306 | group307 | group308 | group309 | group310 | group311 | group312 | group313 | group314 | group315 | group316 | group317 | group318 | group319 | group320 | group321 | group322 | group323 | group324 | group325 | group326 | group327 | group328 | group329 | group330 | group331 | group332 | group333 | group334 | group335 | group336 | group337 | group338 | group339 | group340 | group341 | group342 | group343 | group344 | group345 | group346 | group347 | group348 | group349 | group350 | group351 | group352 | group353 | group354 | group355 | group356 | group357 | group358 | group359 | group360 | group361 | group362 | group363 | group364 | group365 | group366 | group367 | group368 | group369 | group370 | group371 | group372 | group373 | group374 | group375 | group376 | group377 | group378 | group379 | group380 | group381 | group382 | group383 | group384 | group385 | group386 | group387 | group388 | group389 | group390 | group391 | group392 | group393 | group394 | group395 | group396 | group397 | group398 | group399 | group400 | group401 | group402 | group403 | group404 | group405 | group406 | group407 | group408 | group409 | group410 | group411 | group412 | group413 | group414 | group415 | group416 | group417 | group418 | group419 | group420 | group421 | group422 | group423 | group424 | group425 | group426 | group427 | group428 | group429 | group430 | group431 | group432 | group433 | group434 | group435 | group436 | group437 | group438 | group439 | group440 | group441 | group442 | group443 | group444 | group445 | group446 | group447 | group448 | group449 | group450 | group451 | group452 | group453 | group454 | group455 | group456 | group457 | group458 | group459 | group460 | group461 | group462 | group463 | group464 | group465 | group466 | group467 | group468 | group469 | group470 | group471 | group472 | group473 | group474 | group475 | group476 | group477 | group478 | group479 | group480 | group481 | group482 | group483 | group484 | group485 | group486 | group487 | group488 | group489 | group490 | group491 | group492 | group493 | group494 | group495 | group496 | group497 | group498 | group499 | group500 | group501 | group502 | group503 | group504 | group505 | group506 | group507 | group508 | group509 | group510 | group511'::tsquery",
+-      "answer": "25087|2472660736",
+-      "expected_count": 25087,
+-      "expected_sum": 2472660736,
+-      "expected_rows_digest": {
+-        "bytes": 160655,
+-        "sha256": "7a02a76929203149826a62c34eaa5d024f76fa1945e506b25b8050117d5f0bd9",
+-        "rows": 25087
+-      },
+-      "oracle_settings": "SET enable_seqscan=off;SET enable_bitmapscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_tidscan=off;SET work_mem='64MB';",
+-      "reference_settings": "SET enable_seqscan=on;SET enable_bitmapscan=off;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_tidscan=off;SET work_mem='64MB';",
+-      "plan_policy": "NATURAL_ANY_VALID_PATH",
+-      "heap_threshold_negative": false,
+-      "width": 512,
+-      "origin_query": "group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7 | group8 | group9 | group10 | group11 | group12 | group13 | group14 | group15 | group16 | group17 | group18 | group19 | group20 | group21 | group22 | group23 | group24 | group25 | group26 | group27 | group28 | group29 | group30 | group31 | group32 | group33 | group34 | group35 | group36 | group37 | group38 | group39 | group40 | group41 | group42 | group43 | group44 | group45 | group46 | group47 | group48 | group49 | group50 | group51 | group52 | group53 | group54 | group55 | group56 | group57 | group58 | group59 | group60 | group61 | group62 | group63 | group64 | group65 | group66 | group67 | group68 | group69 | group70 | group71 | group72 | group73 | group74 | group75 | group76 | group77 | group78 | group79 | group80 | group81 | group82 | group83 | group84 | group85 | group86 | group87 | group88 | group89 | group90 | group91 | group92 | group93 | group94 | group95 | group96 | group97 | group98 | group99 | group100 | group101 | group102 | group103 | group104 | group105 | group106 | group107 | group108 | group109 | group110 | group111 | group112 | group113 | group114 | group115 | group116 | group117 | group118 | group119 | group120 | group121 | group122 | group123 | group124 | group125 | group126 | group127 | group128 | group129 | group130 | group131 | group132 | group133 | group134 | group135 | group136 | group137 | group138 | group139 | group140 | group141 | group142 | group143 | group144 | group145 | group146 | group147 | group148 | group149 | group150 | group151 | group152 | group153 | group154 | group155 | group156 | group157 | group158 | group159 | group160 | group161 | group162 | group163 | group164 | group165 | group166 | group167 | group168 | group169 | group170 | group171 | group172 | group173 | group174 | group175 | group176 | group177 | group178 | group179 | group180 | group181 | group182 | group183 | group184 | group185 | group186 | group187 | group188 | group189 | group190 | group191 | group192 | group193 | group194 | group195 | group196 | group197 | group198 | group199 | group200 | group201 | group202 | group203 | group204 | group205 | group206 | group207 | group208 | group209 | group210 | group211 | group212 | group213 | group214 | group215 | group216 | group217 | group218 | group219 | group220 | group221 | group222 | group223 | group224 | group225 | group226 | group227 | group228 | group229 | group230 | group231 | group232 | group233 | group234 | group235 | group236 | group237 | group238 | group239 | group240 | group241 | group242 | group243 | group244 | group245 | group246 | group247 | group248 | group249 | group250 | group251 | group252 | group253 | group254 | group255 | group256 | group257 | group258 | group259 | group260 | group261 | group262 | group263 | group264 | group265 | group266 | group267 | group268 | group269 | group270 | group271 | group272 | group273 | group274 | group275 | group276 | group277 | group278 | group279 | group280 | group281 | group282 | group283 | group284 | group285 | group286 | group287 | group288 | group289 | group290 | group291 | group292 | group293 | group294 | group295 | group296 | group297 | group298 | group299 | group300 | group301 | group302 | group303 | group304 | group305 | group306 | group307 | group308 | group309 | group310 | group311 | group312 | group313 | group314 | group315 | group316 | group317 | group318 | group319 | group320 | group321 | group322 | group323 | group324 | group325 | group326 | group327 | group328 | group329 | group330 | group331 | group332 | group333 | group334 | group335 | group336 | group337 | group338 | group339 | group340 | group341 | group342 | group343 | group344 | group345 | group346 | group347 | group348 | group349 | group350 | group351 | group352 | group353 | group354 | group355 | group356 | group357 | group358 | group359 | group360 | group361 | group362 | group363 | group364 | group365 | group366 | group367 | group368 | group369 | group370 | group371 | group372 | group373 | group374 | group375 | group376 | group377 | group378 | group379 | group380 | group381 | group382 | group383 | group384 | group385 | group386 | group387 | group388 | group389 | group390 | group391 | group392 | group393 | group394 | group395 | group396 | group397 | group398 | group399 | group400 | group401 | group402 | group403 | group404 | group405 | group406 | group407 | group408 | group409 | group410 | group411 | group412 | group413 | group414 | group415 | group416 | group417 | group418 | group419 | group420 | group421 | group422 | group423 | group424 | group425 | group426 | group427 | group428 | group429 | group430 | group431 | group432 | group433 | group434 | group435 | group436 | group437 | group438 | group439 | group440 | group441 | group442 | group443 | group444 | group445 | group446 | group447 | group448 | group449 | group450 | group451 | group452 | group453 | group454 | group455 | group456 | group457 | group458 | group459 | group460 | group461 | group462 | group463 | group464 | group465 | group466 | group467 | group468 | group469 | group470 | group471 | group472 | group473 | group474 | group475 | group476 | group477 | group478 | group479 | group480 | group481 | group482 | group483 | group484 | group485 | group486 | group487 | group488 | group489 | group490 | group491 | group492 | group493 | group494 | group495 | group496 | group497 | group498 | group499 | group500 | group501 | group502 | group503 | group504 | group505 | group506 | group507 | group508 | group509 | group510 | group511",
+-      "origin_query_sha256": "941885424da8ac84750d102256df61a9b81dd15b4e891b0e149f9698ceba13d1"
++      "origin_query_sha256": "3f9539d13dc82f704587b3fab5c4d2fe9b5e2b35a3f6c140a84da8654cbad38f",
++      "origin_single_scan_case": "sql_sparse_or8",
++      "origin_single_scan_sql": "SELECT count(*),sum(id) FROM g1.docs WHERE d @@ 'group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7'::tsquery",
++      "per_scan_rows": 391,
++      "per_scan_sum": 38536540,
++      "output_count": 39100,
++      "output_sum": 3853654000,
++      "answer_per_scan": "391|38536540"
+     },
+     {
+       "name": "seq_control",
+@@ -187,7 +143,14 @@
+       "oracle_settings": "SET enable_seqscan=on;SET enable_bitmapscan=off;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_tidscan=off;SET work_mem='64MB';",
+       "reference_settings": "SET enable_seqscan=on;SET enable_bitmapscan=off;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_tidscan=off;SET work_mem='64MB';",
+       "plan_policy": "NATURAL_ANY_VALID_PATH",
+-      "heap_threshold_negative": false
++      "heap_threshold_negative": false,
++      "origin_single_scan_case": "seq_control",
++      "origin_single_scan_sql": "SELECT count(*),sum(id) FROM g1.docs WHERE id BETWEEN 1 AND 200000",
++      "per_scan_rows": 200000,
++      "per_scan_sum": 20000100000,
++      "output_count": 200000,
++      "output_sum": 20000100000,
++      "answer_per_scan": "200000|20000100000"
+     }
+   ]
+ }
+--- completed-one-scan/answers.json
++++ new-batch100/answers.json
+@@ -1,10 +1,7 @@
+ {
+-  "sql_sparse_or1": "48|4816896",
+-  "sql_sparse_or2": "97|9633841",
+-  "sql_sparse_or7": "342|33719301",
+-  "sql_sparse_or8": "391|38536540",
+-  "sql_sparse_or32": "1567|154164976",
+-  "sql_sparse_or128": "6271|616960960",
+-  "sql_sparse_or512": "25087|2472660736",
++  "sql_batch_or1": "4800|481689600",
++  "sql_batch_or2": "9700|963384100",
++  "sql_batch_or7": "34200|3371930100",
++  "sql_batch_or8": "39100|3853654000",
+   "seq_control": "200000|20000100000"
+ }
+--- completed-one-scan/ORIGIN.json
++++ new-batch100/ORIGIN.json
+@@ -1,5 +1,5 @@
+ {
+-  "status": "HELD_OLD_BUILDS_AND_SEED_NEW_NATURAL_WORKLOAD_NOT_EXECUTED",
++  "status": "HELD_OLD_BUILDS_AND_SEED_BATCH100_NEW_WORK_UNIT_NOT_EXECUTED",
+   "build_receipt_sha256": "9569933f83177971adbded4fd448a9f0c809a8c03f7945252ea8f48e52f80388",
+   "qualification_status_sha256": "5abb4e1c6111e29ab166148748d94915fcfe036f9b112f4e8fa61ff5614aa3c3",
+   "remote_build": "/home/reshke/allfuzz/gin-next-c11-bitmap-20261110/or-build",
+@@ -22,12 +22,14 @@
+   "old_AM_results_are_not_new_SQL_results": true,
+   "seed_docs_rows": 200002,
+   "seq_control_scope": "Natural ID-range query; actual Seq/index path retained, separate untimed forced-Seq oracle.",
+-  "prospective_workload_sha256": "ecbe56a9196c5d2192a798784d05acf0e927eb3e4651edaf779385aad49e4861",
+-  "previous_heap_run": "/home/reshke/allfuzz/gin-heap-wide-sql-followup-20261110/run-r1",
+-  "previous_heap_run_status_sha256": "0a0bdc9f43968b17717bc9ce6b6795913b0c2981b3d239979e0fc079899fbcd5",
+-  "new_remote_namespace": "/home/reshke/allfuzz/gin-heap-selective-natural-20261110",
++  "prospective_workload_sha256": "f1e4fd437f9624bbcbad5c36905cfde2f49fd5006cd99a3733fddd8c5e5ca157",
++  "previous_heap_run": "/home/reshke/allfuzz/gin-heap-selective-natural-20261110/run-r1",
++  "previous_heap_run_status_sha256": "b085f14ab065d736d9aa002a618d2c97b8bdcffcfdd5397c9a424c3b7c9ee3f0",
++  "new_remote_namespace": "/home/reshke/allfuzz/gin-heap-short-batch-20261111",
+   "seed_setup_path": "review/gin-next-20261110/or-consistent/or/publication-r1/replay/runtime-r2/harness/inputs/setup.sql",
+   "seed_setup_sha256": "9da8f03c164bcab099d350c9ce1441206a871a290b631a9a7444e6f8a5e72bf2",
+-  "oracle_scope": "Only untimed ordered oracle commands force Seq/GIN; measured queries have all five scan settings on.",
+-  "previous_forced_GIN_results_are_not_new_natural_results": true
++  "oracle_scope": "Ordered Seq/GIN row oracles remain one scan; separate untimed actual natural EXPLAIN proves100 rescans (control1); timed literal totals multiply frozen per-scan scalars.",
++  "previous_forced_GIN_results_are_not_new_natural_results": true,
++  "parent_natural_screen_manifest_sha256": "5203fb5282bf1a73efa6f525d495e50c4a87405313474f596b3c42fd09b735d9",
++  "parent_natural_screen_results_unchanged": true
+ }
+--- completed-one-scan/WORKLOAD.json
++++ new-batch100/WORKLOAD.json
+@@ -1,27 +1,213 @@
+ {
+-  "status": "FROZEN_PROSPECTIVE_ONLY_NO_RUNTIME_OR_RESULTS",
+-  "scope": "New sparse OR without common; unchanged source and fixture. No existing artifact was edited.",
+-  "setup": {
+-    "path": "review/gin-next-20261110/or-consistent/or/publication-r1/replay/runtime-r2/harness/inputs/setup.sql",
+-    "sha256": "9da8f03c164bcab099d350c9ce1441206a871a290b631a9a7444e6f8a5e72bf2",
+-    "base_rows": 200000,
+-    "special_ids": [
+-      -1,
+-      -2
+-    ],
+-    "residue_modulus": 4096
+-  },
+-  "held_source_commits": {
+-    "B": "8a8c475037bfde101da23cc9b0364c9c020eca93",
+-    "Heap": "03dff8bfa5075e5838c7fbffc712d0b79d03f13d",
+-    "Heap_assert": "03dff8bfa5075e5838c7fbffc712d0b79d03f13d"
+-  },
+-  "historical_ELFs": {
+-    "B": "f4716ca17f1a6ba48624ce828833aa00491c461e2df33e8c0f3fa368dc715155",
+-    "Heap": "a480e79b0d62cbfa0e1e795bb45207985fd4f1b1e8f8fd6ca71eb0aff7b70246",
+-    "Heap_assert": "a6718dd57a9157ba5337d28d0145d751cd2d731cdbd6769f4e7bffa274b5f734"
+-  },
+-  "historical_origin_sha256": "761435a92be7013480b4e7e5f54ae9397316aa75c63138bdc4ef24287fbc7d21",
++  "status": "PROSPECTIVE_BATCH100_SQL_ONLY_NO_RUNTIME",
++  "parent_single_scan_manifest_sha256": "5203fb5282bf1a73efa6f525d495e50c4a87405313474f596b3c42fd09b735d9",
++  "parent_single_scan_cases_sha256": "a4555786b79a78d2929f6b2e931cc52343cf1f2f3fe24a6b1d231f67552fa0bc",
++  "parent_single_scan_workload_sha256": "ecbe56a9196c5d2192a798784d05acf0e927eb3e4651edaf779385aad49e4861",
++  "widths": [
++    1,
++    2,
++    7,
++    8
++  ],
++  "cases": [
++    {
++      "name": "sql_batch_or1",
++      "kind": "sql",
++      "settings": "SET enable_seqscan=on;SET enable_bitmapscan=on;SET enable_indexscan=on;SET enable_indexonlyscan=on;SET enable_tidscan=on;SET work_mem='64MB';",
++      "index": "docs_d_gin",
++      "probes": 100,
++      "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'group0'::tsquery",
++      "sql": "SELECT sum(q.n),sum(q.s) FROM generate_series(1,100) p(i) CROSS JOIN LATERAL (SELECT count(*) n,sum(id) s FROM g1.docs WHERE d @@ 'group0'::tsquery OFFSET(p.i%1)) q",
++      "answer": "4800|481689600",
++      "expected_count": 48,
++      "expected_sum": 4816896,
++      "expected_rows_digest": {
++        "bytes": 309,
++        "sha256": "d16ae1896785236da56875c306856626f5fd676a38e9e257f4f5476281df3172",
++        "rows": 48
++      },
++      "oracle_settings": "SET enable_seqscan=off;SET enable_bitmapscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_tidscan=off;SET work_mem='64MB';",
++      "reference_settings": "SET enable_seqscan=on;SET enable_bitmapscan=off;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_tidscan=off;SET work_mem='64MB';",
++      "plan_policy": "NATURAL_ANY_VALID_PATH",
++      "heap_threshold_negative": true,
++      "width": 1,
++      "origin_query": "group0",
++      "origin_query_sha256": "6687ebd1d9c1f6cd91f8b1601916e6a534873aec45189dd3522e9f9ae8657eb9",
++      "origin_single_scan_case": "sql_sparse_or1",
++      "origin_single_scan_sql": "SELECT count(*),sum(id) FROM g1.docs WHERE d @@ 'group0'::tsquery",
++      "per_scan_rows": 48,
++      "per_scan_sum": 4816896,
++      "output_count": 4800,
++      "output_sum": 481689600,
++      "answer_per_scan": "48|4816896"
++    },
++    {
++      "name": "sql_batch_or2",
++      "kind": "sql",
++      "settings": "SET enable_seqscan=on;SET enable_bitmapscan=on;SET enable_indexscan=on;SET enable_indexonlyscan=on;SET enable_tidscan=on;SET work_mem='64MB';",
++      "index": "docs_d_gin",
++      "probes": 100,
++      "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'group0 | group1'::tsquery",
++      "sql": "SELECT sum(q.n),sum(q.s) FROM generate_series(1,100) p(i) CROSS JOIN LATERAL (SELECT count(*) n,sum(id) s FROM g1.docs WHERE d @@ 'group0 | group1'::tsquery OFFSET(p.i%1)) q",
++      "answer": "9700|963384100",
++      "expected_count": 97,
++      "expected_sum": 9633841,
++      "expected_rows_digest": {
++        "bytes": 621,
++        "sha256": "25e853d847b4246e52cbe46945ae0e6391dbd9a92bac78f15b67855d4e30ffc7",
++        "rows": 97
++      },
++      "oracle_settings": "SET enable_seqscan=off;SET enable_bitmapscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_tidscan=off;SET work_mem='64MB';",
++      "reference_settings": "SET enable_seqscan=on;SET enable_bitmapscan=off;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_tidscan=off;SET work_mem='64MB';",
++      "plan_policy": "NATURAL_ANY_VALID_PATH",
++      "heap_threshold_negative": true,
++      "width": 2,
++      "origin_query": "group0 | group1",
++      "origin_query_sha256": "4e4d1550b0218020610119c3b2c6b24132d8a71cefc827b941c7d54c588dda02",
++      "origin_single_scan_case": "sql_sparse_or2",
++      "origin_single_scan_sql": "SELECT count(*),sum(id) FROM g1.docs WHERE d @@ 'group0 | group1'::tsquery",
++      "per_scan_rows": 97,
++      "per_scan_sum": 9633841,
++      "output_count": 9700,
++      "output_sum": 963384100,
++      "answer_per_scan": "97|9633841"
++    },
++    {
++      "name": "sql_batch_or7",
++      "kind": "sql",
++      "settings": "SET enable_seqscan=on;SET enable_bitmapscan=on;SET enable_indexscan=on;SET enable_indexonlyscan=on;SET enable_tidscan=on;SET work_mem='64MB';",
++      "index": "docs_d_gin",
++      "probes": 100,
++      "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'group0 | group1 | group2 | group3 | group4 | group5 | group6'::tsquery",
++      "sql": "SELECT sum(q.n),sum(q.s) FROM generate_series(1,100) p(i) CROSS JOIN LATERAL (SELECT count(*) n,sum(id) s FROM g1.docs WHERE d @@ 'group0 | group1 | group2 | group3 | group4 | group5 | group6'::tsquery OFFSET(p.i%1)) q",
++      "answer": "34200|3371930100",
++      "expected_count": 342,
++      "expected_sum": 33719301,
++      "expected_rows_digest": {
++        "bytes": 2181,
++        "sha256": "ef8c4181da51d38a47446f7d5624059aa3b73115f0331ad9fc3483f857281308",
++        "rows": 342
++      },
++      "oracle_settings": "SET enable_seqscan=off;SET enable_bitmapscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_tidscan=off;SET work_mem='64MB';",
++      "reference_settings": "SET enable_seqscan=on;SET enable_bitmapscan=off;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_tidscan=off;SET work_mem='64MB';",
++      "plan_policy": "NATURAL_ANY_VALID_PATH",
++      "heap_threshold_negative": true,
++      "width": 7,
++      "origin_query": "group0 | group1 | group2 | group3 | group4 | group5 | group6",
++      "origin_query_sha256": "4e9d6eb1a73952d49ac1d1f7aae17a3c10283bfdbdeedc3325c08aa694014db7",
++      "origin_single_scan_case": "sql_sparse_or7",
++      "origin_single_scan_sql": "SELECT count(*),sum(id) FROM g1.docs WHERE d @@ 'group0 | group1 | group2 | group3 | group4 | group5 | group6'::tsquery",
++      "per_scan_rows": 342,
++      "per_scan_sum": 33719301,
++      "output_count": 34200,
++      "output_sum": 3371930100,
++      "answer_per_scan": "342|33719301"
++    },
++    {
++      "name": "sql_batch_or8",
++      "kind": "sql",
++      "settings": "SET enable_seqscan=on;SET enable_bitmapscan=on;SET enable_indexscan=on;SET enable_indexonlyscan=on;SET enable_tidscan=on;SET work_mem='64MB';",
++      "index": "docs_d_gin",
++      "probes": 100,
++      "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7'::tsquery",
++      "sql": "SELECT sum(q.n),sum(q.s) FROM generate_series(1,100) p(i) CROSS JOIN LATERAL (SELECT count(*) n,sum(id) s FROM g1.docs WHERE d @@ 'group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7'::tsquery OFFSET(p.i%1)) q",
++      "answer": "39100|3853654000",
++      "expected_count": 391,
++      "expected_sum": 38536540,
++      "expected_rows_digest": {
++        "bytes": 2493,
++        "sha256": "404d5b532e8695f4aefec9d0a1ea77706291b4d184c20fd23ff18851f249ed6a",
++        "rows": 391
++      },
++      "oracle_settings": "SET enable_seqscan=off;SET enable_bitmapscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_tidscan=off;SET work_mem='64MB';",
++      "reference_settings": "SET enable_seqscan=on;SET enable_bitmapscan=off;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_tidscan=off;SET work_mem='64MB';",
++      "plan_policy": "NATURAL_ANY_VALID_PATH",
++      "heap_threshold_negative": false,
++      "width": 8,
++      "origin_query": "group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7",
++      "origin_query_sha256": "3f9539d13dc82f704587b3fab5c4d2fe9b5e2b35a3f6c140a84da8654cbad38f",
++      "origin_single_scan_case": "sql_sparse_or8",
++      "origin_single_scan_sql": "SELECT count(*),sum(id) FROM g1.docs WHERE d @@ 'group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7'::tsquery",
++      "per_scan_rows": 391,
++      "per_scan_sum": 38536540,
++      "output_count": 39100,
++      "output_sum": 3853654000,
++      "answer_per_scan": "391|38536540"
++    },
++    {
++      "name": "seq_control",
++      "kind": "sql",
++      "settings": "SET enable_seqscan=on;SET enable_bitmapscan=on;SET enable_indexscan=on;SET enable_indexonlyscan=on;SET enable_tidscan=on;SET work_mem='64MB';",
++      "index": null,
++      "probes": 1,
++      "rows_sql": "SELECT id FROM g1.docs WHERE id BETWEEN 1 AND 200000",
++      "sql": "SELECT count(*),sum(id) FROM g1.docs WHERE id BETWEEN 1 AND 200000",
++      "answer": "200000|20000100000",
++      "expected_count": 200000,
++      "expected_sum": 20000100000,
++      "expected_rows_digest": {
++        "bytes": 1288894,
++        "sha256": "01b59173dc3205893607560d9f6caca711aa6c0f3303db7bbccb99552a9fc33a",
++        "rows": 200000
++      },
++      "oracle_settings": "SET enable_seqscan=on;SET enable_bitmapscan=off;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_tidscan=off;SET work_mem='64MB';",
++      "reference_settings": "SET enable_seqscan=on;SET enable_bitmapscan=off;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_tidscan=off;SET work_mem='64MB';",
++      "plan_policy": "NATURAL_ANY_VALID_PATH",
++      "heap_threshold_negative": false,
++      "origin_single_scan_case": "seq_control",
++      "origin_single_scan_sql": "SELECT count(*),sum(id) FROM g1.docs WHERE id BETWEEN 1 AND 200000",
++      "per_scan_rows": 200000,
++      "per_scan_sum": 20000100000,
++      "output_count": 200000,
++      "output_sum": 20000100000,
++      "answer_per_scan": "200000|20000100000"
++    }
++  ],
++  "roles": [
++    "B",
++    "T",
++    "Heap"
++  ],
++  "retained_orders": [
++    [
++      "B",
++      "T",
++      "Heap"
++    ],
++    [
++      "T",
++      "Heap",
++      "B"
++    ],
++    [
++      "Heap",
++      "B",
++      "T"
++    ],
++    [
++      "Heap",
++      "T",
++      "B"
++    ],
++    [
++      "B",
++      "Heap",
++      "T"
++    ],
++    [
++      "T",
++      "B",
++      "Heap"
++    ]
++  ],
++  "warmups": 2,
++  "retained_rounds": 6,
++  "cohorts": 2,
++  "raw": 240,
++  "retained": 180,
++  "warm": 60,
++  "smoke": 15,
++  "required_gate": "Untimed actual EXPLAIN docs/index loops100 for batch and1 for control; per-loop rows remain original; no materialized/decorrelated shortcut accepted. Gate failures preserved, no retry.",
+   "timed_planner_settings": {
+     "enable_seqscan": "on",
+     "enable_bitmapscan": "on",
+@@ -29,201 +215,6 @@
+     "enable_indexonlyscan": "on",
+     "enable_tidscan": "on"
+   },
+-  "settings_note": "Do not change cost parameters, statistics, enable_hashagg or plan_cache_mode after observing plans. Existing fixed single-session environment and seed statistics are retained and recorded; each measured statement is literal, not prepared.",
+-  "cases": [
+-    {
+-      "name": "sql_sparse_or1",
+-      "width": 1,
+-      "query": "group0",
+-      "sql": "SELECT count(*),sum(id) FROM g1.docs WHERE d @@ 'group0'::tsquery",
+-      "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'group0'::tsquery",
+-      "expected_count": 48,
+-      "expected_sum": 4816896,
+-      "expected_answer": "48|4816896",
+-      "expected_ordered_ids": {
+-        "bytes": 309,
+-        "sha256": "d16ae1896785236da56875c306856626f5fd676a38e9e257f4f5476281df3172"
+-      },
+-      "heap_threshold_negative": true,
+-      "plan_requirement": "Record actual natural plan; GIN is not required."
+-    },
+-    {
+-      "name": "sql_sparse_or2",
+-      "width": 2,
+-      "query": "group0 | group1",
+-      "sql": "SELECT count(*),sum(id) FROM g1.docs WHERE d @@ 'group0 | group1'::tsquery",
+-      "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'group0 | group1'::tsquery",
+-      "expected_count": 97,
+-      "expected_sum": 9633841,
+-      "expected_answer": "97|9633841",
+-      "expected_ordered_ids": {
+-        "bytes": 621,
+-        "sha256": "25e853d847b4246e52cbe46945ae0e6391dbd9a92bac78f15b67855d4e30ffc7"
+-      },
+-      "heap_threshold_negative": true,
+-      "plan_requirement": "Record actual natural plan; GIN is not required."
+-    },
+-    {
+-      "name": "sql_sparse_or7",
+-      "width": 7,
+-      "query": "group0 | group1 | group2 | group3 | group4 | group5 | group6",
+-      "sql": "SELECT count(*),sum(id) FROM g1.docs WHERE d @@ 'group0 | group1 | group2 | group3 | group4 | group5 | group6'::tsquery",
+-      "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'group0 | group1 | group2 | group3 | group4 | group5 | group6'::tsquery",
+-      "expected_count": 342,
+-      "expected_sum": 33719301,
+-      "expected_answer": "342|33719301",
+-      "expected_ordered_ids": {
+-        "bytes": 2181,
+-        "sha256": "ef8c4181da51d38a47446f7d5624059aa3b73115f0331ad9fc3483f857281308"
+-      },
+-      "heap_threshold_negative": true,
+-      "plan_requirement": "Record actual natural plan; GIN is not required."
+-    },
+-    {
+-      "name": "sql_sparse_or8",
+-      "width": 8,
+-      "query": "group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7",
+-      "sql": "SELECT count(*),sum(id) FROM g1.docs WHERE d @@ 'group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7'::tsquery",
+-      "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7'::tsquery",
+-      "expected_count": 391,
+-      "expected_sum": 38536540,
+-      "expected_answer": "391|38536540",
+-      "expected_ordered_ids": {
+-        "bytes": 2493,
+-        "sha256": "404d5b532e8695f4aefec9d0a1ea77706291b4d184c20fd23ff18851f249ed6a"
+-      },
+-      "heap_threshold_negative": false,
+-      "plan_requirement": "Record actual natural plan; GIN is not required."
+-    },
+-    {
+-      "name": "sql_sparse_or32",
+-      "width": 32,
+-      "query": "group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7 | group8 | group9 | group10 | group11 | group12 | group13 | group14 | group15 | group16 | group17 | group18 | group19 | group20 | group21 | group22 | group23 | group24 | group25 | group26 | group27 | group28 | group29 | group30 | group31",
+-      "sql": "SELECT count(*),sum(id) FROM g1.docs WHERE d @@ 'group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7 | group8 | group9 | group10 | group11 | group12 | group13 | group14 | group15 | group16 | group17 | group18 | group19 | group20 | group21 | group22 | group23 | group24 | group25 | group26 | group27 | group28 | group29 | group30 | group31'::tsquery",
+-      "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7 | group8 | group9 | group10 | group11 | group12 | group13 | group14 | group15 | group16 | group17 | group18 | group19 | group20 | group21 | group22 | group23 | group24 | group25 | group26 | group27 | group28 | group29 | group30 | group31'::tsquery",
+-      "expected_count": 1567,
+-      "expected_sum": 154164976,
+-      "expected_answer": "1567|154164976",
+-      "expected_ordered_ids": {
+-        "bytes": 10003,
+-        "sha256": "54c6080b00b71e35acbbb94102a5ebfd4e7a8bbba0b3dc1bd04f2121a0db15ae"
+-      },
+-      "heap_threshold_negative": false,
+-      "plan_requirement": "Record actual natural plan; GIN is not required."
+-    },
+-    {
+-      "name": "sql_sparse_or128",
+-      "width": 128,
+-      "query": "group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7 | group8 | group9 | group10 | group11 | group12 | group13 | group14 | group15 | group16 | group17 | group18 | group19 | group20 | group21 | group22 | group23 | group24 | group25 | group26 | group27 | group28 | group29 | group30 | group31 | group32 | group33 | group34 | group35 | group36 | group37 | group38 | group39 | group40 | group41 | group42 | group43 | group44 | group45 | group46 | group47 | group48 | group49 | group50 | group51 | group52 | group53 | group54 | group55 | group56 | group57 | group58 | group59 | group60 | group61 | group62 | group63 | group64 | group65 | group66 | group67 | group68 | group69 | group70 | group71 | group72 | group73 | group74 | group75 | group76 | group77 | group78 | group79 | group80 | group81 | group82 | group83 | group84 | group85 | group86 | group87 | group88 | group89 | group90 | group91 | group92 | group93 | group94 | group95 | group96 | group97 | group98 | group99 | group100 | group101 | group102 | group103 | group104 | group105 | group106 | group107 | group108 | group109 | group110 | group111 | group112 | group113 | group114 | group115 | group116 | group117 | group118 | group119 | group120 | group121 | group122 | group123 | group124 | group125 | group126 | group127",
+-      "sql": "SELECT count(*),sum(id) FROM g1.docs WHERE d @@ 'group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7 | group8 | group9 | group10 | group11 | group12 | group13 | group14 | group15 | group16 | group17 | group18 | group19 | group20 | group21 | group22 | group23 | group24 | group25 | group26 | group27 | group28 | group29 | group30 | group31 | group32 | group33 | group34 | group35 | group36 | group37 | group38 | group39 | group40 | group41 | group42 | group43 | group44 | group45 | group46 | group47 | group48 | group49 | group50 | group51 | group52 | group53 | group54 | group55 | group56 | group57 | group58 | group59 | group60 | group61 | group62 | group63 | group64 | group65 | group66 | group67 | group68 | group69 | group70 | group71 | group72 | group73 | group74 | group75 | group76 | group77 | group78 | group79 | group80 | group81 | group82 | group83 | group84 | group85 | group86 | group87 | group88 | group89 | group90 | group91 | group92 | group93 | group94 | group95 | group96 | group97 | group98 | group99 | group100 | group101 | group102 | group103 | group104 | group105 | group106 | group107 | group108 | group109 | group110 | group111 | group112 | group113 | group114 | group115 | group116 | group117 | group118 | group119 | group120 | group121 | group122 | group123 | group124 | group125 | group126 | group127'::tsquery",
+-      "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7 | group8 | group9 | group10 | group11 | group12 | group13 | group14 | group15 | group16 | group17 | group18 | group19 | group20 | group21 | group22 | group23 | group24 | group25 | group26 | group27 | group28 | group29 | group30 | group31 | group32 | group33 | group34 | group35 | group36 | group37 | group38 | group39 | group40 | group41 | group42 | group43 | group44 | group45 | group46 | group47 | group48 | group49 | group50 | group51 | group52 | group53 | group54 | group55 | group56 | group57 | group58 | group59 | group60 | group61 | group62 | group63 | group64 | group65 | group66 | group67 | group68 | group69 | group70 | group71 | group72 | group73 | group74 | group75 | group76 | group77 | group78 | group79 | group80 | group81 | group82 | group83 | group84 | group85 | group86 | group87 | group88 | group89 | group90 | group91 | group92 | group93 | group94 | group95 | group96 | group97 | group98 | group99 | group100 | group101 | group102 | group103 | group104 | group105 | group106 | group107 | group108 | group109 | group110 | group111 | group112 | group113 | group114 | group115 | group116 | group117 | group118 | group119 | group120 | group121 | group122 | group123 | group124 | group125 | group126 | group127'::tsquery",
+-      "expected_count": 6271,
+-      "expected_sum": 616960960,
+-      "expected_answer": "6271|616960960",
+-      "expected_ordered_ids": {
+-        "bytes": 40079,
+-        "sha256": "9ba4c940687040c879a88ce127ded8da66f492bda7418d491911ed59235b4c0e"
+-      },
+-      "heap_threshold_negative": false,
+-      "plan_requirement": "Record actual natural plan; GIN is not required."
+-    },
+-    {
+-      "name": "sql_sparse_or512",
+-      "width": 512,
+-      "query": "group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7 | group8 | group9 | group10 | group11 | group12 | group13 | group14 | group15 | group16 | group17 | group18 | group19 | group20 | group21 | group22 | group23 | group24 | group25 | group26 | group27 | group28 | group29 | group30 | group31 | group32 | group33 | group34 | group35 | group36 | group37 | group38 | group39 | group40 | group41 | group42 | group43 | group44 | group45 | group46 | group47 | group48 | group49 | group50 | group51 | group52 | group53 | group54 | group55 | group56 | group57 | group58 | group59 | group60 | group61 | group62 | group63 | group64 | group65 | group66 | group67 | group68 | group69 | group70 | group71 | group72 | group73 | group74 | group75 | group76 | group77 | group78 | group79 | group80 | group81 | group82 | group83 | group84 | group85 | group86 | group87 | group88 | group89 | group90 | group91 | group92 | group93 | group94 | group95 | group96 | group97 | group98 | group99 | group100 | group101 | group102 | group103 | group104 | group105 | group106 | group107 | group108 | group109 | group110 | group111 | group112 | group113 | group114 | group115 | group116 | group117 | group118 | group119 | group120 | group121 | group122 | group123 | group124 | group125 | group126 | group127 | group128 | group129 | group130 | group131 | group132 | group133 | group134 | group135 | group136 | group137 | group138 | group139 | group140 | group141 | group142 | group143 | group144 | group145 | group146 | group147 | group148 | group149 | group150 | group151 | group152 | group153 | group154 | group155 | group156 | group157 | group158 | group159 | group160 | group161 | group162 | group163 | group164 | group165 | group166 | group167 | group168 | group169 | group170 | group171 | group172 | group173 | group174 | group175 | group176 | group177 | group178 | group179 | group180 | group181 | group182 | group183 | group184 | group185 | group186 | group187 | group188 | group189 | group190 | group191 | group192 | group193 | group194 | group195 | group196 | group197 | group198 | group199 | group200 | group201 | group202 | group203 | group204 | group205 | group206 | group207 | group208 | group209 | group210 | group211 | group212 | group213 | group214 | group215 | group216 | group217 | group218 | group219 | group220 | group221 | group222 | group223 | group224 | group225 | group226 | group227 | group228 | group229 | group230 | group231 | group232 | group233 | group234 | group235 | group236 | group237 | group238 | group239 | group240 | group241 | group242 | group243 | group244 | group245 | group246 | group247 | group248 | group249 | group250 | group251 | group252 | group253 | group254 | group255 | group256 | group257 | group258 | group259 | group260 | group261 | group262 | group263 | group264 | group265 | group266 | group267 | group268 | group269 | group270 | group271 | group272 | group273 | group274 | group275 | group276 | group277 | group278 | group279 | group280 | group281 | group282 | group283 | group284 | group285 | group286 | group287 | group288 | group289 | group290 | group291 | group292 | group293 | group294 | group295 | group296 | group297 | group298 | group299 | group300 | group301 | group302 | group303 | group304 | group305 | group306 | group307 | group308 | group309 | group310 | group311 | group312 | group313 | group314 | group315 | group316 | group317 | group318 | group319 | group320 | group321 | group322 | group323 | group324 | group325 | group326 | group327 | group328 | group329 | group330 | group331 | group332 | group333 | group334 | group335 | group336 | group337 | group338 | group339 | group340 | group341 | group342 | group343 | group344 | group345 | group346 | group347 | group348 | group349 | group350 | group351 | group352 | group353 | group354 | group355 | group356 | group357 | group358 | group359 | group360 | group361 | group362 | group363 | group364 | group365 | group366 | group367 | group368 | group369 | group370 | group371 | group372 | group373 | group374 | group375 | group376 | group377 | group378 | group379 | group380 | group381 | group382 | group383 | group384 | group385 | group386 | group387 | group388 | group389 | group390 | group391 | group392 | group393 | group394 | group395 | group396 | group397 | group398 | group399 | group400 | group401 | group402 | group403 | group404 | group405 | group406 | group407 | group408 | group409 | group410 | group411 | group412 | group413 | group414 | group415 | group416 | group417 | group418 | group419 | group420 | group421 | group422 | group423 | group424 | group425 | group426 | group427 | group428 | group429 | group430 | group431 | group432 | group433 | group434 | group435 | group436 | group437 | group438 | group439 | group440 | group441 | group442 | group443 | group444 | group445 | group446 | group447 | group448 | group449 | group450 | group451 | group452 | group453 | group454 | group455 | group456 | group457 | group458 | group459 | group460 | group461 | group462 | group463 | group464 | group465 | group466 | group467 | group468 | group469 | group470 | group471 | group472 | group473 | group474 | group475 | group476 | group477 | group478 | group479 | group480 | group481 | group482 | group483 | group484 | group485 | group486 | group487 | group488 | group489 | group490 | group491 | group492 | group493 | group494 | group495 | group496 | group497 | group498 | group499 | group500 | group501 | group502 | group503 | group504 | group505 | group506 | group507 | group508 | group509 | group510 | group511",
+-      "sql": "SELECT count(*),sum(id) FROM g1.docs WHERE d @@ 'group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7 | group8 | group9 | group10 | group11 | group12 | group13 | group14 | group15 | group16 | group17 | group18 | group19 | group20 | group21 | group22 | group23 | group24 | group25 | group26 | group27 | group28 | group29 | group30 | group31 | group32 | group33 | group34 | group35 | group36 | group37 | group38 | group39 | group40 | group41 | group42 | group43 | group44 | group45 | group46 | group47 | group48 | group49 | group50 | group51 | group52 | group53 | group54 | group55 | group56 | group57 | group58 | group59 | group60 | group61 | group62 | group63 | group64 | group65 | group66 | group67 | group68 | group69 | group70 | group71 | group72 | group73 | group74 | group75 | group76 | group77 | group78 | group79 | group80 | group81 | group82 | group83 | group84 | group85 | group86 | group87 | group88 | group89 | group90 | group91 | group92 | group93 | group94 | group95 | group96 | group97 | group98 | group99 | group100 | group101 | group102 | group103 | group104 | group105 | group106 | group107 | group108 | group109 | group110 | group111 | group112 | group113 | group114 | group115 | group116 | group117 | group118 | group119 | group120 | group121 | group122 | group123 | group124 | group125 | group126 | group127 | group128 | group129 | group130 | group131 | group132 | group133 | group134 | group135 | group136 | group137 | group138 | group139 | group140 | group141 | group142 | group143 | group144 | group145 | group146 | group147 | group148 | group149 | group150 | group151 | group152 | group153 | group154 | group155 | group156 | group157 | group158 | group159 | group160 | group161 | group162 | group163 | group164 | group165 | group166 | group167 | group168 | group169 | group170 | group171 | group172 | group173 | group174 | group175 | group176 | group177 | group178 | group179 | group180 | group181 | group182 | group183 | group184 | group185 | group186 | group187 | group188 | group189 | group190 | group191 | group192 | group193 | group194 | group195 | group196 | group197 | group198 | group199 | group200 | group201 | group202 | group203 | group204 | group205 | group206 | group207 | group208 | group209 | group210 | group211 | group212 | group213 | group214 | group215 | group216 | group217 | group218 | group219 | group220 | group221 | group222 | group223 | group224 | group225 | group226 | group227 | group228 | group229 | group230 | group231 | group232 | group233 | group234 | group235 | group236 | group237 | group238 | group239 | group240 | group241 | group242 | group243 | group244 | group245 | group246 | group247 | group248 | group249 | group250 | group251 | group252 | group253 | group254 | group255 | group256 | group257 | group258 | group259 | group260 | group261 | group262 | group263 | group264 | group265 | group266 | group267 | group268 | group269 | group270 | group271 | group272 | group273 | group274 | group275 | group276 | group277 | group278 | group279 | group280 | group281 | group282 | group283 | group284 | group285 | group286 | group287 | group288 | group289 | group290 | group291 | group292 | group293 | group294 | group295 | group296 | group297 | group298 | group299 | group300 | group301 | group302 | group303 | group304 | group305 | group306 | group307 | group308 | group309 | group310 | group311 | group312 | group313 | group314 | group315 | group316 | group317 | group318 | group319 | group320 | group321 | group322 | group323 | group324 | group325 | group326 | group327 | group328 | group329 | group330 | group331 | group332 | group333 | group334 | group335 | group336 | group337 | group338 | group339 | group340 | group341 | group342 | group343 | group344 | group345 | group346 | group347 | group348 | group349 | group350 | group351 | group352 | group353 | group354 | group355 | group356 | group357 | group358 | group359 | group360 | group361 | group362 | group363 | group364 | group365 | group366 | group367 | group368 | group369 | group370 | group371 | group372 | group373 | group374 | group375 | group376 | group377 | group378 | group379 | group380 | group381 | group382 | group383 | group384 | group385 | group386 | group387 | group388 | group389 | group390 | group391 | group392 | group393 | group394 | group395 | group396 | group397 | group398 | group399 | group400 | group401 | group402 | group403 | group404 | group405 | group406 | group407 | group408 | group409 | group410 | group411 | group412 | group413 | group414 | group415 | group416 | group417 | group418 | group419 | group420 | group421 | group422 | group423 | group424 | group425 | group426 | group427 | group428 | group429 | group430 | group431 | group432 | group433 | group434 | group435 | group436 | group437 | group438 | group439 | group440 | group441 | group442 | group443 | group444 | group445 | group446 | group447 | group448 | group449 | group450 | group451 | group452 | group453 | group454 | group455 | group456 | group457 | group458 | group459 | group460 | group461 | group462 | group463 | group464 | group465 | group466 | group467 | group468 | group469 | group470 | group471 | group472 | group473 | group474 | group475 | group476 | group477 | group478 | group479 | group480 | group481 | group482 | group483 | group484 | group485 | group486 | group487 | group488 | group489 | group490 | group491 | group492 | group493 | group494 | group495 | group496 | group497 | group498 | group499 | group500 | group501 | group502 | group503 | group504 | group505 | group506 | group507 | group508 | group509 | group510 | group511'::tsquery",
+-      "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7 | group8 | group9 | group10 | group11 | group12 | group13 | group14 | group15 | group16 | group17 | group18 | group19 | group20 | group21 | group22 | group23 | group24 | group25 | group26 | group27 | group28 | group29 | group30 | group31 | group32 | group33 | group34 | group35 | group36 | group37 | group38 | group39 | group40 | group41 | group42 | group43 | group44 | group45 | group46 | group47 | group48 | group49 | group50 | group51 | group52 | group53 | group54 | group55 | group56 | group57 | group58 | group59 | group60 | group61 | group62 | group63 | group64 | group65 | group66 | group67 | group68 | group69 | group70 | group71 | group72 | group73 | group74 | group75 | group76 | group77 | group78 | group79 | group80 | group81 | group82 | group83 | group84 | group85 | group86 | group87 | group88 | group89 | group90 | group91 | group92 | group93 | group94 | group95 | group96 | group97 | group98 | group99 | group100 | group101 | group102 | group103 | group104 | group105 | group106 | group107 | group108 | group109 | group110 | group111 | group112 | group113 | group114 | group115 | group116 | group117 | group118 | group119 | group120 | group121 | group122 | group123 | group124 | group125 | group126 | group127 | group128 | group129 | group130 | group131 | group132 | group133 | group134 | group135 | group136 | group137 | group138 | group139 | group140 | group141 | group142 | group143 | group144 | group145 | group146 | group147 | group148 | group149 | group150 | group151 | group152 | group153 | group154 | group155 | group156 | group157 | group158 | group159 | group160 | group161 | group162 | group163 | group164 | group165 | group166 | group167 | group168 | group169 | group170 | group171 | group172 | group173 | group174 | group175 | group176 | group177 | group178 | group179 | group180 | group181 | group182 | group183 | group184 | group185 | group186 | group187 | group188 | group189 | group190 | group191 | group192 | group193 | group194 | group195 | group196 | group197 | group198 | group199 | group200 | group201 | group202 | group203 | group204 | group205 | group206 | group207 | group208 | group209 | group210 | group211 | group212 | group213 | group214 | group215 | group216 | group217 | group218 | group219 | group220 | group221 | group222 | group223 | group224 | group225 | group226 | group227 | group228 | group229 | group230 | group231 | group232 | group233 | group234 | group235 | group236 | group237 | group238 | group239 | group240 | group241 | group242 | group243 | group244 | group245 | group246 | group247 | group248 | group249 | group250 | group251 | group252 | group253 | group254 | group255 | group256 | group257 | group258 | group259 | group260 | group261 | group262 | group263 | group264 | group265 | group266 | group267 | group268 | group269 | group270 | group271 | group272 | group273 | group274 | group275 | group276 | group277 | group278 | group279 | group280 | group281 | group282 | group283 | group284 | group285 | group286 | group287 | group288 | group289 | group290 | group291 | group292 | group293 | group294 | group295 | group296 | group297 | group298 | group299 | group300 | group301 | group302 | group303 | group304 | group305 | group306 | group307 | group308 | group309 | group310 | group311 | group312 | group313 | group314 | group315 | group316 | group317 | group318 | group319 | group320 | group321 | group322 | group323 | group324 | group325 | group326 | group327 | group328 | group329 | group330 | group331 | group332 | group333 | group334 | group335 | group336 | group337 | group338 | group339 | group340 | group341 | group342 | group343 | group344 | group345 | group346 | group347 | group348 | group349 | group350 | group351 | group352 | group353 | group354 | group355 | group356 | group357 | group358 | group359 | group360 | group361 | group362 | group363 | group364 | group365 | group366 | group367 | group368 | group369 | group370 | group371 | group372 | group373 | group374 | group375 | group376 | group377 | group378 | group379 | group380 | group381 | group382 | group383 | group384 | group385 | group386 | group387 | group388 | group389 | group390 | group391 | group392 | group393 | group394 | group395 | group396 | group397 | group398 | group399 | group400 | group401 | group402 | group403 | group404 | group405 | group406 | group407 | group408 | group409 | group410 | group411 | group412 | group413 | group414 | group415 | group416 | group417 | group418 | group419 | group420 | group421 | group422 | group423 | group424 | group425 | group426 | group427 | group428 | group429 | group430 | group431 | group432 | group433 | group434 | group435 | group436 | group437 | group438 | group439 | group440 | group441 | group442 | group443 | group444 | group445 | group446 | group447 | group448 | group449 | group450 | group451 | group452 | group453 | group454 | group455 | group456 | group457 | group458 | group459 | group460 | group461 | group462 | group463 | group464 | group465 | group466 | group467 | group468 | group469 | group470 | group471 | group472 | group473 | group474 | group475 | group476 | group477 | group478 | group479 | group480 | group481 | group482 | group483 | group484 | group485 | group486 | group487 | group488 | group489 | group490 | group491 | group492 | group493 | group494 | group495 | group496 | group497 | group498 | group499 | group500 | group501 | group502 | group503 | group504 | group505 | group506 | group507 | group508 | group509 | group510 | group511'::tsquery",
+-      "expected_count": 25087,
+-      "expected_sum": 2472660736,
+-      "expected_answer": "25087|2472660736",
+-      "expected_ordered_ids": {
+-        "bytes": 160655,
+-        "sha256": "7a02a76929203149826a62c34eaa5d024f76fa1945e506b25b8050117d5f0bd9"
+-      },
+-      "heap_threshold_negative": false,
+-      "plan_requirement": "Record actual natural plan; GIN is not required."
+-    },
+-    {
+-      "name": "seq_control",
+-      "sql": "SELECT count(*),sum(id) FROM g1.docs WHERE id BETWEEN 1 AND 200000",
+-      "rows_sql": "SELECT id FROM g1.docs WHERE id BETWEEN 1 AND 200000",
+-      "expected_count": 200000,
+-      "expected_sum": 20000100000,
+-      "expected_answer": "200000|20000100000",
+-      "expected_ordered_ids": {
+-        "bytes": 1288894,
+-        "sha256": "01b59173dc3205893607560d9f6caca711aa6c0f3303db7bbccb99552a9fc33a"
+-      },
+-      "plan_requirement": "Record actual natural plan; do not force Seq for the measured command."
+-    }
+-  ],
+-  "roles": [
+-    "B",
+-    "T",
+-    "Heap"
+-  ],
+-  "retained_orders": [
+-    [
+-      "B",
+-      "T",
+-      "Heap"
+-    ],
+-    [
+-      "T",
+-      "Heap",
+-      "B"
+-    ],
+-    [
+-      "Heap",
+-      "B",
+-      "T"
+-    ],
+-    [
+-      "Heap",
+-      "T",
+-      "B"
+-    ],
+-    [
+-      "B",
+-      "Heap",
+-      "T"
+-    ],
+-    [
+-      "T",
+-      "B",
+-      "Heap"
+-    ]
+-  ],
+-  "warm_orders": [
+-    [
+-      "B",
+-      "T",
+-      "Heap"
+-    ],
+-    [
+-      "T",
+-      "Heap",
+-      "B"
+-    ]
+-  ],
+-  "cohorts": 2,
+-  "warm_rounds": 2,
+-  "retained_rounds": 6,
+-  "counts": {
+-    "raw": 384,
+-    "retained": 288,
+-    "warm": 96
+-  },
+-  "formula": {
+-    "count": "49*N-1 for N in [1,2,7,8,32,128,512]",
+-    "sum": "4816896*N + 49*N*(N-1)/2",
+-    "rowset": "{g in [1,200000]: g % 4096 < N}",
+-    "canonical_ids": "Ascending decimal IDs joined by newline; no trailing newline."
+-  },
+-  "metrics": [
+-    "backend_cpu_ms",
+-    "client_wall_ms",
+-    "execution_ms"
+-  ],
+-  "execution": "Not authorized or performed by this local note; fresh root review, namespace, qualification, smoke and accepted-run review are required."
++  "source_changes": 0,
++  "new_work_unit_not_repeat": true
+ }
+--- completed-one-scan/PROTOCOL.json
++++ new-batch100/PROTOCOL.json
+@@ -6,14 +6,14 @@
+   ],
+   "cases": [
+     {
+-      "name": "sql_sparse_or1",
+-      "kind": "sql",
+-      "settings": "SET enable_seqscan=on;SET enable_bitmapscan=on;SET enable_indexscan=on;SET enable_indexonlyscan=on;SET enable_tidscan=on;SET work_mem='64MB';",
+-      "index": "docs_d_gin",
+-      "probes": 1,
++      "name": "sql_batch_or1",
++      "kind": "sql",
++      "settings": "SET enable_seqscan=on;SET enable_bitmapscan=on;SET enable_indexscan=on;SET enable_indexonlyscan=on;SET enable_tidscan=on;SET work_mem='64MB';",
++      "index": "docs_d_gin",
++      "probes": 100,
+       "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'group0'::tsquery",
+-      "sql": "SELECT count(*),sum(id) FROM g1.docs WHERE d @@ 'group0'::tsquery",
+-      "answer": "48|4816896",
++      "sql": "SELECT sum(q.n),sum(q.s) FROM generate_series(1,100) p(i) CROSS JOIN LATERAL (SELECT count(*) n,sum(id) s FROM g1.docs WHERE d @@ 'group0'::tsquery OFFSET(p.i%1)) q",
++      "answer": "4800|481689600",
+       "expected_count": 48,
+       "expected_sum": 4816896,
+       "expected_rows_digest": {
+@@ -27,17 +27,24 @@
+       "heap_threshold_negative": true,
+       "width": 1,
+       "origin_query": "group0",
+-      "origin_query_sha256": "6687ebd1d9c1f6cd91f8b1601916e6a534873aec45189dd3522e9f9ae8657eb9"
+-    },
+-    {
+-      "name": "sql_sparse_or2",
+-      "kind": "sql",
+-      "settings": "SET enable_seqscan=on;SET enable_bitmapscan=on;SET enable_indexscan=on;SET enable_indexonlyscan=on;SET enable_tidscan=on;SET work_mem='64MB';",
+-      "index": "docs_d_gin",
+-      "probes": 1,
++      "origin_query_sha256": "6687ebd1d9c1f6cd91f8b1601916e6a534873aec45189dd3522e9f9ae8657eb9",
++      "origin_single_scan_case": "sql_sparse_or1",
++      "origin_single_scan_sql": "SELECT count(*),sum(id) FROM g1.docs WHERE d @@ 'group0'::tsquery",
++      "per_scan_rows": 48,
++      "per_scan_sum": 4816896,
++      "output_count": 4800,
++      "output_sum": 481689600,
++      "answer_per_scan": "48|4816896"
++    },
++    {
++      "name": "sql_batch_or2",
++      "kind": "sql",
++      "settings": "SET enable_seqscan=on;SET enable_bitmapscan=on;SET enable_indexscan=on;SET enable_indexonlyscan=on;SET enable_tidscan=on;SET work_mem='64MB';",
++      "index": "docs_d_gin",
++      "probes": 100,
+       "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'group0 | group1'::tsquery",
+-      "sql": "SELECT count(*),sum(id) FROM g1.docs WHERE d @@ 'group0 | group1'::tsquery",
+-      "answer": "97|9633841",
++      "sql": "SELECT sum(q.n),sum(q.s) FROM generate_series(1,100) p(i) CROSS JOIN LATERAL (SELECT count(*) n,sum(id) s FROM g1.docs WHERE d @@ 'group0 | group1'::tsquery OFFSET(p.i%1)) q",
++      "answer": "9700|963384100",
+       "expected_count": 97,
+       "expected_sum": 9633841,
+       "expected_rows_digest": {
+@@ -51,17 +58,24 @@
+       "heap_threshold_negative": true,
+       "width": 2,
+       "origin_query": "group0 | group1",
+-      "origin_query_sha256": "4e4d1550b0218020610119c3b2c6b24132d8a71cefc827b941c7d54c588dda02"
+-    },
+-    {
+-      "name": "sql_sparse_or7",
+-      "kind": "sql",
+-      "settings": "SET enable_seqscan=on;SET enable_bitmapscan=on;SET enable_indexscan=on;SET enable_indexonlyscan=on;SET enable_tidscan=on;SET work_mem='64MB';",
+-      "index": "docs_d_gin",
+-      "probes": 1,
++      "origin_query_sha256": "4e4d1550b0218020610119c3b2c6b24132d8a71cefc827b941c7d54c588dda02",
++      "origin_single_scan_case": "sql_sparse_or2",
++      "origin_single_scan_sql": "SELECT count(*),sum(id) FROM g1.docs WHERE d @@ 'group0 | group1'::tsquery",
++      "per_scan_rows": 97,
++      "per_scan_sum": 9633841,
++      "output_count": 9700,
++      "output_sum": 963384100,
++      "answer_per_scan": "97|9633841"
++    },
++    {
++      "name": "sql_batch_or7",
++      "kind": "sql",
++      "settings": "SET enable_seqscan=on;SET enable_bitmapscan=on;SET enable_indexscan=on;SET enable_indexonlyscan=on;SET enable_tidscan=on;SET work_mem='64MB';",
++      "index": "docs_d_gin",
++      "probes": 100,
+       "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'group0 | group1 | group2 | group3 | group4 | group5 | group6'::tsquery",
+-      "sql": "SELECT count(*),sum(id) FROM g1.docs WHERE d @@ 'group0 | group1 | group2 | group3 | group4 | group5 | group6'::tsquery",
+-      "answer": "342|33719301",
++      "sql": "SELECT sum(q.n),sum(q.s) FROM generate_series(1,100) p(i) CROSS JOIN LATERAL (SELECT count(*) n,sum(id) s FROM g1.docs WHERE d @@ 'group0 | group1 | group2 | group3 | group4 | group5 | group6'::tsquery OFFSET(p.i%1)) q",
++      "answer": "34200|3371930100",
+       "expected_count": 342,
+       "expected_sum": 33719301,
+       "expected_rows_digest": {
+@@ -75,17 +89,24 @@
+       "heap_threshold_negative": true,
+       "width": 7,
+       "origin_query": "group0 | group1 | group2 | group3 | group4 | group5 | group6",
+-      "origin_query_sha256": "4e9d6eb1a73952d49ac1d1f7aae17a3c10283bfdbdeedc3325c08aa694014db7"
+-    },
+-    {
+-      "name": "sql_sparse_or8",
+-      "kind": "sql",
+-      "settings": "SET enable_seqscan=on;SET enable_bitmapscan=on;SET enable_indexscan=on;SET enable_indexonlyscan=on;SET enable_tidscan=on;SET work_mem='64MB';",
+-      "index": "docs_d_gin",
+-      "probes": 1,
++      "origin_query_sha256": "4e9d6eb1a73952d49ac1d1f7aae17a3c10283bfdbdeedc3325c08aa694014db7",
++      "origin_single_scan_case": "sql_sparse_or7",
++      "origin_single_scan_sql": "SELECT count(*),sum(id) FROM g1.docs WHERE d @@ 'group0 | group1 | group2 | group3 | group4 | group5 | group6'::tsquery",
++      "per_scan_rows": 342,
++      "per_scan_sum": 33719301,
++      "output_count": 34200,
++      "output_sum": 3371930100,
++      "answer_per_scan": "342|33719301"
++    },
++    {
++      "name": "sql_batch_or8",
++      "kind": "sql",
++      "settings": "SET enable_seqscan=on;SET enable_bitmapscan=on;SET enable_indexscan=on;SET enable_indexonlyscan=on;SET enable_tidscan=on;SET work_mem='64MB';",
++      "index": "docs_d_gin",
++      "probes": 100,
+       "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7'::tsquery",
+-      "sql": "SELECT count(*),sum(id) FROM g1.docs WHERE d @@ 'group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7'::tsquery",
+-      "answer": "391|38536540",
++      "sql": "SELECT sum(q.n),sum(q.s) FROM generate_series(1,100) p(i) CROSS JOIN LATERAL (SELECT count(*) n,sum(id) s FROM g1.docs WHERE d @@ 'group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7'::tsquery OFFSET(p.i%1)) q",
++      "answer": "39100|3853654000",
+       "expected_count": 391,
+       "expected_sum": 38536540,
+       "expected_rows_digest": {
+@@ -99,79 +120,14 @@
+       "heap_threshold_negative": false,
+       "width": 8,
+       "origin_query": "group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7",
+-      "origin_query_sha256": "3f9539d13dc82f704587b3fab5c4d2fe9b5e2b35a3f6c140a84da8654cbad38f"
+-    },
+-    {
+-      "name": "sql_sparse_or32",
+-      "kind": "sql",
+-      "settings": "SET enable_seqscan=on;SET enable_bitmapscan=on;SET enable_indexscan=on;SET enable_indexonlyscan=on;SET enable_tidscan=on;SET work_mem='64MB';",
+-      "index": "docs_d_gin",
+-      "probes": 1,
+-      "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7 | group8 | group9 | group10 | group11 | group12 | group13 | group14 | group15 | group16 | group17 | group18 | group19 | group20 | group21 | group22 | group23 | group24 | group25 | group26 | group27 | group28 | group29 | group30 | group31'::tsquery",
+-      "sql": "SELECT count(*),sum(id) FROM g1.docs WHERE d @@ 'group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7 | group8 | group9 | group10 | group11 | group12 | group13 | group14 | group15 | group16 | group17 | group18 | group19 | group20 | group21 | group22 | group23 | group24 | group25 | group26 | group27 | group28 | group29 | group30 | group31'::tsquery",
+-      "answer": "1567|154164976",
+-      "expected_count": 1567,
+-      "expected_sum": 154164976,
+-      "expected_rows_digest": {
+-        "bytes": 10003,
+-        "sha256": "54c6080b00b71e35acbbb94102a5ebfd4e7a8bbba0b3dc1bd04f2121a0db15ae",
+-        "rows": 1567
+-      },
+-      "oracle_settings": "SET enable_seqscan=off;SET enable_bitmapscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_tidscan=off;SET work_mem='64MB';",
+-      "reference_settings": "SET enable_seqscan=on;SET enable_bitmapscan=off;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_tidscan=off;SET work_mem='64MB';",
+-      "plan_policy": "NATURAL_ANY_VALID_PATH",
+-      "heap_threshold_negative": false,
+-      "width": 32,
+-      "origin_query": "group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7 | group8 | group9 | group10 | group11 | group12 | group13 | group14 | group15 | group16 | group17 | group18 | group19 | group20 | group21 | group22 | group23 | group24 | group25 | group26 | group27 | group28 | group29 | group30 | group31",
+-      "origin_query_sha256": "1f5a3783ffcba73e10fd21795f163ea164641a1c129074ff778b1b9c3f33bb4b"
+-    },
+-    {
+-      "name": "sql_sparse_or128",
+-      "kind": "sql",
+-      "settings": "SET enable_seqscan=on;SET enable_bitmapscan=on;SET enable_indexscan=on;SET enable_indexonlyscan=on;SET enable_tidscan=on;SET work_mem='64MB';",
+-      "index": "docs_d_gin",
+-      "probes": 1,
+-      "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7 | group8 | group9 | group10 | group11 | group12 | group13 | group14 | group15 | group16 | group17 | group18 | group19 | group20 | group21 | group22 | group23 | group24 | group25 | group26 | group27 | group28 | group29 | group30 | group31 | group32 | group33 | group34 | group35 | group36 | group37 | group38 | group39 | group40 | group41 | group42 | group43 | group44 | group45 | group46 | group47 | group48 | group49 | group50 | group51 | group52 | group53 | group54 | group55 | group56 | group57 | group58 | group59 | group60 | group61 | group62 | group63 | group64 | group65 | group66 | group67 | group68 | group69 | group70 | group71 | group72 | group73 | group74 | group75 | group76 | group77 | group78 | group79 | group80 | group81 | group82 | group83 | group84 | group85 | group86 | group87 | group88 | group89 | group90 | group91 | group92 | group93 | group94 | group95 | group96 | group97 | group98 | group99 | group100 | group101 | group102 | group103 | group104 | group105 | group106 | group107 | group108 | group109 | group110 | group111 | group112 | group113 | group114 | group115 | group116 | group117 | group118 | group119 | group120 | group121 | group122 | group123 | group124 | group125 | group126 | group127'::tsquery",
+-      "sql": "SELECT count(*),sum(id) FROM g1.docs WHERE d @@ 'group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7 | group8 | group9 | group10 | group11 | group12 | group13 | group14 | group15 | group16 | group17 | group18 | group19 | group20 | group21 | group22 | group23 | group24 | group25 | group26 | group27 | group28 | group29 | group30 | group31 | group32 | group33 | group34 | group35 | group36 | group37 | group38 | group39 | group40 | group41 | group42 | group43 | group44 | group45 | group46 | group47 | group48 | group49 | group50 | group51 | group52 | group53 | group54 | group55 | group56 | group57 | group58 | group59 | group60 | group61 | group62 | group63 | group64 | group65 | group66 | group67 | group68 | group69 | group70 | group71 | group72 | group73 | group74 | group75 | group76 | group77 | group78 | group79 | group80 | group81 | group82 | group83 | group84 | group85 | group86 | group87 | group88 | group89 | group90 | group91 | group92 | group93 | group94 | group95 | group96 | group97 | group98 | group99 | group100 | group101 | group102 | group103 | group104 | group105 | group106 | group107 | group108 | group109 | group110 | group111 | group112 | group113 | group114 | group115 | group116 | group117 | group118 | group119 | group120 | group121 | group122 | group123 | group124 | group125 | group126 | group127'::tsquery",
+-      "answer": "6271|616960960",
+-      "expected_count": 6271,
+-      "expected_sum": 616960960,
+-      "expected_rows_digest": {
+-        "bytes": 40079,
+-        "sha256": "9ba4c940687040c879a88ce127ded8da66f492bda7418d491911ed59235b4c0e",
+-        "rows": 6271
+-      },
+-      "oracle_settings": "SET enable_seqscan=off;SET enable_bitmapscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_tidscan=off;SET work_mem='64MB';",
+-      "reference_settings": "SET enable_seqscan=on;SET enable_bitmapscan=off;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_tidscan=off;SET work_mem='64MB';",
+-      "plan_policy": "NATURAL_ANY_VALID_PATH",
+-      "heap_threshold_negative": false,
+-      "width": 128,
+-      "origin_query": "group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7 | group8 | group9 | group10 | group11 | group12 | group13 | group14 | group15 | group16 | group17 | group18 | group19 | group20 | group21 | group22 | group23 | group24 | group25 | group26 | group27 | group28 | group29 | group30 | group31 | group32 | group33 | group34 | group35 | group36 | group37 | group38 | group39 | group40 | group41 | group42 | group43 | group44 | group45 | group46 | group47 | group48 | group49 | group50 | group51 | group52 | group53 | group54 | group55 | group56 | group57 | group58 | group59 | group60 | group61 | group62 | group63 | group64 | group65 | group66 | group67 | group68 | group69 | group70 | group71 | group72 | group73 | group74 | group75 | group76 | group77 | group78 | group79 | group80 | group81 | group82 | group83 | group84 | group85 | group86 | group87 | group88 | group89 | group90 | group91 | group92 | group93 | group94 | group95 | group96 | group97 | group98 | group99 | group100 | group101 | group102 | group103 | group104 | group105 | group106 | group107 | group108 | group109 | group110 | group111 | group112 | group113 | group114 | group115 | group116 | group117 | group118 | group119 | group120 | group121 | group122 | group123 | group124 | group125 | group126 | group127",
+-      "origin_query_sha256": "a1f3ea67398a78a478aa39d105fc04e614c5abfe2b0672c050bfd46904327191"
+-    },
+-    {
+-      "name": "sql_sparse_or512",
+-      "kind": "sql",
+-      "settings": "SET enable_seqscan=on;SET enable_bitmapscan=on;SET enable_indexscan=on;SET enable_indexonlyscan=on;SET enable_tidscan=on;SET work_mem='64MB';",
+-      "index": "docs_d_gin",
+-      "probes": 1,
+-      "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7 | group8 | group9 | group10 | group11 | group12 | group13 | group14 | group15 | group16 | group17 | group18 | group19 | group20 | group21 | group22 | group23 | group24 | group25 | group26 | group27 | group28 | group29 | group30 | group31 | group32 | group33 | group34 | group35 | group36 | group37 | group38 | group39 | group40 | group41 | group42 | group43 | group44 | group45 | group46 | group47 | group48 | group49 | group50 | group51 | group52 | group53 | group54 | group55 | group56 | group57 | group58 | group59 | group60 | group61 | group62 | group63 | group64 | group65 | group66 | group67 | group68 | group69 | group70 | group71 | group72 | group73 | group74 | group75 | group76 | group77 | group78 | group79 | group80 | group81 | group82 | group83 | group84 | group85 | group86 | group87 | group88 | group89 | group90 | group91 | group92 | group93 | group94 | group95 | group96 | group97 | group98 | group99 | group100 | group101 | group102 | group103 | group104 | group105 | group106 | group107 | group108 | group109 | group110 | group111 | group112 | group113 | group114 | group115 | group116 | group117 | group118 | group119 | group120 | group121 | group122 | group123 | group124 | group125 | group126 | group127 | group128 | group129 | group130 | group131 | group132 | group133 | group134 | group135 | group136 | group137 | group138 | group139 | group140 | group141 | group142 | group143 | group144 | group145 | group146 | group147 | group148 | group149 | group150 | group151 | group152 | group153 | group154 | group155 | group156 | group157 | group158 | group159 | group160 | group161 | group162 | group163 | group164 | group165 | group166 | group167 | group168 | group169 | group170 | group171 | group172 | group173 | group174 | group175 | group176 | group177 | group178 | group179 | group180 | group181 | group182 | group183 | group184 | group185 | group186 | group187 | group188 | group189 | group190 | group191 | group192 | group193 | group194 | group195 | group196 | group197 | group198 | group199 | group200 | group201 | group202 | group203 | group204 | group205 | group206 | group207 | group208 | group209 | group210 | group211 | group212 | group213 | group214 | group215 | group216 | group217 | group218 | group219 | group220 | group221 | group222 | group223 | group224 | group225 | group226 | group227 | group228 | group229 | group230 | group231 | group232 | group233 | group234 | group235 | group236 | group237 | group238 | group239 | group240 | group241 | group242 | group243 | group244 | group245 | group246 | group247 | group248 | group249 | group250 | group251 | group252 | group253 | group254 | group255 | group256 | group257 | group258 | group259 | group260 | group261 | group262 | group263 | group264 | group265 | group266 | group267 | group268 | group269 | group270 | group271 | group272 | group273 | group274 | group275 | group276 | group277 | group278 | group279 | group280 | group281 | group282 | group283 | group284 | group285 | group286 | group287 | group288 | group289 | group290 | group291 | group292 | group293 | group294 | group295 | group296 | group297 | group298 | group299 | group300 | group301 | group302 | group303 | group304 | group305 | group306 | group307 | group308 | group309 | group310 | group311 | group312 | group313 | group314 | group315 | group316 | group317 | group318 | group319 | group320 | group321 | group322 | group323 | group324 | group325 | group326 | group327 | group328 | group329 | group330 | group331 | group332 | group333 | group334 | group335 | group336 | group337 | group338 | group339 | group340 | group341 | group342 | group343 | group344 | group345 | group346 | group347 | group348 | group349 | group350 | group351 | group352 | group353 | group354 | group355 | group356 | group357 | group358 | group359 | group360 | group361 | group362 | group363 | group364 | group365 | group366 | group367 | group368 | group369 | group370 | group371 | group372 | group373 | group374 | group375 | group376 | group377 | group378 | group379 | group380 | group381 | group382 | group383 | group384 | group385 | group386 | group387 | group388 | group389 | group390 | group391 | group392 | group393 | group394 | group395 | group396 | group397 | group398 | group399 | group400 | group401 | group402 | group403 | group404 | group405 | group406 | group407 | group408 | group409 | group410 | group411 | group412 | group413 | group414 | group415 | group416 | group417 | group418 | group419 | group420 | group421 | group422 | group423 | group424 | group425 | group426 | group427 | group428 | group429 | group430 | group431 | group432 | group433 | group434 | group435 | group436 | group437 | group438 | group439 | group440 | group441 | group442 | group443 | group444 | group445 | group446 | group447 | group448 | group449 | group450 | group451 | group452 | group453 | group454 | group455 | group456 | group457 | group458 | group459 | group460 | group461 | group462 | group463 | group464 | group465 | group466 | group467 | group468 | group469 | group470 | group471 | group472 | group473 | group474 | group475 | group476 | group477 | group478 | group479 | group480 | group481 | group482 | group483 | group484 | group485 | group486 | group487 | group488 | group489 | group490 | group491 | group492 | group493 | group494 | group495 | group496 | group497 | group498 | group499 | group500 | group501 | group502 | group503 | group504 | group505 | group506 | group507 | group508 | group509 | group510 | group511'::tsquery",
+-      "sql": "SELECT count(*),sum(id) FROM g1.docs WHERE d @@ 'group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7 | group8 | group9 | group10 | group11 | group12 | group13 | group14 | group15 | group16 | group17 | group18 | group19 | group20 | group21 | group22 | group23 | group24 | group25 | group26 | group27 | group28 | group29 | group30 | group31 | group32 | group33 | group34 | group35 | group36 | group37 | group38 | group39 | group40 | group41 | group42 | group43 | group44 | group45 | group46 | group47 | group48 | group49 | group50 | group51 | group52 | group53 | group54 | group55 | group56 | group57 | group58 | group59 | group60 | group61 | group62 | group63 | group64 | group65 | group66 | group67 | group68 | group69 | group70 | group71 | group72 | group73 | group74 | group75 | group76 | group77 | group78 | group79 | group80 | group81 | group82 | group83 | group84 | group85 | group86 | group87 | group88 | group89 | group90 | group91 | group92 | group93 | group94 | group95 | group96 | group97 | group98 | group99 | group100 | group101 | group102 | group103 | group104 | group105 | group106 | group107 | group108 | group109 | group110 | group111 | group112 | group113 | group114 | group115 | group116 | group117 | group118 | group119 | group120 | group121 | group122 | group123 | group124 | group125 | group126 | group127 | group128 | group129 | group130 | group131 | group132 | group133 | group134 | group135 | group136 | group137 | group138 | group139 | group140 | group141 | group142 | group143 | group144 | group145 | group146 | group147 | group148 | group149 | group150 | group151 | group152 | group153 | group154 | group155 | group156 | group157 | group158 | group159 | group160 | group161 | group162 | group163 | group164 | group165 | group166 | group167 | group168 | group169 | group170 | group171 | group172 | group173 | group174 | group175 | group176 | group177 | group178 | group179 | group180 | group181 | group182 | group183 | group184 | group185 | group186 | group187 | group188 | group189 | group190 | group191 | group192 | group193 | group194 | group195 | group196 | group197 | group198 | group199 | group200 | group201 | group202 | group203 | group204 | group205 | group206 | group207 | group208 | group209 | group210 | group211 | group212 | group213 | group214 | group215 | group216 | group217 | group218 | group219 | group220 | group221 | group222 | group223 | group224 | group225 | group226 | group227 | group228 | group229 | group230 | group231 | group232 | group233 | group234 | group235 | group236 | group237 | group238 | group239 | group240 | group241 | group242 | group243 | group244 | group245 | group246 | group247 | group248 | group249 | group250 | group251 | group252 | group253 | group254 | group255 | group256 | group257 | group258 | group259 | group260 | group261 | group262 | group263 | group264 | group265 | group266 | group267 | group268 | group269 | group270 | group271 | group272 | group273 | group274 | group275 | group276 | group277 | group278 | group279 | group280 | group281 | group282 | group283 | group284 | group285 | group286 | group287 | group288 | group289 | group290 | group291 | group292 | group293 | group294 | group295 | group296 | group297 | group298 | group299 | group300 | group301 | group302 | group303 | group304 | group305 | group306 | group307 | group308 | group309 | group310 | group311 | group312 | group313 | group314 | group315 | group316 | group317 | group318 | group319 | group320 | group321 | group322 | group323 | group324 | group325 | group326 | group327 | group328 | group329 | group330 | group331 | group332 | group333 | group334 | group335 | group336 | group337 | group338 | group339 | group340 | group341 | group342 | group343 | group344 | group345 | group346 | group347 | group348 | group349 | group350 | group351 | group352 | group353 | group354 | group355 | group356 | group357 | group358 | group359 | group360 | group361 | group362 | group363 | group364 | group365 | group366 | group367 | group368 | group369 | group370 | group371 | group372 | group373 | group374 | group375 | group376 | group377 | group378 | group379 | group380 | group381 | group382 | group383 | group384 | group385 | group386 | group387 | group388 | group389 | group390 | group391 | group392 | group393 | group394 | group395 | group396 | group397 | group398 | group399 | group400 | group401 | group402 | group403 | group404 | group405 | group406 | group407 | group408 | group409 | group410 | group411 | group412 | group413 | group414 | group415 | group416 | group417 | group418 | group419 | group420 | group421 | group422 | group423 | group424 | group425 | group426 | group427 | group428 | group429 | group430 | group431 | group432 | group433 | group434 | group435 | group436 | group437 | group438 | group439 | group440 | group441 | group442 | group443 | group444 | group445 | group446 | group447 | group448 | group449 | group450 | group451 | group452 | group453 | group454 | group455 | group456 | group457 | group458 | group459 | group460 | group461 | group462 | group463 | group464 | group465 | group466 | group467 | group468 | group469 | group470 | group471 | group472 | group473 | group474 | group475 | group476 | group477 | group478 | group479 | group480 | group481 | group482 | group483 | group484 | group485 | group486 | group487 | group488 | group489 | group490 | group491 | group492 | group493 | group494 | group495 | group496 | group497 | group498 | group499 | group500 | group501 | group502 | group503 | group504 | group505 | group506 | group507 | group508 | group509 | group510 | group511'::tsquery",
+-      "answer": "25087|2472660736",
+-      "expected_count": 25087,
+-      "expected_sum": 2472660736,
+-      "expected_rows_digest": {
+-        "bytes": 160655,
+-        "sha256": "7a02a76929203149826a62c34eaa5d024f76fa1945e506b25b8050117d5f0bd9",
+-        "rows": 25087
+-      },
+-      "oracle_settings": "SET enable_seqscan=off;SET enable_bitmapscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_tidscan=off;SET work_mem='64MB';",
+-      "reference_settings": "SET enable_seqscan=on;SET enable_bitmapscan=off;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_tidscan=off;SET work_mem='64MB';",
+-      "plan_policy": "NATURAL_ANY_VALID_PATH",
+-      "heap_threshold_negative": false,
+-      "width": 512,
+-      "origin_query": "group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7 | group8 | group9 | group10 | group11 | group12 | group13 | group14 | group15 | group16 | group17 | group18 | group19 | group20 | group21 | group22 | group23 | group24 | group25 | group26 | group27 | group28 | group29 | group30 | group31 | group32 | group33 | group34 | group35 | group36 | group37 | group38 | group39 | group40 | group41 | group42 | group43 | group44 | group45 | group46 | group47 | group48 | group49 | group50 | group51 | group52 | group53 | group54 | group55 | group56 | group57 | group58 | group59 | group60 | group61 | group62 | group63 | group64 | group65 | group66 | group67 | group68 | group69 | group70 | group71 | group72 | group73 | group74 | group75 | group76 | group77 | group78 | group79 | group80 | group81 | group82 | group83 | group84 | group85 | group86 | group87 | group88 | group89 | group90 | group91 | group92 | group93 | group94 | group95 | group96 | group97 | group98 | group99 | group100 | group101 | group102 | group103 | group104 | group105 | group106 | group107 | group108 | group109 | group110 | group111 | group112 | group113 | group114 | group115 | group116 | group117 | group118 | group119 | group120 | group121 | group122 | group123 | group124 | group125 | group126 | group127 | group128 | group129 | group130 | group131 | group132 | group133 | group134 | group135 | group136 | group137 | group138 | group139 | group140 | group141 | group142 | group143 | group144 | group145 | group146 | group147 | group148 | group149 | group150 | group151 | group152 | group153 | group154 | group155 | group156 | group157 | group158 | group159 | group160 | group161 | group162 | group163 | group164 | group165 | group166 | group167 | group168 | group169 | group170 | group171 | group172 | group173 | group174 | group175 | group176 | group177 | group178 | group179 | group180 | group181 | group182 | group183 | group184 | group185 | group186 | group187 | group188 | group189 | group190 | group191 | group192 | group193 | group194 | group195 | group196 | group197 | group198 | group199 | group200 | group201 | group202 | group203 | group204 | group205 | group206 | group207 | group208 | group209 | group210 | group211 | group212 | group213 | group214 | group215 | group216 | group217 | group218 | group219 | group220 | group221 | group222 | group223 | group224 | group225 | group226 | group227 | group228 | group229 | group230 | group231 | group232 | group233 | group234 | group235 | group236 | group237 | group238 | group239 | group240 | group241 | group242 | group243 | group244 | group245 | group246 | group247 | group248 | group249 | group250 | group251 | group252 | group253 | group254 | group255 | group256 | group257 | group258 | group259 | group260 | group261 | group262 | group263 | group264 | group265 | group266 | group267 | group268 | group269 | group270 | group271 | group272 | group273 | group274 | group275 | group276 | group277 | group278 | group279 | group280 | group281 | group282 | group283 | group284 | group285 | group286 | group287 | group288 | group289 | group290 | group291 | group292 | group293 | group294 | group295 | group296 | group297 | group298 | group299 | group300 | group301 | group302 | group303 | group304 | group305 | group306 | group307 | group308 | group309 | group310 | group311 | group312 | group313 | group314 | group315 | group316 | group317 | group318 | group319 | group320 | group321 | group322 | group323 | group324 | group325 | group326 | group327 | group328 | group329 | group330 | group331 | group332 | group333 | group334 | group335 | group336 | group337 | group338 | group339 | group340 | group341 | group342 | group343 | group344 | group345 | group346 | group347 | group348 | group349 | group350 | group351 | group352 | group353 | group354 | group355 | group356 | group357 | group358 | group359 | group360 | group361 | group362 | group363 | group364 | group365 | group366 | group367 | group368 | group369 | group370 | group371 | group372 | group373 | group374 | group375 | group376 | group377 | group378 | group379 | group380 | group381 | group382 | group383 | group384 | group385 | group386 | group387 | group388 | group389 | group390 | group391 | group392 | group393 | group394 | group395 | group396 | group397 | group398 | group399 | group400 | group401 | group402 | group403 | group404 | group405 | group406 | group407 | group408 | group409 | group410 | group411 | group412 | group413 | group414 | group415 | group416 | group417 | group418 | group419 | group420 | group421 | group422 | group423 | group424 | group425 | group426 | group427 | group428 | group429 | group430 | group431 | group432 | group433 | group434 | group435 | group436 | group437 | group438 | group439 | group440 | group441 | group442 | group443 | group444 | group445 | group446 | group447 | group448 | group449 | group450 | group451 | group452 | group453 | group454 | group455 | group456 | group457 | group458 | group459 | group460 | group461 | group462 | group463 | group464 | group465 | group466 | group467 | group468 | group469 | group470 | group471 | group472 | group473 | group474 | group475 | group476 | group477 | group478 | group479 | group480 | group481 | group482 | group483 | group484 | group485 | group486 | group487 | group488 | group489 | group490 | group491 | group492 | group493 | group494 | group495 | group496 | group497 | group498 | group499 | group500 | group501 | group502 | group503 | group504 | group505 | group506 | group507 | group508 | group509 | group510 | group511",
+-      "origin_query_sha256": "941885424da8ac84750d102256df61a9b81dd15b4e891b0e149f9698ceba13d1"
++      "origin_query_sha256": "3f9539d13dc82f704587b3fab5c4d2fe9b5e2b35a3f6c140a84da8654cbad38f",
++      "origin_single_scan_case": "sql_sparse_or8",
++      "origin_single_scan_sql": "SELECT count(*),sum(id) FROM g1.docs WHERE d @@ 'group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7'::tsquery",
++      "per_scan_rows": 391,
++      "per_scan_sum": 38536540,
++      "output_count": 39100,
++      "output_sum": 3853654000,
++      "answer_per_scan": "391|38536540"
+     },
+     {
+       "name": "seq_control",
+@@ -192,7 +148,14 @@
+       "oracle_settings": "SET enable_seqscan=on;SET enable_bitmapscan=off;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_tidscan=off;SET work_mem='64MB';",
+       "reference_settings": "SET enable_seqscan=on;SET enable_bitmapscan=off;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_tidscan=off;SET work_mem='64MB';",
+       "plan_policy": "NATURAL_ANY_VALID_PATH",
+-      "heap_threshold_negative": false
++      "heap_threshold_negative": false,
++      "origin_single_scan_case": "seq_control",
++      "origin_single_scan_sql": "SELECT count(*),sum(id) FROM g1.docs WHERE id BETWEEN 1 AND 200000",
++      "per_scan_rows": 200000,
++      "per_scan_sum": 20000100000,
++      "output_count": 200000,
++      "output_sum": 20000100000,
++      "answer_per_scan": "200000|20000100000"
+     }
+   ],
+   "orders": [
+@@ -230,8 +193,8 @@
+   "warmups": 2,
+   "retained_rounds": 6,
+   "cohorts": 2,
+-  "raw": 384,
+-  "retained": 288,
+-  "warm": 96,
+-  "scope": "Eight natural-plan SQL cells; seven sparse OR predicates without common plus ID-range control. Held source/ELFs/seed; all plans and all three pairs retained."
++  "raw": 240,
++  "retained": 180,
++  "warm": 60,
++  "scope": "Five natural-plan SQL cells; four 100-rescan aggregates plus one unchanged single-probe ID control. Held source/ELFs/seed; all plans and all three pairs retained."
+ }
+--- completed-one-scan/STATIC-REVIEW.json
++++ new-batch100/STATIC-REVIEW.json
+@@ -1,13 +1,13 @@
+ {
+-  "status": "PASS_STATIC_ONLY_NOT_RUNTIME",
+-  "source_modules": 13,
+-  "cases": 8,
+-  "raw": 384,
+-  "retained": 288,
+-  "warm": 96,
+-  "synthetic_valid_plan_policy_checks": 7,
+-  "wrong_rows_rejected": 7,
+-  "SQL_or_VM_executed": false,
++  "status": "PASS_STATIC_ONLY_NO_RUNTIME",
++  "cases": 5,
++  "raw": 240,
++  "retained": 180,
++  "warm": 60,
++  "smoke": 15,
++  "valid_synthetic_plan_checks": 14,
++  "shortcut_shapes_rejected": 16,
++  "SQL_VM_compiler_executed": false,
+   "help_checked": [
+     "campaign.py",
+     "run.py",
+@@ -18,7 +18,7 @@
+     "generate-sql-replay.py",
+     "static-check.py"
+   ],
+-  "held_frozen_parent_inputs_byte_exact": true,
++  "old_frozen_inputs_unchanged": true,
+   "unchanged_runtime_helpers": {
+     "session.py": "3bf4f1d614175137f5779ac3df5ec5203305a1d090faa337e659bab268dd18e4",
+     "common.py": "86822a4e1c16945d5d633ccd7b8a06755c1d4469faca37f30f0c13ff4d6f8eeb",
+--- completed-one-scan/README.md
++++ new-batch100/README.md
+@@ -1,79 +1,70 @@
+-# Held-build selective natural-plan OR SQL
++# Short-query SQL batch of 100 actual rescans
+ 
+-Preparation only. No new SQL, EXPLAIN, smoke or timing has executed. This
+-independent capsule preserves the old B/T/Heap sources, exact ELF bindings and
+-qualified seed in ORIGIN.json. It omits common from seven fixed OR expressions
+-and permits natural scan choices, including Seq and any role-specific plan
+-variation. No source, threshold or cost/statistics tuning is part of this wave.
+-WORKLOAD.json is the byte-exact prospective workload; cases.json adds explicit
+-natural settings, separate forced oracle settings and independent scalar/digest
+-answers. N1/2/7 remain negatives; the eighth cell is the natural ID-range control.
++LOCAL PREPARATION ONLY. This is a new fixed work-unit experiment, not a retry,
++replacement or normalization of the completed 384-command natural-OR screen.
++No source/build/threshold changes: old B/T/Heap exact ELFs and qualified seed
++remain bound in ORIGIN.json. The previous natural run must be PASS/stopped.
+ 
+-The fixed plan is eight cells, B/T/Heap, two fresh cohorts, all six role orders,
+-two warm + six retained rounds: 384 raw / 288 retained / 96 warm. Smoke has
+-24 raw / zero accepted. Each cohort keeps 72 absolute and 72 pair groups and
+-432 direct pairs, separately for backend CPU, client wall and SQL executor
+-milliseconds. No pooling, filtering, twin normalization or plan selection.
++Cases: exact original width 1/2/7/8 predicates and one-scan ordered row oracles.
++Each short measured command is the literal fixed SQL:
+ 
+-Root-only staged commands after source/capsule/host review:
++```sql
++SELECT sum(q.n),sum(q.s) FROM generate_series(1,100) p(i)
++CROSS JOIN LATERAL
++(SELECT count(*) n,sum(id) s FROM g1.docs
++ WHERE d @@ '<exact>'::tsquery OFFSET(p.i%1)) q
++```
++
++Each batch has probes=100, unchanged per_scan_rows/per_scan_sum and independent
++output_count/output_sum multiplied by 100. The original ID-range control has
++probes=1 and its old answer. See cases.json/WORKLOAD.json for exact bytes.
++Untimed EXPLAIN ANALYZE in every oracle gate must show the actual docs scan
++and every selected index executing100 loops (control 1), with original rows
++per loop and top aggregate 1 row / 1 loop. Decorrelated, Materialize or Memoize
++shortcuts producing scan 1 are rejected; failures are preserved without retry.
++This executed gate precedes any smoke/sample. The single-scan forced Seq/GIN
++ordered oracles remain independent of this gate. Natural paths are accepted;
++no cross-role plan equality or GIN-choice requirement is imposed.
++
++All five scan switches on, memoize/parallel/JIT off, work_mem 64MB, buffers 512MB,
++system clock, nice 10, server/client CPU 0/4 then 4/0. Per-row settings and full
++backend planner context remain. Same fixed B/T/Heap schedule: all six orders,
++two warm + six retained rounds, two fresh cohorts = 240 raw / 180 retained / 60 warm.
++Smoke 15 / 0; nine numeric clones fully hashed/fsynced before assignment, three
++smoke and six accepted unused. No auto-promotion, tuning, filtering or repeat.
++
++Root-reviewed stage commands (new namespace and unused ports):
+ 
+ ```sh
+-N=/home/reshke/allfuzz/gin-heap-selective-natural-20261110
++N=/home/reshke/allfuzz/gin-heap-short-batch-20261111
+ B=/home/reshke/allfuzz/gin-next-c11-bitmap-20261110/or-build
+ Q=/home/reshke/allfuzz/gin-next-c11-bitmap-20261110/oq-r2
+-P=/home/reshke/allfuzz/gin-heap-wide-sql-followup-20261110/run-r1
++P=/home/reshke/allfuzz/gin-heap-selective-natural-20261110/run-r1
+ python3 -B "$N/inputs/campaign.py" --stage prepare --build "$B" --qualified "$Q" \
+-  --previous-heap-run "$P" --output "$N/run-r1" --first-port 46540 \
+-  --cpu-pairs 0:4,4:0 --environment-label FRESH_HOST_CLEAN_SCREEN
++ --previous-heap-run "$P" --output "$N/run-r1" --first-port 46840 \
++ --cpu-pairs 0:4,4:0 --environment-label FRESH_HOST_CLEAN_SCREEN
+ python3 -B "$N/inputs/campaign.py" --stage smoke --build "$B" --qualified "$Q" \
+-  --previous-heap-run "$P" --output "$N/run-r1" --first-port 46540 \
+-  --cpu-pairs 0:4,4:0 --environment-label FRESH_HOST_CLEAN_SCREEN
++ --previous-heap-run "$P" --output "$N/run-r1" --first-port 46840 \
++ --cpu-pairs 0:4,4:0 --environment-label FRESH_HOST_CLEAN_SCREEN
++# STOP: root must inspect 15 raw/literal records, untimed actual100-loop gate,
++# single-scan ordered digests, settings,6 unused copies and all 3 stops first.
++# Only with a separate PASS_SMOKE_REVIEW_FOR_FIXED_RUN receipt:
++python3 -B "$N/inputs/campaign.py" --stage run --build "$B" --qualified "$Q" \
++ --previous-heap-run "$P" --output "$N/run-r1" --first-port 46840 \
++ --cpu-pairs 0:4,4:0 --environment-label FRESH_HOST_CLEAN_SCREEN \
++ --review "$N/ROOT-SMOKE-REVIEW-r1.json"
+ ```
+ 
+-Use SHARED_LOAD_DIAGNOSTIC if a fresh host check does not establish a quiet
+-window. Prepare and smoke never promote automatically. Root must inspect all
+-24 rows, full plans, literal/ordered answers, all-on timed settings, exact twin,
+-unused six accepted copies and stopped clusters; write a separately SHA-bound
+-PASS_SMOKE_REVIEW_FOR_FIXED_RUN receipt. Only after explicit root review:
++Use SHARED_LOAD_DIAGNOSTIC if the fresh host window is not quiet. Smoke ports
++46840..42, accepted46850..55. Always stop all owned clients/clusters in finally
++and independently rehash full held source/installs/seed/inputs. Root supplies
++a final live shutdown proof. No unrelated process is changed.
+ 
+-```sh
+-python3 -B "$N/inputs/campaign.py" --stage run --build "$B" --qualified "$Q" \
+-  --previous-heap-run "$P" --output "$N/run-r1" --first-port 46540 \
+-  --cpu-pairs 0:4,4:0 --environment-label FRESH_HOST_CLEAN_SCREEN \
+-  --review "$N/ROOT-SMOKE-REVIEW-r1.json"
+-```
+-
+-Ports46540..42 smoke,46550..55 accepted. Nine numeric clones are fully hashed
+-and fsynced before assignment; smoke uses three and verifies the accepted six
+-unused. Cohort1 reverses births/case order. Nice10, server/client CPU0/4 then4/0,
+-512MB buffers,64MB work_mem,system clock,parallel/JIT/memoize/autovacuum off.
+-Natural scan settings are all on; complete pg_settings planner context is
+-recorded once per backend, and a per-case snapshot is bound into every raw row.
+-Forced Seq/GIN applies only inside separate untimed oracle transactions, then
+-ROLLBACK restores state. Full natural plans/settings are preserved separately.
+-
+-Each measured EXPLAIN has an immediately preceding independent literal command
+-as explicit extra warming. Client wall stops at reply before JSON parse;
+-whole-backend schedstat CPU is separate; EXPLAIN Execution Time covers the
+-executor. Every raw record is flushed/fsynced before validation. Stop all owned
+-clients/clusters independently in finally; no unrelated process is signalled.
+-Full held installs/source/qualified seed, copied seed and frozen inputs are
+-verified; root performs a separate final live proof. Failure is preserved, not
+-retried or tuned. Natural plan differences and Seq choices are observations,
+-not acceptance failures. Runtime/reference commands bind original artifacts;
+-REPRODUCE.md describes an independent fresh-build SQL illustration separately.
+-
+-Offline after complete PASS, with nonexistent analysis outputs:
+-
+-```sh
+-python3 -B inputs/analyze.py collected/run-r1/cohort0 analysis-cohort0-r1
+-python3 -B inputs/analyze.py collected/run-r1/cohort1 analysis-cohort1-r1
+-python3 -B audit-independent-r1.py --inputs inputs --workload inputs/WORKLOAD.json \
+-  --results collected/run-r1 --mode screen \
+-  --analysis0 analysis-cohort0-r1 --analysis1 analysis-cohort1-r1 \
+-  --out-new SCREEN-INDEPENDENT-AUDIT-r1.json
+-```
+-
+-Collect only explicit text proofs/raw journals/plans; exclude PGDATA, binaries,
+-shared libraries and full runner logs. Historical common-superset forced-GIN
+-results and old native-AM timings remain different experiments.
++All measured metrics are for the COMPLETE COMMAND: backend CPU, client wall
++and SQL executor ms separately. Do not silently divide by 100 or compare raw
++batch ms with old one-scan ms. Literal command immediately before EXPLAIN is
++explicit extra warming; all raw observations fsync before validation. Keep all
++five cells, three metrics/pairs, both cohorts, negatives and controls. Each
++cohort has 45 absolute/45 pair groups / 270 direct pairs. Analyze locally only
++complete PASS; independent auditor imports no benchmark code. No new SQL
++performance, noise reduction or regression fix is claimed by this static prep.
+--- completed-one-scan/ARCHITECTURE-SOURCE-AUDIT.md
++++ new-batch100/ARCHITECTURE-SOURCE-AUDIT.md
+@@ -1,42 +1,32 @@
+-# Source and workload review — prospective only
++# Batch 100 protocol/source audit
+ 
+-B72 is 72b9498df9a369e747f8d96efb5a6cd33c2451e2. All roles share the same
+-opaque prerequisite in fixed B 8a8c475037bfde101da23cc9b0364c9c020eca93.
+-Heap 03dff8bfa5075e5838c7fbffc712d0b79d03f13d is unchanged. B/T use the same
+-prefix, ELF and SQL entry point. This capsule compiles nothing and is not
+-combined with C9/C11/cache/decoder alternatives. ORIGIN.json binds all old
+-source/build/qualification/ELF receipts. The prior completed Heap SQL run SHA
+-is required and all its owned clusters/PIDs must be stopped before each stage.
++No production source changes or recompilation. ORIGIN.json retains all original
++B72/fixed-B/Heap commit, source-plan, build, qualification and ELF pins. B/T
++remain the same prefix/ELF/entrypoint. Session, common and build_common are
++byte-identical to the completed natural SQL campaign.
+ 
+-The retained setup defines exactly one group(g%4096) term per base row g1..200000,
+-plus two special NULL/empty rows that do not match. N=1/2/7/8/32/128/512 ORs
+-select residues0..N-1 without common. Since200000=48*4096+3392, expected count
+-is49N-1 and sum is4816896N+49N(N-1)/2. Canonical ordered decimal IDs have no
+-trailing newline. Counts/sums/digests were generated from integer enumeration,
+-then checked independently by residue blocks, not candidate output. Each group
+-has48/49 rows; this can exercise materially different posting/storage/callback
+-work from the old common-superset result. No performance prediction is made.
++Width1/2/7/8 original predicates/rows_sql and one-scan ordered digests are exact.
++Expected per-scan count 49N-1 and sum 4816896N+49N(N-1)/2 were independently
++enumerated from fixture IDs 1..200000. Batch totals multiply these frozen
++scalars by 100; the control remains one probe. Probes, per-loop rows and output
++totals are separate fields. No candidate-generated expected data is used.
+ 
+-Measured settings explicitly enable Seq/bitmap/index/index-only/TID paths, with
+-fixed64MB work_mem and unchanged costs/statistics. Untimed ordered Seq and GIN
+-oracles use separate transactions and ROLLBACK. The control has only a forced
+-Seq reference, not a nonexistent GIN condition. Natural plans and timed-setting
+-snapshots remain separate; observed Seq, GIN and legitimate primary-key index
+-plans are accepted when exact counts/rows/loops and scalar/digests agree. No
+-cross-role plan-signature equality is imposed. Complete costs/enable_* planner
+-settings and raw full plans are retained. Neither natural GIN selection nor a
+-new SQL improvement is known before actual EXPLAIN/timings.
++The OFFSET(p.i%1) parameter binds each inner rescan while preserving offset 0.
++That source intention is not proof of execution: the untimed actual EXPLAIN
++gate and every measured raw plan must demonstrate docs/index Actual Loops100,
++original Actual Rows per loop, and top aggregate 1 row / 1 loop. Scan1 from a
++materialized/decorrelated shortcut fails closed, preserving its plan and
++stopping clusters. No rewrite or retry is automatically attempted. Single-scan
++row oracles have separate settings and loop scope.
+ 
+-Only capsule namespace/previous-run guard, query/answer/settings policy,
+-untimed natural metadata, validator and independent arithmetic adaptation
+-change from the successful previous SQL harness. Session metric boundaries,
+-build helper, held source/ELFs/seed, allocation of clones, fixed schedule,
+-cleanup and durable observation before acceptance remain. The controller now
+-also maps SIGTERM to finally cleanup. ADAPTATION.diff records the exact delta.
++The work unit intentionally amortizes per-command costs but introduces a
++rescan context; it does not reproduce100 independent scans and cannot replace
++the prior one-scan evidence. Report COMPLETE 100-rescan command timings,
++absolute ranges and all controls, without causal/noise claims before samples.
++All source/ELF/seed/cost/statistics inputs remain held; natural scan settings
++are on, memoize/parallel/JIT off, and all resulting paths retained.
+ 
+-Prior context: the source's copied lower-bound heap/lazy root repair addresses
+-shared GinScanEntry advancement; no new source contribution or novelty claim
+-is introduced. Existing upstream heap discussion is retained in the complete
+-historical parent, including Heikki Linnakangas2014:
++Inherited prior-art context, not a new novelty search:
+ https://www.postgresql.org/message-id/52F373CC.4050800%40vmware.com
+-This is inherited verified context, not a new archive search.
++Existing required-entry heap source 03dff8bfa5075e5838c7fbffc712d0b79d03f13d
++is the same independent alternative; no cache/decoder composition occurs.
+--- completed-one-scan/email-draft-UNSENT.txt
++++ new-batch100/email-draft-UNSENT.txt
+@@ -1,22 +1,18 @@
+ UNSENT PROSPECTIVE DRAFT
+-Subject: GIN required-entry heap: selective OR with natural planner choices
++Subject: GIN short-query follow-up with 100 actual SQL rescans per command
+ 
+-This separate follow-up keeps the existing required-entry heap source,
+-threshold, B/exact twin/Heap builds and qualified fixture unchanged. It tests
+-seven fixed OR expressions containing only group terms, without common, at
+-widths1/2/7/8/32/128/512, plus an ID-range unchanged-code control. All scan
+-paths are enabled; actual default/natural plans may differ or choose Seq.
+-No plan choice will be filtered or used to tune the workload.
++This separate work-unit screen retains the unchanged fixed-B/exact twin/Heap
++builds and qualified seed. Four original short predicates at widths 1/2/7/8
++are each executed 100 times inside one parameterized LATERAL command; the old
++ID-range control remains one scan. Expected totals multiply frozen independent
++single-scan scalars; ordered Seq/GIN row oracles remain one scan.
+ 
+-The frozen plan is two fresh cohorts, all six role orders, two warm and six
+-retained rounds:384raw/288retained/96warm, with24zero-accepted smoke commands
+-and external review first. Literal answers and ordered Seq/GIN oracles are
+-fixed independently from the fixture's residue formula. Full SQL executor,
+-whole-backend CPU and client wall are separate; all three pairs and all short
+-and unchanged-code controls remain. Earlier forced-GIN/common-superset SQL
+-and actual-AM results are different measurements, not results for this task.
++Actual untimed and measured EXPLAIN must prove 100 docs/index loops, not a
++materialized/decorrelated shortcut. The plan is fixed at 240 raw / 180 retained / 
++60 warm, two cohorts/all six orders/all three pairs, after 15 zero-accepted smoke
++commands and external review. All metric boundaries are for a complete
++command; no result or regression/noise reduction claim has been measured yet.
++Earlier single-scan results remain immutable, with every negative retained.
+ 
+-Preparation is static only so far. No new performance result, general SQL
+-upgrade, novelty or adoption recommendation is claimed. Prior heap context:
++No new source idea or composition is introduced. Existing heap context:
+ https://www.postgresql.org/message-id/52F373CC.4050800%40vmware.com
+-Source remains03dff8bfa5075e5838c7fbffc712d0b79d03f13d; no composition.

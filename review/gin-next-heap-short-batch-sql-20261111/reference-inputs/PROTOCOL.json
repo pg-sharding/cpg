@@ -1,0 +1,200 @@
+{
+  "roles": [
+    "B",
+    "T",
+    "Heap"
+  ],
+  "cases": [
+    {
+      "name": "sql_batch_or1",
+      "kind": "sql",
+      "settings": "SET enable_seqscan=on;SET enable_bitmapscan=on;SET enable_indexscan=on;SET enable_indexonlyscan=on;SET enable_tidscan=on;SET work_mem='64MB';",
+      "index": "docs_d_gin",
+      "probes": 100,
+      "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'group0'::tsquery",
+      "sql": "SELECT sum(q.n),sum(q.s) FROM generate_series(1,100) p(i) CROSS JOIN LATERAL (SELECT count(*) n,sum(id) s FROM g1.docs WHERE d @@ 'group0'::tsquery OFFSET(p.i%1)) q",
+      "answer": "4800|481689600",
+      "expected_count": 48,
+      "expected_sum": 4816896,
+      "expected_rows_digest": {
+        "bytes": 309,
+        "sha256": "d16ae1896785236da56875c306856626f5fd676a38e9e257f4f5476281df3172",
+        "rows": 48
+      },
+      "oracle_settings": "SET enable_seqscan=off;SET enable_bitmapscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_tidscan=off;SET work_mem='64MB';",
+      "reference_settings": "SET enable_seqscan=on;SET enable_bitmapscan=off;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_tidscan=off;SET work_mem='64MB';",
+      "plan_policy": "NATURAL_ANY_VALID_PATH",
+      "heap_threshold_negative": true,
+      "width": 1,
+      "origin_query": "group0",
+      "origin_query_sha256": "6687ebd1d9c1f6cd91f8b1601916e6a534873aec45189dd3522e9f9ae8657eb9",
+      "origin_single_scan_case": "sql_sparse_or1",
+      "origin_single_scan_sql": "SELECT count(*),sum(id) FROM g1.docs WHERE d @@ 'group0'::tsquery",
+      "per_scan_rows": 48,
+      "per_scan_sum": 4816896,
+      "output_count": 4800,
+      "output_sum": 481689600,
+      "answer_per_scan": "48|4816896"
+    },
+    {
+      "name": "sql_batch_or2",
+      "kind": "sql",
+      "settings": "SET enable_seqscan=on;SET enable_bitmapscan=on;SET enable_indexscan=on;SET enable_indexonlyscan=on;SET enable_tidscan=on;SET work_mem='64MB';",
+      "index": "docs_d_gin",
+      "probes": 100,
+      "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'group0 | group1'::tsquery",
+      "sql": "SELECT sum(q.n),sum(q.s) FROM generate_series(1,100) p(i) CROSS JOIN LATERAL (SELECT count(*) n,sum(id) s FROM g1.docs WHERE d @@ 'group0 | group1'::tsquery OFFSET(p.i%1)) q",
+      "answer": "9700|963384100",
+      "expected_count": 97,
+      "expected_sum": 9633841,
+      "expected_rows_digest": {
+        "bytes": 621,
+        "sha256": "25e853d847b4246e52cbe46945ae0e6391dbd9a92bac78f15b67855d4e30ffc7",
+        "rows": 97
+      },
+      "oracle_settings": "SET enable_seqscan=off;SET enable_bitmapscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_tidscan=off;SET work_mem='64MB';",
+      "reference_settings": "SET enable_seqscan=on;SET enable_bitmapscan=off;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_tidscan=off;SET work_mem='64MB';",
+      "plan_policy": "NATURAL_ANY_VALID_PATH",
+      "heap_threshold_negative": true,
+      "width": 2,
+      "origin_query": "group0 | group1",
+      "origin_query_sha256": "4e4d1550b0218020610119c3b2c6b24132d8a71cefc827b941c7d54c588dda02",
+      "origin_single_scan_case": "sql_sparse_or2",
+      "origin_single_scan_sql": "SELECT count(*),sum(id) FROM g1.docs WHERE d @@ 'group0 | group1'::tsquery",
+      "per_scan_rows": 97,
+      "per_scan_sum": 9633841,
+      "output_count": 9700,
+      "output_sum": 963384100,
+      "answer_per_scan": "97|9633841"
+    },
+    {
+      "name": "sql_batch_or7",
+      "kind": "sql",
+      "settings": "SET enable_seqscan=on;SET enable_bitmapscan=on;SET enable_indexscan=on;SET enable_indexonlyscan=on;SET enable_tidscan=on;SET work_mem='64MB';",
+      "index": "docs_d_gin",
+      "probes": 100,
+      "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'group0 | group1 | group2 | group3 | group4 | group5 | group6'::tsquery",
+      "sql": "SELECT sum(q.n),sum(q.s) FROM generate_series(1,100) p(i) CROSS JOIN LATERAL (SELECT count(*) n,sum(id) s FROM g1.docs WHERE d @@ 'group0 | group1 | group2 | group3 | group4 | group5 | group6'::tsquery OFFSET(p.i%1)) q",
+      "answer": "34200|3371930100",
+      "expected_count": 342,
+      "expected_sum": 33719301,
+      "expected_rows_digest": {
+        "bytes": 2181,
+        "sha256": "ef8c4181da51d38a47446f7d5624059aa3b73115f0331ad9fc3483f857281308",
+        "rows": 342
+      },
+      "oracle_settings": "SET enable_seqscan=off;SET enable_bitmapscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_tidscan=off;SET work_mem='64MB';",
+      "reference_settings": "SET enable_seqscan=on;SET enable_bitmapscan=off;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_tidscan=off;SET work_mem='64MB';",
+      "plan_policy": "NATURAL_ANY_VALID_PATH",
+      "heap_threshold_negative": true,
+      "width": 7,
+      "origin_query": "group0 | group1 | group2 | group3 | group4 | group5 | group6",
+      "origin_query_sha256": "4e9d6eb1a73952d49ac1d1f7aae17a3c10283bfdbdeedc3325c08aa694014db7",
+      "origin_single_scan_case": "sql_sparse_or7",
+      "origin_single_scan_sql": "SELECT count(*),sum(id) FROM g1.docs WHERE d @@ 'group0 | group1 | group2 | group3 | group4 | group5 | group6'::tsquery",
+      "per_scan_rows": 342,
+      "per_scan_sum": 33719301,
+      "output_count": 34200,
+      "output_sum": 3371930100,
+      "answer_per_scan": "342|33719301"
+    },
+    {
+      "name": "sql_batch_or8",
+      "kind": "sql",
+      "settings": "SET enable_seqscan=on;SET enable_bitmapscan=on;SET enable_indexscan=on;SET enable_indexonlyscan=on;SET enable_tidscan=on;SET work_mem='64MB';",
+      "index": "docs_d_gin",
+      "probes": 100,
+      "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7'::tsquery",
+      "sql": "SELECT sum(q.n),sum(q.s) FROM generate_series(1,100) p(i) CROSS JOIN LATERAL (SELECT count(*) n,sum(id) s FROM g1.docs WHERE d @@ 'group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7'::tsquery OFFSET(p.i%1)) q",
+      "answer": "39100|3853654000",
+      "expected_count": 391,
+      "expected_sum": 38536540,
+      "expected_rows_digest": {
+        "bytes": 2493,
+        "sha256": "404d5b532e8695f4aefec9d0a1ea77706291b4d184c20fd23ff18851f249ed6a",
+        "rows": 391
+      },
+      "oracle_settings": "SET enable_seqscan=off;SET enable_bitmapscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_tidscan=off;SET work_mem='64MB';",
+      "reference_settings": "SET enable_seqscan=on;SET enable_bitmapscan=off;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_tidscan=off;SET work_mem='64MB';",
+      "plan_policy": "NATURAL_ANY_VALID_PATH",
+      "heap_threshold_negative": false,
+      "width": 8,
+      "origin_query": "group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7",
+      "origin_query_sha256": "3f9539d13dc82f704587b3fab5c4d2fe9b5e2b35a3f6c140a84da8654cbad38f",
+      "origin_single_scan_case": "sql_sparse_or8",
+      "origin_single_scan_sql": "SELECT count(*),sum(id) FROM g1.docs WHERE d @@ 'group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7'::tsquery",
+      "per_scan_rows": 391,
+      "per_scan_sum": 38536540,
+      "output_count": 39100,
+      "output_sum": 3853654000,
+      "answer_per_scan": "391|38536540"
+    },
+    {
+      "name": "seq_control",
+      "kind": "sql",
+      "settings": "SET enable_seqscan=on;SET enable_bitmapscan=on;SET enable_indexscan=on;SET enable_indexonlyscan=on;SET enable_tidscan=on;SET work_mem='64MB';",
+      "index": null,
+      "probes": 1,
+      "rows_sql": "SELECT id FROM g1.docs WHERE id BETWEEN 1 AND 200000",
+      "sql": "SELECT count(*),sum(id) FROM g1.docs WHERE id BETWEEN 1 AND 200000",
+      "answer": "200000|20000100000",
+      "expected_count": 200000,
+      "expected_sum": 20000100000,
+      "expected_rows_digest": {
+        "bytes": 1288894,
+        "sha256": "01b59173dc3205893607560d9f6caca711aa6c0f3303db7bbccb99552a9fc33a",
+        "rows": 200000
+      },
+      "oracle_settings": "SET enable_seqscan=on;SET enable_bitmapscan=off;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_tidscan=off;SET work_mem='64MB';",
+      "reference_settings": "SET enable_seqscan=on;SET enable_bitmapscan=off;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_tidscan=off;SET work_mem='64MB';",
+      "plan_policy": "NATURAL_ANY_VALID_PATH",
+      "heap_threshold_negative": false,
+      "origin_single_scan_case": "seq_control",
+      "origin_single_scan_sql": "SELECT count(*),sum(id) FROM g1.docs WHERE id BETWEEN 1 AND 200000",
+      "per_scan_rows": 200000,
+      "per_scan_sum": 20000100000,
+      "output_count": 200000,
+      "output_sum": 20000100000,
+      "answer_per_scan": "200000|20000100000"
+    }
+  ],
+  "orders": [
+    [
+      "B",
+      "T",
+      "Heap"
+    ],
+    [
+      "T",
+      "Heap",
+      "B"
+    ],
+    [
+      "Heap",
+      "B",
+      "T"
+    ],
+    [
+      "Heap",
+      "T",
+      "B"
+    ],
+    [
+      "B",
+      "Heap",
+      "T"
+    ],
+    [
+      "T",
+      "B",
+      "Heap"
+    ]
+  ],
+  "warmups": 2,
+  "retained_rounds": 6,
+  "cohorts": 2,
+  "raw": 240,
+  "retained": 180,
+  "warm": 60,
+  "scope": "Five natural-plan SQL cells; four 100-rescan aggregates plus one unchanged single-probe ID control. Held source/ELFs/seed; all plans and all three pairs retained."
+}

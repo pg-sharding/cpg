@@ -1,0 +1,282 @@
+{
+  "status": "FROZEN_LOCAL_PREPARATION_ONLY_NOT_RUNTIME",
+  "files": {
+    "campaign.py": {
+      "bytes": 16610,
+      "sha256": "a05041bf621dd698d88772508bc66a598ac4b6d0e2561df401da4a198ee12da1"
+    },
+    "run.py": {
+      "bytes": 10912,
+      "sha256": "035d9217279a45392291d82f22c1d2d90b7ba96fb673259df52d1b5fafee3a87"
+    },
+    "protocol.py": {
+      "bytes": 1759,
+      "sha256": "b7fd6c26c70c62675a44d5ab49a7db242bdfe9f9cb71d7187ea424b49b56ef22"
+    },
+    "analyze.py": {
+      "bytes": 7152,
+      "sha256": "fa39572dcef13a21750f2ca9358cd327b3bc7d2c454c6fd7bd495720ab9c83bd"
+    },
+    "session.py": {
+      "bytes": 3121,
+      "sha256": "3bf4f1d614175137f5779ac3df5ec5203305a1d090faa337e659bab268dd18e4"
+    },
+    "common.py": {
+      "bytes": 244,
+      "sha256": "86822a4e1c16945d5d633ccd7b8a06755c1d4469faca37f30f0c13ff4d6f8eeb"
+    },
+    "validate.py": {
+      "bytes": 2298,
+      "sha256": "fdef2f6f51e1115a9445c43aa77d6a143a88ec0832589f3169d4b3e5c3aa8656"
+    },
+    "build_common.py": {
+      "bytes": 7652,
+      "sha256": "344dca2a3e7140346c205b0e9d5671065b71d9464c3b3a3960166e96f5ee99eb"
+    },
+    "cases.json": {
+      "bytes": 8752,
+      "sha256": "90600914459b4a6d3d478f7380cf98d7c4ffcc5d787379e6cd67b50fd8ea1669"
+    },
+    "answers.json": {
+      "bytes": 194,
+      "sha256": "47c668a3055ace76a41df1bfa49a554bda4dcd212d6158dccc7c72d1afbb0dda"
+    },
+    "ORIGIN.json": {
+      "bytes": 2305,
+      "sha256": "c9f783c9d1c6ea378f2dde6afb98dbe934fa876d601aa5d57efeb6da5110a1ad"
+    },
+    "WORKLOAD.json": {
+      "bytes": 10106,
+      "sha256": "f1e4fd437f9624bbcbad5c36905cfde2f49fd5006cd99a3733fddd8c5e5ca157"
+    },
+    "PROTOCOL.json": {
+      "bytes": 9385,
+      "sha256": "7a5af1e2434d73f3a782fa0280f787802d10b73d9a233d7fd8df4691c207823a"
+    },
+    "STATIC-REVIEW.json": {
+      "bytes": 781,
+      "sha256": "e41c7952844143ea4966e3d16256305d069b2a6f6a876411286e73eab2b8f577"
+    },
+    "README.md": {
+      "bytes": 4060,
+      "sha256": "3beecd4006840ccd45a798ad6050a0171d111a24db7886e3e36ca02dc313c697"
+    },
+    "ARCHITECTURE-SOURCE-AUDIT.md": {
+      "bytes": 1949,
+      "sha256": "ffc184a66ed6322d16e6476271081e95b4e6c64591bf45ab6d3d0df4e21ca307"
+    },
+    "email-draft-UNSENT.txt": {
+      "bytes": 1084,
+      "sha256": "263b1726d47796150801c964e84c0214aef5d6cdcc56307a2c57cfe258ca7af2"
+    },
+    "ADAPTATION.diff": {
+      "bytes": 136050,
+      "sha256": "9f9d841f6d2acdc27cd6fde72cb000032a935f2f0feeb02260752436ba809189"
+    }
+  },
+  "protocol": {
+    "roles": [
+      "B",
+      "T",
+      "Heap"
+    ],
+    "cases": [
+      {
+        "name": "sql_batch_or1",
+        "kind": "sql",
+        "settings": "SET enable_seqscan=on;SET enable_bitmapscan=on;SET enable_indexscan=on;SET enable_indexonlyscan=on;SET enable_tidscan=on;SET work_mem='64MB';",
+        "index": "docs_d_gin",
+        "probes": 100,
+        "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'group0'::tsquery",
+        "sql": "SELECT sum(q.n),sum(q.s) FROM generate_series(1,100) p(i) CROSS JOIN LATERAL (SELECT count(*) n,sum(id) s FROM g1.docs WHERE d @@ 'group0'::tsquery OFFSET(p.i%1)) q",
+        "answer": "4800|481689600",
+        "expected_count": 48,
+        "expected_sum": 4816896,
+        "expected_rows_digest": {
+          "bytes": 309,
+          "sha256": "d16ae1896785236da56875c306856626f5fd676a38e9e257f4f5476281df3172",
+          "rows": 48
+        },
+        "oracle_settings": "SET enable_seqscan=off;SET enable_bitmapscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_tidscan=off;SET work_mem='64MB';",
+        "reference_settings": "SET enable_seqscan=on;SET enable_bitmapscan=off;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_tidscan=off;SET work_mem='64MB';",
+        "plan_policy": "NATURAL_ANY_VALID_PATH",
+        "heap_threshold_negative": true,
+        "width": 1,
+        "origin_query": "group0",
+        "origin_query_sha256": "6687ebd1d9c1f6cd91f8b1601916e6a534873aec45189dd3522e9f9ae8657eb9",
+        "origin_single_scan_case": "sql_sparse_or1",
+        "origin_single_scan_sql": "SELECT count(*),sum(id) FROM g1.docs WHERE d @@ 'group0'::tsquery",
+        "per_scan_rows": 48,
+        "per_scan_sum": 4816896,
+        "output_count": 4800,
+        "output_sum": 481689600,
+        "answer_per_scan": "48|4816896"
+      },
+      {
+        "name": "sql_batch_or2",
+        "kind": "sql",
+        "settings": "SET enable_seqscan=on;SET enable_bitmapscan=on;SET enable_indexscan=on;SET enable_indexonlyscan=on;SET enable_tidscan=on;SET work_mem='64MB';",
+        "index": "docs_d_gin",
+        "probes": 100,
+        "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'group0 | group1'::tsquery",
+        "sql": "SELECT sum(q.n),sum(q.s) FROM generate_series(1,100) p(i) CROSS JOIN LATERAL (SELECT count(*) n,sum(id) s FROM g1.docs WHERE d @@ 'group0 | group1'::tsquery OFFSET(p.i%1)) q",
+        "answer": "9700|963384100",
+        "expected_count": 97,
+        "expected_sum": 9633841,
+        "expected_rows_digest": {
+          "bytes": 621,
+          "sha256": "25e853d847b4246e52cbe46945ae0e6391dbd9a92bac78f15b67855d4e30ffc7",
+          "rows": 97
+        },
+        "oracle_settings": "SET enable_seqscan=off;SET enable_bitmapscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_tidscan=off;SET work_mem='64MB';",
+        "reference_settings": "SET enable_seqscan=on;SET enable_bitmapscan=off;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_tidscan=off;SET work_mem='64MB';",
+        "plan_policy": "NATURAL_ANY_VALID_PATH",
+        "heap_threshold_negative": true,
+        "width": 2,
+        "origin_query": "group0 | group1",
+        "origin_query_sha256": "4e4d1550b0218020610119c3b2c6b24132d8a71cefc827b941c7d54c588dda02",
+        "origin_single_scan_case": "sql_sparse_or2",
+        "origin_single_scan_sql": "SELECT count(*),sum(id) FROM g1.docs WHERE d @@ 'group0 | group1'::tsquery",
+        "per_scan_rows": 97,
+        "per_scan_sum": 9633841,
+        "output_count": 9700,
+        "output_sum": 963384100,
+        "answer_per_scan": "97|9633841"
+      },
+      {
+        "name": "sql_batch_or7",
+        "kind": "sql",
+        "settings": "SET enable_seqscan=on;SET enable_bitmapscan=on;SET enable_indexscan=on;SET enable_indexonlyscan=on;SET enable_tidscan=on;SET work_mem='64MB';",
+        "index": "docs_d_gin",
+        "probes": 100,
+        "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'group0 | group1 | group2 | group3 | group4 | group5 | group6'::tsquery",
+        "sql": "SELECT sum(q.n),sum(q.s) FROM generate_series(1,100) p(i) CROSS JOIN LATERAL (SELECT count(*) n,sum(id) s FROM g1.docs WHERE d @@ 'group0 | group1 | group2 | group3 | group4 | group5 | group6'::tsquery OFFSET(p.i%1)) q",
+        "answer": "34200|3371930100",
+        "expected_count": 342,
+        "expected_sum": 33719301,
+        "expected_rows_digest": {
+          "bytes": 2181,
+          "sha256": "ef8c4181da51d38a47446f7d5624059aa3b73115f0331ad9fc3483f857281308",
+          "rows": 342
+        },
+        "oracle_settings": "SET enable_seqscan=off;SET enable_bitmapscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_tidscan=off;SET work_mem='64MB';",
+        "reference_settings": "SET enable_seqscan=on;SET enable_bitmapscan=off;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_tidscan=off;SET work_mem='64MB';",
+        "plan_policy": "NATURAL_ANY_VALID_PATH",
+        "heap_threshold_negative": true,
+        "width": 7,
+        "origin_query": "group0 | group1 | group2 | group3 | group4 | group5 | group6",
+        "origin_query_sha256": "4e9d6eb1a73952d49ac1d1f7aae17a3c10283bfdbdeedc3325c08aa694014db7",
+        "origin_single_scan_case": "sql_sparse_or7",
+        "origin_single_scan_sql": "SELECT count(*),sum(id) FROM g1.docs WHERE d @@ 'group0 | group1 | group2 | group3 | group4 | group5 | group6'::tsquery",
+        "per_scan_rows": 342,
+        "per_scan_sum": 33719301,
+        "output_count": 34200,
+        "output_sum": 3371930100,
+        "answer_per_scan": "342|33719301"
+      },
+      {
+        "name": "sql_batch_or8",
+        "kind": "sql",
+        "settings": "SET enable_seqscan=on;SET enable_bitmapscan=on;SET enable_indexscan=on;SET enable_indexonlyscan=on;SET enable_tidscan=on;SET work_mem='64MB';",
+        "index": "docs_d_gin",
+        "probes": 100,
+        "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7'::tsquery",
+        "sql": "SELECT sum(q.n),sum(q.s) FROM generate_series(1,100) p(i) CROSS JOIN LATERAL (SELECT count(*) n,sum(id) s FROM g1.docs WHERE d @@ 'group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7'::tsquery OFFSET(p.i%1)) q",
+        "answer": "39100|3853654000",
+        "expected_count": 391,
+        "expected_sum": 38536540,
+        "expected_rows_digest": {
+          "bytes": 2493,
+          "sha256": "404d5b532e8695f4aefec9d0a1ea77706291b4d184c20fd23ff18851f249ed6a",
+          "rows": 391
+        },
+        "oracle_settings": "SET enable_seqscan=off;SET enable_bitmapscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_tidscan=off;SET work_mem='64MB';",
+        "reference_settings": "SET enable_seqscan=on;SET enable_bitmapscan=off;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_tidscan=off;SET work_mem='64MB';",
+        "plan_policy": "NATURAL_ANY_VALID_PATH",
+        "heap_threshold_negative": false,
+        "width": 8,
+        "origin_query": "group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7",
+        "origin_query_sha256": "3f9539d13dc82f704587b3fab5c4d2fe9b5e2b35a3f6c140a84da8654cbad38f",
+        "origin_single_scan_case": "sql_sparse_or8",
+        "origin_single_scan_sql": "SELECT count(*),sum(id) FROM g1.docs WHERE d @@ 'group0 | group1 | group2 | group3 | group4 | group5 | group6 | group7'::tsquery",
+        "per_scan_rows": 391,
+        "per_scan_sum": 38536540,
+        "output_count": 39100,
+        "output_sum": 3853654000,
+        "answer_per_scan": "391|38536540"
+      },
+      {
+        "name": "seq_control",
+        "kind": "sql",
+        "settings": "SET enable_seqscan=on;SET enable_bitmapscan=on;SET enable_indexscan=on;SET enable_indexonlyscan=on;SET enable_tidscan=on;SET work_mem='64MB';",
+        "index": null,
+        "probes": 1,
+        "rows_sql": "SELECT id FROM g1.docs WHERE id BETWEEN 1 AND 200000",
+        "sql": "SELECT count(*),sum(id) FROM g1.docs WHERE id BETWEEN 1 AND 200000",
+        "answer": "200000|20000100000",
+        "expected_count": 200000,
+        "expected_sum": 20000100000,
+        "expected_rows_digest": {
+          "bytes": 1288894,
+          "sha256": "01b59173dc3205893607560d9f6caca711aa6c0f3303db7bbccb99552a9fc33a",
+          "rows": 200000
+        },
+        "oracle_settings": "SET enable_seqscan=on;SET enable_bitmapscan=off;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_tidscan=off;SET work_mem='64MB';",
+        "reference_settings": "SET enable_seqscan=on;SET enable_bitmapscan=off;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_tidscan=off;SET work_mem='64MB';",
+        "plan_policy": "NATURAL_ANY_VALID_PATH",
+        "heap_threshold_negative": false,
+        "origin_single_scan_case": "seq_control",
+        "origin_single_scan_sql": "SELECT count(*),sum(id) FROM g1.docs WHERE id BETWEEN 1 AND 200000",
+        "per_scan_rows": 200000,
+        "per_scan_sum": 20000100000,
+        "output_count": 200000,
+        "output_sum": 20000100000,
+        "answer_per_scan": "200000|20000100000"
+      }
+    ],
+    "orders": [
+      [
+        "B",
+        "T",
+        "Heap"
+      ],
+      [
+        "T",
+        "Heap",
+        "B"
+      ],
+      [
+        "Heap",
+        "B",
+        "T"
+      ],
+      [
+        "Heap",
+        "T",
+        "B"
+      ],
+      [
+        "B",
+        "Heap",
+        "T"
+      ],
+      [
+        "T",
+        "B",
+        "Heap"
+      ]
+    ],
+    "warmups": 2,
+    "retained_rounds": 6,
+    "cohorts": 2,
+    "raw": 240,
+    "retained": 180,
+    "warm": 60,
+    "scope": "Five natural-plan SQL cells; four 100-rescan aggregates plus one unchanged single-probe ID control. Held source/ELFs/seed; all plans and all three pairs retained."
+  },
+  "namespace": "/home/reshke/allfuzz/gin-heap-short-batch-20261111",
+  "parent_frozen_manifest_sha256": "5203fb5282bf1a73efa6f525d495e50c4a87405313474f596b3c42fd09b735d9",
+  "new_work_unit_not_retry_or_replacement": true,
+  "no_source_changes": true,
+  "no_SQL_or_VM_execution": true
+}

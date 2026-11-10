@@ -1,0 +1,54 @@
+--- Bitmap/build.py
++++ Heap/build.py
+@@ -30,7 +30,7 @@
+     parser.add_argument('--output', type=pathlib.Path, required=True,
+                         help='New nonexistent output root; preserve every failed attempt')
+     parser.add_argument('--cc', default='gcc')
+-    parser.add_argument('--core-port', type=int, default=45540,
++    parser.add_argument('--core-port', type=int, default=45640,
+                         help='First of three unused regression ports')
+     args = parser.parse_args()
+     assert 1024 <= args.core_port <= 65530
+@@ -40,7 +40,7 @@
+     nice10()
+     state = dict(status='RUNNING', pid=os.getpid(), started_ns=time.time_ns(),
+                  variants={}, commands=[], timing_samples=0,
+-                 scope='New matched builds; All B/Bitmap/Bitmap_assert builds clean; no prior result reproduced')
++                 scope='New matched builds; All B/Heap/Heap_assert builds clean; no prior result reproduced')
+     save(root / 'status.json', state)
+     source, build, compiled = root / 'common-source', root / 'common-build', root / 'prefix'
+     source.mkdir()
+@@ -83,7 +83,7 @@
+         expected_files = {k: v for k, v in baseline.items()
+                           if k.startswith('src/test/regress/expected/')}
+         release_config = None
+-        sequence = [('B', 'B', False), ('Bitmap', 'Bitmap', False), ('Bitmap_assert', 'Bitmap', True)]
++        sequence = [('B', 'B', False), ('Heap', 'Heap', False), ('Heap_assert', 'Heap', True)]
+         baseline_objects = None
+         previous_objects = None
+         for index, (label, role, assertions) in enumerate(sequence):
+@@ -191,13 +191,13 @@
+             state['variants'][label] = current
+             save(root / (label + '-provenance.json'), current)
+             save(root / 'status.json', state)
+-        receipt = dict(status='PASS_GIN_BITMAP_BUILDS', base=spec['base'],
++        receipt = dict(status='PASS_GIN_HEAP_BUILDS', base=spec['base'],
+                        common_fix_commit=spec['common_fix_commit'],
+                        fix0001_sha256=spec['fix0001_sha256'],
+                        source_plan_path=str(plan_path), source_plan_sha256=sha(plan_path),
+                        source_archive_sha256=state['source_archive_sha256'],
+                        variants=state['variants'], core239_each=True, source_files=7726,
+-                       role_to_variant={'B': 'B', 'T': 'B', 'Bitmap': 'Bitmap'},
++                       role_to_variant={'B': 'B', 'T': 'B', 'Heap': 'Heap'},
+                        common_source=str(source), common_build=str(build),
+                        compiled_prefix=str(compiled), nice=10, jobs=2,
+                        scripts={p.name: sha(p) for p in HERE.iterdir() if p.is_file()},
+@@ -226,7 +226,7 @@
+                     errors.append(dict(data=str(pidfile.parent), error=repr(exc)))
+         state['core_finally_stops'] = proofs
+         state['core_cleanup_errors'] = errors
+-        if errors and state['status'] == 'PASS_GIN_BITMAP_BUILDS':
++        if errors and state['status'] == 'PASS_GIN_HEAP_BUILDS':
+             state['status'] = 'FAILED_CLEANUP'
+         save(root / 'status.json', state)
+         if errors and not sys.exc_info()[0]:
