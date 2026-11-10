@@ -74,6 +74,7 @@ tests += {
       't/063_archive_shared_hazards.pl',
       't/064_archive_shared_timelines.pl',
       't/065_archive_shared_reports.pl',
+      't/066_archive_delegation.pl',
     ],
   },
 }

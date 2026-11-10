@@ -18,6 +18,7 @@
  *-------------------------------------------------------------------------
  */
 #include "postgres.h"
+#include "postmaster/pgarch.h"
 
 #include <unistd.h>
 #include <sys/time.h>
@@ -154,8 +155,8 @@ libpqrcv_connect(const char *conninfo, bool replication, bool logical,
 				 bool must_use_password, bool expect_archive_reports, const char *appname, char **err)
 {
 	WalReceiverConn *conn;
-	const char *keys[6];
-	const char *vals[6];
+	const char *keys[8];
+	const char *vals[8];
 	int			i = 0;
 	char	   *options_val = NULL;
 	char	   *archive_interval_val = NULL;
@@ -252,6 +253,19 @@ libpqrcv_connect(const char *conninfo, bool replication, bool logical,
 
 	keys[++i] = "fallback_application_name";
 	vals[i] = appname;
+
+	/* A physical shared-archive receiver explicitly advertises task support. */
+	if (expect_archive_reports && AmWalReceiverProcess() && ArchiveDelegateAccept)
+	{
+		char	   *opt = libpqrcv_get_option_from_conninfo(conninfo, "options");
+
+		Assert(replication && !logical);
+		options_val = psprintf("%s -c archive_delegation=on", opt ? opt : "");
+		keys[++i] = "options";
+		vals[i] = options_val;
+		if (opt != NULL)
+			pfree(opt);
+	}
 
 	if (expect_archive_reports)
 	{

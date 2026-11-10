@@ -317,6 +317,8 @@ static void ProcessStandbyHSFeedbackMessage(void);
 static void ProcessStandbyPSRequestMessage(void);
 static bool WalSndArchiveReportEnabled(void);
 static void WalSndArchivalReport(void);
+static void WalSndArchiveDelegateTask(void);
+static void ProcessArchiveDelegateResult(void);
 static void ProcessRepliesIfAny(void);
 static void ProcessPendingWrites(void);
 static void WalSndKeepalive(bool requestReply, XLogRecPtr writePtr);
@@ -2520,6 +2522,10 @@ ProcessStandbyMessage(void)
 			ProcessStandbyPSRequestMessage();
 			break;
 
+		case PqReplMsg_ArchiveDelegateResult:
+			ProcessArchiveDelegateResult();
+			break;
+
 		default:
 			ereport(COMMERROR,
 					(errcode(ERRCODE_PROTOCOL_VIOLATION),
@@ -2882,13 +2888,74 @@ WalSndArchiveReportEnabled(void)
 }
 
 /*
- * Send archival status report to standby.
- *
- * This is called periodically during physical replication to inform the
- * standby about the last WAL segment archived by the primary. The standby
- * can then mark segments up to that point as .done, allowing them to be
- * recycled. This prevents WAL loss during standby promotion.
+ * Claim and dispatch the one pending batch to an explicitly capable peer.
  */
+static void
+WalSndArchiveDelegateTask(void)
+{
+	PgArchDelegateBatch batch;
+	TimestampTz now = GetCurrentTimestamp();
+	bool		found = false;
+	long		remaining;
+
+	/* Only explicitly opted-in physical peers of the primary receive tasks. */
+	if (!ArchiveDelegationEnabled || am_db_walsender || RecoveryInProgress() ||
+		!WalSndArchiveReportEnabled())
+		return;
+	SpinLockAcquire(&PgArch->lock);
+	if (PgArch->outgoing.id != 0 && !PgArch->outgoing.sent &&
+		PgArch->outgoing.deadline > now)
+	{
+		PgArch->outgoing.sent = true;
+		PgArch->outgoing.owner = MyProcPid;
+		batch = PgArch->outgoing;
+		found = true;
+	}
+	SpinLockRelease(&PgArch->lock);
+	if (!found)
+		return;
+	remaining = TimestampDifferenceMilliseconds(now, batch.deadline);
+	resetStringInfo(&output_message);
+	pq_sendbyte(&output_message, PqReplMsg_ArchiveDelegateTask);
+	pq_sendint64(&output_message, batch.id);
+	pq_sendint32(&output_message, remaining);
+	pq_sendint16(&output_message, batch.nfiles);
+	for (int i = 0; i < batch.nfiles; i++)
+		pq_sendbytes(&output_message, batch.files[i], PGARCH_DELEGATE_FILENAME_LEN);
+	pq_putmessage_noblock(PqMsg_CopyData, output_message.data, output_message.len);
+	elog(DEBUG1, "delegated archive batch " UINT64_FORMAT " with %d files", batch.id, batch.nfiles);
+	if (pq_flush_if_writable() != 0)
+		WalSndShutdown();
+}
+
+static void
+ProcessArchiveDelegateResult(void)
+{
+	uint64		id = (uint64) pq_getmsgint64(&reply_message);
+	int			nfiles = pq_getmsgint(&reply_message, 2);
+	TimestampTz now = GetCurrentTimestamp();
+	bool		accepted = false;
+
+	pq_getmsgend(&reply_message);
+	if (!ArchiveDelegationEnabled || am_db_walsender || RecoveryInProgress())
+		ereport(ERROR,
+				(errcode(ERRCODE_PROTOCOL_VIOLATION),
+				 errmsg("archive delegation result received without opting in")));
+	SpinLockAcquire(&PgArch->lock);
+	if (PgArch->outgoing.id == id && PgArch->outgoing.owner == MyProcPid &&
+		PgArch->outgoing.nfiles == nfiles && now < PgArch->outgoing.deadline &&
+		ArchiveDelegateMaxFiles > 0)
+	{
+		PgArch->outgoing.complete = true;
+		accepted = true;
+	}
+	SpinLockRelease(&PgArch->lock);
+	elog(DEBUG1, "%s archive delegation result " UINT64_FORMAT,
+		 accepted ? "accepted" : "ignored stale", id);
+	if (accepted)
+		PgArchWakeup();
+}
+
 static void
 WalSndArchivalReport(void)
 {
@@ -3427,6 +3494,7 @@ WalSndKill(int code, Datum arg)
 	WalSnd	   *walsnd = MyWalSnd;
 
 	Assert(walsnd != NULL);
+	PgArchDelegateDisconnect(MyProcPid);
 
 	MyWalSnd = NULL;
 
@@ -4645,6 +4713,7 @@ WalSndKeepaliveIfNecessary(void)
 	TimestampTz ping_time;
 
 	/* Archive reports have their own deadline, independent of keepalives. */
+	WalSndArchiveDelegateTask();
 	WalSndArchivalReport();
 
 	/*

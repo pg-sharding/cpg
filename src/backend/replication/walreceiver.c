@@ -161,6 +161,8 @@ static void XLogWalRcvSendReply(bool force, bool requestReply, bool checkApply);
 static void XLogWalRcvSendHSFeedback(bool immed);
 static void ProcessWalSndrMessage(XLogRecPtr walEnd, TimestampTz sendTime);
 static void ProcessArchivalReport(const char *primary_last_archived);
+static void XLogWalRcvProcessArchiveTask(char *buf, Size len, TimeLineID tli);
+static void XLogWalRcvSendArchiveResult(void);
 static void WalRcvComputeNextWakeup(WalRcvWakeupReason reason, TimestampTz now);
 
 
@@ -544,6 +546,7 @@ WalReceiverMain(const void *startup_data, size_t startup_data_len)
 
 				/* Process any requests or signals received recently */
 				CHECK_FOR_INTERRUPTS();
+				XLogWalRcvSendArchiveResult();
 
 				if (ConfigReloadPending)
 				{
@@ -749,6 +752,9 @@ WalReceiverMain(const void *startup_data, size_t startup_data_len)
 				XLogArchiveNotify(xlogfname);
 		}
 		recvFile = -1;
+		SpinLockAcquire(&PgArch->lock);
+		PgArch->incoming.id = 0;
+		SpinLockRelease(&PgArch->lock);
 
 		elog(DEBUG1, "walreceiver ended streaming and awaits new instructions");
 		WalRcvWaitForStartPosition(&startpoint, &startpointTLI);
@@ -904,6 +910,9 @@ WalRcvDie(int code, Datum arg)
 	TimeLineID *startpointTLI_p = (TimeLineID *) DatumGetPointer(arg);
 
 	Assert(*startpointTLI_p != 0);
+	SpinLockAcquire(&PgArch->lock);
+	PgArch->incoming.id = 0;
+	SpinLockRelease(&PgArch->lock);
 
 	/* Ensure that all WAL records received are flushed to disk */
 	XLogWalRcvFlush(true, *startpointTLI_p);
@@ -998,6 +1007,10 @@ XLogWalRcvProcessMsg(unsigned char type, char *buf, Size len, TimeLineID tli)
 					XLogWalRcvSendReply(true, false, false);
 				break;
 			}
+		case PqReplMsg_ArchiveDelegateTask:
+			XLogWalRcvProcessArchiveTask(buf, len, tli);
+			break;
+
 		case PqReplMsg_ArchiveStatusReport:
 			{
 				/* Check that the filename looks valid */
@@ -1034,6 +1047,84 @@ XLogWalRcvProcessMsg(unsigned char type, char *buf, Size len, TimeLineID tli)
 					 errmsg_internal("invalid replication message type %d",
 									 type)));
 	}
+}
+
+/* The receiver only queues tasks; archive callbacks run in the archiver. */
+static void
+XLogWalRcvProcessArchiveTask(char *buf, Size len, TimeLineID tli)
+{
+	StringInfoData message;
+	PgArchDelegateBatch batch = {0};
+	int			remaining;
+
+	if (!ArchiveDelegateAccept || !XLogArchivingShared() || len < 14)
+		ereport(ERROR,
+				(errcode(ERRCODE_PROTOCOL_VIOLATION),
+				 errmsg("unexpected archive delegation task")));
+	initReadOnlyStringInfo(&message, buf, len);
+	batch.id = (uint64) pq_getmsgint64(&message);
+	remaining = pq_getmsgint(&message, 4);
+	batch.nfiles = pq_getmsgint(&message, 2);
+	if (batch.id == 0 || remaining <= 0 ||
+		batch.nfiles < 1 || batch.nfiles > PGARCH_DELEGATE_MAX_FILES ||
+		len != 14 + batch.nfiles * PGARCH_DELEGATE_FILENAME_LEN)
+		ereport(ERROR,
+				(errcode(ERRCODE_PROTOCOL_VIOLATION),
+				 errmsg("invalid archive delegation task")));
+	for (int i = 0; i < batch.nfiles; i++)
+	{
+		TimeLineID file_tli;
+		XLogSegNo segno;
+
+		pq_copymsgbytes(&message, batch.files[i], PGARCH_DELEGATE_FILENAME_LEN);
+		batch.files[i][PGARCH_DELEGATE_FILENAME_LEN] = '\0';
+		if (!IsXLogFileName(batch.files[i]) ||
+			(i > 0 && strcmp(batch.files[i - 1], batch.files[i]) >= 0))
+			ereport(ERROR,
+					(errcode(ERRCODE_PROTOCOL_VIOLATION),
+					 errmsg("invalid archive delegation filename")));
+		XLogFromFileName(batch.files[i], &file_tli, &segno, wal_segment_size);
+		if (file_tli != tli)
+			ereport(ERROR,
+					(errcode(ERRCODE_PROTOCOL_VIOLATION),
+					 errmsg("archive delegation task is not on the streaming timeline")));
+	}
+	pq_getmsgend(&message);
+	/* Use a duration, not a comparison between the nodes' wall clocks. */
+	batch.deadline = TimestampTzPlusMilliseconds(GetCurrentTimestamp(), remaining);
+	SpinLockAcquire(&PgArch->lock);
+	PgArch->incoming = batch;
+	SpinLockRelease(&PgArch->lock);
+	elog(DEBUG1, "received archive delegation batch " UINT64_FORMAT " with %d files", batch.id, batch.nfiles);
+	PgArchWakeup();
+}
+
+static void
+XLogWalRcvSendArchiveResult(void)
+{
+	PgArchDelegateBatch batch;
+	TimestampTz now = GetCurrentTimestamp();
+	bool		complete = false;
+
+	if (!ArchiveDelegateAccept)
+		return;
+	SpinLockAcquire(&PgArch->lock);
+	if (PgArch->incoming.id != 0 && PgArch->incoming.complete &&
+		PgArch->incoming.deadline > now)
+	{
+		batch = PgArch->incoming;
+		PgArch->incoming.id = 0;
+		complete = true;
+	}
+	SpinLockRelease(&PgArch->lock);
+	if (!complete)
+		return;
+	resetStringInfo(&reply_message);
+	pq_sendbyte(&reply_message, PqReplMsg_ArchiveDelegateResult);
+	pq_sendint64(&reply_message, batch.id);
+	pq_sendint16(&reply_message, batch.nfiles);
+	walrcv_send(wrconn, reply_message.data, reply_message.len);
+	elog(DEBUG1, "completed archive delegation batch " UINT64_FORMAT, batch.id);
 }
 
 /*

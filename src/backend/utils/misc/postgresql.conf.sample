@@ -298,6 +298,12 @@
 #archive_status_report_interval = 10s # configures archive status reports frequency in
                                     # shared archive mode
 
+# Experimental delegated archiving, to the same destination on both nodes.
+#archive_delegate_max_files = 0  # newest completed WAL files per batch (0 disables)
+#archive_delegate_min_backlog = 1000 # pending completed WAL before delegation
+#archive_delegate_timeout = 60s # maximum validity; primary never waits at queue head
+#archive_delegate_accept = off  # standby opt-in (change requires restart)
+
 #archive_library = ''           # library to use to archive a WAL file
                                 # (empty string indicates archive_command should
                                 # be used)

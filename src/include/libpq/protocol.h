@@ -76,6 +76,7 @@
 /* Replication codes sent by the primary (wrapped in CopyData messages). */
 
 #define PqReplMsg_ArchiveStatusReport 'a'
+#define PqReplMsg_ArchiveDelegateTask 'D'
 #define PqReplMsg_Keepalive			'k'
 #define PqReplMsg_PrimaryStatusUpdate 's'
 #define PqReplMsg_WALData			'w'
@@ -86,6 +87,7 @@
 #define PqReplMsg_HotStandbyFeedback 'h'
 #define PqReplMsg_PrimaryStatusRequest 'p'
 #define PqReplMsg_StandbyStatusUpdate 'r'
+#define PqReplMsg_ArchiveDelegateResult 'D'
 
 
 /* Codes used for backups via COPY OUT (wrapped in CopyData messages). */

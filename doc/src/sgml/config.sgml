@@ -4130,6 +4130,73 @@ include_dir 'conf.d'
       </listitem>
      </varlistentry>
 
+     <varlistentry id="guc-archive-delegate-max-files" xreflabel="archive_delegate_max_files">
+      <term><varname>archive_delegate_max_files</varname> (<type>integer</type>)</term>
+      <listitem>
+       <para>
+        Enables experimental delegation of archive work from a primary to one
+        physical standby.  The default, zero, disables delegation.  Values from
+        1 to 100 select the maximum batch size.  When the backlog reaches
+        <varname>archive_delegate_min_backlog</varname>, the archiver assigns
+        the newest completed segments on its current timeline and continues
+        archiving older files locally.  History files and partial segments are
+        processed locally.  Both nodes must archive to the same destination.
+       </para>
+       <para>
+        The primary retains its files and pending archive status until its
+        ordinary oldest-first queue reaches them.  A successful batch result
+        substitutes for local archive callbacks at that point.  If no complete
+        valid result is available, local archiving proceeds immediately,
+        without waiting for the standby.  Results never advance the shared
+        archive frontier past older gaps.
+       </para>
+       <para>
+        This prototype supports one in-memory batch and one standby at a time.
+        Restart, disconnect, timeout, or promotion can duplicate work; archive
+        callbacks must handle identical retries safely.  This setting can be
+        changed in the configuration file or on the server command line.
+       </para>
+      </listitem>
+     </varlistentry>
+
+     <varlistentry id="guc-archive-delegate-min-backlog" xreflabel="archive_delegate_min_backlog">
+      <term><varname>archive_delegate_min_backlog</varname> (<type>integer</type>)</term>
+      <listitem><para>
+       Sets the minimum number of pending completed regular WAL segments on
+       the current timeline before creating a delegation batch.  The default
+       is 1000; the minimum is two.  At least one older file is left for local
+       archiving.  This setting can be changed in the configuration file or
+       on the server command line.
+      </para></listitem>
+     </varlistentry>
+
+     <varlistentry id="guc-archive-delegate-timeout" xreflabel="archive_delegate_timeout">
+      <term><varname>archive_delegate_timeout</varname> (<type>integer</type>)</term>
+      <listitem><para>
+       Bounds the validity of a delegation batch.  The default is 60 seconds;
+       values without units are milliseconds.  Late results are ignored.
+       Reaching an unconfirmed file in the local archive queue cancels its
+       batch immediately, even before this timeout.  An external archive
+       command already running on the standby is not interrupted.  This
+       setting can be changed in the configuration file or on the server
+       command line.
+      </para></listitem>
+     </varlistentry>
+
+     <varlistentry id="guc-archive-delegate-accept" xreflabel="archive_delegate_accept">
+      <term><varname>archive_delegate_accept</varname> (<type>boolean</type>)</term>
+      <listitem><para>
+       Allows a standby using <literal>archive_mode = shared</literal> to
+       receive archive tasks through its physical replication connection.
+       The default is off.  Its archiver executes each requested callback
+       and acknowledges the batch only after every callback succeeds.
+       Existing archive status alone does not confirm task execution.
+       Delegated out-of-order successes are not recorded as a new
+       <structname>pg_stat_archiver</structname> frontier on the standby.
+       This parameter can only be set at server start.
+      </para></listitem>
+     </varlistentry>
+
      <varlistentry id="guc-archive-command" xreflabel="archive_command">
       <term><varname>archive_command</varname> (<type>string</type>)
       <indexterm>
