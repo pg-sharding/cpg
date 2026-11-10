@@ -22,6 +22,7 @@ my ($control, $log, $archive, $source, $file) = @ARGV;
 open(my $input, '<', $control) or die $!;
 my ($delay, $fail) = split / /, <$input>;
 close($input);
+chomp($fail);
 exit 1 if $fail;
 select(undef, undef, undef, $delay / 1000);
 if (-e "$archive/$file")
