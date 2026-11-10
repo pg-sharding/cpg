@@ -1,0 +1,13 @@
+diff --git a/src/include/access/gin_private.h b/src/include/access/gin_private.h
+index e5734dce3c7..dccae22d442 100644
+--- a/src/include/access/gin_private.h
++++ b/src/include/access/gin_private.h
+@@ -508,7 +508,7 @@ ginItemPointerKey(const ItemPointerData *item)
+ #ifndef WORDS_BIGENDIAN
+ 	block = (block << 16) | (block >> 16);
+ #endif
+-	return (uint64) block << 16 | GinItemPointerGetOffsetNumber(item);
++	return (uint64) block << 32 | GinItemPointerGetOffsetNumber(item);
+ }
+ 
+ static inline int

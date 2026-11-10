@@ -1,0 +1,61 @@
+{
+  "operation": "vacuum",
+  "roles": [
+    "B",
+    "T",
+    "C9",
+    "C11"
+  ],
+  "variants": {
+    "B": "B",
+    "T": "B",
+    "C9": "C9",
+    "C11": "C11"
+  },
+  "cohorts": 2,
+  "warmups": 2,
+  "retained_rounds": 12,
+  "orders": [
+    [
+      "B",
+      "T",
+      "C11",
+      "C9"
+    ],
+    [
+      "T",
+      "C9",
+      "B",
+      "C11"
+    ],
+    [
+      "C9",
+      "C11",
+      "T",
+      "B"
+    ],
+    [
+      "C11",
+      "B",
+      "C9",
+      "T"
+    ]
+  ],
+  "raw": 112,
+  "retained": 96,
+  "warm": 16,
+  "relation": "write_bench",
+  "queries": [
+    "common",
+    "common & rare0",
+    "dense3"
+  ],
+  "expected_rows": [
+    10000,
+    0,
+    3333
+  ],
+  "expected_table_rows": 10000,
+  "command": "VACUUM (INDEX_CLEANUP ON, TRUNCATE FALSE, PARALLEL 0) g1.write_bench",
+  "scope": "Warm cache, one owned cluster/backend active per command, normal durability; no cache dropping. DDL/reset/data preparation and correctness checks excluded from command timing. Independent campaign for each operation. No trimming, pooling, twin correction or normalization."
+}

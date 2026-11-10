@@ -1,0 +1,116 @@
+{
+  "mode": "warm",
+  "rows": 1000000,
+  "roles": [
+    "B",
+    "T",
+    "C9",
+    "C11"
+  ],
+  "variants": {
+    "B": "B",
+    "T": "B",
+    "C9": "C9",
+    "C11": "C11"
+  },
+  "orders": [
+    [
+      "B",
+      "T",
+      "C11",
+      "C9"
+    ],
+    [
+      "T",
+      "C9",
+      "B",
+      "C11"
+    ],
+    [
+      "C9",
+      "C11",
+      "T",
+      "B"
+    ],
+    [
+      "C11",
+      "B",
+      "C9",
+      "T"
+    ]
+  ],
+  "cases": [
+    {
+      "name": "skew1000",
+      "predicate": "d @@ 'common & rare0'::tsquery",
+      "indexed": true,
+      "sql": "SELECT count(*),sum(id) FROM g1.large_docs WHERE d @@ 'common & rare0'::tsquery",
+      "rows_sql": "SELECT id FROM g1.large_docs WHERE d @@ 'common & rare0'::tsquery ORDER BY id",
+      "answer": "1000|500500000",
+      "count": 1000
+    },
+    {
+      "name": "skew127",
+      "predicate": "d @@ 'common & rare2'::tsquery",
+      "indexed": true,
+      "sql": "SELECT count(*),sum(id) FROM g1.large_docs WHERE d @@ 'common & rare2'::tsquery",
+      "rows_sql": "SELECT id FROM g1.large_docs WHERE d @@ 'common & rare2'::tsquery ORDER BY id",
+      "answer": "7874|3937492125",
+      "count": 7874
+    },
+    {
+      "name": "absent",
+      "predicate": "d @@ 'common & missing'::tsquery",
+      "indexed": true,
+      "sql": "SELECT count(*),sum(id) FROM g1.large_docs WHERE d @@ 'common & missing'::tsquery",
+      "rows_sql": "SELECT id FROM g1.large_docs WHERE d @@ 'common & missing'::tsquery ORDER BY id",
+      "answer": "0|",
+      "count": 0
+    },
+    {
+      "name": "full",
+      "predicate": "d @@ 'common'::tsquery",
+      "indexed": true,
+      "sql": "SELECT count(*),sum(id) FROM g1.large_docs WHERE d @@ 'common'::tsquery",
+      "rows_sql": "SELECT id FROM g1.large_docs WHERE d @@ 'common'::tsquery ORDER BY id",
+      "answer": "1000000|500000500000",
+      "count": 1000000
+    },
+    {
+      "name": "dense",
+      "predicate": "d @@ 'dense2 & dense3'::tsquery",
+      "indexed": true,
+      "sql": "SELECT count(*),sum(id) FROM g1.large_docs WHERE d @@ 'dense2 & dense3'::tsquery",
+      "rows_sql": "SELECT id FROM g1.large_docs WHERE d @@ 'dense2 & dense3'::tsquery ORDER BY id",
+      "answer": "166666|83333166666",
+      "count": 166666
+    },
+    {
+      "name": "or",
+      "predicate": "d @@ 'common | rare0'::tsquery",
+      "indexed": true,
+      "sql": "SELECT count(*),sum(id) FROM g1.large_docs WHERE d @@ 'common | rare0'::tsquery",
+      "rows_sql": "SELECT id FROM g1.large_docs WHERE d @@ 'common | rare0'::tsquery ORDER BY id",
+      "answer": "1000000|500000500000",
+      "count": 1000000
+    },
+    {
+      "name": "seq",
+      "predicate": "id > 0",
+      "indexed": false,
+      "sql": "SELECT count(*),sum(id) FROM g1.large_docs WHERE id > 0",
+      "rows_sql": "SELECT id FROM g1.large_docs WHERE id > 0 ORDER BY id",
+      "answer": "1000000|500000500000",
+      "count": 1000000
+    }
+  ],
+  "cohorts": 2,
+  "warmups": 2,
+  "retained_rounds": 12,
+  "raw": 784,
+  "retained": 672,
+  "warm": 112,
+  "shared_buffers": "64MB",
+  "work_mem": "64MB",
+  "cache_scope": "Warm OS cache and repeated queries; relation larger than shared buffers. No claim that the whole target working set fits in shared buffers."
+}

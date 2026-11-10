@@ -1,0 +1,51 @@
+Subject: [DRAFT, UNSENT] Additional workload coverage for GIN iterator alternatives
+
+Hi,
+
+I ran additional fixed workload coverage for the C9/C11 iterator alternatives:
+CREATE INDEX, INSERT SELECT, VACUUM, a one-million-row fixture larger than
+shared_buffers, and a postmaster restart before every target query. The five
+campaigns completed 1264 raw /1056 retained /208 warm observations, in two
+separate CPU/clone placements. All 188 owned cluster lifetimes stopped.
+
+On the warm one-million-row common & rare0 SQL query, B executor medians were
+3.9135 /3.9305 ms, C9 1.127 /1.164 ms, and C11 1.106 /1.146 ms. Same-round
+paired medians were -71.60% /-70.33% for C9/B and -71.72% /-70.95% for C11/B.
+The C11/C9 increment was mixed (+0.39% /-1.60%); the large benefit should not
+be attributed to C11's representation increment.
+
+Restarting before each target query reduced that advantage: B 20.769 /20.4865
+ms, C9 17.9935 /17.8745, C11 18.197 /17.791, paired about -14% and -13%.
+This empties shared buffers but deliberately leaves the OS cache warm. The
+heap plus index is 97517568 bytes, shared_buffers 67108864 bytes. This is not
+a cold-storage experiment, and server startup is outside query timing.
+
+Full reads, dense/OR workloads and off-path controls moved less and sometimes
+regressed. Warm full C11/C9 was +0.31% /+1.78%. Restarted Seq C11/B was +6.53%
+/-0.75%, with identical-B T/B -1.46% /+4.66%. There is no universal C11 upgrade
+recommendation and no twin normalization, cohort pooling or trimming.
+
+CREATE INDEX and INSERT backend CPU showed roughly 3-4% lower C11 times, but
+these scan-oriented changes do not establish an intended write/build algorithm
+benefit. INSERT client wall varied substantially: in cohort1 C11's absolute
+median was 81.517 ms versus B 65.257 ms even though the paired-ratio median had
+a different sign. Both statistics, all ranges and raw pairs are retained.
+VACUUM CPU C11/B was +1.31% /-1.98%. WAL, process I/O and run queue are separate.
+
+Sources are pinned historical B72, not current master. B/T use the exact same
+ELF. Five clean builds and ordinary qualification preceded this coverage. An
+independent offline auditor reconstructed all schedules, saved large-query
+plans/answers, integer-set references, write-command observation bindings and
+all 624 absolute /936 paired groups. The write harness retained validation
+PASS and relation shape, rather than every individual validation plan/digest;
+the audit does not claim to re-read those unrecorded outputs.
+
+The attached alternatives and source snapshots, build flags/revisions,
+complete raw observations, absolute/spread/paired tables, fixture recipes and
+replay scripts allow independent repetition. No new algorithmic novelty is
+claimed; logical TID representation and deferred segment consumption already
+appear in the 2014 discussion [1]. The contribution here is explicit workload
+coverage and the limits/negatives of the concrete implementations. Nothing
+has been sent to the mailing list.
+
+[1] https://www.postgresql.org/message-id/52F373CC.4050800%40vmware.com
