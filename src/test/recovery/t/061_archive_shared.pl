@@ -274,7 +274,7 @@ ok( -f "$cascade_data/$walfile_done",
 
 
 is($current_walfile, $cascade_standby->safe_psql('postgres',
-	q{SELECT primary_last_archived from pg_stat_wal_receiver; }), 
+	q{SELECT primary_last_archived from pg_stat_wal_receiver; }),
 	"cascade standby wal receiver stat view updated with primary last archived wal");
 
 done_testing();

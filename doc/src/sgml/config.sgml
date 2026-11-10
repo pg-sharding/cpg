@@ -4105,6 +4105,31 @@ include_dir 'conf.d'
       </listitem>
      </varlistentry>
 
+     <varlistentry id="guc-archive-status-report-interval" xreflabel="archive_status_report_interval">
+      <term><varname>archive_status_report_interval</varname> (<type>integer</type>)
+      <indexterm>
+       <primary><varname>archive_status_report_interval</varname> configuration parameter</primary>
+      </indexterm>
+      </term>
+      <listitem>
+       <para>
+        Sets the minimum interval between checks for changed archive status
+        requested from the upstream server by a standby using
+        <literal>archive_mode = shared</literal>.  The upstream sends a report
+        when the last archived WAL segment changes.  The default is 10 seconds;
+        if specified without units, the value is taken as milliseconds.  The
+        minimum is 10 milliseconds.  Reports are independent of
+        <xref linkend="guc-wal-sender-timeout"/>.
+       </para>
+       <para>
+        This parameter can only be set in the
+        <filename>postgresql.conf</filename> file or on the server command line.
+        The requested interval is sent when the WAL receiver connects, so a
+        changed request takes effect on the next connection to the upstream.
+       </para>
+      </listitem>
+     </varlistentry>
+
      <varlistentry id="guc-archive-command" xreflabel="archive_command">
       <term><varname>archive_command</varname> (<type>string</type>)
       <indexterm>

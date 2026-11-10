@@ -2839,8 +2839,8 @@ psql "dbname=postgres replication=database" -c "IDENTIFY_SYSTEM;"
         </listitem>
        </varlistentry>
 
-       <varlistentry id="protocol-replication-arhive-status-report">
-        <term>WAL archival report message (B)</term>
+       <varlistentry id="protocol-replication-archive-status-report">
+        <term>WAL archival report message (a)</term>
         <listitem>
          <variablelist>
           <varlistentry>
@@ -2856,7 +2856,11 @@ psql "dbname=postgres replication=database" -c "IDENTIFY_SYSTEM;"
            <term>Byte<replaceable>n</replaceable></term>
            <listitem>
             <para>
-             Filename of the latest archived file.
+             Filename of the latest archived WAL segment, without a terminating
+             zero byte.  The message is sent only to physical replication
+             clients that request it with a positive
+             <literal>archive_status_report_interval</literal> startup parameter
+             (in milliseconds).
             </para>
            </listitem>
           </varlistentry>
