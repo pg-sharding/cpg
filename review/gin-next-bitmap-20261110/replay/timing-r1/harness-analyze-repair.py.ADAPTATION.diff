@@ -1,0 +1,35 @@
+--- C11/harness/analyze-repair.py
++++ Bitmap/harness/analyze-repair.py
+@@ -29,19 +29,19 @@
+     blob = (a.run / 'raw.jsonl').read_bytes()
+     assert hashlib.sha256(blob).hexdigest() == status['raw_sha256']
+     rows = [json.loads(line) for line in blob.splitlines()]
+-    assert len(rows) == spec['raw'] // 2 and sum(x['retained'] for x in rows) == spec['retained'] // 2
++    assert len(rows) == spec['raw'] // spec['cohorts'] and sum(x['retained'] for x in rows) == spec['retained'] // spec['cohorts']
+     cases = list(reversed(spec['cases'])) if status['cohort'] else spec['cases']
+     pos = 0
+     groups = collections.defaultdict(list)
+     points = {}
+     io = collections.Counter()
+     for c in cases:
+-        for r in range(spec['retained_rounds'] + 2):
+-            order = spec['orders'][(r if r < 2 else r - 2) % len(spec['orders'])]
++        for r in range(spec['retained_rounds'] + spec['warmups']):
++            order = spec['orders'][(r if r < spec['warmups'] else r - spec['warmups']) % len(spec['orders'])]
+             for index, role in enumerate(order):
+                 x = rows[pos]
+                 pos += 1
+-                assert (x['cohort'], x['case'], x['kind'], x['round'], x['role'], x['position'], x['order'], x['retained']) == (status['cohort'], c['name'], c['kind'], r, role, index, order, r >= 2)
++                assert (x['cohort'], x['case'], x['kind'], x['round'], x['role'], x['position'], x['order'], x['retained']) == (status['cohort'], c['name'], c['kind'], r, role, index, order, r >= spec['warmups'])
+                 observed = x['observed']
+                 result = json.loads(observed['raw_result'])
+                 if not x['retained']:
+@@ -71,7 +71,7 @@
+         metrics = ['backend_cpu_ms', 'client_wall_ms', 'sql_execution_ms'] if case['kind'] == 'sql' else ['backend_cpu_ms', 'client_wall_ms', 'am_loop_cpu_ms', 'am_loop_wall_ms']
+         for left, right in itertools.combinations(roles, 2):
+             for metric in metrics:
+-                direct = [dict(round=r, left=points[case['name'], r, left, metric], right=points[case['name'], r, right, metric]) for r in range(2, spec['retained_rounds'] + 2)]
++                direct = [dict(round=r, left=points[case['name'], r, left, metric], right=points[case['name'], r, right, metric]) for r in range(spec['warmups'], spec['retained_rounds'] + spec['warmups'])]
+                 pairs.append(dict(case=case['name'], kind=case['kind'], left=left, right=right, metric=metric,
+                                   direct=direct,
+                                   percent=spread([100 * (x['right'] / x['left'] - 1) for x in direct]),

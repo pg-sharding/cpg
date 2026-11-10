@@ -1,0 +1,80 @@
+--- C11/campaign.py
++++ Bitmap/campaign.py
+@@ -48,9 +48,9 @@
+     parser = argparse.ArgumentParser(description=__doc__)
+     parser.add_argument('--build', type=pathlib.Path, required=True)
+     parser.add_argument('--output', type=pathlib.Path, required=True)
+-    parser.add_argument('--first-port', type=int, default=45400)
+-    parser.add_argument('--mode', choices=['qualify', 'screen', 'full'], default='screen')
+-    parser.add_argument('--qualified-from', type=pathlib.Path, help='Previously PASS qualification in this own namespace; seed/modules read-only, no repeat qualification')
++    parser.add_argument('--first-port', type=int, default=45500)
++    parser.add_argument('--mode', choices=['qualify'], default='qualify')
++    parser.set_defaults(qualified_from=None)
+     args = parser.parse_args()
+     protocol = campaign_plan(args.mode)
+     ROLES = protocol['roles']
+@@ -60,7 +60,7 @@
+     assert {0, 4} <= os.sched_getaffinity(0)
+     receipt = bc.checked_build(args.build)
+     prefixes = {name: pathlib.Path(item['prefix']) for name, item in receipt['variants'].items()}
+-    final_source = json.loads((args.build / 'C11_assert-source-inventory.json').read_text())
++    final_source = json.loads((args.build / 'Bitmap_assert-source-inventory.json').read_text())
+     assert bc.inventory(pathlib.Path(receipt['common_source'])) == final_source
+     state = dict(status='RUNNING', phase='seed', build_receipt_sha256=bc.sha(args.build / 'build-receipt.json'),
+                  source_plan_sha256=receipt['source_plan_sha256'], mode=args.mode, host_before=host(),
+@@ -198,7 +198,7 @@
+             prepared_queries = ['common & rare0', 'common & rare1', 'common & group17',
+                                 'dense2 & dense3', 'common', 'common | rare0',
+                                 'dense2 <-> rare0', 'missing']
+-            for ix, variant in enumerate(['B','C9','C10','C11','C11_assert']):
++            for ix, variant in enumerate(['B','Bitmap','Bitmap_assert']):
+                 label = 'qual-' + variant
+                 item, dsn = start(label, variant, clone(label), 0, args.first_port + 1 + ix)
+                 s = session(label, variant, dsn)
+@@ -206,7 +206,7 @@
+                               postgres_sha256=receipt['variants'][variant]['postgres_sha256'],
+                               cases={}, prepared={}, asserts=s.sql('SHOW debug_assertions'))
+                 try:
+-                    assert (result['asserts'] == 'on') == (variant == 'C11_assert')
++                    assert (result['asserts'] == 'on') == (variant == 'Bitmap_assert')
+                     for case in cases:
+                         s.sql(reset + seq)
+                         query = 'SELECT id FROM (' + case['rows_sql'] + ') q ORDER BY id'
+@@ -242,6 +242,26 @@
+                                                        repeated_cached_execution_equal=True)
+                     s.sql('DEALLOCATE ordinary_gin')
+                     result['micro'] = qualify_micro(s, micro_cases())
++                    result['lossy_prefix'] = {}
++                    for pname, predicate, count, scalar in [
++                            ('prefix_all', 'group:*', 200000, '200000|20000100000'),
++                            ('prefix_and', 'group:* & rare0', 200, '200|20100000')]:
++                        rows_sql = "SELECT id FROM g1.docs WHERE d @@ '" + predicate + "'::tsquery ORDER BY id"
++                        aggregate = "SELECT count(*),sum(id) FROM g1.docs WHERE d @@ '" + predicate + "'::tsquery"
++                        s.sql(reset + seq)
++                        ref = s.sql(rows_sql)
++                        assert digest(ref)['rows'] == count and s.sql(aggregate) == scalar
++                        s.sql(gin + "SET work_mem='64kB'")
++                        actual = s.sql(rows_sql)
++                        assert actual == ref and s.sql(aggregate) == scalar
++                        plan = s.json('EXPLAIN(ANALYZE,BUFFERS,TIMING OFF,FORMAT JSON) ' + aggregate)[0]
++                        assert any(x.get('Index Name') == 'docs_d_gin' for x in nodes(plan['Plan']))
++                        lossy = sum(x.get('Lossy Heap Blocks', 0) for x in nodes(plan['Plan']))
++                        if pname == 'prefix_all':
++                            assert lossy > 0, (variant, pname, 'required actual lossy heap path')
++                        result['lossy_prefix'][pname] = dict(**digest(actual), literal_answer=scalar,
++                                work_mem='64kB', plan=plan, lossy_heap_blocks=lossy)
++                    s.sql(reset)
+                     result['backend_pid'] = s.pid
+                     result['status'] = 'PASS'
+                 finally:
+@@ -251,8 +271,8 @@
+                 qualifications[variant] = dict(path=str(out / (label + '.json')),
+                                                 sha256=bc.sha(out / (label + '.json')))
+             bc.save(out / 'qualification-summary.json', dict(status='PASS', variants=qualifications,
+-                    ordered_seq_gin_comparisons=125, frozen_scalar_checks=125,
+-                    prepared_seq_gin_comparisons=40, reference=reference,
++                    ordered_seq_gin_comparisons=75, frozen_scalar_checks=75,
++                    prepared_seq_gin_comparisons=24, reference=reference,
+                     reference_rows_per_variant=sum(x['rows'] for x in reference.values())))
+ 
+         for cohort in range(protocol['cohorts']):

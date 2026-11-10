@@ -1,0 +1,49 @@
+UNSENT DRAFT
+Subject: [WIP] GIN partial-match bitmap offsets: bounded upper-bound prototype and negative SQL screen
+
+Hi,
+
+I tried replacing longer linear advances through the uint16 matchBitmap
+page offsets in entryGetItem with galloping and upper-bound search. The
+existing last-offset page fast path remains first; skips of zero or one
+stay on a short path. Posting-list ItemPointer advancement, lossy pages
+and the existing fuzzy/RNG placement are unchanged. This is an independent
+prototype on fixed B72, not a series with the C11 or OR heap experiments.
+
+The source is cc5c47d525e01a7eb6af7b6d6fed66fcbde5d7f9. The contribution is
+the separate matchBitmap offset path and its bounded valid-input and real-AM
+measurements, not a novelty claim for galloping or upper-bound search. For
+broader GIN scan optimization context, see Heikki Linnakangas's discussion:
+https://www.postgresql.org/message-id/52F373CC.4050800%40vmware.com
+
+Three fresh matched full builds passed 239 core regression tests and the
+posting-list test each, including an assert candidate. The normal/UBSan
+valid-offset oracle agreed on 350,600,292 caller cases and 268,681,332 helper
+cases. The ordinary/prefix gate compared frozen scalar answers and ordered
+Seq/GIN multisets, prepared rescans and real index_rescan/index_getbitmap
+calls. Low-memory prefix SQL actually produced lossy heap pages.
+
+The fixed 12-case screen used B, an exact B executable twin, and candidate,
+with two CPU/clone placements, two warm and six retained rounds: 576 raw /
+432 retained / 144 warm commands. Results are mixed. Prefix rare0 actual-AM
+CPU changed by -0.98% / -1.24%, and full-prefix AM CPU by -0.15% / -0.06%.
+Full-prefix SQL executor regressed +1.62% / +1.61%; prefix rare3 regressed
++1.89% / +6.53%. Low-memory prefix executor improved -1.46% / -2.09%.
+
+The off-path controls matter: OR executor was +1.59% / +3.45% and Seq was
++8.44% / +3.24%; exact twin Seq drift was +2.47% / +1.21%. These controls
+and the small AM changes preclude a general SQL or source-causal claim.
+I have not rerun, trimmed, normalized or retuned the candidate after seeing
+these results. This screen does not select the patch as a general upgrade.
+
+The attached/referenced packet retains absolute process CPU, client wall,
+AM CPU/wall and executor times with min/median/max/mean/sample SD/MAD, every
+direct comparison, full raw plans, code, setup and standalone reproduction
+commands. It distinguishes an extracted-fragment micro from real-AM/SQL
+results and original Linux execution from later offline/static replay checks.
+All owned clusters stopped, and source/install/module/seed hashes remained
+unchanged. This is bounded serial synthetic coverage, not concurrency or
+general merge qualification. No second-host or write-operation claim is
+made for this prototype.
+
+Regards,

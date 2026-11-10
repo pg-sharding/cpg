@@ -1,0 +1,179 @@
+{
+  "status": "PASS",
+  "phase": "ordinary-qualification",
+  "build_receipt_sha256": "eb5557247cede4bc6b10d7f3072e7a10c6cd8db03ba3bd0dc0e3549e70c78f9b",
+  "source_plan_sha256": "2d43a96ce06249889d1682d6889538585e8b857ee44694c1578e739927d6dbc6",
+  "mode": "qualify",
+  "host_before": {
+    "uname": [
+      "Linux",
+      "pgfuzz",
+      "6.8.0-147-generic",
+      "#147-Ubuntu SMP PREEMPT_DYNAMIC Thu Sep 24 11:33:16 UTC 2026",
+      "x86_64"
+    ],
+    "load": [
+      1.77734375,
+      1.53466796875,
+      1.32421875
+    ],
+    "affinity": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
+    ],
+    "memory": {
+      "MemTotal": "16374616 kB",
+      "MemAvailable": "13406464 kB",
+      "SwapTotal": "0 kB",
+      "SwapFree": "0 kB"
+    },
+    "cpu_topology": "CPU CORE SOCKET ONLINE\n  0    0      0    yes\n  1    0      0    yes\n  2    1      0    yes\n  3    1      0    yes\n  4    2      0    yes\n  5    2      0    yes\n  6    3      0    yes\n  7    3      0    yes\n",
+    "realtime_ns": 1794322473897060765
+  },
+  "clusters": [
+    {
+      "label": "seed",
+      "variant": "B",
+      "prefix": "/home/reshke/allfuzz/gin-next-c11-bitmap-20261110/bitmap-build/stage-B/home/reshke/allfuzz/gin-next-c11-bitmap-20261110/bitmap-build/prefix",
+      "data": "/home/reshke/allfuzz/gin-next-c11-bitmap-20261110/bq-r1/seed",
+      "socket": "/home/reshke/allfuzz/gin-next-c11-bitmap-20261110/bq-r1/s-seed",
+      "port": 45500,
+      "server_cpu": 0,
+      "before_ns": 1794322475068578319,
+      "pid": 373564,
+      "ready_ns": 1794322475349971393,
+      "stopped": true,
+      "stop_proof": {
+        "pg_ctl_status_rc": 3,
+        "cluster_state": "shut down",
+        "pidfile_absent": true
+      },
+      "stopped_ns": 1794322477992775416
+    },
+    {
+      "label": "qual-B",
+      "variant": "B",
+      "prefix": "/home/reshke/allfuzz/gin-next-c11-bitmap-20261110/bitmap-build/stage-B/home/reshke/allfuzz/gin-next-c11-bitmap-20261110/bitmap-build/prefix",
+      "data": "/home/reshke/allfuzz/gin-next-c11-bitmap-20261110/bq-r1/data-qual-B",
+      "socket": "/home/reshke/allfuzz/gin-next-c11-bitmap-20261110/bq-r1/s-qual-B",
+      "port": 45501,
+      "server_cpu": 0,
+      "before_ns": 1794322482184517716,
+      "pid": 373692,
+      "ready_ns": 1794322482440753965,
+      "stopped": true,
+      "stop_proof": {
+        "pg_ctl_status_rc": 3,
+        "cluster_state": "shut down",
+        "pidfile_absent": true
+      },
+      "stopped_ns": 1794322494556402404
+    },
+    {
+      "label": "qual-Bitmap",
+      "variant": "Bitmap",
+      "prefix": "/home/reshke/allfuzz/gin-next-c11-bitmap-20261110/bitmap-build/stage-Bitmap/home/reshke/allfuzz/gin-next-c11-bitmap-20261110/bitmap-build/prefix",
+      "data": "/home/reshke/allfuzz/gin-next-c11-bitmap-20261110/bq-r1/data-qual-Bitmap",
+      "socket": "/home/reshke/allfuzz/gin-next-c11-bitmap-20261110/bq-r1/s-qual-Bitmap",
+      "port": 45502,
+      "server_cpu": 0,
+      "before_ns": 1794322499212890758,
+      "pid": 374136,
+      "ready_ns": 1794322499482225269,
+      "stopped": true,
+      "stop_proof": {
+        "pg_ctl_status_rc": 3,
+        "cluster_state": "shut down",
+        "pidfile_absent": true
+      },
+      "stopped_ns": 1794322511737106027
+    },
+    {
+      "label": "qual-Bitmap_assert",
+      "variant": "Bitmap_assert",
+      "prefix": "/home/reshke/allfuzz/gin-next-c11-bitmap-20261110/bitmap-build/stage-Bitmap_assert/home/reshke/allfuzz/gin-next-c11-bitmap-20261110/bitmap-build/prefix",
+      "data": "/home/reshke/allfuzz/gin-next-c11-bitmap-20261110/bq-r1/data-qual-Bitmap_assert",
+      "socket": "/home/reshke/allfuzz/gin-next-c11-bitmap-20261110/bq-r1/s-qual-Bitmap_assert",
+      "port": 45503,
+      "server_cpu": 0,
+      "before_ns": 1794322516951240978,
+      "pid": 374551,
+      "ready_ns": 1794322517254495596,
+      "stopped": true,
+      "stop_proof": {
+        "pg_ctl_status_rc": 3,
+        "cluster_state": "shut down",
+        "pidfile_absent": true
+      },
+      "stopped_ns": 1794322529510738751
+    }
+  ],
+  "cleanup": [
+    {
+      "label": "seed",
+      "pg_ctl_status_rc": 3,
+      "cluster_state": "shut down",
+      "pidfile_absent": true
+    },
+    {
+      "label": "qual-B",
+      "pg_ctl_status_rc": 3,
+      "cluster_state": "shut down",
+      "pidfile_absent": true
+    },
+    {
+      "label": "qual-Bitmap",
+      "pg_ctl_status_rc": 3,
+      "cluster_state": "shut down",
+      "pidfile_absent": true
+    },
+    {
+      "label": "qual-Bitmap_assert",
+      "pg_ctl_status_rc": 3,
+      "cluster_state": "shut down",
+      "pidfile_absent": true
+    }
+  ],
+  "timing_samples": 0,
+  "full_source_unchanged": true,
+  "actual_am_module_unchanged": true,
+  "raw": 0,
+  "retained": 0,
+  "warm": 0,
+  "host_after": {
+    "uname": [
+      "Linux",
+      "pgfuzz",
+      "6.8.0-147-generic",
+      "#147-Ubuntu SMP PREEMPT_DYNAMIC Thu Sep 24 11:33:16 UTC 2026",
+      "x86_64"
+    ],
+    "load": [
+      2.77099609375,
+      1.85986328125,
+      1.44970703125
+    ],
+    "affinity": [
+      4
+    ],
+    "memory": {
+      "MemTotal": "16374616 kB",
+      "MemAvailable": "13388836 kB",
+      "SwapTotal": "0 kB",
+      "SwapFree": "0 kB"
+    },
+    "cpu_topology": "CPU CORE SOCKET ONLINE\n  0    0      0    yes\n  1    0      0    yes\n  2    1      0    yes\n  3    1      0    yes\n  4    2      0    yes\n  5    2      0    yes\n  6    3      0    yes\n  7    3      0    yes\n",
+    "realtime_ns": 1794322531633580419
+  },
+  "fixture_unchanged": true,
+  "installed_trees_unchanged": true,
+  "frozen_runtime_unchanged": true,
+  "finished_ns": 1794322531633584195,
+  "cleanup_errors": []
+}

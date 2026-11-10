@@ -1,0 +1,197 @@
+{
+  "mode": "screen",
+  "roles": [
+    "B",
+    "T",
+    "Bitmap"
+  ],
+  "cases": [
+    {
+      "name": "prefix_rare0",
+      "kind": "sql",
+      "settings": "SET enable_seqscan=off;SET enable_bitmapscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET work_mem='64MB';",
+      "index": "docs_d_gin",
+      "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'group:* & rare0'::tsquery",
+      "sql": "SELECT count(*),sum(id) FROM g1.docs WHERE d @@ 'group:* & rare0'::tsquery",
+      "expected_rows_digest": {
+        "rows": 200,
+        "bytes": 1291,
+        "sha256": "b05b2c6b15a2bc723fdb05fa27bce6aba0af0f48fac98da90bae71bce33caa5c"
+      },
+      "answer": "200|20100000",
+      "require_lossy_heap": false
+    },
+    {
+      "name": "prefix_rare3",
+      "kind": "sql",
+      "settings": "SET enable_seqscan=off;SET enable_bitmapscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET work_mem='64MB';",
+      "index": "docs_d_gin",
+      "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'group:* & rare3'::tsquery",
+      "sql": "SELECT count(*),sum(id) FROM g1.docs WHERE d @@ 'group:* & rare3'::tsquery",
+      "expected_rows_digest": {
+        "rows": 11764,
+        "bytes": 75814,
+        "sha256": "eaf90c571710b7467a1305939ce07b4948d1278103ba85c090e3464434f8146f"
+      },
+      "answer": "11764|1176429410",
+      "require_lossy_heap": false
+    },
+    {
+      "name": "prefix_all",
+      "kind": "sql",
+      "settings": "SET enable_seqscan=off;SET enable_bitmapscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET work_mem='64MB';",
+      "index": "docs_d_gin",
+      "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'group:*'::tsquery",
+      "sql": "SELECT count(*),sum(id) FROM g1.docs WHERE d @@ 'group:*'::tsquery",
+      "expected_rows_digest": {
+        "rows": 200000,
+        "bytes": 1288894,
+        "sha256": "01b59173dc3205893607560d9f6caca711aa6c0f3303db7bbccb99552a9fc33a"
+      },
+      "answer": "200000|20000100000",
+      "require_lossy_heap": false
+    },
+    {
+      "name": "prefix_lossy",
+      "kind": "sql",
+      "settings": "SET enable_seqscan=off;SET enable_bitmapscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET work_mem='64kB';",
+      "index": "docs_d_gin",
+      "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'group:*'::tsquery",
+      "sql": "SELECT count(*),sum(id) FROM g1.docs WHERE d @@ 'group:*'::tsquery",
+      "expected_rows_digest": {
+        "rows": 200000,
+        "bytes": 1288894,
+        "sha256": "01b59173dc3205893607560d9f6caca711aa6c0f3303db7bbccb99552a9fc33a"
+      },
+      "answer": "200000|20000100000",
+      "require_lossy_heap": true
+    },
+    {
+      "name": "or_forced",
+      "table": "docs",
+      "predicate": "d @@ 'common | rare0'::tsquery",
+      "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'common | rare0'::tsquery",
+      "sql": "SELECT sum(q.n) FROM generate_series(1,5) p(i) CROSS JOIN LATERAL (SELECT count(*) n FROM g1.docs WHERE d @@ 'common | rare0'::tsquery OFFSET (p.i % 1)) q",
+      "settings": "SET enable_seqscan=off;",
+      "index": "docs_d_gin",
+      "role": "forced negative",
+      "probes": 5,
+      "kind": "sql"
+    },
+    {
+      "name": "inline",
+      "table": "inline_docs",
+      "predicate": "d @@ 'common & token17'::tsquery",
+      "rows_sql": "SELECT id FROM g1.inline_docs WHERE d @@ 'common & token17'::tsquery",
+      "sql": "SELECT sum(q.n) FROM generate_series(1,100) p(i) CROSS JOIN LATERAL (SELECT count(*) n FROM g1.inline_docs WHERE d @@ 'common & token17'::tsquery OFFSET (p.i % 1)) q",
+      "settings": "SET enable_seqscan=off;",
+      "index": "inline_d_gin",
+      "role": "short inline negative",
+      "probes": 100,
+      "kind": "sql"
+    },
+    {
+      "name": "seq_control",
+      "table": "docs",
+      "predicate": "id % 1000 = 0",
+      "rows_sql": "SELECT id FROM g1.docs WHERE id % 1000 = 0",
+      "sql": "SELECT sum(q.n) FROM generate_series(1,5) p(i) CROSS JOIN LATERAL (SELECT count(*) n FROM g1.docs WHERE id % 1000 = 0 OFFSET (p.i % 1)) q",
+      "settings": "SET enable_bitmapscan=off;SET enable_indexscan=off;",
+      "index": null,
+      "role": "off-path control",
+      "probes": 5,
+      "kind": "sql"
+    },
+    {
+      "name": "absent",
+      "table": "docs",
+      "predicate": "d @@ 'common & missing'::tsquery",
+      "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'common & missing'::tsquery",
+      "sql": "SELECT sum(q.n) FROM generate_series(1,100) p(i) CROSS JOIN LATERAL (SELECT count(*) n FROM g1.docs WHERE d @@ 'common & missing'::tsquery OFFSET(p.i%1))q",
+      "settings": "",
+      "index": "docs_d_gin",
+      "role": "unmeasured holdout frozen after histogram and before release timing",
+      "probes": 100,
+      "kind": "sql"
+    },
+    {
+      "name": "am_prefix_sparse",
+      "kind": "am",
+      "settings": "",
+      "index": "docs_d_gin",
+      "query": "group1:* & rare0",
+      "loops": 2,
+      "tids_per_scan": 53,
+      "sql": "SELECT public.gin_am_micro('g1.docs_d_gin'::regclass, 'group1:* & rare0'::tsquery, 2)"
+    },
+    {
+      "name": "am_prefix_rare0",
+      "kind": "am",
+      "settings": "",
+      "index": "docs_d_gin",
+      "query": "group:* & rare0",
+      "loops": 2,
+      "tids_per_scan": 200,
+      "sql": "SELECT public.gin_am_micro('g1.docs_d_gin'::regclass, 'group:* & rare0'::tsquery, 2)"
+    },
+    {
+      "name": "am_prefix_rare3",
+      "kind": "am",
+      "settings": "",
+      "index": "docs_d_gin",
+      "query": "group:* & rare3",
+      "loops": 2,
+      "tids_per_scan": 11764,
+      "sql": "SELECT public.gin_am_micro('g1.docs_d_gin'::regclass, 'group:* & rare3'::tsquery, 2)"
+    },
+    {
+      "name": "am_prefix_all",
+      "kind": "am",
+      "settings": "",
+      "index": "docs_d_gin",
+      "query": "group:*",
+      "loops": 2,
+      "tids_per_scan": 200000,
+      "sql": "SELECT public.gin_am_micro('g1.docs_d_gin'::regclass, 'group:*'::tsquery, 2)"
+    }
+  ],
+  "orders": [
+    [
+      "B",
+      "T",
+      "Bitmap"
+    ],
+    [
+      "T",
+      "Bitmap",
+      "B"
+    ],
+    [
+      "Bitmap",
+      "B",
+      "T"
+    ],
+    [
+      "Bitmap",
+      "T",
+      "B"
+    ],
+    [
+      "B",
+      "Bitmap",
+      "T"
+    ],
+    [
+      "T",
+      "B",
+      "Bitmap"
+    ]
+  ],
+  "warmups": 2,
+  "retained_rounds": 6,
+  "cohorts": 2,
+  "raw": 576,
+  "retained": 432,
+  "warm": 144,
+  "timing": "New independent candidate campaign; B/T exact ELF; keep cohorts/metrics/negatives separate, no trimming or normalization. Smoke has zero accepted samples; no automatic promotion."
+}
