@@ -1,0 +1,67 @@
+--- C11/campaign.py
++++ Heap/campaign.py
+@@ -48,9 +48,9 @@
+     parser = argparse.ArgumentParser(description=__doc__)
+     parser.add_argument('--build', type=pathlib.Path, required=True)
+     parser.add_argument('--output', type=pathlib.Path, required=True)
+-    parser.add_argument('--first-port', type=int, default=45400)
+-    parser.add_argument('--mode', choices=['qualify', 'screen', 'full'], default='screen')
+-    parser.add_argument('--qualified-from', type=pathlib.Path, help='Previously PASS qualification in this own namespace; seed/modules read-only, no repeat qualification')
++    parser.add_argument('--first-port', type=int, default=45600)
++    parser.add_argument('--mode', choices=['smoke', 'screen'], default='screen')
++    parser.add_argument('--qualified-from', type=pathlib.Path, required=True, help='Previously PASS qualification in this own namespace; seed/modules read-only, no repeat qualification')
+     args = parser.parse_args()
+     protocol = campaign_plan(args.mode)
+     ROLES = protocol['roles']
+@@ -60,7 +60,7 @@
+     assert {0, 4} <= os.sched_getaffinity(0)
+     receipt = bc.checked_build(args.build)
+     prefixes = {name: pathlib.Path(item['prefix']) for name, item in receipt['variants'].items()}
+-    final_source = json.loads((args.build / 'C11_assert-source-inventory.json').read_text())
++    final_source = json.loads((args.build / 'Heap_assert-source-inventory.json').read_text())
+     assert bc.inventory(pathlib.Path(receipt['common_source'])) == final_source
+     state = dict(status='RUNNING', phase='seed', build_receipt_sha256=bc.sha(args.build / 'build-receipt.json'),
+                  source_plan_sha256=receipt['source_plan_sha256'], mode=args.mode, host_before=host(),
+@@ -198,7 +198,7 @@
+             prepared_queries = ['common & rare0', 'common & rare1', 'common & group17',
+                                 'dense2 & dense3', 'common', 'common | rare0',
+                                 'dense2 <-> rare0', 'missing']
+-            for ix, variant in enumerate(['B','C9','C10','C11','C11_assert']):
++            for ix, variant in enumerate(['B','Heap','Heap_assert']):
+                 label = 'qual-' + variant
+                 item, dsn = start(label, variant, clone(label), 0, args.first_port + 1 + ix)
+                 s = session(label, variant, dsn)
+@@ -206,7 +206,7 @@
+                               postgres_sha256=receipt['variants'][variant]['postgres_sha256'],
+                               cases={}, prepared={}, asserts=s.sql('SHOW debug_assertions'))
+                 try:
+-                    assert (result['asserts'] == 'on') == (variant == 'C11_assert')
++                    assert (result['asserts'] == 'on') == (variant == 'Heap_assert')
+                     for case in cases:
+                         s.sql(reset + seq)
+                         query = 'SELECT id FROM (' + case['rows_sql'] + ') q ORDER BY id'
+@@ -251,8 +251,8 @@
+                 qualifications[variant] = dict(path=str(out / (label + '.json')),
+                                                 sha256=bc.sha(out / (label + '.json')))
+             bc.save(out / 'qualification-summary.json', dict(status='PASS', variants=qualifications,
+-                    ordered_seq_gin_comparisons=125, frozen_scalar_checks=125,
+-                    prepared_seq_gin_comparisons=40, reference=reference,
++                    ordered_seq_gin_comparisons=75, frozen_scalar_checks=75,
++                    prepared_seq_gin_comparisons=24, reference=reference,
+                     reference_rows_per_variant=sum(x['rows'] for x in reference.values())))
+ 
+         for cohort in range(protocol['cohorts']):
+@@ -288,9 +288,10 @@
+                 bc.run(['python3', '-B', HERE / 'harness/run.py', '--runtime', runtime_path,
+                         '--cohort', cohort, '--out-new', out / ('cohort' + str(cohort))],
+                        out / ('cohort' + str(cohort) + '-run.log'), timeout=14400)
+-                bc.run(['python3', '-B', HERE / 'harness/analyze-repair.py', out / ('cohort' + str(cohort)),
+-                        out / ('analysis' + str(cohort))], out / ('cohort' + str(cohort) + '-analyze.log'))
+-                state['timing_samples'] += protocol['raw'] // 2
++                if protocol['retained_rounds']:
++                    bc.run(['python3', '-B', HERE / 'harness/analyze-repair.py', out / ('cohort' + str(cohort)),
++                            out / ('analysis' + str(cohort))], out / ('cohort' + str(cohort) + '-analyze.log'))
++                state['timing_samples'] += protocol['raw'] // protocol['cohorts']
+             finally:
+                 for item in reversed(current):
+                     stop(item)

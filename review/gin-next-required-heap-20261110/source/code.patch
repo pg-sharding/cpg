@@ -1,0 +1,218 @@
+From 03dff8bfa5075e5838c7fbffc712d0b79d03f13d Mon Sep 17 00:00:00 2001
+From: root <localhost>
+Date: Tue, 10 Nov 2026 19:24:40 +0500
+Subject: [PATCH] Use cached lower bounds for wide GIN required-entry heaps
+
+---
+ src/backend/access/gin/ginget.c  | 129 ++++++++++++++++++++++++++-----
+ src/backend/access/gin/ginscan.c |   1 +
+ src/include/access/gin_private.h |   8 ++
+ 3 files changed, 118 insertions(+), 20 deletions(-)
+
+diff --git a/src/backend/access/gin/ginget.c b/src/backend/access/gin/ginget.c
+index b70ea5071d9..933d14f4f6d 100644
+--- a/src/backend/access/gin/ginget.c
++++ b/src/backend/access/gin/ginget.c
+@@ -534,6 +534,26 @@ entryIndexByFrequencyCmp(const void *a1, const void *a2, void *arg)
+ 		return 1;
+ }
+ 
++/* Sift a node down; cached bounds are only raised during scans. */
++static void
++ginRequiredHeapSiftDown(GinRequiredHeapItem *heap, int count, int root)
++{
++	GinRequiredHeapItem item = heap[root];
++	int			child;
++
++	while ((child = root * 2 + 1) < count)
++	{
++		if (child + 1 < count &&
++			ginCompareItemPointers(&heap[child + 1].item, &heap[child].item) < 0)
++			child++;
++		if (ginCompareItemPointers(&item.item, &heap[child].item) <= 0)
++			break;
++		heap[root] = heap[child];
++		root = child;
++	}
++	heap[root] = item;
++}
++
+ static void
+ startScanKey(GinState *ginstate, GinScanOpaque so, GinScanKey key)
+ {
+@@ -630,6 +650,25 @@ startScanKey(GinState *ginstate, GinScanOpaque so, GinScanKey key)
+ 		key->requiredEntries = palloc_array(GinScanEntry, 1);
+ 		key->requiredEntries[0] = key->scanEntry[0];
+ 	}
++	/* Tiny keys and fuzzy result reduction retain their existing scan order. */
++	key->requiredHeap = NULL;
++	if (key->nrequired >= 8 && GinFuzzySearchLimit == 0)
++	{
++		MemoryContextSwitchTo(so->keyCtx);
++		key->requiredHeap = palloc_array(GinRequiredHeapItem, key->nrequired);
++		for (int i = 0; i < key->nrequired; i++)
++		{
++			GinScanEntry entry = key->requiredEntries[i];
++
++			key->requiredHeap[i].entry = entry;
++			if (entry->isFinished)
++				ItemPointerSetMax(&key->requiredHeap[i].item);
++			else
++				key->requiredHeap[i].item = entry->curItem;
++		}
++		for (int i = key->nrequired / 2; i > 0; i--)
++			ginRequiredHeapSiftDown(key->requiredHeap, key->nrequired, i - 1);
++	}
+ 	MemoryContextSwitchTo(oldCtx);
+ }
+ 
+@@ -1012,6 +1051,51 @@ entryGetItem(GinState *ginstate, GinScanEntry entry,
+ 	}
+ }
+ 
++/*
++ * Every cached item is a lower bound on its entry's current position.  An
++ * entry can also be advanced by another scan key, so never order this heap
++ * by dereferencing mutable entries.  Repair stale roots before using them.
++ */
++static bool
++ginRequiredHeapGetItem(GinState *ginstate, GinScanKey key,
++					   ItemPointerData advancePast, ItemPointerData *minItem)
++{
++	GinRequiredHeapItem *heap = key->requiredHeap;
++
++	for (;;)
++	{
++		GinScanEntry entry = heap[0].entry;
++		ItemPointerData current;
++
++		CHECK_FOR_INTERRUPTS();
++		if (entry->isFinished)
++			ItemPointerSetMax(&current);
++		else
++			current = entry->curItem;
++		Assert(ginCompareItemPointers(&heap[0].item, &current) <= 0);
++		if (ginCompareItemPointers(&heap[0].item, &current) != 0)
++		{
++			heap[0].item = current;
++			ginRequiredHeapSiftDown(heap, key->nrequired, 0);
++			continue;
++		}
++		if (entry->isFinished)
++			return false;
++		if (ginCompareItemPointers(&current, &advancePast) > 0)
++		{
++			*minItem = current;
++			return true;
++		}
++
++		entryGetItem(ginstate, entry, advancePast);
++		if (entry->isFinished)
++			ItemPointerSetMax(&heap[0].item);
++		else
++			heap[0].item = entry->curItem;
++		ginRequiredHeapSiftDown(heap, key->nrequired, 0);
++	}
++}
++
+ /*
+  * Identify the "current" item among the input entry streams for this scan key
+  * that is greater than advancePast, and test whether it passes the scan key
+@@ -1064,31 +1148,36 @@ keyGetItem(GinState *ginstate, MemoryContext tempCtx, GinScanKey key,
+ 	 * pointers, which is good.
+ 	 */
+ 	ItemPointerSetMax(&minItem);
+-	allFinished = true;
+-	for (int i = 0; i < key->nrequired; i++)
++	if (key->requiredHeap)
++		allFinished = !ginRequiredHeapGetItem(ginstate, key, advancePast, &minItem);
++	else
+ 	{
+-		entry = key->requiredEntries[i];
+-
+-		if (entry->isFinished)
+-			continue;
+-
+-		/*
+-		 * Advance this stream if necessary.
+-		 *
+-		 * In particular, since entry->curItem was initialized with
+-		 * ItemPointerSetMin, this ensures we fetch the first item for each
+-		 * entry on the first call.
+-		 */
+-		if (ginCompareItemPointers(&entry->curItem, &advancePast) <= 0)
++		allFinished = true;
++		for (int i = 0; i < key->nrequired; i++)
+ 		{
+-			entryGetItem(ginstate, entry, advancePast);
++			entry = key->requiredEntries[i];
++
+ 			if (entry->isFinished)
+ 				continue;
+-		}
+ 
+-		allFinished = false;
+-		if (ginCompareItemPointers(&entry->curItem, &minItem) < 0)
+-			minItem = entry->curItem;
++			/*
++			 * Advance this stream if necessary.
++			 *
++			 * In particular, since entry->curItem was initialized with
++			 * ItemPointerSetMin, this ensures we fetch the first item for each
++			 * entry on the first call.
++			 */
++			if (ginCompareItemPointers(&entry->curItem, &advancePast) <= 0)
++			{
++				entryGetItem(ginstate, entry, advancePast);
++				if (entry->isFinished)
++					continue;
++			}
++
++			allFinished = false;
++			if (ginCompareItemPointers(&entry->curItem, &minItem) < 0)
++				minItem = entry->curItem;
++		}
+ 	}
+ 
+ 	if (allFinished && !key->excludeOnly)
+diff --git a/src/backend/access/gin/ginscan.c b/src/backend/access/gin/ginscan.c
+index 1564b409bdb..96fa9208415 100644
+--- a/src/backend/access/gin/ginscan.c
++++ b/src/backend/access/gin/ginscan.c
+@@ -194,6 +194,7 @@ ginFillScanKey(GinScanOpaque so, OffsetNumber attnum,
+ 	key->nrequired = 0;
+ 	key->nadditional = 0;
+ 	key->requiredEntries = NULL;
++	key->requiredHeap = NULL;
+ 	key->additionalEntries = NULL;
+ 
+ 	ginInitConsistentFunction(ginstate, key);
+diff --git a/src/include/access/gin_private.h b/src/include/access/gin_private.h
+index 3c5fd6ba817..0e36b1bc24d 100644
+--- a/src/include/access/gin_private.h
++++ b/src/include/access/gin_private.h
+@@ -262,6 +262,13 @@ typedef struct GinScanKeyData *GinScanKey;
+ 
+ typedef struct GinScanEntryData *GinScanEntry;
+ 
++/* Cached lower bounds remain valid when another key advances a shared entry. */
++typedef struct GinRequiredHeapItem
++{
++	GinScanEntry entry;
++	ItemPointerData item;
++} GinRequiredHeapItem;
++
+ typedef struct GinScanKeyData
+ {
+ 	/* Real number of entries in scanEntry[] (always > 0) */
+@@ -282,6 +289,7 @@ typedef struct GinScanKeyData
+ 	 */
+ 	GinScanEntry *requiredEntries;
+ 	int			nrequired;
++	GinRequiredHeapItem *requiredHeap;
+ 	GinScanEntry *additionalEntries;
+ 	int			nadditional;
+ 
+-- 
+2.50.1 (Apple Git-155)
+

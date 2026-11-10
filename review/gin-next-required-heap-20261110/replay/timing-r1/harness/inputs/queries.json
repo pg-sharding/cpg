@@ -1,0 +1,193 @@
+{
+  "rows": 200000,
+  "probes": 100,
+  "cases": [
+    {
+      "name": "skew1000",
+      "table": "docs",
+      "predicate": "d @@ 'common & rare0'::tsquery",
+      "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'common & rare0'::tsquery",
+      "sql": "SELECT sum(q.n) FROM generate_series(1,100) p(i) CROSS JOIN LATERAL (SELECT count(*) n FROM g1.docs WHERE d @@ to_tsquery('simple','common & rare'||(p.i%2)::text) OFFSET 0) q",
+      "settings": "",
+      "index": "docs_d_gin",
+      "role": "query",
+      "probes": 100
+    },
+    {
+      "name": "skew127",
+      "table": "docs",
+      "predicate": "d @@ 'common & rare2'::tsquery",
+      "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'common & rare2'::tsquery",
+      "sql": "SELECT sum(q.n) FROM generate_series(1,100) p(i) CROSS JOIN LATERAL (SELECT count(*) n FROM g1.docs WHERE d @@ 'common & rare2'::tsquery OFFSET (p.i % 1)) q",
+      "settings": "",
+      "index": "docs_d_gin",
+      "role": "query",
+      "probes": 100
+    },
+    {
+      "name": "skew17",
+      "table": "docs",
+      "predicate": "d @@ 'common & rare3'::tsquery",
+      "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'common & rare3'::tsquery",
+      "sql": "SELECT sum(q.n) FROM generate_series(1,25) p(i) CROSS JOIN LATERAL (SELECT count(*) n FROM g1.docs WHERE d @@ 'common & rare3'::tsquery OFFSET (p.i % 1)) q",
+      "settings": "",
+      "index": "docs_d_gin",
+      "role": "query",
+      "probes": 25
+    },
+    {
+      "name": "separate_keys",
+      "table": "docs",
+      "predicate": "d @@ 'common'::tsquery AND d @@ 'rare0'::tsquery",
+      "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'common'::tsquery AND d @@ 'rare0'::tsquery",
+      "sql": "SELECT sum(q.n) FROM generate_series(1,100) p(i) CROSS JOIN LATERAL (SELECT count(*) n FROM g1.docs WHERE d @@ 'common'::tsquery AND d @@ 'rare0'::tsquery OFFSET (p.i % 1)) q",
+      "settings": "",
+      "index": "docs_d_gin",
+      "role": "query",
+      "probes": 100
+    },
+    {
+      "name": "dense_and",
+      "table": "docs",
+      "predicate": "d @@ 'dense2 & dense3'::tsquery",
+      "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'dense2 & dense3'::tsquery",
+      "sql": "SELECT sum(q.n) FROM generate_series(1,10) p(i) CROSS JOIN LATERAL (SELECT count(*) n FROM g1.docs WHERE d @@ 'dense2 & dense3'::tsquery OFFSET (p.i % 1)) q",
+      "settings": "",
+      "index": "docs_d_gin",
+      "role": "query",
+      "probes": 10
+    },
+    {
+      "name": "or_forced",
+      "table": "docs",
+      "predicate": "d @@ 'common | rare0'::tsquery",
+      "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'common | rare0'::tsquery",
+      "sql": "SELECT sum(q.n) FROM generate_series(1,5) p(i) CROSS JOIN LATERAL (SELECT count(*) n FROM g1.docs WHERE d @@ 'common | rare0'::tsquery OFFSET (p.i % 1)) q",
+      "settings": "SET enable_seqscan=off;",
+      "index": "docs_d_gin",
+      "role": "forced negative",
+      "probes": 5
+    },
+    {
+      "name": "single_forced",
+      "table": "docs",
+      "predicate": "d @@ 'common'::tsquery",
+      "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'common'::tsquery",
+      "sql": "SELECT sum(q.n) FROM generate_series(1,5) p(i) CROSS JOIN LATERAL (SELECT count(*) n FROM g1.docs WHERE d @@ 'common'::tsquery OFFSET (p.i % 1)) q",
+      "settings": "SET enable_seqscan=off;",
+      "index": "docs_d_gin",
+      "role": "forced negative",
+      "probes": 5
+    },
+    {
+      "name": "single_rare",
+      "table": "docs",
+      "predicate": "d @@ 'rare0'::tsquery",
+      "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'rare0'::tsquery",
+      "sql": "SELECT sum(q.n) FROM generate_series(1,100) p(i) CROSS JOIN LATERAL (SELECT count(*) n FROM g1.docs WHERE d @@ 'rare0'::tsquery OFFSET (p.i % 1)) q",
+      "settings": "",
+      "index": "docs_d_gin",
+      "role": "negative",
+      "probes": 100
+    },
+    {
+      "name": "inline",
+      "table": "inline_docs",
+      "predicate": "d @@ 'common & token17'::tsquery",
+      "rows_sql": "SELECT id FROM g1.inline_docs WHERE d @@ 'common & token17'::tsquery",
+      "sql": "SELECT sum(q.n) FROM generate_series(1,100) p(i) CROSS JOIN LATERAL (SELECT count(*) n FROM g1.inline_docs WHERE d @@ 'common & token17'::tsquery OFFSET (p.i % 1)) q",
+      "settings": "SET enable_seqscan=off;",
+      "index": "inline_d_gin",
+      "role": "short inline negative",
+      "probes": 100
+    },
+    {
+      "name": "prefix",
+      "table": "docs",
+      "predicate": "d @@ 'group1:* & rare0'::tsquery",
+      "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'group1:* & rare0'::tsquery",
+      "sql": "SELECT sum(q.n) FROM generate_series(1,100) p(i) CROSS JOIN LATERAL (SELECT count(*) n FROM g1.docs WHERE d @@ 'group1:* & rare0'::tsquery OFFSET (p.i % 1)) q",
+      "settings": "",
+      "index": "docs_d_gin",
+      "role": "bitmap control",
+      "probes": 100
+    },
+    {
+      "name": "phrase",
+      "table": "docs",
+      "predicate": "d @@ 'common <-> rare0'::tsquery",
+      "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'common <-> rare0'::tsquery",
+      "sql": "SELECT sum(q.n) FROM generate_series(1,100) p(i) CROSS JOIN LATERAL (SELECT count(*) n FROM g1.docs WHERE d @@ 'common <-> rare0'::tsquery OFFSET (p.i % 1)) q",
+      "settings": "",
+      "index": "docs_d_gin",
+      "role": "recheck",
+      "probes": 100
+    },
+    {
+      "name": "not",
+      "table": "docs",
+      "predicate": "d @@ 'rare0 & !dense2'::tsquery",
+      "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'rare0 & !dense2'::tsquery",
+      "sql": "SELECT sum(q.n) FROM generate_series(1,100) p(i) CROSS JOIN LATERAL (SELECT count(*) n FROM g1.docs WHERE d @@ 'rare0 & !dense2'::tsquery OFFSET (p.i % 1)) q",
+      "settings": "",
+      "index": "docs_d_gin",
+      "role": "NOT",
+      "probes": 100
+    },
+    {
+      "name": "intarray",
+      "table": "docs",
+      "predicate": "tags @> ARRAY[1,1001]",
+      "rows_sql": "SELECT id FROM g1.docs WHERE tags @> ARRAY[1,1001]",
+      "sql": "SELECT sum(q.n) FROM generate_series(1,100) p(i) CROSS JOIN LATERAL (SELECT count(*) n FROM g1.docs WHERE tags @> ARRAY[1,1001] OFFSET (p.i % 1)) q",
+      "settings": "",
+      "index": "docs_tags_gin",
+      "role": "query",
+      "probes": 100
+    },
+    {
+      "name": "builtin_array",
+      "table": "builtin_arrays",
+      "predicate": "tags OPERATOR(pg_catalog.@>) ARRAY[1,1001]",
+      "rows_sql": "SELECT id FROM g1.builtin_arrays WHERE tags OPERATOR(pg_catalog.@>) ARRAY[1,1001]",
+      "sql": "SELECT sum(q.n) FROM generate_series(1,100) p(i) CROSS JOIN LATERAL (SELECT count(*) n FROM g1.builtin_arrays WHERE tags OPERATOR(pg_catalog.@>) ARRAY[1,1001] OFFSET (p.i % 1)) q",
+      "settings": "",
+      "index": "builtin_tags_gin",
+      "role": "query",
+      "probes": 100
+    },
+    {
+      "name": "jsonb",
+      "table": "docs",
+      "predicate": "jb @> '{\"common\":true,\"rare\":42}'::jsonb",
+      "rows_sql": "SELECT id FROM g1.docs WHERE jb @> '{\"common\":true,\"rare\":42}'::jsonb",
+      "sql": "SELECT sum(q.n) FROM generate_series(1,100) p(i) CROSS JOIN LATERAL (SELECT count(*) n FROM g1.docs WHERE jb @> '{\"common\":true,\"rare\":42}'::jsonb OFFSET (p.i % 1)) q",
+      "settings": "",
+      "index": "docs_jb_gin",
+      "role": "query",
+      "probes": 100
+    },
+    {
+      "name": "lossy_and",
+      "table": "docs",
+      "predicate": "d @@ 'dense2 & dense3'::tsquery",
+      "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'dense2 & dense3'::tsquery",
+      "sql": "SELECT sum(q.n) FROM generate_series(1,5) p(i) CROSS JOIN LATERAL (SELECT count(*) n FROM g1.docs WHERE d @@ 'dense2 & dense3'::tsquery OFFSET (p.i % 1)) q",
+      "settings": "SET work_mem='64kB';SET enable_seqscan=off;",
+      "index": "docs_d_gin",
+      "role": "lossy/recheck",
+      "probes": 5
+    },
+    {
+      "name": "seq_control",
+      "table": "docs",
+      "predicate": "id % 1000 = 0",
+      "rows_sql": "SELECT id FROM g1.docs WHERE id % 1000 = 0",
+      "sql": "SELECT sum(q.n) FROM generate_series(1,5) p(i) CROSS JOIN LATERAL (SELECT count(*) n FROM g1.docs WHERE id % 1000 = 0 OFFSET (p.i % 1)) q",
+      "settings": "SET enable_bitmapscan=off;SET enable_indexscan=off;",
+      "index": null,
+      "role": "off-path control",
+      "probes": 5
+    }
+  ]
+}

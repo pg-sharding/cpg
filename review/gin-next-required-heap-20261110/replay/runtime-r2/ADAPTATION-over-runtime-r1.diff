@@ -1,0 +1,97 @@
+--- runtime-r1/campaign.py
++++ runtime-r2/campaign.py
+@@ -16,7 +16,7 @@
+ sys.path.insert(0, str(HERE / 'harness'))
+ from session import Session
+ from protocol import plan as campaign_plan, micro_cases
+-from runtime_helpers import compile_micro, qualify_micro
++from runtime_helpers import compile_micro, qualify_micro, compile_shared_probe
+ 
+ loader = importlib.util.spec_from_file_location('build_common', HERE / 'build-harness/common.py')
+ bc = importlib.util.module_from_spec(loader)
+@@ -69,7 +69,7 @@
+     scripts = {p.relative_to(HERE).as_posix(): dict(bytes=p.stat().st_size, sha256=bc.sha(p))
+                for tree in ('harness', 'build-harness', 'build-source')
+                for p in sorted((HERE / tree).rglob('*')) if p.is_file() and '__pycache__' not in p.parts}
+-    for name in ['campaign.py', 'runtime_helpers.py', 'gin-am-micro.c']:
++    for name in ['campaign.py', 'runtime_helpers.py', 'gin-am-micro.c', 'gin-shared-probe.c']:
+         scripts[name] = dict(bytes=(HERE/name).stat().st_size, sha256=bc.sha(HERE/name))
+     bc.save(out / 'frozen-inputs.json', scripts)
+     bc.save(out / 'protocol.json', protocol)
+@@ -136,6 +136,7 @@
+ 
+     try:
+         os.sched_setaffinity(0, {4})
++        shared_modules = {v: compile_shared_probe(HERE, out, prefixes[v], bc, v) for v in ['B', 'Heap', 'Heap_assert']}
+         if args.qualified_from:
+             origin = args.qualified_from.resolve()
+             old_state = json.loads((origin / 'status.json').read_text())
+@@ -245,8 +246,8 @@
+                     result['heap_extra'] = {}
+                     extra_cases = json.loads((HERE / 'harness/inputs/heap-extra.json').read_text())['cases']
+                     for extra in extra_cases:
+-                        query = 'SELECT id FROM g1.docs WHERE ' + extra['predicate'] + ' ORDER BY id'
+-                        aggregate = 'SELECT count(*),sum(id) FROM g1.docs WHERE ' + extra['predicate']
++                        query = 'SELECT id FROM ' + extra.get('relation', 'g1.docs') + ' WHERE ' + extra['predicate'] + ' ORDER BY id'
++                        aggregate = 'SELECT count(*),sum(id) FROM ' + extra.get('relation', 'g1.docs') + ' WHERE ' + extra['predicate']
+                         s.sql(reset + seq)
+                         ref = s.sql(query)
+                         ref_scalar = s.sql(aggregate)
+@@ -261,12 +262,12 @@
+                         bc.save(out / (label + '.json'), result)
+                         assert digest(ref) == extra['rows_digest'] and ref_scalar == extra['answer']
+                         assert actual == ref and scalar == extra['answer']
+-                        assert any(x.get('Index Name') == 'docs_d_gin' for x in nodes(plan['Plan']))
++                        assert any(x.get('Index Name') == extra.get('index', 'docs_d_gin') for x in nodes(plan['Plan']))
+                         if extra['require_lossy']:
+                             assert lossy > 0, (variant, extra['name'], 'required actual lossy heap path')
+                         if extra['require_single_index_multiqual']:
+-                            assert any(x.get('Index Name') == 'docs_d_gin' and
+-                                       x.get('Index Cond', '').count('@@') >= 2
++                            assert any(x.get('Index Name') == extra.get('index', 'docs_d_gin') and
++                                       (x.get('Index Cond', '').count('&&') if extra.get('array_sharing') else x.get('Index Cond', '').count('@@')) >= 2
+                                        for x in nodes(plan['Plan'])), (variant, extra['name'], 'single real AM multiqual')
+                     s.sql(reset + "SET plan_cache_mode=force_generic_plan;PREPARE shared_heap(tsquery,tsquery) AS SELECT id FROM g1.docs WHERE d @@ $1 AND d @@ $2 ORDER BY id")
+                     result['heap_prepared'] = {}
+@@ -291,6 +292,22 @@
+                         assert any(x.get('Index Name') == 'docs_d_gin' and
+                                    x.get('Index Cond', '').count('@@') >= 2 for x in nodes(plan['Plan']))
+                     s.sql('DEALLOCATE shared_heap')
++                    s.sql("CREATE FUNCTION public.gin_shared_probe(regclass,integer[],integer[]) RETURNS jsonb AS '" + str(shared_modules[variant]) + "', 'gin_shared_probe' LANGUAGE C STRICT")
++                    result['actual_shared_entries'] = {}
++                    for extra in extra_cases:
++                        if 'probe_left' not in extra:
++                            continue
++                        sql = "SELECT public.gin_shared_probe('g1.builtin_tags_gin'::regclass," + extra['probe_left'] + ',' + extra['probe_right'] + ')'
++                        probe = s.json(sql)
++                        result['actual_shared_entries'][extra['name']] = probe
++                        bc.save(out / (label + '.json'), result)
++                        assert probe['nkeys'] == 2 and probe['shared_pointer_pairs'] > 0
++                        assert probe['unique_entries'] < probe['sum_key_entries']
++                        assert probe['null_extra_entries'] == probe['sum_key_entries']
++                        assert probe['tids'] == extra['count']
++                        if extra['heap_expected']:
++                            assert (probe['required_heap_keys'] > 0) == (variant != 'B')
++                    s.sql('DROP FUNCTION public.gin_shared_probe(regclass,integer[],integer[])')
+                     result['backend_pid'] = s.pid
+                     result['status'] = 'PASS'
+                 finally:
+@@ -301,7 +318,7 @@
+                                                 sha256=bc.sha(out / (label + '.json')))
+             bc.save(out / 'qualification-summary.json', dict(status='PASS', variants=qualifications,
+                     ordered_seq_gin_comparisons=75, frozen_scalar_checks=75,
+-                    prepared_seq_gin_comparisons=24, heap_prepared_comparisons=12, heap_extra_comparisons=60, actual_AM_oracles=45, reference=reference,
++                    prepared_seq_gin_comparisons=24, heap_prepared_comparisons=12, heap_extra_comparisons=72, actual_shared_entry_probes=12, actual_AM_oracles=45, reference=reference,
+                     reference_rows_per_variant=sum(x['rows'] for x in reference.values())))
+ 
+         for cohort in range(protocol['cohorts']):
+@@ -350,6 +367,9 @@
+         state['full_source_unchanged'] = True
+         assert bc.sha(module) == json.loads((out / 'module.json').read_text())['module_sha256']
+         state['actual_am_module_unchanged'] = True
++        for variant, shared_module in shared_modules.items():
++            assert bc.sha(shared_module) == json.loads((out / (variant + '-shared-module.json')).read_text())['module_sha256']
++        state['actual_shared_probe_modules_unchanged'] = True
+         assert bc.inventory(seed) == seed_manifest
+         for name, value in scripts.items():
+             assert (HERE / name).stat().st_size == value['bytes'] and bc.sha(HERE / name) == value['sha256']

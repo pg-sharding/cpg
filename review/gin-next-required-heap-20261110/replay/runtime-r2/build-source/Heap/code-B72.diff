@@ -1,0 +1,375 @@
+diff --git a/src/backend/access/gin/ginget.c b/src/backend/access/gin/ginget.c
+index 2bcb32ca3d0..933d14f4f6d 100644
+--- a/src/backend/access/gin/ginget.c
++++ b/src/backend/access/gin/ginget.c
+@@ -35,6 +35,37 @@ typedef struct pendingPosition
+ 	bool	   *hasMatchKey;
+ } pendingPosition;
+ 
++#define GP_SEEN_INITIAL		1024
++#define GP_SEEN_MAX			(16 * 1024 * 1024)
++
++typedef struct
++{
++	ItemPointerData *tids;		/* sorted, de-duplicated */
++	Size		n;				/* number of used slots */
++	Size		capacity;		/* allocated slots */
++	bool		recheckAll;		/* true if the tracker overflowed */
++} GinPendingSeen;
++
++static int
++ginItemPointerCmp(const void *a, const void *b)
++{
++	return ginCompareItemPointers((const ItemPointer) a, (const ItemPointer) b);
++}
++
++static bool
++ginPendingSeenCheck(GinPendingSeen *seen, ItemPointer tid)
++{
++	ItemPointerData *found;
++
++	if (seen->recheckAll)
++		return true;
++	if (seen->n == 0)
++		return false;
++	found = (ItemPointerData *) bsearch(tid, seen->tids, seen->n,
++										sizeof(ItemPointerData),
++										ginItemPointerCmp);
++	return found != NULL;
++}
+ 
+ /*
+  * Goes to the next page if current offset is outside of bounds
+@@ -503,6 +534,26 @@ entryIndexByFrequencyCmp(const void *a1, const void *a2, void *arg)
+ 		return 1;
+ }
+ 
++/* Sift a node down; cached bounds are only raised during scans. */
++static void
++ginRequiredHeapSiftDown(GinRequiredHeapItem *heap, int count, int root)
++{
++	GinRequiredHeapItem item = heap[root];
++	int			child;
++
++	while ((child = root * 2 + 1) < count)
++	{
++		if (child + 1 < count &&
++			ginCompareItemPointers(&heap[child + 1].item, &heap[child].item) < 0)
++			child++;
++		if (ginCompareItemPointers(&item.item, &heap[child].item) <= 0)
++			break;
++		heap[root] = heap[child];
++		root = child;
++	}
++	heap[root] = item;
++}
++
+ static void
+ startScanKey(GinState *ginstate, GinScanOpaque so, GinScanKey key)
+ {
+@@ -599,6 +650,25 @@ startScanKey(GinState *ginstate, GinScanOpaque so, GinScanKey key)
+ 		key->requiredEntries = palloc_array(GinScanEntry, 1);
+ 		key->requiredEntries[0] = key->scanEntry[0];
+ 	}
++	/* Tiny keys and fuzzy result reduction retain their existing scan order. */
++	key->requiredHeap = NULL;
++	if (key->nrequired >= 8 && GinFuzzySearchLimit == 0)
++	{
++		MemoryContextSwitchTo(so->keyCtx);
++		key->requiredHeap = palloc_array(GinRequiredHeapItem, key->nrequired);
++		for (int i = 0; i < key->nrequired; i++)
++		{
++			GinScanEntry entry = key->requiredEntries[i];
++
++			key->requiredHeap[i].entry = entry;
++			if (entry->isFinished)
++				ItemPointerSetMax(&key->requiredHeap[i].item);
++			else
++				key->requiredHeap[i].item = entry->curItem;
++		}
++		for (int i = key->nrequired / 2; i > 0; i--)
++			ginRequiredHeapSiftDown(key->requiredHeap, key->nrequired, i - 1);
++	}
+ 	MemoryContextSwitchTo(oldCtx);
+ }
+ 
+@@ -981,6 +1051,51 @@ entryGetItem(GinState *ginstate, GinScanEntry entry,
+ 	}
+ }
+ 
++/*
++ * Every cached item is a lower bound on its entry's current position.  An
++ * entry can also be advanced by another scan key, so never order this heap
++ * by dereferencing mutable entries.  Repair stale roots before using them.
++ */
++static bool
++ginRequiredHeapGetItem(GinState *ginstate, GinScanKey key,
++					   ItemPointerData advancePast, ItemPointerData *minItem)
++{
++	GinRequiredHeapItem *heap = key->requiredHeap;
++
++	for (;;)
++	{
++		GinScanEntry entry = heap[0].entry;
++		ItemPointerData current;
++
++		CHECK_FOR_INTERRUPTS();
++		if (entry->isFinished)
++			ItemPointerSetMax(&current);
++		else
++			current = entry->curItem;
++		Assert(ginCompareItemPointers(&heap[0].item, &current) <= 0);
++		if (ginCompareItemPointers(&heap[0].item, &current) != 0)
++		{
++			heap[0].item = current;
++			ginRequiredHeapSiftDown(heap, key->nrequired, 0);
++			continue;
++		}
++		if (entry->isFinished)
++			return false;
++		if (ginCompareItemPointers(&current, &advancePast) > 0)
++		{
++			*minItem = current;
++			return true;
++		}
++
++		entryGetItem(ginstate, entry, advancePast);
++		if (entry->isFinished)
++			ItemPointerSetMax(&heap[0].item);
++		else
++			heap[0].item = entry->curItem;
++		ginRequiredHeapSiftDown(heap, key->nrequired, 0);
++	}
++}
++
+ /*
+  * Identify the "current" item among the input entry streams for this scan key
+  * that is greater than advancePast, and test whether it passes the scan key
+@@ -1033,31 +1148,36 @@ keyGetItem(GinState *ginstate, MemoryContext tempCtx, GinScanKey key,
+ 	 * pointers, which is good.
+ 	 */
+ 	ItemPointerSetMax(&minItem);
+-	allFinished = true;
+-	for (int i = 0; i < key->nrequired; i++)
++	if (key->requiredHeap)
++		allFinished = !ginRequiredHeapGetItem(ginstate, key, advancePast, &minItem);
++	else
+ 	{
+-		entry = key->requiredEntries[i];
+-
+-		if (entry->isFinished)
+-			continue;
+-
+-		/*
+-		 * Advance this stream if necessary.
+-		 *
+-		 * In particular, since entry->curItem was initialized with
+-		 * ItemPointerSetMin, this ensures we fetch the first item for each
+-		 * entry on the first call.
+-		 */
+-		if (ginCompareItemPointers(&entry->curItem, &advancePast) <= 0)
++		allFinished = true;
++		for (int i = 0; i < key->nrequired; i++)
+ 		{
+-			entryGetItem(ginstate, entry, advancePast);
++			entry = key->requiredEntries[i];
++
+ 			if (entry->isFinished)
+ 				continue;
+-		}
+ 
+-		allFinished = false;
+-		if (ginCompareItemPointers(&entry->curItem, &minItem) < 0)
+-			minItem = entry->curItem;
++			/*
++			 * Advance this stream if necessary.
++			 *
++			 * In particular, since entry->curItem was initialized with
++			 * ItemPointerSetMin, this ensures we fetch the first item for each
++			 * entry on the first call.
++			 */
++			if (ginCompareItemPointers(&entry->curItem, &advancePast) <= 0)
++			{
++				entryGetItem(ginstate, entry, advancePast);
++				if (entry->isFinished)
++					continue;
++			}
++
++			allFinished = false;
++			if (ginCompareItemPointers(&entry->curItem, &minItem) < 0)
++				minItem = entry->curItem;
++		}
+ 	}
+ 
+ 	if (allFinished && !key->excludeOnly)
+@@ -1447,12 +1567,10 @@ scanGetItem(IndexScanDesc scan, ItemPointerData advancePast,
+ 	return true;
+ }
+ 
+-
+ /*
+  * Functions for scanning the pending list
+  */
+ 
+-
+ /*
+  * Get ItemPointer of next heap row to be checked from pending list.
+  * Returns false if there are no more. On pages with several heap rows
+@@ -1832,7 +1950,8 @@ collectMatchesForHeapRow(IndexScanDesc scan, pendingPosition *pos)
+  * Collect all matched rows from pending list into bitmap.
+  */
+ static void
+-scanPendingInsert(IndexScanDesc scan, TIDBitmap *tbm, int64 *ntids)
++scanPendingInsert(IndexScanDesc scan, TIDBitmap *tbm, int64 *ntids,
++				  GinPendingSeen *seen)
+ {
+ 	GinScanOpaque so = (GinScanOpaque) scan->opaque;
+ 	MemoryContext oldCtx;
+@@ -1878,6 +1997,40 @@ scanPendingInsert(IndexScanDesc scan, TIDBitmap *tbm, int64 *ntids)
+ 	 */
+ 	while (scanGetCandidate(scan, &pos))
+ 	{
++		if (!seen->recheckAll)
++		{
++			if (seen->n == seen->capacity)
++			{
++				Size		newcap = seen->capacity ? seen->capacity * 2 : GP_SEEN_INITIAL;
++
++				if (newcap > GP_SEEN_MAX ||
++					newcap * sizeof(ItemPointerData) > MaxAllocSize)
++				{
++					seen->recheckAll = true;
++					if (seen->tids)
++						pfree(seen->tids);
++					seen->tids = NULL;
++					seen->n = seen->capacity = 0;
++				}
++				else
++				{
++					ItemPointerData *newtids = (ItemPointerData *)
++						palloc(newcap * sizeof(ItemPointerData));
++
++					if (seen->tids)
++					{
++						memcpy(newtids, seen->tids,
++							   seen->n * sizeof(ItemPointerData));
++						pfree(seen->tids);
++					}
++					seen->tids = newtids;
++					seen->capacity = newcap;
++				}
++			}
++			if (!seen->recheckAll)
++				seen->tids[seen->n++] = pos.item;
++		}
++
+ 		/*
+ 		 * Check entries in tuple and set up entryRes array.
+ 		 *
+@@ -1921,7 +2074,6 @@ scanPendingInsert(IndexScanDesc scan, TIDBitmap *tbm, int64 *ntids)
+ 	pfree(pos.hasMatchKey);
+ }
+ 
+-
+ #define GinIsVoidRes(s)		( ((GinScanOpaque) scan->opaque)->isVoidRes )
+ 
+ int64
+@@ -1931,6 +2083,7 @@ gingetbitmap(IndexScanDesc scan, TIDBitmap *tbm)
+ 	int64		ntids;
+ 	ItemPointerData iptr;
+ 	bool		recheck;
++	GinPendingSeen seen;
+ 
+ 	/*
+ 	 * Set up the scan keys, and check for unsatisfiable query.
+@@ -1943,6 +2096,10 @@ gingetbitmap(IndexScanDesc scan, TIDBitmap *tbm)
+ 		return 0;
+ 
+ 	ntids = 0;
++	seen.tids = NULL;
++	seen.n = 0;
++	seen.capacity = 0;
++	seen.recheckAll = false;
+ 
+ 	/*
+ 	 * First, scan the pending list and collect any matching entries into the
+@@ -1954,7 +2111,23 @@ gingetbitmap(IndexScanDesc scan, TIDBitmap *tbm)
+ 	 * to scan the main index before the pending list, since concurrent
+ 	 * cleanup could then make us miss entries entirely.
+ 	 */
+-	scanPendingInsert(scan, tbm, &ntids);
++	scanPendingInsert(scan, tbm, &ntids, &seen);
++
++	if (seen.n > 1)
++	{
++		Size		out;
++
++		qsort(seen.tids, seen.n, sizeof(ItemPointerData), ginItemPointerCmp);
++		out = 1;
++		for (Size i = 1; i < seen.n; i++)
++		{
++			if (!ItemPointerEquals(&seen.tids[out - 1], &seen.tids[i]))
++			{
++				seen.tids[out++] = seen.tids[i];
++			}
++		}
++		seen.n = out;
++	}
+ 
+ 	/*
+ 	 * Now scan the main index.
+@@ -1971,9 +2144,16 @@ gingetbitmap(IndexScanDesc scan, TIDBitmap *tbm)
+ 		if (ItemPointerIsLossyPage(&iptr))
+ 			tbm_add_page(tbm, ItemPointerGetBlockNumber(&iptr));
+ 		else
++		{
++			if (seen.recheckAll || ginPendingSeenCheck(&seen, &iptr))
++				recheck = true;
+ 			tbm_add_tuples(tbm, &iptr, 1, recheck);
++		}
+ 		ntids++;
+ 	}
+ 
++	if (seen.tids)
++		pfree(seen.tids);
++
+ 	return ntids;
+ }
+diff --git a/src/backend/access/gin/ginscan.c b/src/backend/access/gin/ginscan.c
+index 1564b409bdb..96fa9208415 100644
+--- a/src/backend/access/gin/ginscan.c
++++ b/src/backend/access/gin/ginscan.c
+@@ -194,6 +194,7 @@ ginFillScanKey(GinScanOpaque so, OffsetNumber attnum,
+ 	key->nrequired = 0;
+ 	key->nadditional = 0;
+ 	key->requiredEntries = NULL;
++	key->requiredHeap = NULL;
+ 	key->additionalEntries = NULL;
+ 
+ 	ginInitConsistentFunction(ginstate, key);
+diff --git a/src/include/access/gin_private.h b/src/include/access/gin_private.h
+index 3c5fd6ba817..0e36b1bc24d 100644
+--- a/src/include/access/gin_private.h
++++ b/src/include/access/gin_private.h
+@@ -262,6 +262,13 @@ typedef struct GinScanKeyData *GinScanKey;
+ 
+ typedef struct GinScanEntryData *GinScanEntry;
+ 
++/* Cached lower bounds remain valid when another key advances a shared entry. */
++typedef struct GinRequiredHeapItem
++{
++	GinScanEntry entry;
++	ItemPointerData item;
++} GinRequiredHeapItem;
++
+ typedef struct GinScanKeyData
+ {
+ 	/* Real number of entries in scanEntry[] (always > 0) */
+@@ -282,6 +289,7 @@ typedef struct GinScanKeyData
+ 	 */
+ 	GinScanEntry *requiredEntries;
+ 	int			nrequired;
++	GinRequiredHeapItem *requiredHeap;
+ 	GinScanEntry *additionalEntries;
+ 	int			nadditional;
+ 
