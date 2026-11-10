@@ -1013,12 +1013,7 @@ static inline bool
 ginItemPointerIsAfter(const ItemPointerData *item,
 					  const ItemPointerData *advancePast)
 {
-	uint64		itemKey = (uint64) GinItemPointerGetBlockNumber(item) << 32 |
-						GinItemPointerGetOffsetNumber(item);
-	uint64		pastKey = (uint64) GinItemPointerGetBlockNumber(advancePast) << 32 |
-						GinItemPointerGetOffsetNumber(advancePast);
-
-	return itemKey > pastKey;
+	return ginItemPointerKey(item) > ginItemPointerKey(advancePast);
 }
 
 static int
