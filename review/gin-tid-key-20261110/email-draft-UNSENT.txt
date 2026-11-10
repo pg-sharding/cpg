@@ -1,0 +1,40 @@
+To: pgsql-hackers@lists.postgresql.org
+Subject: [RFC PATCH] Load GIN BlockId words together for TID comparisons
+Status: UNSENT EXPERIMENTAL DRAFT; repeated regression remains
+
+Hi,
+
+I tested a small code-generation change to ginCompareItemPointers: load the four-byte BlockId with memcpy, reorder its halfwords on little-endian hosts, then construct the unsigned comparison key. It retains six-byte TID storage and two-byte alignment, with no eight-byte overread. The prototype also changes the transient block shift from32 to16; a separate follow-up restores the original layout to isolate this difference. That is a hypothesis, not a diagnosis.
+
+P10 applies to the fixed B72 baseline. C10 is the same change on the previously tested combined lazy/adaptive C9 prototype. They are alternative patches, not a series. Current master was not measured.
+
+The screen below uses whole-command backend CPU, medians of direct same-round percentages; cohort0/cohort1 stay separate:
+
+case | P10/B CPU % | C10/C9 CPU %
+skew1000 | -15.21 / -20.07 | -1.97 / -3.91
+skew127 | -11.82 / -5.55 | -0.90 / -7.21
+jsonb | -14.92 / -18.66 | -2.86 / -2.62
+skew_group4096 | -17.28 / -22.43 | -3.50 / -3.66
+or_forced | -4.16 / -4.24 | -4.42 / -2.92
+inline | -0.12 / -1.21 | +5.11 / -0.13
+single_rare | +4.34 / -0.42 | -2.72 / -1.03
+dense_and | -7.78 / +6.35 | -2.46 / +0.21
+absent | +5.98 / +4.39 | +6.59 / -1.76
+seq_control | +8.27 / -0.16 | +1.55 / +3.13
+
+For scale, skew1000 backend CPU medians B/P10 are 108.550017 / 79.819876 / 91.394026 / 64.751597 ms (each value itself is cohort0/cohort1). SQL absent B/P10 medians are 1.594819 / 2.378144 / 1.696371 / 2.441244 ms. Full min/median/max, SD/MAD and every metric/pair are included in the results packet.
+
+The P10 absent cost also repeats in the real index_rescan/index_getbitmap/tbm_free adapter: +5.05 / +3.94% internal process CPU for5,000 scans. It is not explained away using the exact B/T executable twin. C10 has smaller native benefits but retains positive off-path Seq CPU medians. This version is not ready to propose as a general improvement; no full25-query timing or CREATE INDEX result is claimed. All negative cases and twins remain visible.
+
+Setup: B72 72b9498df9a369e747f8d96efb5a6cd33c2451e2 plus the same supplied prerequisite, GCC13.3 -O2 -g -fno-lto, five clean matched builds, release timings, JIT/parallel/memoize/autovacuum off,512MB shared_buffers, warm-cache200,000-doc synthetic fixture. Six roles B/T/P10/C9/U/C10,13 SQL plus seven actual-AM cases, two warm and12 retained balanced rounds, two reversed CPU/slot/session/case-order cohorts:3,360 raw observations. B/T and C9/U use exact executable twins; no trimming, pooling or normalization.
+
+All five builds passed the original239 core tests and test_ginpostinglist. Ordered Seq/GIN multisets, scalar answers, paths and prepared/cached rescans agreed, including assertions. Actual installed headers were used in the native adapter/property check; each new helper passed1,009,216 ordering cases including extreme TIDs and both alignments. Non-GIN backend objects matched B byte-for-byte. Only x86-64 little-endian execution was tested.
+
+Previous discussion: Heikki already proposed integer TID comparisons and deferred consumption of copied compressed posting segments in2014 [1]. This directly precedes the lazy C9 idea. The present contribution is a small load/code-generation experiment and its measured tradeoffs, not a new algorithm. The existing comparator already used uint64 keys. Noah’s2015 inline uint64/AIX discussion [2] is portability context, not a reproduced failure here. The bounded archive search establishes no priority claim.
+
+Attachments: patches/P10-incremental.diff after fixed B8a8c475037bfde101da23cc9b0364c9c020eca93, or patches/C10-over-C9.diff after C9. REPRODUCE.md includes source/build revisions, dependencies, data definitions and commands for repeating native and SQL tests; CREATE INDEX is explicitly a conditional, unexecuted harness.
+
+Results and reproduction: https://github.com/pg-sharding/cpg/tree/experiments/gin-logical-tid-key-results-b72-20261110/review/gin-tid-key-20261110
+
+[1] https://www.postgresql.org/message-id/52F373CC.4050800%40vmware.com
+[2] https://www.postgresql.org/message-id/20150719195033.GB1300191%40tornado.leadboat.com

@@ -1,0 +1,52 @@
+To: pgsql-hackers@lists.postgresql.org
+Subject: [PATCH] Reduce GIN posting-list advancement and startup decoding costs
+Status: UNSENT DRAFT; attribution updated 2026-11-10; numbers remain the historical R3 measurements
+
+Hi,
+
+Attached is a prototype combining adaptive advancement in decoded GIN TID lists with deferred consumption of private compressed posting-page snapshots. It follows up on the separate advance V4 / lazy V4 experiments. The aim here is to retain their selective-query gains while removing the observed tiny-inline and absent-query costs.
+
+There are three parts: compare logical unsigned TID keys directly when only ordering is needed; use two cheap probes before exponential/binary upper-bound advancement; and defer compressed first-page materialization for multi-entry scans. For the last part, counting varbyte terminators with masked popcount gives the exact original first-page cardinality, preserving the frequency estimate and entry ordering/sampling thresholds. Singleton, uncompressed and empty startup paths remain eager. Existing ownership and buffer-pin rules are retained; no new on-disk format is introduced.
+
+New full-backend SQL results on fixed B72 plus the same common prerequisite in every tree are below. Numbers are cohort 0 / cohort 1; the two CPU/slot/session/case-order cohorts are kept separate. Absolute columns are executor medians in ms, while CPU percentages are medians of direct same-round whole-command backend CPU ratios.
+
+case | B executor ms | combined executor ms | combined/B CPU %
+skew1000 | 80.9340 / 78.8805 | 21.6475 / 19.9840 | -72.94 / -74.20
+skew127 | 149.5775 / 150.9795 | 111.9625 / 114.4035 | -24.77 / -24.85
+jsonb | 158.4965 / 152.0990 | 36.4350 / 36.0025 | -76.29 / -76.36
+intarray | 79.3685 / 80.5080 | 19.7980 / 19.1425 | -74.95 / -75.72
+builtin_array | 83.9715 / 78.3405 | 21.7715 / 19.1550 | -73.42 / -75.85
+skew_group4096 | 60.1100 / 59.9025 | 6.9960 / 7.1060 | -88.21 / -87.69
+phrase_positive | 48.4825 / 45.6935 | 19.3065 / 19.3295 | -60.04 / -57.34
+inline | 0.4725 / 0.4540 | 0.4500 / 0.4025 | +1.79 / -4.94
+absent | 2.1975 / 1.2610 | 0.4980 / 0.3345 | -66.99 / -62.97
+or_forced | 157.9975 / 156.1935 | 177.2810 / 159.7720 | +10.73 / +1.75
+single_forced | 172.9220 / 157.6730 | 166.1440 / 155.1715 | +6.70 / -2.77
+dense_and | 106.8715 / 88.4830 | 126.4680 / 86.2895 | +7.75 / -2.53
+array_dense | 1779.1570 / 1670.1130 | 1679.2565 / 1640.8935 | -4.06 / -2.85
+lossy_and | 145.3100 / 135.7830 | 142.4430 / 139.2550 | -1.15 / +2.95
+seq_control | 68.3005 / 56.9845 | 61.3625 / 55.0165 | -5.42 / -0.29
+
+A separate real-AM C adapter loops over the actual index_rescan/index_getbitmap/tbm_free path, compiled against the installed server public headers. Its internal process-CPU medians show combined/B -17.89 / -17.05% for tiny inline and -87.41 / -88.04% for absent. These are not heap-visibility or SQL-throughput measurements. The native and SQL boundaries are reported separately.
+
+Full SQL still has positive OR and single-rare CPU medians versus B in both cohorts. The second cohort is near/under the exact twin, but this is not normalized away and the prototype is not ready to merge without resolving or bounding those costs. A separate real-AM OR/rare diagnostic follows this frozen packet.
+
+Negative experiments are included: shrinking private scan-entry state (V7) did not repair inline. Boolean ordering alone (L8), and first-page deferral without adaptive advancement (L9), still had native inline costs; L9 also had repeated OR costs. The combined candidate is measured directly, not inferred by adding gains from alternatives. The screen had OR/Seq increases in one cohort that reversed in the other. All full-SQL controls, baseline twins, ranges and per-round values are retained; no samples are trimmed, pooled or normalized by the twin. Earlier off-path Seq movements remain historical unresolved observations, not proof of an algorithmic cause or harmless noise.
+
+Setup: VM158, GCC 13.3, -O2 -g -fno-lto, OpenSSL, no ICU/readline, release timing builds, JIT/parallel/memoize/autovacuum off, 512MB shared_buffers and warm-cache synthetic data (200000 generated docs plus NULL/empty rows and a small inline fixture). Full SQL uses 25 unchanged queries, two warm and 12 retained balanced rounds per role in each cohort. Exact data/index definitions, build flags/revisions, dependencies and commands for repeating both the real-AM and SQL tests are in REPRODUCE.md; the packet includes raw observations, absolute ranges, SD/MAD and every pair. No CREATE INDEX or current-master result is claimed.
+
+All builds passed the original 239 tests, including an assertion build. Ordinary ordered Seq/GIN multisets, prepared rescans, expected paths and AM answers matched. Assertions independently check first-page cardinality by decoding. The executed source, object/header identities and clean owned-cluster shutdowns are recorded. The bundled diff was reapplied to the exact fixed baseline and matched the measured source.
+
+Previous discussion: Heikki explicitly proposed both integer TID comparisons and private compressed-segment copying with deferred decoding in 2014 [5]. This is a direct conceptual predecessor to the lazy-consumption part of this prototype. The earlier fast-scan work [1,2] already introduced advancePast and compressed segment skipping. Galloping search, boolean ordering and lazy consumption are established techniques. The contribution is their GIN integration, exact first-page counting and measured tradeoffs, not a priority claim. The extraction/sort/build-accumulator work [3,4] concerns an earlier phase; its gains are not mixed with these consumer measurements. The bounded prior-art review and negative results are included.
+
+Candidate: patches/gin-lazy-adaptive-v9-over-fixed-b72.diff (after fixed base 8a8c475037bfde101da23cc9b0364c9c020eca93). Incremental format-patches and complete B72 source plans are also included; these are alternative forms, not patches to apply twice.
+
+Code: https://github.com/pg-sharding/cpg/tree/experiments/gin-combined-v9-b72-20261110
+Results/reproduction: https://github.com/pg-sharding/cpg/tree/experiments/gin-regression-repair-results-b72-20261110/review/gin-regression-repair-20261110
+
+[1] https://www.postgresql.org/message-id/52E42AD0.5060600%40vmware.com
+[2] https://www.postgresql.org/message-id/52F36245.6070006%40vmware.com
+[3] https://www.postgresql.org/message-id/5d366878-2007-4d31-861e-19294b7a583b%40gmail.com
+[4] https://www.postgresql.org/message-id/10afd923-38f4-451c-af89-34f8654533cb%40googlemail.com
+
+[5] https://www.postgresql.org/message-id/52F373CC.4050800%40vmware.com

@@ -1,0 +1,1 @@
+C10 was authored once on C9 and actually cherry-picked with -x to fixed baseline. The only conflict was the C9-only boolean helper in ginget.c, which does not exist on baseline; that file was kept exactly at baseline. The shared header change applied unchanged. The baseline port changes only gin_private.h relative to fixed B72. Source code is not yet tested.

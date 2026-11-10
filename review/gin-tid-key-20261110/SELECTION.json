@@ -1,0 +1,24 @@
+{
+  "status": "SCREEN_COMPLETE_NOT_PROMOTED",
+  "phases_completed": [
+    "screen-r1"
+  ],
+  "full_sql_executed": false,
+  "create_index_executed": false,
+  "reason": "P10 has a repeated absent cost in both SQL and real AM. C10 adds smaller gains and has repeated positive Seq CPU medians. Preserve all observations and test original key layout before a full-SQL/CREATE INDEX promotion.",
+  "repeated_costs": {
+    "P10_SQL_absent": [
+      5.980141705615805,
+      4.394856288448845
+    ],
+    "P10_AM_absent": [
+      5.048448455596988,
+      3.944411779249646
+    ],
+    "C10_Seq": [
+      1.5457553115605926,
+      3.126774204000271
+    ]
+  },
+  "next_experiment": "layout-r2: retain four-byte load, restore block<<32 key; unmeasured at R1 closeout; no causal diagnosis claimed"
+}
