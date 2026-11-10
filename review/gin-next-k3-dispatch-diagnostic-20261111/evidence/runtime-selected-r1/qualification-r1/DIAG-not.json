@@ -1,0 +1,85 @@
+{
+  "reference": {
+    "bytes": 0,
+    "rows": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "actual": {
+    "bytes": 0,
+    "rows": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "seq_plan": {
+    "Node Type": "Sort",
+    "Parallel Aware": false,
+    "Async Capable": false,
+    "Startup Cost": 6721.0,
+    "Total Cost": 6721.29,
+    "Plan Rows": 116,
+    "Plan Width": 8,
+    "Disabled": false,
+    "Sort Key": [
+      "docs.id"
+    ],
+    "Plans": [
+      {
+        "Node Type": "Seq Scan",
+        "Parent Relationship": "Outer",
+        "Parallel Aware": false,
+        "Async Capable": false,
+        "Relation Name": "docs",
+        "Alias": "docs",
+        "Startup Cost": 0.0,
+        "Total Cost": 6717.02,
+        "Plan Rows": 116,
+        "Plan Width": 8,
+        "Disabled": false,
+        "Filter": "(d @@ '''rare0'' & !''dense2'''::tsquery)"
+      }
+    ]
+  },
+  "gin_plan": {
+    "Node Type": "Sort",
+    "Parallel Aware": false,
+    "Async Capable": false,
+    "Startup Cost": 430.58,
+    "Total Cost": 430.87,
+    "Plan Rows": 116,
+    "Plan Width": 8,
+    "Disabled": false,
+    "Sort Key": [
+      "docs.id"
+    ],
+    "Plans": [
+      {
+        "Node Type": "Bitmap Heap Scan",
+        "Parent Relationship": "Outer",
+        "Parallel Aware": false,
+        "Async Capable": false,
+        "Relation Name": "docs",
+        "Alias": "docs",
+        "Startup Cost": 22.12,
+        "Total Cost": 426.6,
+        "Plan Rows": 116,
+        "Plan Width": 8,
+        "Disabled": false,
+        "Recheck Cond": "(d @@ '''rare0'' & !''dense2'''::tsquery)",
+        "Plans": [
+          {
+            "Node Type": "Bitmap Index Scan",
+            "Parent Relationship": "Outer",
+            "Parallel Aware": false,
+            "Async Capable": false,
+            "Index Name": "docs_d_gin",
+            "Startup Cost": 0.0,
+            "Total Cost": 22.09,
+            "Plan Rows": 116,
+            "Plan Width": 0,
+            "Disabled": false,
+            "Index Cond": "(d @@ '''rare0'' & !''dense2'''::tsquery)"
+          }
+        ]
+      }
+    ]
+  }
+}

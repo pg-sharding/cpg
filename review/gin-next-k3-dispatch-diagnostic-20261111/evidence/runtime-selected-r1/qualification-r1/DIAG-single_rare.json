@@ -1,0 +1,85 @@
+{
+  "reference": {
+    "bytes": 1291,
+    "rows": 200,
+    "sha256": "b05b2c6b15a2bc723fdb05fa27bce6aba0af0f48fac98da90bae71bce33caa5c"
+  },
+  "actual": {
+    "bytes": 1291,
+    "rows": 200,
+    "sha256": "b05b2c6b15a2bc723fdb05fa27bce6aba0af0f48fac98da90bae71bce33caa5c"
+  },
+  "seq_plan": {
+    "Node Type": "Sort",
+    "Parallel Aware": false,
+    "Async Capable": false,
+    "Startup Cost": 6726.19,
+    "Total Cost": 6726.77,
+    "Plan Rows": 233,
+    "Plan Width": 8,
+    "Disabled": false,
+    "Sort Key": [
+      "docs.id"
+    ],
+    "Plans": [
+      {
+        "Node Type": "Seq Scan",
+        "Parent Relationship": "Outer",
+        "Parallel Aware": false,
+        "Async Capable": false,
+        "Relation Name": "docs",
+        "Alias": "docs",
+        "Startup Cost": 0.0,
+        "Total Cost": 6717.02,
+        "Plan Rows": 233,
+        "Plan Width": 8,
+        "Disabled": false,
+        "Filter": "(d @@ '''rare0'''::tsquery)"
+      }
+    ]
+  },
+  "gin_plan": {
+    "Node Type": "Sort",
+    "Parallel Aware": false,
+    "Async Capable": false,
+    "Startup Cost": 776.12,
+    "Total Cost": 776.7,
+    "Plan Rows": 233,
+    "Plan Width": 8,
+    "Disabled": false,
+    "Sort Key": [
+      "docs.id"
+    ],
+    "Plans": [
+      {
+        "Node Type": "Bitmap Heap Scan",
+        "Parent Relationship": "Outer",
+        "Parallel Aware": false,
+        "Async Capable": false,
+        "Relation Name": "docs",
+        "Alias": "docs",
+        "Startup Cost": 14.04,
+        "Total Cost": 766.95,
+        "Plan Rows": 233,
+        "Plan Width": 8,
+        "Disabled": false,
+        "Recheck Cond": "(d @@ '''rare0'''::tsquery)",
+        "Plans": [
+          {
+            "Node Type": "Bitmap Index Scan",
+            "Parent Relationship": "Outer",
+            "Parallel Aware": false,
+            "Async Capable": false,
+            "Index Name": "docs_d_gin",
+            "Startup Cost": 0.0,
+            "Total Cost": 13.98,
+            "Plan Rows": 233,
+            "Plan Width": 0,
+            "Disabled": false,
+            "Index Cond": "(d @@ '''rare0'''::tsquery)"
+          }
+        ]
+      }
+    ]
+  }
+}

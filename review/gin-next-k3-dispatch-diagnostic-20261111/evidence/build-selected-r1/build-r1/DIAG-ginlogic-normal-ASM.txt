@@ -1,0 +1,1021 @@
+
+/home/reshke/allfuzz/gin-cache-k3-dispatch-probe-20261110/build-r1/common-build/src/backend/access/gin/ginlogic.o:     file format elf64-x86-64
+
+
+Disassembly of section .text:
+
+0000000000000000 <trueConsistentFn>:
+       0:	f3 0f 1e fa          	endbr64
+       4:	c6 87 93 00 00 00 00 	movb   $0x0,0x93(%rdi)
+       b:	b8 01 00 00 00       	mov    $0x1,%eax
+      10:	c3                   	ret
+      11:	66 66 2e 0f 1f 84 00 00 00 00 00 	data16 cs nopw 0x0(%rax,%rax,1)
+      1c:	0f 1f 40 00          	nopl   0x0(%rax)
+
+0000000000000020 <trueTriConsistentFn>:
+      20:	f3 0f 1e fa          	endbr64
+      24:	b8 01 00 00 00       	mov    $0x1,%eax
+      29:	c3                   	ret
+      2a:	66 0f 1f 44 00 00    	nopw   0x0(%rax,%rax,1)
+
+0000000000000030 <shimBoolConsistentFn>:
+      30:	f3 0f 1e fa          	endbr64
+      34:	53                   	push   %rbx
+      35:	48 89 fb             	mov    %rdi,%rbx
+      38:	0f b7 8f 80 00 00 00 	movzwl 0x80(%rdi),%ecx
+      3f:	48 8b 57 30          	mov    0x30(%rdi),%rdx
+      43:	8b 77 58             	mov    0x58(%rdi),%esi
+      46:	48 8b 7f 50          	mov    0x50(%rdi),%rdi
+      4a:	48 83 ec 08          	sub    $0x8,%rsp
+      4e:	ff 73 70             	push   0x70(%rbx)
+      51:	ff 73 68             	push   0x68(%rbx)
+      54:	ff 73 78             	push   0x78(%rbx)
+      57:	4c 63 4b 04          	movslq 0x4(%rbx),%r9
+      5b:	4c 8b 43 60          	mov    0x60(%rbx),%r8
+      5f:	e8 00 00 00 00       	call   64 <shimBoolConsistentFn+0x34>	60: R_X86_64_PLT32	FunctionCall7Coll-0x4
+      64:	48 83 c4 20          	add    $0x20,%rsp
+      68:	3c 02                	cmp    $0x2,%al
+      6a:	74 14                	je     80 <shimBoolConsistentFn+0x50>
+      6c:	84 c0                	test   %al,%al
+      6e:	0f 95 c0             	setne  %al
+      71:	31 d2                	xor    %edx,%edx
+      73:	88 93 93 00 00 00    	mov    %dl,0x93(%rbx)
+      79:	5b                   	pop    %rbx
+      7a:	c3                   	ret
+      7b:	0f 1f 44 00 00       	nopl   0x0(%rax,%rax,1)
+      80:	ba 01 00 00 00       	mov    $0x1,%edx
+      85:	b8 01 00 00 00       	mov    $0x1,%eax
+      8a:	88 93 93 00 00 00    	mov    %dl,0x93(%rbx)
+      90:	5b                   	pop    %rbx
+      91:	c3                   	ret
+      92:	66 66 2e 0f 1f 84 00 00 00 00 00 	data16 cs nopw 0x0(%rax,%rax,1)
+      9d:	0f 1f 00             	nopl   (%rax)
+
+00000000000000a0 <directBoolConsistentFn>:
+      a0:	f3 0f 1e fa          	endbr64
+      a4:	48 83 ec 08          	sub    $0x8,%rsp
+      a8:	4c 8d 87 93 00 00 00 	lea    0x93(%rdi),%r8
+      af:	48 8b 57 30          	mov    0x30(%rdi),%rdx
+      b3:	8b 77 58             	mov    0x58(%rdi),%esi
+      b6:	c6 87 93 00 00 00 01 	movb   $0x1,0x93(%rdi)
+      bd:	0f b7 8f 80 00 00 00 	movzwl 0x80(%rdi),%ecx
+      c4:	48 8b 47 48          	mov    0x48(%rdi),%rax
+      c8:	ff 77 70             	push   0x70(%rdi)
+      cb:	ff 77 68             	push   0x68(%rdi)
+      ce:	41 50                	push   %r8
+      d0:	ff 77 78             	push   0x78(%rdi)
+      d3:	4c 63 4f 04          	movslq 0x4(%rdi),%r9
+      d7:	4c 8b 47 60          	mov    0x60(%rdi),%r8
+      db:	48 89 c7             	mov    %rax,%rdi
+      de:	e8 00 00 00 00       	call   e3 <directBoolConsistentFn+0x43>	df: R_X86_64_PLT32	FunctionCall8Coll-0x4
+      e3:	48 85 c0             	test   %rax,%rax
+      e6:	0f 95 c0             	setne  %al
+      e9:	48 83 c4 28          	add    $0x28,%rsp
+      ed:	c3                   	ret
+      ee:	66 90                	xchg   %ax,%ax
+
+00000000000000f0 <shimTriConsistentFn>:
+      f0:	f3 0f 1e fa          	endbr64
+      f4:	41 56                	push   %r14
+      f6:	41 55                	push   %r13
+      f8:	49 89 fd             	mov    %rdi,%r13
+      fb:	41 54                	push   %r12
+      fd:	55                   	push   %rbp
+      fe:	53                   	push   %rbx
+      ff:	48 83 ec 20          	sub    $0x20,%rsp
+     103:	8b 17                	mov    (%rdi),%edx
+     105:	64 48 8b 04 25 28 00 00 00 	mov    %fs:0x28,%rax
+     10e:	48 89 44 24 18       	mov    %rax,0x18(%rsp)
+     113:	31 c0                	xor    %eax,%eax
+     115:	85 d2                	test   %edx,%edx
+     117:	0f 84 43 01 00 00    	je     260 <shimTriConsistentFn+0x170>
+     11d:	48 8b 4f 30          	mov    0x30(%rdi),%rcx
+     121:	45 31 e4             	xor    %r12d,%r12d
+     124:	eb 13                	jmp    139 <shimTriConsistentFn+0x49>
+     126:	66 2e 0f 1f 84 00 00 00 00 00 	cs nopw 0x0(%rax,%rax,1)
+     130:	48 83 c0 01          	add    $0x1,%rax
+     134:	48 39 d0             	cmp    %rdx,%rax
+     137:	74 26                	je     15f <shimTriConsistentFn+0x6f>
+     139:	0f b6 1c 01          	movzbl (%rcx,%rax,1),%ebx
+     13d:	80 fb 02             	cmp    $0x2,%bl
+     140:	75 ee                	jne    130 <shimTriConsistentFn+0x40>
+     142:	41 83 fc 03          	cmp    $0x3,%r12d
+     146:	0f 8f d8 00 00 00    	jg     224 <shimTriConsistentFn+0x134>
+     14c:	49 63 f4             	movslq %r12d,%rsi
+     14f:	41 83 c4 01          	add    $0x1,%r12d
+     153:	89 04 b4             	mov    %eax,(%rsp,%rsi,4)
+     156:	48 83 c0 01          	add    $0x1,%rax
+     15a:	48 39 d0             	cmp    %rdx,%rax
+     15d:	75 da                	jne    139 <shimTriConsistentFn+0x49>
+     15f:	45 85 e4             	test   %r12d,%r12d
+     162:	0f 84 f8 00 00 00    	je     260 <shimTriConsistentFn+0x170>
+     168:	7e 29                	jle    193 <shimTriConsistentFn+0xa3>
+     16a:	8b 04 24             	mov    (%rsp),%eax
+     16d:	48 89 e6             	mov    %rsp,%rsi
+     170:	c6 04 01 00          	movb   $0x0,(%rcx,%rax,1)
+     174:	b8 01 00 00 00       	mov    $0x1,%eax
+     179:	41 83 fc 01          	cmp    $0x1,%r12d
+     17d:	74 14                	je     193 <shimTriConsistentFn+0xa3>
+     17f:	8b 14 86             	mov    (%rsi,%rax,4),%edx
+     182:	49 8b 4d 30          	mov    0x30(%r13),%rcx
+     186:	48 83 c0 01          	add    $0x1,%rax
+     18a:	c6 04 11 00          	movb   $0x0,(%rcx,%rdx,1)
+     18e:	41 39 c4             	cmp    %eax,%r12d
+     191:	7f ec                	jg     17f <shimTriConsistentFn+0x8f>
+     193:	4c 89 ef             	mov    %r13,%rdi
+     196:	48 89 e5             	mov    %rsp,%rbp
+     199:	e8 02 ff ff ff       	call   a0 <directBoolConsistentFn>
+     19e:	45 0f b6 b5 93 00 00 00 	movzbl 0x93(%r13),%r14d
+     1a6:	89 c3                	mov    %eax,%ebx
+     1a8:	0f 1f 84 00 00 00 00 00 	nopl   0x0(%rax,%rax,1)
+     1b0:	48 89 ee             	mov    %rbp,%rsi
+     1b3:	48 89 e9             	mov    %rbp,%rcx
+     1b6:	31 d2                	xor    %edx,%edx
+     1b8:	45 85 e4             	test   %r12d,%r12d
+     1bb:	7f 12                	jg     1cf <shimTriConsistentFn+0xdf>
+     1bd:	eb 23                	jmp    1e2 <shimTriConsistentFn+0xf2>
+     1bf:	90                   	nop
+     1c0:	83 c2 01             	add    $0x1,%edx
+     1c3:	c6 00 00             	movb   $0x0,(%rax)
+     1c6:	48 83 c1 04          	add    $0x4,%rcx
+     1ca:	41 39 d4             	cmp    %edx,%r12d
+     1cd:	74 79                	je     248 <shimTriConsistentFn+0x158>
+     1cf:	8b 01                	mov    (%rcx),%eax
+     1d1:	49 03 45 30          	add    0x30(%r13),%rax
+     1d5:	80 38 00             	cmpb   $0x0,(%rax)
+     1d8:	75 e6                	jne    1c0 <shimTriConsistentFn+0xd0>
+     1da:	c6 00 01             	movb   $0x1,(%rax)
+     1dd:	41 39 d4             	cmp    %edx,%r12d
+     1e0:	74 66                	je     248 <shimTriConsistentFn+0x158>
+     1e2:	4c 89 ef             	mov    %r13,%rdi
+     1e5:	e8 b6 fe ff ff       	call   a0 <directBoolConsistentFn>
+     1ea:	45 0a b5 93 00 00 00 	or     0x93(%r13),%r14b
+     1f1:	38 c3                	cmp    %al,%bl
+     1f3:	74 bb                	je     1b0 <shimTriConsistentFn+0xc0>
+     1f5:	bb 02 00 00 00       	mov    $0x2,%ebx
+     1fa:	45 85 e4             	test   %r12d,%r12d
+     1fd:	7e 25                	jle    224 <shimTriConsistentFn+0x134>
+     1ff:	48 89 e6             	mov    %rsp,%rsi
+     202:	bb 02 00 00 00       	mov    $0x2,%ebx
+     207:	4d 63 e4             	movslq %r12d,%r12
+     20a:	48 89 f0             	mov    %rsi,%rax
+     20d:	4a 8d 34 a6          	lea    (%rsi,%r12,4),%rsi
+     211:	8b 10                	mov    (%rax),%edx
+     213:	49 8b 4d 30          	mov    0x30(%r13),%rcx
+     217:	48 83 c0 04          	add    $0x4,%rax
+     21b:	c6 04 11 02          	movb   $0x2,(%rcx,%rdx,1)
+     21f:	48 39 c6             	cmp    %rax,%rsi
+     222:	75 ed                	jne    211 <shimTriConsistentFn+0x121>
+     224:	48 8b 44 24 18       	mov    0x18(%rsp),%rax
+     229:	64 48 2b 04 25 28 00 00 00 	sub    %fs:0x28,%rax
+     232:	75 50                	jne    284 <shimTriConsistentFn+0x194>
+     234:	48 83 c4 20          	add    $0x20,%rsp
+     238:	89 d8                	mov    %ebx,%eax
+     23a:	5b                   	pop    %rbx
+     23b:	5d                   	pop    %rbp
+     23c:	41 5c                	pop    %r12
+     23e:	41 5d                	pop    %r13
+     240:	41 5e                	pop    %r14
+     242:	c3                   	ret
+     243:	0f 1f 44 00 00       	nopl   0x0(%rax,%rax,1)
+     248:	84 db                	test   %bl,%bl
+     24a:	74 bb                	je     207 <shimTriConsistentFn+0x117>
+     24c:	45 84 f6             	test   %r14b,%r14b
+     24f:	74 b6                	je     207 <shimTriConsistentFn+0x117>
+     251:	bb 02 00 00 00       	mov    $0x2,%ebx
+     256:	eb af                	jmp    207 <shimTriConsistentFn+0x117>
+     258:	0f 1f 84 00 00 00 00 00 	nopl   0x0(%rax,%rax,1)
+     260:	48 8b 44 24 18       	mov    0x18(%rsp),%rax
+     265:	64 48 2b 04 25 28 00 00 00 	sub    %fs:0x28,%rax
+     26e:	75 14                	jne    284 <shimTriConsistentFn+0x194>
+     270:	48 83 c4 20          	add    $0x20,%rsp
+     274:	4c 89 ef             	mov    %r13,%rdi
+     277:	5b                   	pop    %rbx
+     278:	5d                   	pop    %rbp
+     279:	41 5c                	pop    %r12
+     27b:	41 5d                	pop    %r13
+     27d:	41 5e                	pop    %r14
+     27f:	e9 1c fe ff ff       	jmp    a0 <directBoolConsistentFn>
+     284:	e8 00 00 00 00       	call   289 <shimTriConsistentFn+0x199>	285: R_X86_64_PLT32	__stack_chk_fail-0x4
+     289:	0f 1f 80 00 00 00 00 	nopl   0x0(%rax)
+
+0000000000000290 <k3diag_miss>:
+     290:	80 3d 00 00 00 00 00 	cmpb   $0x0,0x0(%rip)        # 297 <k3diag_miss+0x7>	292: R_X86_64_PC32	.bss+0x19407
+     297:	8b 0d 00 00 00 00    	mov    0x0(%rip),%ecx        # 29d <k3diag_miss+0xd>	299: R_X86_64_PC32	.bss+0x19404
+     29d:	4c 8d 0d 00 00 00 00 	lea    0x0(%rip),%r9        # 2a4 <k3diag_miss+0x14>	2a0: R_X86_64_PC32	.bss-0x4
+     2a4:	75 20                	jne    2c6 <k3diag_miss+0x36>
+     2a6:	c3                   	ret
+     2a7:	66 0f 1f 84 00 00 00 00 00 	nopw   0x0(%rax,%rax,1)
+     2b0:	44 8d 41 ff          	lea    -0x1(%rcx),%r8d
+     2b4:	49 69 c0 28 03 00 00 	imul   $0x328,%r8,%rax
+     2bb:	4c 89 c1             	mov    %r8,%rcx
+     2be:	4c 01 c8             	add    %r9,%rax
+     2c1:	48 3b 38             	cmp    (%rax),%rdi
+     2c4:	74 0a                	je     2d0 <k3diag_miss+0x40>
+     2c6:	85 c9                	test   %ecx,%ecx
+     2c8:	75 e6                	jne    2b0 <k3diag_miss+0x20>
+     2ca:	c3                   	ret
+     2cb:	0f 1f 44 00 00       	nopl   0x0(%rax,%rax,1)
+     2d0:	80 78 10 00          	cmpb   $0x0,0x10(%rax)
+     2d4:	0f 84 96 00 00 00    	je     370 <k3diag_miss+0xe0>
+     2da:	8b 78 68             	mov    0x68(%rax),%edi
+     2dd:	48 83 40 48 01       	addq   $0x1,0x48(%rax)
+     2e2:	8d 4f 01             	lea    0x1(%rdi),%ecx
+     2e5:	89 48 68             	mov    %ecx,0x68(%rax)
+     2e8:	83 fe 40             	cmp    $0x40,%esi
+     2eb:	77 04                	ja     2f1 <k3diag_miss+0x61>
+     2ed:	39 f1                	cmp    %esi,%ecx
+     2ef:	74 10                	je     301 <k3diag_miss+0x71>
+     2f1:	49 69 c0 28 03 00 00 	imul   $0x328,%r8,%rax
+     2f8:	49 83 84 01 20 03 00 00 01 	addq   $0x1,0x320(%r9,%rax,1)
+     301:	49 69 c0 28 03 00 00 	imul   $0x328,%r8,%rax
+     308:	4c 01 c8             	add    %r9,%rax
+     30b:	39 70 6c             	cmp    %esi,0x6c(%rax)
+     30e:	73 03                	jae    313 <k3diag_miss+0x83>
+     310:	89 70 6c             	mov    %esi,0x6c(%rax)
+     313:	84 d2                	test   %dl,%dl
+     315:	74 52                	je     369 <k3diag_miss+0xd9>
+     317:	49 69 c0 28 03 00 00 	imul   $0x328,%r8,%rax
+     31e:	41 80 7c 01 11 00    	cmpb   $0x0,0x11(%r9,%rax,1)
+     324:	75 05                	jne    32b <k3diag_miss+0x9b>
+     326:	83 fe 40             	cmp    $0x40,%esi
+     329:	74 10                	je     33b <k3diag_miss+0xab>
+     32b:	49 69 c0 28 03 00 00 	imul   $0x328,%r8,%rax
+     332:	49 83 84 01 20 03 00 00 01 	addq   $0x1,0x320(%r9,%rax,1)
+     33b:	4d 69 c0 28 03 00 00 	imul   $0x328,%r8,%r8
+     342:	4d 01 c1             	add    %r8,%r9
+     345:	49 8b 41 58          	mov    0x58(%r9),%rax
+     349:	41 c6 41 11 01       	movb   $0x1,0x11(%r9)
+     34e:	48 83 c0 01          	add    $0x1,%rax
+     352:	66 48 0f 6e c0       	movq   %rax,%xmm0
+     357:	48 8d 05 00 00 00 00 	lea    0x0(%rip),%rax        # 35e <k3diag_miss+0xce>	35a: R_X86_64_PC32	.bss+0x4
+     35e:	41 0f 16 41 18       	movhps 0x18(%r9),%xmm0
+     363:	42 0f 11 44 00 50    	movups %xmm0,0x50(%rax,%r8,1)
+     369:	c3                   	ret
+     36a:	66 0f 1f 44 00 00    	nopw   0x0(%rax,%rax,1)
+     370:	c3                   	ret
+     371:	66 66 2e 0f 1f 84 00 00 00 00 00 	data16 cs nopw 0x0(%rax,%rax,1)
+     37c:	0f 1f 40 00          	nopl   0x0(%rax)
+
+0000000000000380 <k3diag_vector>:
+     380:	41 55                	push   %r13
+     382:	41 54                	push   %r12
+     384:	55                   	push   %rbp
+     385:	53                   	push   %rbx
+     386:	48 89 fb             	mov    %rdi,%rbx
+     389:	48 83 ec 18          	sub    $0x18,%rsp
+     38d:	8b 16                	mov    (%rsi),%edx
+     38f:	4c 8b a7 88 02 00 00 	mov    0x288(%rdi),%r12
+     396:	83 fa 08             	cmp    $0x8,%edx
+     399:	0f 87 51 01 00 00    	ja     4f0 <k3diag_vector+0x170>
+     39f:	44 0f b6 af 78 02 00 00 	movzbl 0x278(%rdi),%r13d
+     3a7:	48 89 f5             	mov    %rsi,%rbp
+     3aa:	48 8d bf 80 02 00 00 	lea    0x280(%rdi),%rdi
+     3b1:	45 84 ed             	test   %r13b,%r13b
+     3b4:	74 0c                	je     3c2 <k3diag_vector+0x42>
+     3b6:	3b 93 7c 02 00 00    	cmp    0x27c(%rbx),%edx
+     3bc:	0f 84 be 01 00 00    	je     580 <k3diag_vector+0x200>
+     3c2:	4d 85 e4             	test   %r12,%r12
+     3c5:	0f 85 ad 00 00 00    	jne    478 <k3diag_vector+0xf8>
+     3cb:	4c 01 ab 00 03 00 00 	add    %r13,0x300(%rbx)
+     3d2:	41 bc 01 00 00 00    	mov    $0x1,%r12d
+     3d8:	48 c7 83 88 02 00 00 01 00 00 00 	movq   $0x1,0x288(%rbx)
+     3e3:	4c 39 a3 90 02 00 00 	cmp    %r12,0x290(%rbx)
+     3ea:	72 7c                	jb     468 <k3diag_vector+0xe8>
+     3ec:	c6 83 78 02 00 00 01 	movb   $0x1,0x278(%rbx)
+     3f3:	8b 55 00             	mov    0x0(%rbp),%edx
+     3f6:	89 93 7c 02 00 00    	mov    %edx,0x27c(%rbx)
+     3fc:	48 8b 75 30          	mov    0x30(%rbp),%rsi
+     400:	e8 00 00 00 00       	call   405 <k3diag_vector+0x85>	401: R_X86_64_PLT32	memcpy-0x4
+     405:	48 83 83 f8 02 00 00 01 	addq   $0x1,0x2f8(%rbx)
+     40d:	8b 45 00             	mov    0x0(%rbp),%eax
+     410:	48 be b3 01 00 00 00 01 00 00 	movabs $0x100000001b3,%rsi
+     41a:	48 33 83 10 03 00 00 	xor    0x310(%rbx),%rax
+     421:	31 d2                	xor    %edx,%edx
+     423:	48 0f af c6          	imul   %rsi,%rax
+     427:	48 89 83 10 03 00 00 	mov    %rax,0x310(%rbx)
+     42e:	8b 4d 00             	mov    0x0(%rbp),%ecx
+     431:	85 c9                	test   %ecx,%ecx
+     433:	74 23                	je     458 <k3diag_vector+0xd8>
+     435:	0f 1f 00             	nopl   (%rax)
+     438:	48 8b 4d 30          	mov    0x30(%rbp),%rcx
+     43c:	48 0f be 0c 11       	movsbq (%rcx,%rdx,1),%rcx
+     441:	48 83 c2 01          	add    $0x1,%rdx
+     445:	48 31 c8             	xor    %rcx,%rax
+     448:	48 0f af c6          	imul   %rsi,%rax
+     44c:	48 89 83 10 03 00 00 	mov    %rax,0x310(%rbx)
+     453:	3b 55 00             	cmp    0x0(%rbp),%edx
+     456:	72 e0                	jb     438 <k3diag_vector+0xb8>
+     458:	48 83 c4 18          	add    $0x18,%rsp
+     45c:	5b                   	pop    %rbx
+     45d:	5d                   	pop    %rbp
+     45e:	41 5c                	pop    %r12
+     460:	41 5d                	pop    %r13
+     462:	c3                   	ret
+     463:	0f 1f 44 00 00       	nopl   0x0(%rax,%rax,1)
+     468:	4c 89 a3 90 02 00 00 	mov    %r12,0x290(%rbx)
+     46f:	e9 78 ff ff ff       	jmp    3ec <k3diag_vector+0x6c>
+     474:	0f 1f 40 00          	nopl   0x0(%rax)
+     478:	41 8d 44 24 ff       	lea    -0x1(%r12),%eax
+     47d:	49 83 fc 04          	cmp    $0x4,%r12
+     481:	76 55                	jbe    4d8 <k3diag_vector+0x158>
+     483:	b8 04 00 00 00       	mov    $0x4,%eax
+     488:	49 83 fc 08          	cmp    $0x8,%r12
+     48c:	76 4a                	jbe    4d8 <k3diag_vector+0x158>
+     48e:	b8 05 00 00 00       	mov    $0x5,%eax
+     493:	49 83 fc 10          	cmp    $0x10,%r12
+     497:	76 3f                	jbe    4d8 <k3diag_vector+0x158>
+     499:	b8 06 00 00 00       	mov    $0x6,%eax
+     49e:	49 83 fc 20          	cmp    $0x20,%r12
+     4a2:	76 34                	jbe    4d8 <k3diag_vector+0x158>
+     4a4:	b8 07 00 00 00       	mov    $0x7,%eax
+     4a9:	49 83 fc 3f          	cmp    $0x3f,%r12
+     4ad:	76 29                	jbe    4d8 <k3diag_vector+0x158>
+     4af:	49 83 fc 40          	cmp    $0x40,%r12
+     4b3:	0f 84 04 01 00 00    	je     5bd <k3diag_vector+0x23d>
+     4b9:	b8 09 00 00 00       	mov    $0x9,%eax
+     4be:	49 83 fc 7f          	cmp    $0x7f,%r12
+     4c2:	76 14                	jbe    4d8 <k3diag_vector+0x158>
+     4c4:	31 c0                	xor    %eax,%eax
+     4c6:	49 81 fc ff 00 00 00 	cmp    $0xff,%r12
+     4cd:	0f 97 c0             	seta   %al
+     4d0:	83 c0 0a             	add    $0xa,%eax
+     4d3:	0f 1f 44 00 00       	nopl   0x0(%rax,%rax,1)
+     4d8:	48 98                	cltq
+     4da:	48 83 84 c3 98 02 00 00 01 	addq   $0x1,0x298(%rbx,%rax,8)
+     4e3:	e9 e3 fe ff ff       	jmp    3cb <k3diag_vector+0x4b>
+     4e8:	0f 1f 84 00 00 00 00 00 	nopl   0x0(%rax,%rax,1)
+     4f0:	4d 85 e4             	test   %r12,%r12
+     4f3:	74 66                	je     55b <k3diag_vector+0x1db>
+     4f5:	41 8d 44 24 ff       	lea    -0x1(%r12),%eax
+     4fa:	49 83 fc 04          	cmp    $0x4,%r12
+     4fe:	76 50                	jbe    550 <k3diag_vector+0x1d0>
+     500:	b8 04 00 00 00       	mov    $0x4,%eax
+     505:	49 83 fc 08          	cmp    $0x8,%r12
+     509:	76 45                	jbe    550 <k3diag_vector+0x1d0>
+     50b:	b8 05 00 00 00       	mov    $0x5,%eax
+     510:	49 83 fc 10          	cmp    $0x10,%r12
+     514:	76 3a                	jbe    550 <k3diag_vector+0x1d0>
+     516:	b8 06 00 00 00       	mov    $0x6,%eax
+     51b:	49 83 fc 20          	cmp    $0x20,%r12
+     51f:	76 2f                	jbe    550 <k3diag_vector+0x1d0>
+     521:	b8 07 00 00 00       	mov    $0x7,%eax
+     526:	49 83 fc 3f          	cmp    $0x3f,%r12
+     52a:	76 24                	jbe    550 <k3diag_vector+0x1d0>
+     52c:	49 83 fc 40          	cmp    $0x40,%r12
+     530:	0f 84 91 00 00 00    	je     5c7 <k3diag_vector+0x247>
+     536:	b8 09 00 00 00       	mov    $0x9,%eax
+     53b:	49 83 fc 7f          	cmp    $0x7f,%r12
+     53f:	76 0f                	jbe    550 <k3diag_vector+0x1d0>
+     541:	31 c0                	xor    %eax,%eax
+     543:	49 81 fc ff 00 00 00 	cmp    $0xff,%r12
+     54a:	0f 97 c0             	seta   %al
+     54d:	83 c0 0a             	add    $0xa,%eax
+     550:	48 98                	cltq
+     552:	48 83 84 c3 98 02 00 00 01 	addq   $0x1,0x298(%rbx,%rax,8)
+     55b:	48 83 83 18 03 00 00 01 	addq   $0x1,0x318(%rbx)
+     563:	c6 83 78 02 00 00 00 	movb   $0x0,0x278(%rbx)
+     56a:	48 c7 83 88 02 00 00 00 00 00 00 	movq   $0x0,0x288(%rbx)
+     575:	48 83 c4 18          	add    $0x18,%rsp
+     579:	5b                   	pop    %rbx
+     57a:	5d                   	pop    %rbp
+     57b:	41 5c                	pop    %r12
+     57d:	41 5d                	pop    %r13
+     57f:	c3                   	ret
+     580:	48 8b 76 30          	mov    0x30(%rsi),%rsi
+     584:	48 89 7c 24 08       	mov    %rdi,0x8(%rsp)
+     589:	e8 00 00 00 00       	call   58e <k3diag_vector+0x20e>	58a: R_X86_64_PLT32	memcmp-0x4
+     58e:	48 8b 7c 24 08       	mov    0x8(%rsp),%rdi
+     593:	85 c0                	test   %eax,%eax
+     595:	0f 85 27 fe ff ff    	jne    3c2 <k3diag_vector+0x42>
+     59b:	49 83 c4 01          	add    $0x1,%r12
+     59f:	80 7b 11 00          	cmpb   $0x0,0x11(%rbx)
+     5a3:	4c 89 a3 88 02 00 00 	mov    %r12,0x288(%rbx)
+     5aa:	0f 84 33 fe ff ff    	je     3e3 <k3diag_vector+0x63>
+     5b0:	48 83 83 08 03 00 00 01 	addq   $0x1,0x308(%rbx)
+     5b8:	e9 26 fe ff ff       	jmp    3e3 <k3diag_vector+0x63>
+     5bd:	b8 08 00 00 00       	mov    $0x8,%eax
+     5c2:	e9 11 ff ff ff       	jmp    4d8 <k3diag_vector+0x158>
+     5c7:	b8 08 00 00 00       	mov    $0x8,%eax
+     5cc:	eb 82                	jmp    550 <k3diag_vector+0x1d0>
+     5ce:	66 90                	xchg   %ax,%ax
+
+00000000000005d0 <directTriConsistentFn>:
+     5d0:	f3 0f 1e fa          	endbr64
+     5d4:	80 3d 00 00 00 00 00 	cmpb   $0x0,0x0(%rip)        # 5db <directTriConsistentFn+0xb>	5d6: R_X86_64_PC32	.bss+0x19407
+     5db:	53                   	push   %rbx
+     5dc:	48 89 fb             	mov    %rdi,%rbx
+     5df:	74 28                	je     609 <directTriConsistentFn+0x39>
+     5e1:	8b 15 00 00 00 00    	mov    0x0(%rip),%edx        # 5e7 <directTriConsistentFn+0x17>	5e3: R_X86_64_PC32	.bss+0x19404
+     5e7:	48 8d 3d 00 00 00 00 	lea    0x0(%rip),%rdi        # 5ee <directTriConsistentFn+0x1e>	5ea: R_X86_64_PC32	.bss-0x4
+     5ee:	eb 15                	jmp    605 <directTriConsistentFn+0x35>
+     5f0:	8d 4a ff             	lea    -0x1(%rdx),%ecx
+     5f3:	48 69 c1 28 03 00 00 	imul   $0x328,%rcx,%rax
+     5fa:	48 89 ca             	mov    %rcx,%rdx
+     5fd:	48 01 f8             	add    %rdi,%rax
+     600:	48 3b 18             	cmp    (%rax),%rbx
+     603:	74 3b                	je     640 <directTriConsistentFn+0x70>
+     605:	85 d2                	test   %edx,%edx
+     607:	75 e7                	jne    5f0 <directTriConsistentFn+0x20>
+     609:	0f b7 8b 80 00 00 00 	movzwl 0x80(%rbx),%ecx
+     610:	48 8b 53 30          	mov    0x30(%rbx),%rdx
+     614:	48 83 ec 08          	sub    $0x8,%rsp
+     618:	8b 73 58             	mov    0x58(%rbx),%esi
+     61b:	48 8b 7b 50          	mov    0x50(%rbx),%rdi
+     61f:	ff 73 70             	push   0x70(%rbx)
+     622:	ff 73 68             	push   0x68(%rbx)
+     625:	ff 73 78             	push   0x78(%rbx)
+     628:	4c 63 4b 04          	movslq 0x4(%rbx),%r9
+     62c:	4c 8b 43 60          	mov    0x60(%rbx),%r8
+     630:	e8 00 00 00 00       	call   635 <directTriConsistentFn+0x65>	631: R_X86_64_PLT32	FunctionCall7Coll-0x4
+     635:	48 83 c4 20          	add    $0x20,%rsp
+     639:	5b                   	pop    %rbx
+     63a:	c3                   	ret
+     63b:	0f 1f 44 00 00       	nopl   0x0(%rax,%rax,1)
+     640:	80 78 10 00          	cmpb   $0x0,0x10(%rax)
+     644:	74 c3                	je     609 <directTriConsistentFn+0x39>
+     646:	48 8b 73 40          	mov    0x40(%rbx),%rsi
+     64a:	48 8d 15 7f ff ff ff 	lea    -0x81(%rip),%rdx        # 5d0 <directTriConsistentFn>
+     651:	48 83 40 30 01       	addq   $0x1,0x30(%rax)
+     656:	48 39 d6             	cmp    %rdx,%rsi
+     659:	74 0d                	je     668 <directTriConsistentFn+0x98>
+     65b:	48 83 40 38 01       	addq   $0x1,0x38(%rax)
+     660:	eb a7                	jmp    609 <directTriConsistentFn+0x39>
+     662:	66 0f 1f 44 00 00    	nopw   0x0(%rax,%rax,1)
+     668:	48 83 40 18 01       	addq   $0x1,0x18(%rax)
+     66d:	48 83 40 28 01       	addq   $0x1,0x28(%rax)
+     672:	80 78 11 00          	cmpb   $0x0,0x11(%rax)
+     676:	75 08                	jne    680 <directTriConsistentFn+0xb0>
+     678:	48 83 80 20 03 00 00 01 	addq   $0x1,0x320(%rax)
+     680:	48 69 c9 28 03 00 00 	imul   $0x328,%rcx,%rcx
+     687:	48 89 de             	mov    %rbx,%rsi
+     68a:	48 01 cf             	add    %rcx,%rdi
+     68d:	e8 ee fc ff ff       	call   380 <k3diag_vector>
+     692:	e9 72 ff ff ff       	jmp    609 <directTriConsistentFn+0x39>
+     697:	66 0f 1f 84 00 00 00 00 00 	nopw   0x0(%rax,%rax,1)
+
+00000000000006a0 <cachedTsqueryTriConsistentFn>:
+     6a0:	f3 0f 1e fa          	endbr64
+     6a4:	41 54                	push   %r12
+     6a6:	44 0f b6 25 00 00 00 00 	movzbl 0x0(%rip),%r12d        # 6ae <cachedTsqueryTriConsistentFn+0xe>	6aa: R_X86_64_PC32	.bss+0x19408
+     6ae:	55                   	push   %rbp
+     6af:	53                   	push   %rbx
+     6b0:	48 89 fb             	mov    %rdi,%rbx
+     6b3:	48 8b af 98 00 00 00 	mov    0x98(%rdi),%rbp
+     6ba:	45 84 e4             	test   %r12b,%r12b
+     6bd:	74 2b                	je     6ea <cachedTsqueryTriConsistentFn+0x4a>
+     6bf:	8b 05 00 00 00 00    	mov    0x0(%rip),%eax        # 6c5 <cachedTsqueryTriConsistentFn+0x25>	6c1: R_X86_64_PC32	.bss+0x19404
+     6c5:	48 8d 3d 00 00 00 00 	lea    0x0(%rip),%rdi        # 6cc <cachedTsqueryTriConsistentFn+0x2c>	6c8: R_X86_64_PC32	.bss-0x4
+     6cc:	eb 18                	jmp    6e6 <cachedTsqueryTriConsistentFn+0x46>
+     6ce:	66 90                	xchg   %ax,%ax
+     6d0:	8d 48 ff             	lea    -0x1(%rax),%ecx
+     6d3:	48 69 f1 28 03 00 00 	imul   $0x328,%rcx,%rsi
+     6da:	48 89 c8             	mov    %rcx,%rax
+     6dd:	48 8d 14 37          	lea    (%rdi,%rsi,1),%rdx
+     6e1:	48 3b 1a             	cmp    (%rdx),%rbx
+     6e4:	74 6a                	je     750 <cachedTsqueryTriConsistentFn+0xb0>
+     6e6:	85 c0                	test   %eax,%eax
+     6e8:	75 e6                	jne    6d0 <cachedTsqueryTriConsistentFn+0x30>
+     6ea:	8b 13                	mov    (%rbx),%edx
+     6ec:	83 fa 08             	cmp    $0x8,%edx
+     6ef:	0f 87 a2 00 00 00    	ja     797 <cachedTsqueryTriConsistentFn+0xf7>
+     6f5:	80 7d 00 00          	cmpb   $0x0,0x0(%rbp)
+     6f9:	74 09                	je     704 <cachedTsqueryTriConsistentFn+0x64>
+     6fb:	3b 55 04             	cmp    0x4(%rbp),%edx
+     6fe:	0f 84 d4 00 00 00    	je     7d8 <cachedTsqueryTriConsistentFn+0x138>
+     704:	48 89 df             	mov    %rbx,%rdi
+     707:	e8 c4 fe ff ff       	call   5d0 <directTriConsistentFn>
+     70c:	41 89 c4             	mov    %eax,%r12d
+     70f:	8b 45 08             	mov    0x8(%rbp),%eax
+     712:	8d 70 01             	lea    0x1(%rax),%esi
+     715:	89 75 08             	mov    %esi,0x8(%rbp)
+     718:	83 fe 3f             	cmp    $0x3f,%esi
+     71b:	0f 87 8f 00 00 00    	ja     7b0 <cachedTsqueryTriConsistentFn+0x110>
+     721:	31 d2                	xor    %edx,%edx
+     723:	48 89 df             	mov    %rbx,%rdi
+     726:	e8 65 fb ff ff       	call   290 <k3diag_miss>
+     72b:	8b 13                	mov    (%rbx),%edx
+     72d:	48 8b 73 30          	mov    0x30(%rbx),%rsi
+     731:	48 8d 7d 0d          	lea    0xd(%rbp),%rdi
+     735:	e8 00 00 00 00       	call   73a <cachedTsqueryTriConsistentFn+0x9a>	736: R_X86_64_PLT32	memcpy-0x4
+     73a:	8b 03                	mov    (%rbx),%eax
+     73c:	44 88 65 0c          	mov    %r12b,0xc(%rbp)
+     740:	c6 45 00 01          	movb   $0x1,0x0(%rbp)
+     744:	89 45 04             	mov    %eax,0x4(%rbp)
+     747:	44 89 e0             	mov    %r12d,%eax
+     74a:	5b                   	pop    %rbx
+     74b:	5d                   	pop    %rbp
+     74c:	41 5c                	pop    %r12
+     74e:	c3                   	ret
+     74f:	90                   	nop
+     750:	80 7a 10 00          	cmpb   $0x0,0x10(%rdx)
+     754:	74 94                	je     6ea <cachedTsqueryTriConsistentFn+0x4a>
+     756:	48 8d 44 37 10       	lea    0x10(%rdi,%rsi,1),%rax
+     75b:	f3 0f 6f 40 08       	movdqu 0x8(%rax),%xmm0
+     760:	66 0f d4 05 00 00 00 00 	paddq  0x0(%rip),%xmm0        # 768 <cachedTsqueryTriConsistentFn+0xc8>	764: R_X86_64_PC32	.LC0-0x4
+     768:	0f 11 40 08          	movups %xmm0,0x8(%rax)
+     76c:	80 7a 11 00          	cmpb   $0x0,0x11(%rdx)
+     770:	74 08                	je     77a <cachedTsqueryTriConsistentFn+0xda>
+     772:	48 83 82 20 03 00 00 01 	addq   $0x1,0x320(%rdx)
+     77a:	48 69 c9 28 03 00 00 	imul   $0x328,%rcx,%rcx
+     781:	48 89 de             	mov    %rbx,%rsi
+     784:	48 01 cf             	add    %rcx,%rdi
+     787:	e8 f4 fb ff ff       	call   380 <k3diag_vector>
+     78c:	8b 13                	mov    (%rbx),%edx
+     78e:	83 fa 08             	cmp    $0x8,%edx
+     791:	0f 86 5e ff ff ff    	jbe    6f5 <cachedTsqueryTriConsistentFn+0x55>
+     797:	c6 45 00 00          	movb   $0x0,0x0(%rbp)
+     79b:	48 89 df             	mov    %rbx,%rdi
+     79e:	5b                   	pop    %rbx
+     79f:	5d                   	pop    %rbp
+     7a0:	41 5c                	pop    %r12
+     7a2:	e9 29 fe ff ff       	jmp    5d0 <directTriConsistentFn>
+     7a7:	66 0f 1f 84 00 00 00 00 00 	nopw   0x0(%rax,%rax,1)
+     7b0:	48 89 df             	mov    %rbx,%rdi
+     7b3:	ba 01 00 00 00       	mov    $0x1,%edx
+     7b8:	e8 d3 fa ff ff       	call   290 <k3diag_miss>
+     7bd:	48 8d 05 0c fe ff ff 	lea    -0x1f4(%rip),%rax        # 5d0 <directTriConsistentFn>
+     7c4:	c6 45 00 00          	movb   $0x0,0x0(%rbp)
+     7c8:	48 89 43 40          	mov    %rax,0x40(%rbx)
+     7cc:	44 89 e0             	mov    %r12d,%eax
+     7cf:	5b                   	pop    %rbx
+     7d0:	5d                   	pop    %rbp
+     7d1:	41 5c                	pop    %r12
+     7d3:	c3                   	ret
+     7d4:	0f 1f 40 00          	nopl   0x0(%rax)
+     7d8:	48 8b 73 30          	mov    0x30(%rbx),%rsi
+     7dc:	48 8d 7d 0d          	lea    0xd(%rbp),%rdi
+     7e0:	e8 00 00 00 00       	call   7e5 <cachedTsqueryTriConsistentFn+0x145>	7e1: R_X86_64_PLT32	memcmp-0x4
+     7e5:	85 c0                	test   %eax,%eax
+     7e7:	0f 85 17 ff ff ff    	jne    704 <cachedTsqueryTriConsistentFn+0x64>
+     7ed:	45 84 e4             	test   %r12b,%r12b
+     7f0:	74 2f                	je     821 <cachedTsqueryTriConsistentFn+0x181>
+     7f2:	8b 15 00 00 00 00    	mov    0x0(%rip),%edx        # 7f8 <cachedTsqueryTriConsistentFn+0x158>	7f4: R_X86_64_PC32	.bss+0x19404
+     7f8:	48 8d 35 00 00 00 00 	lea    0x0(%rip),%rsi        # 7ff <cachedTsqueryTriConsistentFn+0x15f>	7fb: R_X86_64_PC32	.bss-0x4
+     7ff:	eb 1c                	jmp    81d <cachedTsqueryTriConsistentFn+0x17d>
+     801:	0f 1f 80 00 00 00 00 	nopl   0x0(%rax)
+     808:	8d 4a ff             	lea    -0x1(%rdx),%ecx
+     80b:	48 69 c1 28 03 00 00 	imul   $0x328,%rcx,%rax
+     812:	48 89 ca             	mov    %rcx,%rdx
+     815:	48 01 f0             	add    %rsi,%rax
+     818:	48 3b 18             	cmp    (%rax),%rbx
+     81b:	74 15                	je     832 <cachedTsqueryTriConsistentFn+0x192>
+     81d:	85 d2                	test   %edx,%edx
+     81f:	75 e7                	jne    808 <cachedTsqueryTriConsistentFn+0x168>
+     821:	c7 45 08 00 00 00 00 	movl   $0x0,0x8(%rbp)
+     828:	44 0f b6 65 0c       	movzbl 0xc(%rbp),%r12d
+     82d:	e9 15 ff ff ff       	jmp    747 <cachedTsqueryTriConsistentFn+0xa7>
+     832:	80 78 10 00          	cmpb   $0x0,0x10(%rax)
+     836:	74 e9                	je     821 <cachedTsqueryTriConsistentFn+0x181>
+     838:	8b 55 08             	mov    0x8(%rbp),%edx
+     83b:	48 83 40 40 01       	addq   $0x1,0x40(%rax)
+     840:	3b 50 68             	cmp    0x68(%rax),%edx
+     843:	74 08                	je     84d <cachedTsqueryTriConsistentFn+0x1ad>
+     845:	48 83 80 20 03 00 00 01 	addq   $0x1,0x320(%rax)
+     84d:	85 d2                	test   %edx,%edx
+     84f:	74 2a                	je     87b <cachedTsqueryTriConsistentFn+0x1db>
+     851:	48 69 c1 28 03 00 00 	imul   $0x328,%rcx,%rax
+     858:	48 01 f0             	add    %rsi,%rax
+     85b:	48 83 40 50 01       	addq   $0x1,0x50(%rax)
+     860:	83 fa 40             	cmp    $0x40,%edx
+     863:	77 27                	ja     88c <cachedTsqueryTriConsistentFn+0x1ec>
+     865:	48 8d 04 89          	lea    (%rcx,%rcx,4),%rax
+     869:	48 8d 04 80          	lea    (%rax,%rax,4),%rax
+     86d:	48 8d 04 81          	lea    (%rcx,%rax,4),%rax
+     871:	48 8d 44 02 0e       	lea    0xe(%rdx,%rax,1),%rax
+     876:	48 83 04 c6 01       	addq   $0x1,(%rsi,%rax,8)
+     87b:	48 69 c9 28 03 00 00 	imul   $0x328,%rcx,%rcx
+     882:	c7 44 0e 68 00 00 00 00 	movl   $0x0,0x68(%rsi,%rcx,1)
+     88a:	eb 95                	jmp    821 <cachedTsqueryTriConsistentFn+0x181>
+     88c:	48 83 80 20 03 00 00 01 	addq   $0x1,0x320(%rax)
+     894:	eb e5                	jmp    87b <cachedTsqueryTriConsistentFn+0x1db>
+     896:	66 2e 0f 1f 84 00 00 00 00 00 	cs nopw 0x0(%rax,%rax,1)
+
+00000000000008a0 <gin_k3_diag_begin>:
+     8a0:	f3 0f 1e fa          	endbr64
+     8a4:	48 83 ec 08          	sub    $0x8,%rsp
+     8a8:	ba 00 94 01 00       	mov    $0x19400,%edx
+     8ad:	31 f6                	xor    %esi,%esi
+     8af:	48 8d 3d 00 00 00 00 	lea    0x0(%rip),%rdi        # 8b6 <gin_k3_diag_begin+0x16>	8b2: R_X86_64_PC32	.bss-0x4
+     8b6:	e8 00 00 00 00       	call   8bb <gin_k3_diag_begin+0x1b>	8b7: R_X86_64_PLT32	memset-0x4
+     8bb:	c6 05 00 00 00 00 01 	movb   $0x1,0x0(%rip)        # 8c2 <gin_k3_diag_begin+0x22>	8bd: R_X86_64_PC32	.bss+0x19407
+     8c2:	c7 05 00 00 00 00 00 00 00 00 	movl   $0x0,0x0(%rip)        # 8cc <gin_k3_diag_begin+0x2c>	8c4: R_X86_64_PC32	.bss+0x19400
+     8cc:	48 c7 05 00 00 00 00 00 00 00 00 	movq   $0x0,0x0(%rip)        # 8d7 <gin_k3_diag_begin+0x37>	8cf: R_X86_64_PC32	.bss+0x193f8
+     8d7:	48 83 c4 08          	add    $0x8,%rsp
+     8db:	c3                   	ret
+     8dc:	0f 1f 40 00          	nopl   0x0(%rax)
+
+00000000000008e0 <gin_k3_diag_end>:
+     8e0:	f3 0f 1e fa          	endbr64
+     8e4:	c6 05 00 00 00 00 00 	movb   $0x0,0x0(%rip)        # 8eb <gin_k3_diag_end+0xb>	8e6: R_X86_64_PC32	.bss+0x19407
+     8eb:	c3                   	ret
+     8ec:	0f 1f 40 00          	nopl   0x0(%rax)
+
+00000000000008f0 <gin_k3_diag_report>:
+     8f0:	f3 0f 1e fa          	endbr64
+     8f4:	41 57                	push   %r15
+     8f6:	41 56                	push   %r14
+     8f8:	41 55                	push   %r13
+     8fa:	41 54                	push   %r12
+     8fc:	55                   	push   %rbp
+     8fd:	53                   	push   %rbx
+     8fe:	48 81 ec e8 03 00 00 	sub    $0x3e8,%rsp
+     905:	64 48 8b 04 25 28 00 00 00 	mov    %fs:0x28,%rax
+     90e:	48 89 84 24 d8 03 00 00 	mov    %rax,0x3d8(%rsp)
+     916:	31 c0                	xor    %eax,%eax
+     918:	48 8d ac 24 90 00 00 00 	lea    0x90(%rsp),%rbp
+     920:	48 89 ef             	mov    %rbp,%rdi
+     923:	e8 00 00 00 00       	call   928 <gin_k3_diag_report+0x38>	924: R_X86_64_PLT32	initStringInfo-0x4
+     928:	8b 15 00 00 00 00    	mov    0x0(%rip),%edx        # 92e <gin_k3_diag_report+0x3e>	92a: R_X86_64_PC32	.bss+0x19404
+     92e:	48 89 ef             	mov    %rbp,%rdi
+     931:	31 c0                	xor    %eax,%eax
+     933:	48 8b 0d 00 00 00 00 	mov    0x0(%rip),%rcx        # 93a <gin_k3_diag_report+0x4a>	936: R_X86_64_PC32	.bss+0x193fc
+     93a:	48 8d 35 00 00 00 00 	lea    0x0(%rip),%rsi        # 941 <gin_k3_diag_report+0x51>	93d: R_X86_64_PC32	.LC5-0x4
+     941:	e8 00 00 00 00       	call   946 <gin_k3_diag_report+0x56>	942: R_X86_64_PLT32	appendStringInfo-0x4
+     946:	8b 3d 00 00 00 00    	mov    0x0(%rip),%edi        # 94c <gin_k3_diag_report+0x5c>	948: R_X86_64_PC32	.bss+0x19404
+     94c:	85 ff                	test   %edi,%edi
+     94e:	0f 84 1f 04 00 00    	je     d73 <gin_k3_diag_report+0x483>
+     954:	c7 44 24 04 00 00 00 00 	movl   $0x0,0x4(%rsp)
+     95c:	4c 8d 25 00 00 00 00 	lea    0x0(%rip),%r12        # 963 <gin_k3_diag_report+0x73>	95f: R_X86_64_PC32	.bss-0x4
+     963:	4c 8d b4 24 b0 00 00 00 	lea    0xb0(%rsp),%r14
+     96b:	4c 8d 2d 00 00 00 00 	lea    0x0(%rip),%r13        # 972 <gin_k3_diag_report+0x82>	96e: R_X86_64_PC32	.LC3-0x4
+     972:	4c 8d 3d 00 00 00 00 	lea    0x0(%rip),%r15        # 979 <gin_k3_diag_report+0x89>	975: R_X86_64_PC32	.LC25-0x4
+     979:	0f 1f 80 00 00 00 00 	nopl   0x0(%rax)
+     980:	49 8b 44 24 18       	mov    0x18(%r12),%rax
+     985:	b9 65 00 00 00       	mov    $0x65,%ecx
+     98a:	4c 89 f7             	mov    %r14,%rdi
+     98d:	4c 89 e6             	mov    %r12,%rsi
+     990:	f3 48 a5             	rep movsq %ds:(%rsi),%es:(%rdi)
+     993:	45 8b 44 24 0c       	mov    0xc(%r12),%r8d
+     998:	41 8b 74 24 08       	mov    0x8(%r12),%esi
+     99d:	41 0f b6 7c 24 10    	movzbl 0x10(%r12),%edi
+     9a3:	41 8b 5c 24 6c       	mov    0x6c(%r12),%ebx
+     9a8:	48 89 44 24 10       	mov    %rax,0x10(%rsp)
+     9ad:	49 8b 44 24 20       	mov    0x20(%r12),%rax
+     9b2:	49 8b 8c 24 90 02 00 00 	mov    0x290(%r12),%rcx
+     9ba:	45 0f b6 4c 24 11    	movzbl 0x11(%r12),%r9d
+     9c0:	49 8b 94 24 88 02 00 00 	mov    0x288(%r12),%rdx
+     9c8:	48 89 44 24 18       	mov    %rax,0x18(%rsp)
+     9cd:	49 8b 44 24 28       	mov    0x28(%r12),%rax
+     9d2:	48 89 4c 24 58       	mov    %rcx,0x58(%rsp)
+     9d7:	49 8b 8c 24 f8 02 00 00 	mov    0x2f8(%r12),%rcx
+     9df:	48 89 44 24 20       	mov    %rax,0x20(%rsp)
+     9e4:	49 8b 44 24 30       	mov    0x30(%r12),%rax
+     9e9:	48 89 44 24 28       	mov    %rax,0x28(%rsp)
+     9ee:	49 8b 44 24 38       	mov    0x38(%r12),%rax
+     9f3:	48 89 44 24 30       	mov    %rax,0x30(%rsp)
+     9f8:	49 8b 44 24 40       	mov    0x40(%r12),%rax
+     9fd:	48 89 44 24 38       	mov    %rax,0x38(%rsp)
+     a02:	49 8b 44 24 48       	mov    0x48(%r12),%rax
+     a07:	48 89 44 24 40       	mov    %rax,0x40(%rsp)
+     a0c:	49 8b 44 24 50       	mov    0x50(%r12),%rax
+     a11:	48 89 44 24 08       	mov    %rax,0x8(%rsp)
+     a16:	49 8b 44 24 58       	mov    0x58(%r12),%rax
+     a1b:	48 89 44 24 48       	mov    %rax,0x48(%rsp)
+     a20:	49 8b 44 24 60       	mov    0x60(%r12),%rax
+     a25:	48 89 44 24 50       	mov    %rax,0x50(%rsp)
+     a2a:	41 8b 44 24 68       	mov    0x68(%r12),%eax
+     a2f:	48 89 4c 24 60       	mov    %rcx,0x60(%rsp)
+     a34:	49 8b 8c 24 00 03 00 00 	mov    0x300(%r12),%rcx
+     a3c:	48 89 4c 24 68       	mov    %rcx,0x68(%rsp)
+     a41:	49 8b 8c 24 08 03 00 00 	mov    0x308(%r12),%rcx
+     a49:	48 89 4c 24 70       	mov    %rcx,0x70(%rsp)
+     a4e:	49 8b 8c 24 10 03 00 00 	mov    0x310(%r12),%rcx
+     a56:	48 89 4c 24 78       	mov    %rcx,0x78(%rsp)
+     a5b:	49 8b 8c 24 18 03 00 00 	mov    0x318(%r12),%rcx
+     a63:	48 89 8c 24 80 00 00 00 	mov    %rcx,0x80(%rsp)
+     a6b:	49 8b 8c 24 20 03 00 00 	mov    0x320(%r12),%rcx
+     a73:	48 89 8c 24 88 00 00 00 	mov    %rcx,0x88(%rsp)
+     a7b:	48 85 d2             	test   %rdx,%rdx
+     a7e:	74 65                	je     ae5 <gin_k3_diag_report+0x1f5>
+     a80:	8d 4a ff             	lea    -0x1(%rdx),%ecx
+     a83:	48 83 fa 04          	cmp    $0x4,%rdx
+     a87:	76 50                	jbe    ad9 <gin_k3_diag_report+0x1e9>
+     a89:	b9 04 00 00 00       	mov    $0x4,%ecx
+     a8e:	48 83 fa 08          	cmp    $0x8,%rdx
+     a92:	76 45                	jbe    ad9 <gin_k3_diag_report+0x1e9>
+     a94:	b9 05 00 00 00       	mov    $0x5,%ecx
+     a99:	48 83 fa 10          	cmp    $0x10,%rdx
+     a9d:	76 3a                	jbe    ad9 <gin_k3_diag_report+0x1e9>
+     a9f:	b9 06 00 00 00       	mov    $0x6,%ecx
+     aa4:	48 83 fa 20          	cmp    $0x20,%rdx
+     aa8:	76 2f                	jbe    ad9 <gin_k3_diag_report+0x1e9>
+     aaa:	b9 07 00 00 00       	mov    $0x7,%ecx
+     aaf:	48 83 fa 3f          	cmp    $0x3f,%rdx
+     ab3:	76 24                	jbe    ad9 <gin_k3_diag_report+0x1e9>
+     ab5:	48 83 fa 40          	cmp    $0x40,%rdx
+     ab9:	0f 84 2f 03 00 00    	je     dee <gin_k3_diag_report+0x4fe>
+     abf:	b9 09 00 00 00       	mov    $0x9,%ecx
+     ac4:	48 83 fa 7f          	cmp    $0x7f,%rdx
+     ac8:	76 0f                	jbe    ad9 <gin_k3_diag_report+0x1e9>
+     aca:	31 c9                	xor    %ecx,%ecx
+     acc:	48 81 fa ff 00 00 00 	cmp    $0xff,%rdx
+     ad3:	0f 97 c1             	seta   %cl
+     ad6:	83 c1 0a             	add    $0xa,%ecx
+     ad9:	48 63 c9             	movslq %ecx,%rcx
+     adc:	48 83 84 cc 48 03 00 00 01 	addq   $0x1,0x348(%rsp,%rcx,8)
+     ae5:	8d 50 ff             	lea    -0x1(%rax),%edx
+     ae8:	83 fa 3f             	cmp    $0x3f,%edx
+     aeb:	77 09                	ja     af6 <gin_k3_diag_report+0x206>
+     aed:	48 83 84 c4 20 01 00 00 01 	addq   $0x1,0x120(%rsp,%rax,8)
+     af6:	45 84 c9             	test   %r9b,%r9b
+     af9:	48 8d 15 00 00 00 00 	lea    0x0(%rip),%rdx        # b00 <gin_k3_diag_report+0x210>	afc: R_X86_64_PC32	.LC2-0x4
+     b00:	48 8d 05 00 00 00 00 	lea    0x0(%rip),%rax        # b07 <gin_k3_diag_report+0x217>	b03: R_X86_64_PC32	.LC1-0x4
+     b07:	89 f1                	mov    %esi,%ecx
+     b09:	48 0f 44 c2          	cmove  %rdx,%rax
+     b0d:	4c 8d 0d 00 00 00 00 	lea    0x0(%rip),%r9        # b14 <gin_k3_diag_report+0x224>	b10: R_X86_64_PC32	.LC1-0x4
+     b14:	40 84 ff             	test   %dil,%dil
+     b17:	48 89 ef             	mov    %rbp,%rdi
+     b1a:	4c 0f 44 ca          	cmove  %rdx,%r9
+     b1e:	8b 54 24 04          	mov    0x4(%rsp),%edx
+     b22:	48 8d 35 00 00 00 00 	lea    0x0(%rip),%rsi        # b29 <gin_k3_diag_report+0x239>	b25: R_X86_64_PC32	.LC6-0x4
+     b29:	85 d2                	test   %edx,%edx
+     b2b:	48 8d 15 00 00 00 00 	lea    0x0(%rip),%rdx        # b32 <gin_k3_diag_report+0x242>	b2e: R_X86_64_PC32	.LC4-0x4
+     b32:	49 0f 45 d5          	cmovne %r13,%rdx
+     b36:	48 83 ec 08          	sub    $0x8,%rsp
+     b3a:	50                   	push   %rax
+     b3b:	31 c0                	xor    %eax,%eax
+     b3d:	e8 00 00 00 00       	call   b42 <gin_k3_diag_report+0x252>	b3e: R_X86_64_PLT32	appendStringInfo-0x4
+     b42:	48 8b 54 24 20       	mov    0x20(%rsp),%rdx
+     b47:	31 c0                	xor    %eax,%eax
+     b49:	48 89 ef             	mov    %rbp,%rdi
+     b4c:	48 8d 35 00 00 00 00 	lea    0x0(%rip),%rsi        # b53 <gin_k3_diag_report+0x263>	b4f: R_X86_64_PC32	.LC7-0x4
+     b53:	e8 00 00 00 00       	call   b58 <gin_k3_diag_report+0x268>	b54: R_X86_64_PLT32	appendStringInfo-0x4
+     b58:	48 8b 54 24 28       	mov    0x28(%rsp),%rdx
+     b5d:	31 c0                	xor    %eax,%eax
+     b5f:	48 89 ef             	mov    %rbp,%rdi
+     b62:	48 8d 35 00 00 00 00 	lea    0x0(%rip),%rsi        # b69 <gin_k3_diag_report+0x279>	b65: R_X86_64_PC32	.LC8-0x4
+     b69:	e8 00 00 00 00       	call   b6e <gin_k3_diag_report+0x27e>	b6a: R_X86_64_PLT32	appendStringInfo-0x4
+     b6e:	48 8b 54 24 30       	mov    0x30(%rsp),%rdx
+     b73:	31 c0                	xor    %eax,%eax
+     b75:	48 89 ef             	mov    %rbp,%rdi
+     b78:	48 8d 35 00 00 00 00 	lea    0x0(%rip),%rsi        # b7f <gin_k3_diag_report+0x28f>	b7b: R_X86_64_PC32	.LC9-0x4
+     b7f:	e8 00 00 00 00       	call   b84 <gin_k3_diag_report+0x294>	b80: R_X86_64_PLT32	appendStringInfo-0x4
+     b84:	48 8b 54 24 38       	mov    0x38(%rsp),%rdx
+     b89:	31 c0                	xor    %eax,%eax
+     b8b:	48 89 ef             	mov    %rbp,%rdi
+     b8e:	48 8d 35 00 00 00 00 	lea    0x0(%rip),%rsi        # b95 <gin_k3_diag_report+0x2a5>	b91: R_X86_64_PC32	.LC10-0x4
+     b95:	e8 00 00 00 00       	call   b9a <gin_k3_diag_report+0x2aa>	b96: R_X86_64_PLT32	appendStringInfo-0x4
+     b9a:	48 8b 54 24 40       	mov    0x40(%rsp),%rdx
+     b9f:	31 c0                	xor    %eax,%eax
+     ba1:	48 89 ef             	mov    %rbp,%rdi
+     ba4:	48 8d 35 00 00 00 00 	lea    0x0(%rip),%rsi        # bab <gin_k3_diag_report+0x2bb>	ba7: R_X86_64_PC32	.LC11-0x4
+     bab:	e8 00 00 00 00       	call   bb0 <gin_k3_diag_report+0x2c0>	bac: R_X86_64_PLT32	appendStringInfo-0x4
+     bb0:	48 8b 54 24 48       	mov    0x48(%rsp),%rdx
+     bb5:	31 c0                	xor    %eax,%eax
+     bb7:	48 89 ef             	mov    %rbp,%rdi
+     bba:	48 8d 35 00 00 00 00 	lea    0x0(%rip),%rsi        # bc1 <gin_k3_diag_report+0x2d1>	bbd: R_X86_64_PC32	.LC12-0x4
+     bc1:	e8 00 00 00 00       	call   bc6 <gin_k3_diag_report+0x2d6>	bc2: R_X86_64_PLT32	appendStringInfo-0x4
+     bc6:	48 8b 54 24 50       	mov    0x50(%rsp),%rdx
+     bcb:	31 c0                	xor    %eax,%eax
+     bcd:	48 89 ef             	mov    %rbp,%rdi
+     bd0:	48 8d 35 00 00 00 00 	lea    0x0(%rip),%rsi        # bd7 <gin_k3_diag_report+0x2e7>	bd3: R_X86_64_PC32	.LC13-0x4
+     bd7:	e8 00 00 00 00       	call   bdc <gin_k3_diag_report+0x2ec>	bd8: R_X86_64_PLT32	appendStringInfo-0x4
+     bdc:	48 8b 54 24 18       	mov    0x18(%rsp),%rdx
+     be1:	31 c0                	xor    %eax,%eax
+     be3:	48 89 ef             	mov    %rbp,%rdi
+     be6:	48 8d 35 00 00 00 00 	lea    0x0(%rip),%rsi        # bed <gin_k3_diag_report+0x2fd>	be9: R_X86_64_PC32	.LC14-0x4
+     bed:	e8 00 00 00 00       	call   bf2 <gin_k3_diag_report+0x302>	bee: R_X86_64_PLT32	appendStringInfo-0x4
+     bf2:	48 8b 54 24 58       	mov    0x58(%rsp),%rdx
+     bf7:	31 c0                	xor    %eax,%eax
+     bf9:	48 89 ef             	mov    %rbp,%rdi
+     bfc:	48 8d 35 00 00 00 00 	lea    0x0(%rip),%rsi        # c03 <gin_k3_diag_report+0x313>	bff: R_X86_64_PC32	.LC15-0x4
+     c03:	e8 00 00 00 00       	call   c08 <gin_k3_diag_report+0x318>	c04: R_X86_64_PLT32	appendStringInfo-0x4
+     c08:	48 8b 54 24 60       	mov    0x60(%rsp),%rdx
+     c0d:	31 c0                	xor    %eax,%eax
+     c0f:	48 89 ef             	mov    %rbp,%rdi
+     c12:	48 8d 35 00 00 00 00 	lea    0x0(%rip),%rsi        # c19 <gin_k3_diag_report+0x329>	c15: R_X86_64_PC32	.LC16-0x4
+     c19:	e8 00 00 00 00       	call   c1e <gin_k3_diag_report+0x32e>	c1a: R_X86_64_PLT32	appendStringInfo-0x4
+     c1e:	48 8b 54 24 70       	mov    0x70(%rsp),%rdx
+     c23:	31 c0                	xor    %eax,%eax
+     c25:	48 89 ef             	mov    %rbp,%rdi
+     c28:	48 8d 35 00 00 00 00 	lea    0x0(%rip),%rsi        # c2f <gin_k3_diag_report+0x33f>	c2b: R_X86_64_PC32	.LC17-0x4
+     c2f:	e8 00 00 00 00       	call   c34 <gin_k3_diag_report+0x344>	c30: R_X86_64_PLT32	appendStringInfo-0x4
+     c34:	48 8b 54 24 78       	mov    0x78(%rsp),%rdx
+     c39:	31 c0                	xor    %eax,%eax
+     c3b:	48 89 ef             	mov    %rbp,%rdi
+     c3e:	48 8d 35 00 00 00 00 	lea    0x0(%rip),%rsi        # c45 <gin_k3_diag_report+0x355>	c41: R_X86_64_PC32	.LC18-0x4
+     c45:	e8 00 00 00 00       	call   c4a <gin_k3_diag_report+0x35a>	c46: R_X86_64_PLT32	appendStringInfo-0x4
+     c4a:	48 8b 54 24 68       	mov    0x68(%rsp),%rdx
+     c4f:	31 c0                	xor    %eax,%eax
+     c51:	48 89 ef             	mov    %rbp,%rdi
+     c54:	48 8d 35 00 00 00 00 	lea    0x0(%rip),%rsi        # c5b <gin_k3_diag_report+0x36b>	c57: R_X86_64_PC32	.LC19-0x4
+     c5b:	e8 00 00 00 00       	call   c60 <gin_k3_diag_report+0x370>	c5c: R_X86_64_PLT32	appendStringInfo-0x4
+     c60:	48 8b 94 24 80 00 00 00 	mov    0x80(%rsp),%rdx
+     c68:	31 c0                	xor    %eax,%eax
+     c6a:	48 89 ef             	mov    %rbp,%rdi
+     c6d:	48 8d 35 00 00 00 00 	lea    0x0(%rip),%rsi        # c74 <gin_k3_diag_report+0x384>	c70: R_X86_64_PC32	.LC20-0x4
+     c74:	e8 00 00 00 00       	call   c79 <gin_k3_diag_report+0x389>	c75: R_X86_64_PLT32	appendStringInfo-0x4
+     c79:	48 8b 94 24 88 00 00 00 	mov    0x88(%rsp),%rdx
+     c81:	48 8d 35 00 00 00 00 	lea    0x0(%rip),%rsi        # c88 <gin_k3_diag_report+0x398>	c84: R_X86_64_PC32	.LC21-0x4
+     c88:	31 c0                	xor    %eax,%eax
+     c8a:	48 89 ef             	mov    %rbp,%rdi
+     c8d:	e8 00 00 00 00       	call   c92 <gin_k3_diag_report+0x3a2>	c8e: R_X86_64_PLT32	appendStringInfo-0x4
+     c92:	48 8b 94 24 90 00 00 00 	mov    0x90(%rsp),%rdx
+     c9a:	48 8d 35 00 00 00 00 	lea    0x0(%rip),%rsi        # ca1 <gin_k3_diag_report+0x3b1>	c9d: R_X86_64_PC32	.LC22-0x4
+     ca1:	31 c0                	xor    %eax,%eax
+     ca3:	48 89 ef             	mov    %rbp,%rdi
+     ca6:	e8 00 00 00 00       	call   cab <gin_k3_diag_report+0x3bb>	ca7: R_X86_64_PLT32	appendStringInfo-0x4
+     cab:	48 8b 94 24 98 00 00 00 	mov    0x98(%rsp),%rdx
+     cb3:	48 8d 35 00 00 00 00 	lea    0x0(%rip),%rsi        # cba <gin_k3_diag_report+0x3ca>	cb6: R_X86_64_PC32	.LC23-0x4
+     cba:	31 c0                	xor    %eax,%eax
+     cbc:	48 89 ef             	mov    %rbp,%rdi
+     cbf:	e8 00 00 00 00       	call   cc4 <gin_k3_diag_report+0x3d4>	cc0: R_X86_64_PLT32	appendStringInfo-0x4
+     cc4:	89 da                	mov    %ebx,%edx
+     cc6:	48 8d 35 00 00 00 00 	lea    0x0(%rip),%rsi        # ccd <gin_k3_diag_report+0x3dd>	cc9: R_X86_64_PC32	.LC24-0x4
+     ccd:	31 c0                	xor    %eax,%eax
+     ccf:	48 89 ef             	mov    %rbp,%rdi
+     cd2:	31 db                	xor    %ebx,%ebx
+     cd4:	e8 00 00 00 00       	call   cd9 <gin_k3_diag_report+0x3e9>	cd5: R_X86_64_PLT32	appendStringInfo-0x4
+     cd9:	59                   	pop    %rcx
+     cda:	5e                   	pop    %rsi
+     cdb:	0f 1f 44 00 00       	nopl   0x0(%rax,%rax,1)
+     ce0:	49 8b 8c de 98 02 00 00 	mov    0x298(%r14,%rbx,8),%rcx
+     ce8:	48 85 db             	test   %rbx,%rbx
+     ceb:	0f 84 df 00 00 00    	je     dd0 <gin_k3_diag_report+0x4e0>
+     cf1:	4c 89 ea             	mov    %r13,%rdx
+     cf4:	4c 89 fe             	mov    %r15,%rsi
+     cf7:	48 89 ef             	mov    %rbp,%rdi
+     cfa:	31 c0                	xor    %eax,%eax
+     cfc:	e8 00 00 00 00       	call   d01 <gin_k3_diag_report+0x411>	cfd: R_X86_64_PLT32	appendStringInfo-0x4
+     d01:	48 83 c3 01          	add    $0x1,%rbx
+     d05:	48 83 fb 0c          	cmp    $0xc,%rbx
+     d09:	75 d5                	jne    ce0 <gin_k3_diag_report+0x3f0>
+     d0b:	48 8d 35 00 00 00 00 	lea    0x0(%rip),%rsi        # d12 <gin_k3_diag_report+0x422>	d0e: R_X86_64_PC32	.LC26-0x4
+     d12:	48 89 ef             	mov    %rbp,%rdi
+     d15:	31 db                	xor    %ebx,%ebx
+     d17:	e8 00 00 00 00       	call   d1c <gin_k3_diag_report+0x42c>	d18: R_X86_64_PLT32	appendStringInfoString-0x4
+     d1c:	0f 1f 40 00          	nopl   0x0(%rax)
+     d20:	49 8b 4c de 70       	mov    0x70(%r14,%rbx,8),%rcx
+     d25:	48 85 db             	test   %rbx,%rbx
+     d28:	0f 84 82 00 00 00    	je     db0 <gin_k3_diag_report+0x4c0>
+     d2e:	4c 89 ea             	mov    %r13,%rdx
+     d31:	4c 89 fe             	mov    %r15,%rsi
+     d34:	48 89 ef             	mov    %rbp,%rdi
+     d37:	31 c0                	xor    %eax,%eax
+     d39:	e8 00 00 00 00       	call   d3e <gin_k3_diag_report+0x44e>	d3a: R_X86_64_PLT32	appendStringInfo-0x4
+     d3e:	48 83 c3 01          	add    $0x1,%rbx
+     d42:	48 83 fb 41          	cmp    $0x41,%rbx
+     d46:	75 d8                	jne    d20 <gin_k3_diag_report+0x430>
+     d48:	48 8d 35 00 00 00 00 	lea    0x0(%rip),%rsi        # d4f <gin_k3_diag_report+0x45f>	d4b: R_X86_64_PC32	.LC27-0x4
+     d4f:	48 89 ef             	mov    %rbp,%rdi
+     d52:	49 81 c4 28 03 00 00 	add    $0x328,%r12
+     d59:	e8 00 00 00 00       	call   d5e <gin_k3_diag_report+0x46e>	d5a: R_X86_64_PLT32	appendStringInfoString-0x4
+     d5e:	83 44 24 04 01       	addl   $0x1,0x4(%rsp)
+     d63:	8b 44 24 04          	mov    0x4(%rsp),%eax
+     d67:	3b 05 00 00 00 00    	cmp    0x0(%rip),%eax        # d6d <gin_k3_diag_report+0x47d>	d69: R_X86_64_PC32	.bss+0x19404
+     d6d:	0f 82 0d fc ff ff    	jb     980 <gin_k3_diag_report+0x90>
+     d73:	48 8d 35 00 00 00 00 	lea    0x0(%rip),%rsi        # d7a <gin_k3_diag_report+0x48a>	d76: R_X86_64_PC32	.LC27-0x4
+     d7a:	48 89 ef             	mov    %rbp,%rdi
+     d7d:	e8 00 00 00 00       	call   d82 <gin_k3_diag_report+0x492>	d7e: R_X86_64_PLT32	appendStringInfoString-0x4
+     d82:	48 8b 84 24 90 00 00 00 	mov    0x90(%rsp),%rax
+     d8a:	48 8b 94 24 d8 03 00 00 	mov    0x3d8(%rsp),%rdx
+     d92:	64 48 2b 14 25 28 00 00 00 	sub    %fs:0x28,%rdx
+     d9b:	75 5b                	jne    df8 <gin_k3_diag_report+0x508>
+     d9d:	48 81 c4 e8 03 00 00 	add    $0x3e8,%rsp
+     da4:	5b                   	pop    %rbx
+     da5:	5d                   	pop    %rbp
+     da6:	41 5c                	pop    %r12
+     da8:	41 5d                	pop    %r13
+     daa:	41 5e                	pop    %r14
+     dac:	41 5f                	pop    %r15
+     dae:	c3                   	ret
+     daf:	90                   	nop
+     db0:	48 8d 15 00 00 00 00 	lea    0x0(%rip),%rdx        # db7 <gin_k3_diag_report+0x4c7>	db3: R_X86_64_PC32	.LC4-0x4
+     db7:	4c 89 fe             	mov    %r15,%rsi
+     dba:	48 89 ef             	mov    %rbp,%rdi
+     dbd:	31 c0                	xor    %eax,%eax
+     dbf:	e8 00 00 00 00       	call   dc4 <gin_k3_diag_report+0x4d4>	dc0: R_X86_64_PLT32	appendStringInfo-0x4
+     dc4:	bb 01 00 00 00       	mov    $0x1,%ebx
+     dc9:	e9 52 ff ff ff       	jmp    d20 <gin_k3_diag_report+0x430>
+     dce:	66 90                	xchg   %ax,%ax
+     dd0:	48 8d 15 00 00 00 00 	lea    0x0(%rip),%rdx        # dd7 <gin_k3_diag_report+0x4e7>	dd3: R_X86_64_PC32	.LC4-0x4
+     dd7:	4c 89 fe             	mov    %r15,%rsi
+     dda:	48 89 ef             	mov    %rbp,%rdi
+     ddd:	31 c0                	xor    %eax,%eax
+     ddf:	e8 00 00 00 00       	call   de4 <gin_k3_diag_report+0x4f4>	de0: R_X86_64_PLT32	appendStringInfo-0x4
+     de4:	bb 01 00 00 00       	mov    $0x1,%ebx
+     de9:	e9 f2 fe ff ff       	jmp    ce0 <gin_k3_diag_report+0x3f0>
+     dee:	b9 08 00 00 00       	mov    $0x8,%ecx
+     df3:	e9 e1 fc ff ff       	jmp    ad9 <gin_k3_diag_report+0x1e9>
+     df8:	e8 00 00 00 00       	call   dfd <gin_k3_diag_report+0x50d>	df9: R_X86_64_PLT32	__stack_chk_fail-0x4
+     dfd:	0f 1f 00             	nopl   (%rax)
+
+0000000000000e00 <ginInitConsistentFunction>:
+     e00:	f3 0f 1e fa          	endbr64
+     e04:	55                   	push   %rbp
+     e05:	53                   	push   %rbx
+     e06:	48 89 f3             	mov    %rsi,%rbx
+     e09:	48 83 ec 08          	sub    $0x8,%rsp
+     e0d:	83 be 84 00 00 00 03 	cmpl   $0x3,0x84(%rsi)
+     e14:	48 c7 86 98 00 00 00 00 00 00 00 	movq   $0x0,0x98(%rsi)
+     e1f:	0f 84 f3 01 00 00    	je     1018 <ginInitConsistentFunction+0x218>
+     e25:	0f b7 96 88 00 00 00 	movzwl 0x88(%rsi),%edx
+     e2c:	66 48 0f 6e c7       	movq   %rdi,%xmm0
+     e31:	66 0f 6c c0          	punpcklqdq %xmm0,%xmm0
+     e35:	66 0f d4 05 00 00 00 00 	paddq  0x0(%rip),%xmm0        # e3d <ginInitConsistentFunction+0x3d>	e39: R_X86_64_PC32	.LC28-0x4
+     e3d:	83 ea 01             	sub    $0x1,%edx
+     e40:	48 63 d2             	movslq %edx,%rdx
+     e43:	48 8d 04 52          	lea    (%rdx,%rdx,2),%rax
+     e47:	48 c1 e0 04          	shl    $0x4,%rax
+     e4b:	66 48 0f 6e c8       	movq   %rax,%xmm1
+     e50:	48 01 f8             	add    %rdi,%rax
+     e53:	66 0f 6c c9          	punpcklqdq %xmm1,%xmm1
+     e57:	66 0f d4 c1          	paddq  %xmm1,%xmm0
+     e5b:	0f 11 46 48          	movups %xmm0,0x48(%rsi)
+     e5f:	8b 8c 97 38 25 00 00 	mov    0x2538(%rdi,%rdx,4),%ecx
+     e66:	89 4e 58             	mov    %ecx,0x58(%rsi)
+     e69:	8b 88 20 13 00 00    	mov    0x1320(%rax),%ecx
+     e6f:	48 8d 35 2a f2 ff ff 	lea    -0xdd6(%rip),%rsi        # a0 <directBoolConsistentFn>
+     e76:	85 c9                	test   %ecx,%ecx
+     e78:	48 8d 0d b1 f1 ff ff 	lea    -0xe4f(%rip),%rcx        # 30 <shimBoolConsistentFn>
+     e7f:	48 0f 45 ce          	cmovne %rsi,%rcx
+     e83:	48 89 4b 38          	mov    %rcx,0x38(%rbx)
+     e87:	8b b0 20 19 00 00    	mov    0x1920(%rax),%esi
+     e8d:	48 8d 0d 5c f2 ff ff 	lea    -0xda4(%rip),%rcx        # f0 <shimTriConsistentFn>
+     e94:	85 f6                	test   %esi,%esi
+     e96:	48 8d 35 33 f7 ff ff 	lea    -0x8cd(%rip),%rsi        # 5d0 <directTriConsistentFn>
+     e9d:	48 0f 45 ce          	cmovne %rsi,%rcx
+     ea1:	8b 73 04             	mov    0x4(%rbx),%esi
+     ea4:	83 ee 01             	sub    $0x1,%esi
+     ea7:	48 89 4b 40          	mov    %rcx,0x40(%rbx)
+     eab:	83 fe 07             	cmp    $0x7,%esi
+     eae:	76 70                	jbe    f20 <ginInitConsistentFunction+0x120>
+     eb0:	48 8d 05 e9 f7 ff ff 	lea    -0x817(%rip),%rax        # 6a0 <cachedTsqueryTriConsistentFn>
+     eb7:	48 39 c1             	cmp    %rax,%rcx
+     eba:	40 0f 94 c5          	sete   %bpl
+     ebe:	80 3d 00 00 00 00 00 	cmpb   $0x0,0x0(%rip)        # ec5 <ginInitConsistentFunction+0xc5>	ec0: R_X86_64_PC32	.bss+0x19407
+     ec5:	74 4c                	je     f13 <ginInitConsistentFunction+0x113>
+     ec7:	8b 05 00 00 00 00    	mov    0x0(%rip),%eax        # ecd <ginInitConsistentFunction+0xcd>	ec9: R_X86_64_PC32	.bss+0x19404
+     ecd:	3d 80 00 00 00       	cmp    $0x80,%eax
+     ed2:	0f 84 68 01 00 00    	je     1040 <ginInitConsistentFunction+0x240>
+     ed8:	8d 48 01             	lea    0x1(%rax),%ecx
+     edb:	48 8d 15 00 00 00 00 	lea    0x0(%rip),%rdx        # ee2 <ginInitConsistentFunction+0xe2>	ede: R_X86_64_PC32	.bss-0x4
+     ee2:	48 bf 25 23 22 84 e4 9c f2 cb 	movabs $0xcbf29ce484222325,%rdi
+     eec:	48 69 c0 28 03 00 00 	imul   $0x328,%rax,%rax
+     ef3:	89 0d 00 00 00 00    	mov    %ecx,0x0(%rip)        # ef9 <ginInitConsistentFunction+0xf9>	ef5: R_X86_64_PC32	.bss+0x19404
+     ef9:	48 01 d0             	add    %rdx,%rax
+     efc:	48 89 18             	mov    %rbx,(%rax)
+     eff:	89 48 08             	mov    %ecx,0x8(%rax)
+     f02:	8b 53 04             	mov    0x4(%rbx),%edx
+     f05:	40 88 68 10          	mov    %bpl,0x10(%rax)
+     f09:	89 50 0c             	mov    %edx,0xc(%rax)
+     f0c:	48 89 b8 10 03 00 00 	mov    %rdi,0x310(%rax)
+     f13:	48 83 c4 08          	add    $0x8,%rsp
+     f17:	5b                   	pop    %rbx
+     f18:	5d                   	pop    %rbp
+     f19:	c3                   	ret
+     f1a:	66 0f 1f 44 00 00    	nopw   0x0(%rax,%rax,1)
+     f20:	81 b8 20 01 00 00 8c 0e 00 00 	cmpl   $0xe8c,0x120(%rax)
+     f2a:	75 84                	jne    eb0 <ginInitConsistentFunction+0xb0>
+     f2c:	48 8b 35 00 00 00 00 	mov    0x0(%rip),%rsi        # f33 <ginInitConsistentFunction+0x133>	f2f: R_X86_64_REX_GOTPCRELX	gin_cmp_tslexeme-0x4
+     f33:	48 39 b0 18 01 00 00 	cmp    %rsi,0x118(%rax)
+     f3a:	0f 85 70 ff ff ff    	jne    eb0 <ginInitConsistentFunction+0xb0>
+     f40:	81 b8 20 0d 00 00 49 0e 00 00 	cmpl   $0xe49,0xd20(%rax)
+     f4a:	0f 85 60 ff ff ff    	jne    eb0 <ginInitConsistentFunction+0xb0>
+     f50:	48 8b 35 00 00 00 00 	mov    0x0(%rip),%rsi        # f57 <ginInitConsistentFunction+0x157>	f53: R_X86_64_REX_GOTPCRELX	gin_extract_tsquery-0x4
+     f57:	48 39 b0 18 0d 00 00 	cmp    %rsi,0xd18(%rax)
+     f5e:	0f 85 4c ff ff ff    	jne    eb0 <ginInitConsistentFunction+0xb0>
+     f64:	81 b8 20 13 00 00 4a 0e 00 00 	cmpl   $0xe4a,0x1320(%rax)
+     f6e:	0f 85 3c ff ff ff    	jne    eb0 <ginInitConsistentFunction+0xb0>
+     f74:	48 8b 35 00 00 00 00 	mov    0x0(%rip),%rsi        # f7b <ginInitConsistentFunction+0x17b>	f77: R_X86_64_REX_GOTPCRELX	gin_tsquery_consistent-0x4
+     f7b:	48 39 b0 18 13 00 00 	cmp    %rsi,0x1318(%rax)
+     f82:	0f 85 28 ff ff ff    	jne    eb0 <ginInitConsistentFunction+0xb0>
+     f88:	48 6b c2 30          	imul   $0x30,%rdx,%rax
+     f8c:	48 01 f8             	add    %rdi,%rax
+     f8f:	81 b8 20 19 00 00 51 0f 00 00 	cmpl   $0xf51,0x1920(%rax)
+     f99:	0f 85 11 ff ff ff    	jne    eb0 <ginInitConsistentFunction+0xb0>
+     f9f:	48 8b 35 00 00 00 00 	mov    0x0(%rip),%rsi        # fa6 <ginInitConsistentFunction+0x1a6>	fa2: R_X86_64_REX_GOTPCRELX	gin_tsquery_triconsistent-0x4
+     fa6:	48 39 b0 18 19 00 00 	cmp    %rsi,0x1918(%rax)
+     fad:	0f 85 fd fe ff ff    	jne    eb0 <ginInitConsistentFunction+0xb0>
+     fb3:	0f b6 ac 17 18 25 00 00 	movzbl 0x2518(%rdi,%rdx,1),%ebp
+     fbb:	40 84 ed             	test   %bpl,%bpl
+     fbe:	0f 84 ec fe ff ff    	je     eb0 <ginInitConsistentFunction+0xb0>
+     fc4:	48 6b d2 30          	imul   $0x30,%rdx,%rdx
+     fc8:	48 8d 04 17          	lea    (%rdi,%rdx,1),%rax
+     fcc:	81 b8 20 1f 00 00 8c 0a 00 00 	cmpl   $0xa8c,0x1f20(%rax)
+     fd6:	0f 85 d4 fe ff ff    	jne    eb0 <ginInitConsistentFunction+0xb0>
+     fdc:	48 8b 3d 00 00 00 00 	mov    0x0(%rip),%rdi        # fe3 <ginInitConsistentFunction+0x1e3>	fdf: R_X86_64_REX_GOTPCRELX	gin_cmp_prefix-0x4
+     fe3:	48 39 b8 18 1f 00 00 	cmp    %rdi,0x1f18(%rax)
+     fea:	0f 85 c0 fe ff ff    	jne    eb0 <ginInitConsistentFunction+0xb0>
+     ff0:	bf 18 00 00 00       	mov    $0x18,%edi
+     ff5:	e8 00 00 00 00       	call   ffa <ginInitConsistentFunction+0x1fa>	ff6: R_X86_64_PLT32	palloc0-0x4
+     ffa:	48 89 83 98 00 00 00 	mov    %rax,0x98(%rbx)
+    1001:	48 8d 05 98 f6 ff ff 	lea    -0x968(%rip),%rax        # 6a0 <cachedTsqueryTriConsistentFn>
+    1008:	48 89 43 40          	mov    %rax,0x40(%rbx)
+    100c:	e9 ad fe ff ff       	jmp    ebe <ginInitConsistentFunction+0xbe>
+    1011:	0f 1f 80 00 00 00 00 	nopl   0x0(%rax)
+    1018:	48 8d 05 01 f0 ff ff 	lea    -0xfff(%rip),%rax        # 20 <trueTriConsistentFn>
+    101f:	48 8d 15 da ef ff ff 	lea    -0x1026(%rip),%rdx        # 0 <trueConsistentFn>
+    1026:	31 ed                	xor    %ebp,%ebp
+    1028:	66 48 0f 6e c2       	movq   %rdx,%xmm0
+    102d:	66 48 0f 6e d0       	movq   %rax,%xmm2
+    1032:	66 0f 6c c2          	punpcklqdq %xmm2,%xmm0
+    1036:	0f 11 46 38          	movups %xmm0,0x38(%rsi)
+    103a:	e9 7f fe ff ff       	jmp    ebe <ginInitConsistentFunction+0xbe>
+    103f:	90                   	nop
+    1040:	48 83 05 00 00 00 00 01 	addq   $0x1,0x0(%rip)        # 1048 <ginInitConsistentFunction+0x248>	1043: R_X86_64_PC32	.bss+0x193fb
+    1048:	48 83 c4 08          	add    $0x8,%rsp
+    104c:	5b                   	pop    %rbx
+    104d:	5d                   	pop    %rbp
+    104e:	c3                   	ret

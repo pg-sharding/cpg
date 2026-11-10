@@ -1,0 +1,264 @@
+/* Untimed diagnostic ONLY; absent from all measured executables. */
+#include <stdint.h>
+#define K3DIAG_MAX_KEYS 128
+#define K3DIAG_RUN_BINS 12
+
+typedef struct K3DiagKey
+{
+	uintptr_t key_address;
+	uint32 generation;
+	uint32 nuserentries;
+	bool cache_installed;
+	bool disabled;
+	uint64 dispatches, cached_dispatches, direct_dispatches;
+	uint64 native_calls, native_from_cache;
+	uint64 hits, misses, hit_resets, switches, disabled_at_dispatch;
+	uint32 consecutive_misses, maximum_misses;
+	uint64 miss_run_hist[65];
+	bool vector_valid;
+	uint32 vector_nentries;
+	GinTernaryValue vector[TSQUERY_CACHE_MAX_ENTRIES];
+	uint64 vector_run, maximum_vector_run;
+	uint64 vector_run_hist[K3DIAG_RUN_BINS];
+	uint64 vector_events, vector_changes, equal_adjacent_after_disable;
+	uint64 vector_digest, overbound_dispatches, contract_errors;
+} K3DiagKey;
+
+static bool k3diag_enabled;
+static uint32 k3diag_count;
+static uint64 k3diag_overflow;
+static K3DiagKey k3diag_keys[K3DIAG_MAX_KEYS];
+
+PGDLLEXPORT void gin_k3_diag_begin(void);
+PGDLLEXPORT void gin_k3_diag_end(void);
+PGDLLEXPORT char *gin_k3_diag_report(void);
+
+static K3DiagKey *
+k3diag_find(GinScanKey key)
+{
+	if (!k3diag_enabled)
+		return NULL;
+	/* A reused address belongs to its newest initialization. */
+	for (uint32 i = k3diag_count; i > 0; i--)
+		if (k3diag_keys[i - 1].key_address == (uintptr_t) key)
+			return &k3diag_keys[i - 1];
+	return NULL;
+}
+
+static int
+k3diag_run_bin(uint64 run)
+{
+	if (run <= 4) return (int) run - 1;
+	if (run <= 8) return 4;
+	if (run <= 16) return 5;
+	if (run <= 32) return 6;
+	if (run <= 63) return 7;
+	if (run == 64) return 8;
+	if (run <= 127) return 9;
+	if (run <= 255) return 10;
+	return 11;
+}
+
+static void
+k3diag_vector(K3DiagKey *r, GinScanKey key)
+{
+	bool same;
+
+	if (key->nentries > TSQUERY_CACHE_MAX_ENTRIES)
+	{
+		if (r->vector_run)
+			r->vector_run_hist[k3diag_run_bin(r->vector_run)]++;
+		r->vector_valid = false;
+		r->vector_run = 0;
+		r->overbound_dispatches++;
+		return;
+	}
+	same = r->vector_valid && r->vector_nentries == key->nentries &&
+		memcmp(r->vector, key->entryRes,
+			   key->nentries * sizeof(GinTernaryValue)) == 0;
+	if (same)
+	{
+		r->vector_run++;
+		if (r->disabled)
+			r->equal_adjacent_after_disable++;
+	}
+	else
+	{
+		if (r->vector_run)
+			r->vector_run_hist[k3diag_run_bin(r->vector_run)]++;
+		r->vector_changes += r->vector_valid;
+		r->vector_run = 1;
+	}
+	if (r->vector_run > r->maximum_vector_run)
+		r->maximum_vector_run = r->vector_run;
+	r->vector_valid = true;
+	r->vector_nentries = key->nentries;
+	memcpy(r->vector, key->entryRes,
+		   key->nentries * sizeof(GinTernaryValue));
+	r->vector_events++;
+	/* Ordered stream checksum; not a cryptographic identity. */
+	r->vector_digest = (r->vector_digest ^ key->nentries) * UINT64CONST(1099511628211);
+	for (uint32 i = 0; i < key->nentries; i++)
+		r->vector_digest = (r->vector_digest ^ key->entryRes[i]) * UINT64CONST(1099511628211);
+}
+
+static void
+k3diag_init(GinScanKey key, bool cache_installed)
+{
+	K3DiagKey *r;
+
+	if (!k3diag_enabled)
+		return;
+	if (k3diag_count == K3DIAG_MAX_KEYS)
+	{
+		k3diag_overflow++;
+		return;
+	}
+	r = &k3diag_keys[k3diag_count++];
+	r->key_address = (uintptr_t) key;
+	r->generation = k3diag_count;
+	r->nuserentries = key->nuserentries;
+	r->cache_installed = cache_installed;
+	r->vector_digest = UINT64CONST(14695981039346656037);
+}
+
+static void
+k3diag_cached_entry(GinScanKey key)
+{
+	K3DiagKey *r = k3diag_find(key);
+
+	if (!r || !r->cache_installed)
+		return;
+	r->dispatches++;
+	r->cached_dispatches++;
+	if (r->disabled)
+		r->contract_errors++;
+	k3diag_vector(r, key);
+}
+
+static void
+k3diag_native(GinScanKey key, bool direct_dispatch)
+{
+	K3DiagKey *r = k3diag_find(key);
+
+	if (!r || !r->cache_installed)
+		return;
+	r->native_calls++;
+	if (!direct_dispatch)
+		r->native_from_cache++;
+	else
+	{
+		r->dispatches++;
+		r->direct_dispatches++;
+		if (!r->disabled)
+			r->contract_errors++;
+		k3diag_vector(r, key);
+	}
+}
+
+static void
+k3diag_hit(GinScanKey key, uint32 old_misses)
+{
+	K3DiagKey *r = k3diag_find(key);
+
+	if (!r || !r->cache_installed)
+		return;
+	r->hits++;
+	if (old_misses != r->consecutive_misses)
+		r->contract_errors++;
+	if (old_misses)
+	{
+		r->hit_resets++;
+		if (old_misses <= 64)
+			r->miss_run_hist[old_misses]++;
+		else
+			r->contract_errors++;
+	}
+	r->consecutive_misses = 0;
+}
+
+static void
+k3diag_miss(GinScanKey key, uint32 actual_misses, bool disabled)
+{
+	K3DiagKey *r = k3diag_find(key);
+
+	if (!r || !r->cache_installed)
+		return;
+	r->misses++;
+	r->consecutive_misses++;
+	if (actual_misses != r->consecutive_misses || actual_misses > 64)
+		r->contract_errors++;
+	if (actual_misses > r->maximum_misses)
+		r->maximum_misses = actual_misses;
+	if (disabled)
+	{
+		if (r->disabled || actual_misses != 64)
+			r->contract_errors++;
+		r->disabled = true;
+		r->switches++;
+		r->disabled_at_dispatch = r->dispatches;
+	}
+}
+
+void
+gin_k3_diag_begin(void)
+{
+	MemSet(k3diag_keys, 0, sizeof(k3diag_keys));
+	k3diag_count = 0;
+	k3diag_overflow = 0;
+	k3diag_enabled = true;
+}
+
+void
+gin_k3_diag_end(void)
+{
+	k3diag_enabled = false;
+}
+
+char *
+gin_k3_diag_report(void)
+{
+	StringInfoData out;
+
+	initStringInfo(&out);
+	appendStringInfo(&out, "{\"scope\":\"untimed instrumented K3 dispatcher only\",\"key_cap\":128,\"keys\":%u,\"overflow\":" UINT64_FORMAT ",\"records\":[", k3diag_count, k3diag_overflow);
+	for (uint32 i = 0; i < k3diag_count; i++)
+	{
+		K3DiagKey r = k3diag_keys[i];
+
+		/* Finalize copies; repeated reports never change live counters. */
+		if (r.vector_run)
+			r.vector_run_hist[k3diag_run_bin(r.vector_run)]++;
+		if (r.consecutive_misses && r.consecutive_misses <= 64)
+			r.miss_run_hist[r.consecutive_misses]++;
+		appendStringInfo(&out, "%s{\"generation\":%u,\"nuserentries\":%u,\"cache_installed\":%s,\"disabled\":%s", i ? "," : "", r.generation, r.nuserentries, r.cache_installed ? "true" : "false", r.disabled ? "true" : "false");
+#define K3DIAG_JSON(field) appendStringInfo(&out, ",\"" #field "\":" UINT64_FORMAT, r.field)
+		K3DIAG_JSON(dispatches);
+		K3DIAG_JSON(cached_dispatches);
+		K3DIAG_JSON(direct_dispatches);
+		K3DIAG_JSON(native_calls);
+		K3DIAG_JSON(native_from_cache);
+		K3DIAG_JSON(hits);
+		K3DIAG_JSON(misses);
+		K3DIAG_JSON(hit_resets);
+		K3DIAG_JSON(switches);
+		K3DIAG_JSON(disabled_at_dispatch);
+		K3DIAG_JSON(vector_events);
+		K3DIAG_JSON(vector_changes);
+		K3DIAG_JSON(maximum_vector_run);
+		K3DIAG_JSON(equal_adjacent_after_disable);
+		K3DIAG_JSON(vector_digest);
+		K3DIAG_JSON(overbound_dispatches);
+		K3DIAG_JSON(contract_errors);
+#undef K3DIAG_JSON
+		appendStringInfo(&out, ",\"maximum_misses\":%u,\"vector_run_hist\":[", r.maximum_misses);
+		for (int bin = 0; bin < K3DIAG_RUN_BINS; bin++)
+			appendStringInfo(&out, "%s" UINT64_FORMAT, bin ? "," : "", r.vector_run_hist[bin]);
+		appendStringInfoString(&out, "],\"miss_run_hist\":[");
+		for (int run = 0; run <= 64; run++)
+			appendStringInfo(&out, "%s" UINT64_FORMAT, run ? "," : "", r.miss_run_hist[run]);
+		appendStringInfoString(&out, "]}");
+	}
+	appendStringInfoString(&out, "]}");
+	return out.data;
+}

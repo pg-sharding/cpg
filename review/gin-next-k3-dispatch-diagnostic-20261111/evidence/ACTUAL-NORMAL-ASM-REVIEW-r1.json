@@ -1,0 +1,45 @@
+{
+  "status": "PASS_ACTUAL_NORMAL_FULL_TU_OBSERVER_CODEGEN_REVIEW",
+  "normal_ASM_sha256": "7cb17b4bb309d3981637eeb295ade8e5a3d38b0c73005708e7712fded96ccefc",
+  "full_TU_object_sha256": "a9d5c4f3d40c46f644a234c86ae3c816d6a707783107aaa6f63bc5384dbda52f",
+  "postgres_sha256": "67e20a6e03630aa25ec3f7b01c522b007d59f86a0ff453acaf80d09231d497fc",
+  "compiler": "gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0\nCopyright (C) 2023 Free Software Foundation, Inc.\nThis is free software; see the source for copying conditions.  There is NO\nwarranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n",
+  "CFLAGS": "-Wall -Wmissing-prototypes -Wpointer-arith -Wdeclaration-after-statement -Werror=vla -Wmissing-format-attribute -Wold-style-declaration -Wimplicit-fallthrough=5 -Wcast-function-type -Wformat-security -Wshadow=local -fno-strict-aliasing -fwrapv -fexcess-precision=standard -fstrict-flex-arrays=1 -Wno-format-truncation -Wno-stringop-truncation -O2 -g -fno-lto -Wstrict-prototypes -Wold-style-definition\n",
+  "exports": [
+    "00000000001a20f0 T gin_k3_diag_begin",
+    "00000000001a2130 T gin_k3_diag_end",
+    "00000000001a2140 T gin_k3_diag_report"
+  ],
+  "sites": {
+    "630": {
+      "meaning": "native FunctionCall7Coll in direct helper",
+      "actual_object_asm_line": "630:\te8 00 00 00 00       \tcall   635 <directTriConsistentFn+0x65>\t631: R_X86_64_PLT32\tFunctionCall7Coll-0x4"
+    },
+    "707": {
+      "meaning": "cache miss delegates to actual direct helper",
+      "actual_object_asm_line": "707:\te8 c4 fe ff ff       \tcall   5d0 <directTriConsistentFn>"
+    },
+    "718": {
+      "meaning": "counter compare with63 before disable",
+      "actual_object_asm_line": "718:\t83 fe 3f             \tcmp    $0x3f,%esi"
+    },
+    "71b": {
+      "meaning": "branch to miss64 disable path",
+      "actual_object_asm_line": "71b:\t0f 87 8f 00 00 00    \tja     7b0 <cachedTsqueryTriConsistentFn+0x110>"
+    },
+    "7b8": {
+      "meaning": "observer records actual miss64 disable",
+      "actual_object_asm_line": "7b8:\te8 d3 fa ff ff       \tcall   290 <k3diag_miss>"
+    },
+    "7c8": {
+      "meaning": "original key dispatcher switches to direct helper",
+      "actual_object_asm_line": "7c8:\t48 89 43 40          \tmov    %rax,0x40(%rbx)"
+    },
+    "821": {
+      "meaning": "original memo-hit counter resets tozero",
+      "actual_object_asm_line": "821:\tc7 45 08 00 00 00 00 \tmovl   $0x0,0x8(%rbp)"
+    }
+  },
+  "interpretation": "Original miss64 direct-helper assignment and hit reset are present. Observer calls delegate native callbacks through the actual direct helper. Object offsets are not installed ELF addresses. This instrumented ELF changes layout and adds work; there is no latency or unmodified-K3 callback-count claim.",
+  "timing_samples": 0
+}

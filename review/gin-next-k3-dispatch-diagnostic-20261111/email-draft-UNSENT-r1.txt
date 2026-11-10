@@ -1,0 +1,50 @@
+UNSENT — working draft, not submitted
+Subject: GIN tsquery memo dispatcher: observed consecutive-miss paths
+
+This is an untimed diagnostic follow-up to our K1/K3 builtin-tsquery memo
+prototype. It uses the existing PostgreSQL GIN dispatcher, key lifetime and
+native tsvector consistency callbacks. The contribution is bounded observation
+of actual dispatch paths, not a new cache algorithm or a novelty claim.
+Related GIN scan work (general context, not a claim it proposes this memo policy):
+https://www.postgresql.org/message-id/52F373CC.4050800%40vmware.com
+
+K3 is ec32d586cf3bb6cfa76eb672db70160b436ce47c. The separate observer was
+assigned commit b267e8808ad9d9c3574eb89d047761704266a757 from exact frozen
+snapshots after build preparation. Historical build metadata retains a null
+observer commit; content hashes prove the later mapping. The observer overlay
+is diagnostic code, not a production optimization proposed for merging.
+
+A fresh normal backend and installed-header module captured six original SQL
+statements and six actual-AM queries with one and three real rescans. All 18
+reports passed. Per key, dense has 66,667 dispatcher calls, zero hits, 64 cache
+misses and one switch at call 64, followed by 66,603 direct native calls. None
+of the vectors after disable repeats its immediate predecessor. Rare has 199
+hits and one miss; full has 199,999 hits and one miss. OR has 199,600 hits and
+401 cumulative misses, but no switch: its longest miss run is two.
+
+The original prefix query has 100 keys, each with 201 calls, 102 hits and 99
+misses; its maximum consecutive miss run is three, and it never switches.
+Inline and absent controls remain in the packet. The ID-only Seq control
+records no GIN keys. Three-rescan actual-AM reports repeat the single-scan
+counters with new key generations. Independently recounted totals are
+4,574,271 dispatches, 3,627,299 hits, 14,530 misses and 14 switches.
+
+This narrows the interpretation of earlier mixed timings: dense takes the
+intended fallback, while rare and prefix do not disable the cache in these
+captured streams. It does not identify their earlier latency causes. The
+observer adds work and changes code layout, so no time from this executable
+is compared with K3, K1 or baseline. No threshold or policy was tuned.
+
+Before tracing, the fresh backend passed unchanged 239 core tests and posting-
+list tests, 40 ordered SQL cases, seven prepared cases, 12 write-lifecycle
+comparisons, 11 exhaustive valid-vector native cases, 11 budget-boundary cases
+and 11 generic callback-forwarding cases. Captures have 18 ordered row checks:
+17 GIN predicates and one ID-only control reference. All three runtime clusters
+stopped cleanly. Full source/header/ELF/module/normal-ASM bindings, raw counts,
+independent auditors, all controls and local review failures are retained.
+
+The packet provides diffs, an observer format-patch, a fresh-build frontdoor
+and the exact executed finite controllers. The new frontdoor has been checked
+statically, not replayed on another Linux machine. There are no new timing,
+concurrent-writer, assertion-build or general merge-readiness claims. This
+note has not been sent.
