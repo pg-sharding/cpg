@@ -160,8 +160,8 @@ $primary->poll_query_until('postgres',
 	"SELECT archived_count > $initial_archived FROM pg_stat_archiver")
 	or die "Timed out waiting for primary to archive new segments";
 
-$standby->safe_psql('postgres',
-	q{SELECT injection_points_attach('walreceiver-after-force-done', 'wait')});
+wait_for_injection_point($standby, 'walreceiver-after-primary-last-archived')
+	or die "standby did not receive the expected archival report";
 
 $standby->safe_psql(
 	'postgres', qq[
@@ -169,13 +169,11 @@ SELECT injection_points_detach('walreceiver-after-primary-last-archived');
 SELECT injection_points_wakeup('walreceiver-after-primary-last-archived');
 ]);
 
-wait_for_injection_point($standby, 'walreceiver-after-force-done');
-
-$standby->safe_psql(
-	'postgres', qq[
-SELECT injection_points_detach('walreceiver-after-force-done');
-SELECT injection_points_wakeup('walreceiver-after-force-done');
-]);
+# The report may complete a file that is already .ready.  There need not be
+# another segment close taking the separate walreceiver-after-force-done path.
+$standby->poll_query_until('postgres',
+	"SELECT (pg_stat_file('pg_wal/archive_status/$primary_last_archived.done', true)).size IS NOT NULL")
+	or die "standby did not mark the reported WAL segment archived";
 
 # Wait for standby to catch up (archive status is sent during replication)
 $primary->wait_for_catchup($standby);
