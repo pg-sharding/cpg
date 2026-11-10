@@ -35,6 +35,7 @@
 #include "postgres.h"
 
 #include "access/gin_private.h"
+#include "lib/stringinfo.h"
 #include "utils/fmgroids.h"
 #include "utils/fmgrprotos.h"
 
@@ -57,6 +58,8 @@ struct GinTriConsistentCacheData
 	GinTernaryValue result;
 	GinTernaryValue entryRes[TSQUERY_CACHE_MAX_ENTRIES];
 };
+
+#include "ginlogic-probe.inc"
 
 /*
  * Dummy consistent functions for an EVERYTHING key.  Just claim it matches.
@@ -103,6 +106,7 @@ directBoolConsistentFn(GinScanKey key)
 static GinTernaryValue
 directTriConsistentFn(GinScanKey key)
 {
+	k3diag_native(key, key->triConsistentFn == directTriConsistentFn);
 	return DatumGetGinTernaryValue(FunctionCall7Coll(key->triConsistentFmgrInfo,
 													 key->collation,
 													 PointerGetDatum(key->entryRes),
@@ -125,6 +129,8 @@ cachedTsqueryTriConsistentFn(GinScanKey key)
 	GinTriConsistentCacheData *cache = key->triCache;
 	GinTernaryValue result;
 
+	k3diag_cached_entry(key);
+
 	/* A hidden entry may have been appended after initialization. */
 	if (key->nentries > TSQUERY_CACHE_MAX_ENTRIES)
 	{
@@ -135,6 +141,7 @@ cachedTsqueryTriConsistentFn(GinScanKey key)
 		memcmp(cache->entryRes, key->entryRes,
 			   key->nentries * sizeof(GinTernaryValue)) == 0)
 	{
+		k3diag_hit(key, cache->misses);
 		cache->misses = 0;
 		return cache->result;
 	}
@@ -142,10 +149,12 @@ cachedTsqueryTriConsistentFn(GinScanKey key)
 	/* Stop paying for the memo after a fixed consecutive miss budget. */
 	if (++cache->misses >= TSQUERY_CACHE_MAX_MISSES)
 	{
+		k3diag_miss(key, cache->misses, true);
 		cache->valid = false;
 		key->triConsistentFn = directTriConsistentFn;
 		return result;
 	}
+	k3diag_miss(key, cache->misses, false);
 	memcpy(cache->entryRes, key->entryRes,
 		   key->nentries * sizeof(GinTernaryValue));
 	cache->nentries = key->nentries;
@@ -335,4 +344,5 @@ ginInitConsistentFunction(GinState *ginstate, GinScanKey key)
 			key->triConsistentFn = cachedTsqueryTriConsistentFn;
 		}
 	}
+	k3diag_init(key, key->triConsistentFn == cachedTsqueryTriConsistentFn);
 }
