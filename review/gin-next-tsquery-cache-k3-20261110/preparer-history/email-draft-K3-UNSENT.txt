@@ -1,0 +1,47 @@
+Subject: [DRAFT UNSENT] Bounded last-vector memo for builtin tsquery consistency
+
+This is an independently applicable prototype over the fixed historical B72
+baseline, not a patch series with the earlier memo or other GIN experiments.
+It retains the exact builtin-support OID/native-address guards and ternary/
+recheck behavior, and stops memo lookup after64 consecutive vector misses per
+scan key. A memo hit resets the count. The64th miss computes the ordinary
+native result once, then selects the original direct helper until that scan
+key is rebuilt. A small query-local memo allocation remains. The threshold
+was fixed before measurements; there is no on-disk or callback API change.
+
+The motivation is the earlier K1 screen's no-reuse dense negative. On its
+separate shared-load VM84 cohorts, K1 increased actual-AM inner CPU by13.63%
+and13.94%; those results and controls remain immutable. Aggregate high OR
+repeat rates do not prove short miss runs, so preserved OR benefit is a
+hypothesis, not a source-review conclusion. A long no-reuse prefix can still
+discard later hits permanently. Short scans and hit-reset overhead are controls.
+
+Four fresh B/K1/K3/K3_assert full builds passed unchanged core239 and posting
+list tests with actual source/header/compiler/ELF bindings. The installed gate
+passed160 ordered SQL,28 prepared,48 lifecycle and44 generic fallback cases,
+735888 exhaustive native checks and51744 new budget dispatch checks. The latter
+observed180 pointer transitions,528 initializations and88 key-context resets;
+this context-reset helper is not labelled an index_rescan execution. The
+separate actual-AM helper uses the real scan/rescan/bitmap path. All five gate
+cluster lifetimes stopped cleanly. The92-observation zero-accepted smoke and
+100 ordered oracles passed independent semantic review.
+
+The prospective matched matrix is B/exact-ELF twin/K1/K3,23 cells, two fresh
+cohorts and12 retained rounds, keeping all controls and every pair. Complete
+accepted timings,independent statistics and final live release are not yet
+part of this preparer snapshot; no speedup,dense-fix or adoption claim is made.
+The final draft must insert the verified complete tables and negative findings
+only after those artifacts are collected and reviewed.
+
+Consistent-function caching is prior art. Heikki proposed a truth table/cache
+in the2014 GIN discussion[1], building on earlier fast-scan discussion[2].
+K3 is a small builtin-scoped last-vector experiment with a fixed fallback
+budget; no general novelty claim is made for memoization or adaptive fallback.
+
+[1] https://www.postgresql.org/message-id/52F373CC.4050800%40vmware.com
+[2] https://www.postgresql.org/message-id/51C4ACC5.2090707%40vmware.com
+
+The attached source alternatives,complete synthetic setup,build/qualification/
+smoke/run commands and numerical raw replay must accompany the final results.
+The new portable frontdoor is currently AST/help/source checked only; original
+VM execution and a future independent replay are explicitly separate evidence.

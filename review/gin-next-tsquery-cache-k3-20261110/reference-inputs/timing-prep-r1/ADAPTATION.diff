@@ -1,0 +1,219 @@
+--- K1-reference/campaign.py
++++ K3-timing/campaign.py
+@@ -15,7 +15,7 @@
+ 
+ HERE = pathlib.Path(__file__).resolve().parent
+ ROOT = HERE.parent
+-loader = importlib.util.spec_from_file_location('bc', ROOT / 'full-build-harness-r1/common.py')
++loader = importlib.util.spec_from_file_location('bc', ROOT / 'build-harness/common.py')
+ bc = importlib.util.module_from_spec(loader)
+ loader.loader.exec_module(bc)
+ 
+@@ -29,8 +29,8 @@
+ 
+ def frozen_inputs():
+     paths = [p for p in HERE.rglob('*') if p.is_file() and '__pycache__' not in p.parts]
+-    paths += [p for p in (ROOT / 'full-qualification-r1').rglob('*') if p.is_file() and '__pycache__' not in p.parts]
+-    paths += [ROOT / n for n in ['full-build-source-r1/SOURCE.json', 'FULL-BACKEND-INPUTS-r1.json']]
++    paths += [p for p in (ROOT / 'qualification').rglob('*') if p.is_file() and '__pycache__' not in p.parts]
++    paths += [ROOT / n for n in ['source/SOURCE.json', 'BUILD-INPUTS-K3-r1.json', 'QUALIFICATION-INPUTS-K3-r1.json', 'TIMING-INPUTS-K3-r1.json', 'build-harness/common.py']]
+     return {p.relative_to(ROOT).as_posix(): dict(bytes=p.stat().st_size, sha256=bc.sha(p)) for p in sorted(paths)}
+ 
+ 
+@@ -40,7 +40,7 @@
+     p.add_argument('--build', type=pathlib.Path, required=True)
+     p.add_argument('--qualified', type=pathlib.Path, required=True)
+     p.add_argument('--output', type=pathlib.Path, required=True)
+-    p.add_argument('--first-port', type=int, default=45840)
++    p.add_argument('--first-port', type=int, default=46340)
+     p.add_argument('--cpu-pairs', default='0:4,4:0', help='server:client for each cohort; topology is recorded')
+     p.add_argument('--environment-label', choices=['SHARED_LOAD_DIAGNOSTIC', 'FRESH_HOST_CLEAN_SCREEN'], default='SHARED_LOAD_DIAGNOSTIC')
+     p.add_argument('--review', type=pathlib.Path, help='External root-authored smoke review, required by run stage')
+@@ -52,8 +52,37 @@
+     bc.nice10()
+     build = bc.checked_build(args.build)
+     qualified = json.loads((args.qualified / 'status.json').read_text())
+-    assert qualified['status'] == 'PASS_ORDINARY_SQL_NATIVE_CACHE_AND_GENERIC_FALLBACK' and qualified['remaining_owned'] == 0 and not qualified['cleanup_errors']
++    assert qualified['status'] == 'PASS_ORDINARY_SQL_NATIVE_CACHE_BUDGET_AND_GENERIC_FALLBACK' and qualified['remaining_owned'] == 0 and not qualified['cleanup_errors']
+     assert qualified['build_receipt_sha256'] == bc.sha(args.build / 'build-receipt.json')
++    for name, expected in [('BUILD-INPUTS-K3-r1.json', '9a5ce6dddb63b9332cd14b3094340042111f69bab32366fa4c171389b7a57447'),
++                           ('QUALIFICATION-INPUTS-K3-r1.json', '9c109b49a4fbd3cc40cfc304bec0b582bd6e0a7edec21f64620abb30149564b8')]:
++        manifest = ROOT / name
++        assert bc.sha(manifest) == expected
++        for relative, binding in json.loads(manifest.read_text())['files'].items():
++            path = ROOT / relative
++            assert not path.is_symlink() and path.stat().st_size == binding['bytes'] and bc.sha(path) == binding['sha256']
++    assert qualified['timing_samples'] == 0
++    assert set(qualified['variants']) == {'B', 'K1', 'K3', 'K3_assert'}
++    for artifact in qualified['variants'].values():
++        assert bc.sha(artifact['path']) == artifact['sha256']
++        assert json.loads(pathlib.Path(artifact['path']).read_text())['status'] == 'PASS'
++    for name, expected in dict(ordered_cases_per_variant=40, prepared_cases_per_variant=7,
++                               lifecycle_comparisons_per_variant=12, native_cases_per_variant=11,
++                               budget_native_cases_per_variant=11, generic_fallback_cases_per_variant=11,
++                               budget_native_calls=51744, budget_dispatch_transitions=180,
++                               budget_initializations=528, budget_context_resets=88).items():
++        assert qualified[name] == expected
++    for item in qualified['clusters']:
++        assert item['stopped']
++        bc.stopped(item['prefix'], item['data'])
++        for key in ('pid', 'backend_pid'):
++            assert not item.get(key) or not pathlib.Path('/proc', str(item[key])).exists()
++    assert build['source_plan_sha256'] == '36e9b65fa36b3f7cc6da350987f2671d798241d94ea7ccbc654d56b1bedbdf4d'
++    assert qualified['source_plan_sha256'] == build['source_plan_sha256']
++    assert {k: build['variants'][k]['commit'] for k in ('B', 'K1', 'K3', 'K3_assert')} == {
++        'B': FIXED, 'K1': '9e0d6e84c5bd538e58a534c99cb39ca669c567b7',
++        'K3': 'ec32d586cf3bb6cfa76eb672db70160b436ce47c',
++        'K3_assert': 'ec32d586cf3bb6cfa76eb672db70160b436ce47c'}
+     spec = plan()
+     out = args.output.resolve()
+     if args.stage == 'prepare':
+@@ -67,7 +96,7 @@
+     bc.save(status_path, state)
+     owned = []
+     prefixes = {r: pathlib.Path(v['prefix']) for r, v in build['variants'].items()}
+-    source_manifest = json.loads((args.build / 'K1_assert-source-inventory.json').read_text())
++    source_manifest = json.loads((args.build / 'K3_assert-source-inventory.json').read_text())
+ 
+     def verify_sources():
+         bc.checked_build(args.build)
+@@ -111,7 +140,7 @@
+                     '-c', HERE / 'gin-am-micro.c', '-o', obj], out / 'am-compile.log', prefix=prefixes['B'])
+             bc.run(['gcc', '-shared', '-fno-lto', obj, '-o', module], out / 'am-link.log', prefix=prefixes['B'])
+             copies = []
+-            for rank in range(9):
++            for rank in range(12):
+                 data = out / ('copy-' + str(rank))
+                 shutil.copytree(seed, data)
+                 assert bc.inventory(data) == expected
+@@ -125,7 +154,7 @@
+                           am_module=dict(path=str(module), sha256=bc.sha(module)), protocol=spec,
+                           environment_label=args.environment_label, first_port=args.first_port, cpu_pairs=cpu_pairs)
+             bc.save(out / 'freeze.json', freeze)
+-            state.update(status='PASS_PREPARED_NO_TIMINGS', copies=9, all_before_role_assignment=True)
++            state.update(status='PASS_PREPARED_NO_TIMINGS', copies=12, all_before_role_assignment=True)
+         else:
+             freeze = json.loads((out / 'freeze.json').read_text())
+             assert freeze['scripts'] == frozen_inputs() and freeze['protocol'] == spec
+@@ -137,7 +166,7 @@
+             assert bc.sha(out / 'seed-inventory.json') == freeze['seed_inventory_sha256']
+             assert bc.inventory(out / 'seed') == seed_inventory
+             assert bc.sha(freeze['am_module']['path']) == freeze['am_module']['sha256']
+-            accepted = freeze['copies'][3:]
++            accepted = freeze['copies'][4:]
+             for copy in accepted:
+                 assert bc.inventory(copy['path']) == seed_inventory
+             if args.stage == 'run':
+@@ -154,8 +183,8 @@
+             for cohort in cohorts:
+                 state['host_cohort_' + str(cohort)] = host()
+                 server, client = cpu_pairs[cohort]
+-                subset = freeze['copies'][:3] if args.stage == 'smoke' else accepted[cohort * 3:cohort * 3 + 3]
+-                mapping = dict(zip(spec['roles'], range(3) if cohort == 0 else reversed(range(3))))
++                subset = freeze['copies'][:4] if args.stage == 'smoke' else accepted[cohort * 4:cohort * 4 + 4]
++                mapping = dict(zip(spec['roles'], range(4) if cohort == 0 else reversed(range(4))))
+                 current = []
+                 label = 'smoke' if args.stage == 'smoke' else 'cohort' + str(cohort)
+                 runtime = dict(status='QUALIFIED_TSQUERY_CACHE_PERFORMANCE_INPUTS', base_commit=BASE, fixed_commit=FIXED,
+@@ -168,7 +197,7 @@
+                         prefix = prefixes[variant]
+                         data = pathlib.Path(subset[mapping[role]]['path'])
+                         assert bc.inventory(data) == seed_inventory
+-                        port = args.first_port + (0 if args.stage == 'smoke' else 10 + cohort * 3) + mapping[role]
++                        port = args.first_port + (0 if args.stage == 'smoke' else 10 + cohort * 4) + mapping[role]
+                         socket = bc.socket_directory(out / ('s-' + label + '-' + role), port)
+                         item = dict(label=label + '-' + role, role=role, prefix=str(prefix), data=str(data), socket=str(socket), port=port)
+                         owned.append(item); current.append(item); state['clusters'].append(item)
+@@ -216,7 +245,7 @@
+                         raise RuntimeError(stop_errors)
+             if args.stage == 'smoke':
+                 assert all(bc.inventory(v['path']) == seed_inventory for v in accepted)
+-                state.update(status='PASS_SMOKE_NEEDS_ROOT_REVIEW', timing_samples=0, unused_accepted_copies=6)
++                state.update(status='PASS_SMOKE_NEEDS_ROOT_REVIEW', timing_samples=0, unused_accepted_copies=8)
+             else:
+                 assert state['timing_samples'] == spec['raw']
+                 state.update(status='PASS_FIXED_SCREEN', raw=spec['raw'], retained=spec['retained'], warm=spec['warm'])
+--- K1-reference/protocol.py
++++ K3-timing/protocol.py
+@@ -4,7 +4,7 @@
+ import pathlib
+ 
+ HERE = pathlib.Path(__file__).resolve().parent
+-INPUTS = HERE.parent / 'full-qualification-r1/inputs'
++INPUTS = HERE.parent / 'qualification/inputs'
+ BASE = '72b9498df9a369e747f8d96efb5a6cd33c2451e2'
+ FIXED = '8a8c475037bfde101da23cc9b0364c9c020eca93'
+ SQL_NAMES = {'skew1000', 'skew127', 'skew_group4096', 'inline', 'inline_single',
+@@ -31,19 +31,19 @@
+ 
+ 
+ def plan():
+-    roles = ['B', 'T', 'K1']
+-    base = [0, 1, 2]
+-    forward = [[roles[(x + k) % 3] for x in base] for k in range(3)]
+-    orders = forward + [list(reversed(order)) for order in forward]
+-    assert collections.Counter((r, i) for order in orders for i, r in enumerate(order)) == collections.Counter({(r, i): 2 for r in roles for i in range(3)})
+-    assert collections.Counter((a, b) for order in orders for a, b in zip(order, order[1:])) == collections.Counter({(a, b): 2 for a in roles for b in roles if a != b})
++    roles = ['B', 'T', 'K1', 'K3']
++    base = [0, 1, 3, 2]
++    block = [[roles[(x + k) % 4] for x in base] for k in range(4)]
++    orders = block * 3
++    assert collections.Counter((r, i) for order in orders for i, r in enumerate(order)) == collections.Counter({(r, i): 3 for r in roles for i in range(4)})
++    assert collections.Counter((a, b) for order in orders for a, b in zip(order, order[1:])) == collections.Counter({(a, b): 3 for a in roles for b in roles if a != b})
+     sql = [dict(c, kind='sql') for c in sql_cases() if c['name'] in SQL_NAMES]
+     assert len(sql) == 16
+     cases = sql + micro_cases()
+     assert len(cases) == 23 and len({c['name'] for c in cases}) == 23
+-    return dict(roles=roles, cases=cases, orders=orders, warmups=2, retained_rounds=6,
+-                cohorts=2, raw=1104, retained=828, warm=276,
+-                scope='16 SQL + 7 actual-AM cells; no decoder claim; separate cohorts and all three pairs retained')
++    return dict(roles=roles, cases=cases, orders=orders, warmups=2, retained_rounds=12,
++                cohorts=2, raw=2576, retained=2208, warm=368,
++                scope='16 SQL + 7 actual-AM cells; no decoder claim; separate cohorts and all six pairs retained')
+ 
+ 
+ if __name__ == '__main__':
+--- K1-reference/run.py
++++ K3-timing/run.py
+@@ -44,6 +44,10 @@
+         assert sha(pathlib.Path(item['prefix']) / 'bin/postgres') == item['backend_sha256']
+         assert item['correctness_status'] == 'PASS'
+         assert item['fix0001_sha256'] == runtime['fix0001_sha256']
++    expected_commits = dict(B=FIXED, T=FIXED,
++                            K1='9e0d6e84c5bd538e58a534c99cb39ca669c567b7',
++                            K3='ec32d586cf3bb6cfa76eb672db70160b436ce47c')
++    assert {r: runtime['roles'][r]['source_commit'] for r in roles} == expected_commits
+     assert runtime['roles']['B']['prefix'] == runtime['roles']['T']['prefix']
+     assert runtime['roles']['B']['backend_sha256'] == runtime['roles']['T']['backend_sha256']
+     assert sha(runtime['am_module']) == runtime['am_module_sha256']
+--- K1-reference/analyze.py
++++ K3-timing/analyze.py
+@@ -65,24 +65,24 @@
+                     points[key] = value
+     assert position == len(rows)
+     absolute = [dict(case=c, role=role, metric=m, **spread(values)) for (c, role, m), values in groups.items()]
+-    assert all(x['n'] == 6 for x in absolute)
++    assert all(x['n'] == spec['retained_rounds'] for x in absolute)
+     pairs = []
+     for case in cases:
+         for left, right in itertools.combinations(roles, 2):
+             for metric in case_metrics[case['name']]:
+-                direct = [dict(round=r, left=points[case['name'], r, left, metric], right=points[case['name'], r, right, metric]) for r in range(2, 8)]
++                direct = [dict(round=r, left=points[case['name'], r, left, metric], right=points[case['name'], r, right, metric]) for r in range(spec['warmups'], spec['warmups'] + spec['retained_rounds'])]
+                 pairs.append(dict(case=case['name'], kind=case['kind'], left=left, right=right,
+                                   metric=metric, direct=direct,
+                                   percent=spread([100 * (x['right'] / x['left'] - 1) for x in direct]),
+                                   difference=spread([x['right'] - x['left'] for x in direct])))
+     metrics_per_role = sum(len(v) for v in case_metrics.values())
+     assert metrics_per_role == 76  # 16 SQL*3 + 7 actual-AM*4.
+-    assert len(absolute) == 228 and len(pairs) == 228
++    assert len(absolute) == 304 and len(pairs) == 456
+     a.out_new.mkdir()
+     receipt = dict(status='PASS', cohort=status['cohort'], environment_label=status['environment_label'],
+                    raw=len(rows), retained=sum(x['retained'] for x in rows), warm=sum(not x['retained'] for x in rows),
+                    raw_sha256=status['raw_sha256'], literal_sha256=status['literal_sha256'],
+-                   absolute_groups=len(absolute), pairs=len(pairs), direct_pairs=len(pairs) * 6,
++                   absolute_groups=len(absolute), pairs=len(pairs), direct_pairs=len(pairs) * spec['retained_rounds'],
+                    retained_diagnostics=dict(io),
+                    rules='All observations retained; separate cohorts and metric boundaries, no pooling/trimming/control normalization/significance or causal attribution.')
+     for name, value in [('absolute.json', absolute), ('pairs.json', pairs), ('status.json', receipt)]:

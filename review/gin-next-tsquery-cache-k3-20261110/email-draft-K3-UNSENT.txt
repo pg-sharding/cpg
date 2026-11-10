@@ -1,0 +1,76 @@
+Subject: [DRAFT UNSENT] Builtin tsquery GIN memo experiment: gains and remaining regressions
+
+Hi,
+
+I tried a bounded last-vector memo for builtin tsquery GIN consistency,
+including a fixed fallback after64 consecutive vector misses per scan key.
+A hit resets the counter; miss64 computes the original native result once
+and selects the direct helper for the remaining key lifetime. This is a
+standalone alternative over fixed historical B72, not a series with K1 or
+other GIN changes. The common supplied prerequisite is identical in all trees.
+
+The memo requires the reviewed builtin support OIDs and native function
+addresses, keeps at most eight ternary entries and preserves FALSE/TRUE/MAYBE
+and native recheck behavior. Arbitrary opclasses/shims retain their callbacks;
+hidden-entry growth beyond the bound falls back. A small per-key allocation
+remains. No on-disk format or callback API changes. The threshold was declared
+before this campaign and was not retuned from its observations.
+
+Four clean B/K1/K3/K3_assert builds passed unchanged core239 and posting-list
+tests. The ordinary/native/fallback gate passed160 ordered SQL,28 prepared,
+48 lifecycle and44 generic-fallback cases,735888 exhaustive native checks,
+and51744 new budget checks including180 dispatch transitions. A separately
+reviewed92-command smoke preceded the fixed four-role B/T/K1/K3 comparison.
+T is the exact B executable and entrypoint. All2576 raw /2208 retained /
+368 warm observations,23 SQL/actual-AM cells and all six pairs are preserved
+in two separate fresh cohorts with12 retained rounds. Independent arithmetic
+matched79040 numerical fields;200 ordered Seq/GIN oracles and all checked
+plan trees/rows/loops agreed. All17 owned cluster lifetimes stopped cleanly.
+
+Observed same-round paired medians, cohort0 /cohort1:
+
+* Dense SQL executor: K3/K1 -5.71% /-5.63%, but K3/B still +2.62% /+3.02%.
+  Absolute B/K1/K3 medians were82.767/90.076/84.365ms and
+  81.534/89.735/84.260ms for10 probes. This reduces rather than removes
+  the regression.
+* OR SQL executor: K3/B -4.25% /-3.01%; B/K3 medians151.071/143.999ms
+  and150.154/146.062ms for5 probes. Full single-term SQL was mixed:
+  -2.24% /+0.65%, with144.123/140.971ms and144.831/145.825ms.
+* Full actual-AM inner CPU: K3/B -15.30% /-6.54%; B/K3 medians
+  107.338/90.932ms and96.943/90.594ms for10 complete scans.
+  OR inner CPU: -21.83% /-13.53%,122.298/95.653ms and110.328/95.416ms.
+  K3/K1 changes in those AM cells were small, about +0.06..+0.32%.
+* Dense actual-AM inner CPU remains negative against T: +7.79% /+9.17%.
+  Rare-single SQL executor K3/K1 regressed +7.99% /+5.10%, with all12
+  direct pairs positive in both cohorts; prefix was +0.15% /+6.01%.
+  The unchanged Seq executor control K3/B was +0.23% /+2.01%.
+
+VM158 had an own quiet window without our compilers/profiles; no hardware
+isolation is claimed. Exact B/T controls still varied materially in cohort0:
+AM OR T/B -9.50%, dense -6.61%; cohort1 was +0.21% /+0.29% respectively.
+These observations do not establish source-level causes. Both cohorts and
+all controls remain without trimming, pooling, twin normalization or
+significance claims. Executor time, whole-command backend CPU/client wall,
+and AM inner CPU/wall have separate boundaries. A separate literal execution
+before each sample adds warming. Retained backend reads/writes and minor/
+major faults were zero; total runqueue deltas34.31/26.00ms are diagnostics.
+Complete min/median/max, mean, sample SD, MAD, raw arrays and direct pairs
+are included, rather than only these selected summaries.
+
+Consistent-result caching was already proposed by Heikki in2014[1], following
+earlier fast-scan discussion[2]. No algorithmic novelty is claimed for caching
+or adaptive fallback. The concrete work here is the builtin-scoped prototype,
+bounded fallback and reproducible qualification/negative performance evidence.
+It is not ready as a general upgrade; the remaining dense/rare/prefix costs
+need explanation. Earlier K1 shared-load VM84 results remain separate.
+
+The packet includes standalone .diff and root-authored format-patch source,
+exact revisions/toolchain flags and synthetic setup, SQL/AM harness, all raw
+observations, offline statistic replay and independent checks. A new portable
+stage frontdoor is AST/help/source checked only; independent Linux replay via
+that frontdoor has not been executed. The original controllers did execute.
+Canonical K3 is ec32d586cf3bb6cfa76eb672db70160b436ce47c; baseline is historical
+72b9498df9a369e747f8d96efb5a6cd33c2451e2, not current master.
+
+[1] https://www.postgresql.org/message-id/52F373CC.4050800%40vmware.com
+[2] https://www.postgresql.org/message-id/51C4ACC5.2090707%40vmware.com

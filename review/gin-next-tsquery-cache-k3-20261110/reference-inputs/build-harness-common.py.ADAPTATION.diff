@@ -1,0 +1,41 @@
+--- full-build-harness-r1/common.py
++++ build-harness/common.py
+@@ -1,4 +1,4 @@
+-"""Bounded local helpers for fresh B/K1 fixed-source GIN builds and finite qualification."""
++"""Bounded local helpers for fresh B/K1/K3 fixed-source GIN builds and finite qualification."""
+ import hashlib
+ import json
+ import os
+@@ -9,7 +9,7 @@
+ 
+ HERE = pathlib.Path(__file__).resolve().parent
+ BASE = '72b9498df9a369e747f8d96efb5a6cd33c2451e2'
+-ROLES = ('B', 'K1')
++ROLES = ('B', 'K1', 'K3')
+ 
+ 
+ def sha(path):
+@@ -159,18 +159,19 @@
+             snapshot = path.parent / role / name
+             assert snapshot.stat().st_size == value['bytes']
+             assert sha(snapshot) == value['sha256']
+-    assert set(spec['variants']['K1']['source_files']) == {'src/backend/access/gin/ginget.c', 'src/backend/access/gin/ginlogic.c', 'src/include/access/gin_private.h'}
++    for candidate in ('K1', 'K3'):
++        assert set(spec['variants'][candidate]['source_files']) == {'src/backend/access/gin/ginget.c', 'src/backend/access/gin/ginlogic.c', 'src/include/access/gin_private.h'}
+     return spec, expected
+ 
+ 
+ def checked_build(path):
+     path = pathlib.Path(path).resolve()
+     receipt = json.loads((path / 'build-receipt.json').read_text())
+-    assert receipt['status'] == 'PASS_GIN_TSQUERY_CACHE_BUILDS'
++    assert receipt['status'] == 'PASS_GIN_CONSECUTIVE_CACHE_BUILDS'
+     assert json.loads((path / 'status.json').read_text())['status'] == receipt['status']
+     assert receipt['base'] == BASE and receipt['core239_each'] is True
+-    assert set(receipt['variants']) == {'B', 'K1', 'K1_assert'}
+-    assert receipt['role_to_variant'] == {'B': 'B', 'T': 'B', 'K1': 'K1'}
++    assert set(receipt['variants']) == {'B', 'K1', 'K3', 'K3_assert'}
++    assert receipt['role_to_variant'] == {'B': 'B', 'T': 'B', 'K1': 'K1', 'K3': 'K3'}
+     for variant in receipt['variants'].values():
+         prefix = pathlib.Path(variant['prefix'])
+         assert sha(prefix / 'bin/postgres') == variant['postgres_sha256']

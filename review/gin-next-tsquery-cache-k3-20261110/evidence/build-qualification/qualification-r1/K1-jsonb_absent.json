@@ -1,0 +1,85 @@
+{
+  "reference": {
+    "bytes": 0,
+    "rows": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "actual": {
+    "bytes": 0,
+    "rows": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "seq_plan": {
+    "Node Type": "Sort",
+    "Parallel Aware": false,
+    "Async Capable": false,
+    "Startup Cost": 6717.03,
+    "Total Cost": 6717.04,
+    "Plan Rows": 1,
+    "Plan Width": 8,
+    "Disabled": false,
+    "Sort Key": [
+      "docs.id"
+    ],
+    "Plans": [
+      {
+        "Node Type": "Seq Scan",
+        "Parent Relationship": "Outer",
+        "Parallel Aware": false,
+        "Async Capable": false,
+        "Relation Name": "docs",
+        "Alias": "docs",
+        "Startup Cost": 0.0,
+        "Total Cost": 6717.02,
+        "Plan Rows": 1,
+        "Plan Width": 8,
+        "Disabled": false,
+        "Filter": "(jb @> '{\"common\": true, \"missing\": 42}'::jsonb)"
+      }
+    ]
+  },
+  "gin_plan": {
+    "Node Type": "Sort",
+    "Parallel Aware": false,
+    "Async Capable": false,
+    "Startup Cost": 252.59,
+    "Total Cost": 252.6,
+    "Plan Rows": 1,
+    "Plan Width": 8,
+    "Disabled": false,
+    "Sort Key": [
+      "docs.id"
+    ],
+    "Plans": [
+      {
+        "Node Type": "Bitmap Heap Scan",
+        "Parent Relationship": "Outer",
+        "Parallel Aware": false,
+        "Async Capable": false,
+        "Relation Name": "docs",
+        "Alias": "docs",
+        "Startup Cost": 248.57,
+        "Total Cost": 252.58,
+        "Plan Rows": 1,
+        "Plan Width": 8,
+        "Disabled": false,
+        "Recheck Cond": "(jb @> '{\"common\": true, \"missing\": 42}'::jsonb)",
+        "Plans": [
+          {
+            "Node Type": "Bitmap Index Scan",
+            "Parent Relationship": "Outer",
+            "Parallel Aware": false,
+            "Async Capable": false,
+            "Index Name": "docs_jb_gin",
+            "Startup Cost": 0.0,
+            "Total Cost": 248.57,
+            "Plan Rows": 1,
+            "Plan Width": 0,
+            "Disabled": false,
+            "Index Cond": "(jb @> '{\"common\": true, \"missing\": 42}'::jsonb)"
+          }
+        ]
+      }
+    ]
+  }
+}

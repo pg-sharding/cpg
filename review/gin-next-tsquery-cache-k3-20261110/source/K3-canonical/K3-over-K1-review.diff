@@ -1,0 +1,37 @@
+diff --git a/src/backend/access/gin/ginlogic.c b/src/backend/access/gin/ginlogic.c
+index dc30aa07d3c..542a82bc384 100644
+--- a/src/backend/access/gin/ginlogic.c
++++ b/src/backend/access/gin/ginlogic.c
+@@ -47,11 +47,13 @@
+ 
+ /* This is a bounded builtin specialization, not an opclass purity promise. */
+ #define TSQUERY_CACHE_MAX_ENTRIES 8
++#define TSQUERY_CACHE_MAX_MISSES 64
+ 
+ struct GinTriConsistentCacheData
+ {
+ 	bool		valid;
+ 	uint32		nentries;
++	uint32		misses;
+ 	GinTernaryValue result;
+ 	GinTernaryValue entryRes[TSQUERY_CACHE_MAX_ENTRIES];
+ };
+@@ -132,8 +134,18 @@ cachedTsqueryTriConsistentFn(GinScanKey key)
+ 	if (cache->valid && cache->nentries == key->nentries &&
+ 		memcmp(cache->entryRes, key->entryRes,
+ 			   key->nentries * sizeof(GinTernaryValue)) == 0)
++	{
++		cache->misses = 0;
+ 		return cache->result;
++	}
+ 	result = directTriConsistentFn(key);
++	/* Stop paying for the memo after a fixed consecutive miss budget. */
++	if (++cache->misses >= TSQUERY_CACHE_MAX_MISSES)
++	{
++		cache->valid = false;
++		key->triConsistentFn = directTriConsistentFn;
++		return result;
++	}
+ 	memcpy(cache->entryRes, key->entryRes,
+ 		   key->nentries * sizeof(GinTernaryValue));
+ 	cache->nentries = key->nentries;

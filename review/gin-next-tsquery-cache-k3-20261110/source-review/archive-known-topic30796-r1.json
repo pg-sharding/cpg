@@ -1,0 +1,8 @@
+{
+  "scope": "READ ONLY known-topic30796 bounded bodies and attachment metadata only",
+  "started_ns": 1794330378365035000,
+  "query": "BEGIN READ ONLY;\nSET LOCAL statement_timeout='30s';\nSELECT coalesce(json_agg(q),'[]'::json) FROM (\n SELECT id,topic_id,created_at,subject,message_id,length(body) AS body_length,left(body,8000) AS body\n FROM messages WHERE topic_id=30796 ORDER BY created_at,id LIMIT 20\n) q;\nSELECT coalesce(json_agg(q),'[]'::json) FROM (\n SELECT id,message_id,file_name,content_type,length(body) AS stored_body_length\n FROM attachments WHERE message_id IN (SELECT id FROM messages WHERE topic_id=30796 ORDER BY created_at,id LIMIT 20)\n ORDER BY id LIMIT 30\n) q;\nCOMMIT;\n",
+  "returncode": 255,
+  "stdout": "",
+  "stderr": "ssh: connect to host 51.250.6.134 port 22: Operation not permitted\n"
+}

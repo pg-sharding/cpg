@@ -1,0 +1,7 @@
+{
+  "scope": "Final narrow adaptive/consecutive-miss consistent-cache search;READ ONLY;30s;LIMIT10; no attachments",
+  "query": "BEGIN READ ONLY;\nSET LOCAL statement_timeout='30s';\nSELECT coalesce(json_agg(q),'[]'::json) FROM (\n SELECT id,topic_id,created_at,subject,message_id,length(body) AS body_length,left(body,12000) AS body\n FROM messages\n WHERE subject ~* '(^|[^[:alnum:]_])GIN([^[:alnum:]_]|$)'\n AND body ~* '(consistent.{0,80}(cache|memo)|(cache|memo).{0,80}consistent)'\n AND (body ILIKE '%consecutive%' OR body ILIKE '%adaptive%' OR body ILIKE '%cache miss%' OR body ILIKE '%hit rate%' OR body ILIKE '%miss rate%')\n ORDER BY created_at DESC,id DESC LIMIT 10\n) q;\nCOMMIT;\n",
+  "returncode": 3,
+  "stdout": "BEGIN\nSET\n",
+  "stderr": "ERROR:  canceling statement due to statement timeout\n"
+}

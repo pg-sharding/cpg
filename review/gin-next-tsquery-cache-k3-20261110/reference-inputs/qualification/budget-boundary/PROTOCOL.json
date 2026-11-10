@@ -1,0 +1,964 @@
+{
+  "status": "PLANNED_UNTIMED_VALID_NATIVE_BOUNDARY_NOT_EXECUTED",
+  "source_commit": "ec32d586cf3bb6cfa76eb672db70160b436ce47c",
+  "function": "gin_cache_budget_oracle(regclass,tsquery,boolean)",
+  "compile_macros": {
+    "B": {
+      "EXPECT_TRI_CACHE": 0,
+      "EXPECT_CONSECUTIVE_BUDGET": 0
+    },
+    "K1": {
+      "EXPECT_TRI_CACHE": 1,
+      "EXPECT_CONSECUTIVE_BUDGET": 0
+    },
+    "K3": {
+      "EXPECT_TRI_CACHE": 1,
+      "EXPECT_CONSECUTIVE_BUDGET": 64
+    },
+    "K3_assert": {
+      "EXPECT_TRI_CACHE": 1,
+      "EXPECT_CONSECUTIVE_BUDGET": 64
+    }
+  },
+  "queries": [
+    {
+      "name": "one",
+      "query": "common",
+      "nuserentries": 1,
+      "hidden": false
+    },
+    {
+      "name": "or2",
+      "query": "common | rare0",
+      "nuserentries": 2,
+      "hidden": false
+    },
+    {
+      "name": "dense2",
+      "query": "dense2 & dense3",
+      "nuserentries": 2,
+      "hidden": false
+    },
+    {
+      "name": "phrase2",
+      "query": "common <-> rare0",
+      "nuserentries": 2,
+      "hidden": false
+    },
+    {
+      "name": "weighted2",
+      "query": "common:A & rare0",
+      "nuserentries": 2,
+      "hidden": false
+    },
+    {
+      "name": "prefix2",
+      "query": "group1:* & rare0",
+      "nuserentries": 2,
+      "hidden": false
+    },
+    {
+      "name": "not2",
+      "query": "rare1 & !dense2",
+      "nuserentries": 2,
+      "hidden": false
+    },
+    {
+      "name": "eight",
+      "query": "a | b | c | d | e | f | g | h",
+      "nuserentries": 8,
+      "hidden": false
+    },
+    {
+      "name": "nine",
+      "query": "a | b | c | d | e | f | g | h | i",
+      "nuserentries": 9,
+      "hidden": false
+    },
+    {
+      "name": "hidden9",
+      "query": "a | b | c | d | e | f | g | h",
+      "nuserentries": 8,
+      "hidden": true
+    },
+    {
+      "name": "hidden2",
+      "query": "!missing",
+      "nuserentries": 1,
+      "hidden": true
+    }
+  ],
+  "expected_fields": {
+    "B": {
+      "one": {
+        "status": "PASS_INSTALLED_CONSECUTIVE_BUDGET",
+        "nuserentries": 1,
+        "nentries": 1,
+        "cache_allocated": false,
+        "declared_budget": 0,
+        "budget_eligible": false,
+        "calls": 1176,
+        "dispatch_transitions": 0,
+        "initializations": 12,
+        "context_resets": 2,
+        "phase_calls": {
+          "continuous": 146,
+          "hit_after_63": 260,
+          "interleaved": 384,
+          "independence_and_context_reset": 386
+        },
+        "timing_samples": 0,
+        "return_counts": {
+          "false": 394,
+          "true": 400,
+          "maybe": 382
+        }
+      },
+      "or2": {
+        "status": "PASS_INSTALLED_CONSECUTIVE_BUDGET",
+        "nuserentries": 2,
+        "nentries": 2,
+        "cache_allocated": false,
+        "declared_budget": 0,
+        "budget_eligible": false,
+        "calls": 1176,
+        "dispatch_transitions": 0,
+        "initializations": 12,
+        "context_resets": 2,
+        "phase_calls": {
+          "continuous": 146,
+          "hit_after_63": 260,
+          "interleaved": 384,
+          "independence_and_context_reset": 386
+        },
+        "timing_samples": 0
+      },
+      "dense2": {
+        "status": "PASS_INSTALLED_CONSECUTIVE_BUDGET",
+        "nuserentries": 2,
+        "nentries": 2,
+        "cache_allocated": false,
+        "declared_budget": 0,
+        "budget_eligible": false,
+        "calls": 1176,
+        "dispatch_transitions": 0,
+        "initializations": 12,
+        "context_resets": 2,
+        "phase_calls": {
+          "continuous": 146,
+          "hit_after_63": 260,
+          "interleaved": 384,
+          "independence_and_context_reset": 386
+        },
+        "timing_samples": 0
+      },
+      "phrase2": {
+        "status": "PASS_INSTALLED_CONSECUTIVE_BUDGET",
+        "nuserentries": 2,
+        "nentries": 2,
+        "cache_allocated": false,
+        "declared_budget": 0,
+        "budget_eligible": false,
+        "calls": 1176,
+        "dispatch_transitions": 0,
+        "initializations": 12,
+        "context_resets": 2,
+        "phase_calls": {
+          "continuous": 146,
+          "hit_after_63": 260,
+          "interleaved": 384,
+          "independence_and_context_reset": 386
+        },
+        "timing_samples": 0
+      },
+      "weighted2": {
+        "status": "PASS_INSTALLED_CONSECUTIVE_BUDGET",
+        "nuserentries": 2,
+        "nentries": 2,
+        "cache_allocated": false,
+        "declared_budget": 0,
+        "budget_eligible": false,
+        "calls": 1176,
+        "dispatch_transitions": 0,
+        "initializations": 12,
+        "context_resets": 2,
+        "phase_calls": {
+          "continuous": 146,
+          "hit_after_63": 260,
+          "interleaved": 384,
+          "independence_and_context_reset": 386
+        },
+        "timing_samples": 0
+      },
+      "prefix2": {
+        "status": "PASS_INSTALLED_CONSECUTIVE_BUDGET",
+        "nuserentries": 2,
+        "nentries": 2,
+        "cache_allocated": false,
+        "declared_budget": 0,
+        "budget_eligible": false,
+        "calls": 1176,
+        "dispatch_transitions": 0,
+        "initializations": 12,
+        "context_resets": 2,
+        "phase_calls": {
+          "continuous": 146,
+          "hit_after_63": 260,
+          "interleaved": 384,
+          "independence_and_context_reset": 386
+        },
+        "timing_samples": 0
+      },
+      "not2": {
+        "status": "PASS_INSTALLED_CONSECUTIVE_BUDGET",
+        "nuserentries": 2,
+        "nentries": 2,
+        "cache_allocated": false,
+        "declared_budget": 0,
+        "budget_eligible": false,
+        "calls": 1176,
+        "dispatch_transitions": 0,
+        "initializations": 12,
+        "context_resets": 2,
+        "phase_calls": {
+          "continuous": 146,
+          "hit_after_63": 260,
+          "interleaved": 384,
+          "independence_and_context_reset": 386
+        },
+        "timing_samples": 0
+      },
+      "eight": {
+        "status": "PASS_INSTALLED_CONSECUTIVE_BUDGET",
+        "nuserentries": 8,
+        "nentries": 8,
+        "cache_allocated": false,
+        "declared_budget": 0,
+        "budget_eligible": false,
+        "calls": 1176,
+        "dispatch_transitions": 0,
+        "initializations": 12,
+        "context_resets": 2,
+        "phase_calls": {
+          "continuous": 146,
+          "hit_after_63": 260,
+          "interleaved": 384,
+          "independence_and_context_reset": 386
+        },
+        "timing_samples": 0
+      },
+      "nine": {
+        "status": "PASS_INSTALLED_CONSECUTIVE_BUDGET",
+        "nuserentries": 9,
+        "nentries": 9,
+        "cache_allocated": false,
+        "declared_budget": 0,
+        "budget_eligible": false,
+        "calls": 1176,
+        "dispatch_transitions": 0,
+        "initializations": 12,
+        "context_resets": 2,
+        "phase_calls": {
+          "continuous": 146,
+          "hit_after_63": 260,
+          "interleaved": 384,
+          "independence_and_context_reset": 386
+        },
+        "timing_samples": 0
+      },
+      "hidden9": {
+        "status": "PASS_INSTALLED_CONSECUTIVE_BUDGET",
+        "nuserentries": 8,
+        "nentries": 9,
+        "cache_allocated": false,
+        "declared_budget": 0,
+        "budget_eligible": false,
+        "calls": 1176,
+        "dispatch_transitions": 0,
+        "initializations": 12,
+        "context_resets": 2,
+        "phase_calls": {
+          "continuous": 146,
+          "hit_after_63": 260,
+          "interleaved": 384,
+          "independence_and_context_reset": 386
+        },
+        "timing_samples": 0
+      },
+      "hidden2": {
+        "status": "PASS_INSTALLED_CONSECUTIVE_BUDGET",
+        "nuserentries": 1,
+        "nentries": 2,
+        "cache_allocated": false,
+        "declared_budget": 0,
+        "budget_eligible": false,
+        "calls": 1176,
+        "dispatch_transitions": 0,
+        "initializations": 12,
+        "context_resets": 2,
+        "phase_calls": {
+          "continuous": 146,
+          "hit_after_63": 260,
+          "interleaved": 384,
+          "independence_and_context_reset": 386
+        },
+        "timing_samples": 0
+      }
+    },
+    "K1": {
+      "one": {
+        "status": "PASS_INSTALLED_CONSECUTIVE_BUDGET",
+        "nuserentries": 1,
+        "nentries": 1,
+        "cache_allocated": true,
+        "declared_budget": 0,
+        "budget_eligible": false,
+        "calls": 1176,
+        "dispatch_transitions": 0,
+        "initializations": 12,
+        "context_resets": 2,
+        "phase_calls": {
+          "continuous": 146,
+          "hit_after_63": 260,
+          "interleaved": 384,
+          "independence_and_context_reset": 386
+        },
+        "timing_samples": 0,
+        "return_counts": {
+          "false": 394,
+          "true": 400,
+          "maybe": 382
+        }
+      },
+      "or2": {
+        "status": "PASS_INSTALLED_CONSECUTIVE_BUDGET",
+        "nuserentries": 2,
+        "nentries": 2,
+        "cache_allocated": true,
+        "declared_budget": 0,
+        "budget_eligible": false,
+        "calls": 1176,
+        "dispatch_transitions": 0,
+        "initializations": 12,
+        "context_resets": 2,
+        "phase_calls": {
+          "continuous": 146,
+          "hit_after_63": 260,
+          "interleaved": 384,
+          "independence_and_context_reset": 386
+        },
+        "timing_samples": 0
+      },
+      "dense2": {
+        "status": "PASS_INSTALLED_CONSECUTIVE_BUDGET",
+        "nuserentries": 2,
+        "nentries": 2,
+        "cache_allocated": true,
+        "declared_budget": 0,
+        "budget_eligible": false,
+        "calls": 1176,
+        "dispatch_transitions": 0,
+        "initializations": 12,
+        "context_resets": 2,
+        "phase_calls": {
+          "continuous": 146,
+          "hit_after_63": 260,
+          "interleaved": 384,
+          "independence_and_context_reset": 386
+        },
+        "timing_samples": 0
+      },
+      "phrase2": {
+        "status": "PASS_INSTALLED_CONSECUTIVE_BUDGET",
+        "nuserentries": 2,
+        "nentries": 2,
+        "cache_allocated": true,
+        "declared_budget": 0,
+        "budget_eligible": false,
+        "calls": 1176,
+        "dispatch_transitions": 0,
+        "initializations": 12,
+        "context_resets": 2,
+        "phase_calls": {
+          "continuous": 146,
+          "hit_after_63": 260,
+          "interleaved": 384,
+          "independence_and_context_reset": 386
+        },
+        "timing_samples": 0
+      },
+      "weighted2": {
+        "status": "PASS_INSTALLED_CONSECUTIVE_BUDGET",
+        "nuserentries": 2,
+        "nentries": 2,
+        "cache_allocated": true,
+        "declared_budget": 0,
+        "budget_eligible": false,
+        "calls": 1176,
+        "dispatch_transitions": 0,
+        "initializations": 12,
+        "context_resets": 2,
+        "phase_calls": {
+          "continuous": 146,
+          "hit_after_63": 260,
+          "interleaved": 384,
+          "independence_and_context_reset": 386
+        },
+        "timing_samples": 0
+      },
+      "prefix2": {
+        "status": "PASS_INSTALLED_CONSECUTIVE_BUDGET",
+        "nuserentries": 2,
+        "nentries": 2,
+        "cache_allocated": true,
+        "declared_budget": 0,
+        "budget_eligible": false,
+        "calls": 1176,
+        "dispatch_transitions": 0,
+        "initializations": 12,
+        "context_resets": 2,
+        "phase_calls": {
+          "continuous": 146,
+          "hit_after_63": 260,
+          "interleaved": 384,
+          "independence_and_context_reset": 386
+        },
+        "timing_samples": 0
+      },
+      "not2": {
+        "status": "PASS_INSTALLED_CONSECUTIVE_BUDGET",
+        "nuserentries": 2,
+        "nentries": 2,
+        "cache_allocated": true,
+        "declared_budget": 0,
+        "budget_eligible": false,
+        "calls": 1176,
+        "dispatch_transitions": 0,
+        "initializations": 12,
+        "context_resets": 2,
+        "phase_calls": {
+          "continuous": 146,
+          "hit_after_63": 260,
+          "interleaved": 384,
+          "independence_and_context_reset": 386
+        },
+        "timing_samples": 0
+      },
+      "eight": {
+        "status": "PASS_INSTALLED_CONSECUTIVE_BUDGET",
+        "nuserentries": 8,
+        "nentries": 8,
+        "cache_allocated": true,
+        "declared_budget": 0,
+        "budget_eligible": false,
+        "calls": 1176,
+        "dispatch_transitions": 0,
+        "initializations": 12,
+        "context_resets": 2,
+        "phase_calls": {
+          "continuous": 146,
+          "hit_after_63": 260,
+          "interleaved": 384,
+          "independence_and_context_reset": 386
+        },
+        "timing_samples": 0
+      },
+      "nine": {
+        "status": "PASS_INSTALLED_CONSECUTIVE_BUDGET",
+        "nuserentries": 9,
+        "nentries": 9,
+        "cache_allocated": false,
+        "declared_budget": 0,
+        "budget_eligible": false,
+        "calls": 1176,
+        "dispatch_transitions": 0,
+        "initializations": 12,
+        "context_resets": 2,
+        "phase_calls": {
+          "continuous": 146,
+          "hit_after_63": 260,
+          "interleaved": 384,
+          "independence_and_context_reset": 386
+        },
+        "timing_samples": 0
+      },
+      "hidden9": {
+        "status": "PASS_INSTALLED_CONSECUTIVE_BUDGET",
+        "nuserentries": 8,
+        "nentries": 9,
+        "cache_allocated": true,
+        "declared_budget": 0,
+        "budget_eligible": false,
+        "calls": 1176,
+        "dispatch_transitions": 0,
+        "initializations": 12,
+        "context_resets": 2,
+        "phase_calls": {
+          "continuous": 146,
+          "hit_after_63": 260,
+          "interleaved": 384,
+          "independence_and_context_reset": 386
+        },
+        "timing_samples": 0
+      },
+      "hidden2": {
+        "status": "PASS_INSTALLED_CONSECUTIVE_BUDGET",
+        "nuserentries": 1,
+        "nentries": 2,
+        "cache_allocated": true,
+        "declared_budget": 0,
+        "budget_eligible": false,
+        "calls": 1176,
+        "dispatch_transitions": 0,
+        "initializations": 12,
+        "context_resets": 2,
+        "phase_calls": {
+          "continuous": 146,
+          "hit_after_63": 260,
+          "interleaved": 384,
+          "independence_and_context_reset": 386
+        },
+        "timing_samples": 0
+      }
+    },
+    "K3": {
+      "one": {
+        "status": "PASS_INSTALLED_CONSECUTIVE_BUDGET",
+        "nuserentries": 1,
+        "nentries": 1,
+        "cache_allocated": true,
+        "declared_budget": 64,
+        "budget_eligible": true,
+        "calls": 1176,
+        "dispatch_transitions": 10,
+        "initializations": 12,
+        "context_resets": 2,
+        "phase_calls": {
+          "continuous": 146,
+          "hit_after_63": 260,
+          "interleaved": 384,
+          "independence_and_context_reset": 386
+        },
+        "timing_samples": 0,
+        "return_counts": {
+          "false": 394,
+          "true": 400,
+          "maybe": 382
+        }
+      },
+      "or2": {
+        "status": "PASS_INSTALLED_CONSECUTIVE_BUDGET",
+        "nuserentries": 2,
+        "nentries": 2,
+        "cache_allocated": true,
+        "declared_budget": 64,
+        "budget_eligible": true,
+        "calls": 1176,
+        "dispatch_transitions": 10,
+        "initializations": 12,
+        "context_resets": 2,
+        "phase_calls": {
+          "continuous": 146,
+          "hit_after_63": 260,
+          "interleaved": 384,
+          "independence_and_context_reset": 386
+        },
+        "timing_samples": 0
+      },
+      "dense2": {
+        "status": "PASS_INSTALLED_CONSECUTIVE_BUDGET",
+        "nuserentries": 2,
+        "nentries": 2,
+        "cache_allocated": true,
+        "declared_budget": 64,
+        "budget_eligible": true,
+        "calls": 1176,
+        "dispatch_transitions": 10,
+        "initializations": 12,
+        "context_resets": 2,
+        "phase_calls": {
+          "continuous": 146,
+          "hit_after_63": 260,
+          "interleaved": 384,
+          "independence_and_context_reset": 386
+        },
+        "timing_samples": 0
+      },
+      "phrase2": {
+        "status": "PASS_INSTALLED_CONSECUTIVE_BUDGET",
+        "nuserentries": 2,
+        "nentries": 2,
+        "cache_allocated": true,
+        "declared_budget": 64,
+        "budget_eligible": true,
+        "calls": 1176,
+        "dispatch_transitions": 10,
+        "initializations": 12,
+        "context_resets": 2,
+        "phase_calls": {
+          "continuous": 146,
+          "hit_after_63": 260,
+          "interleaved": 384,
+          "independence_and_context_reset": 386
+        },
+        "timing_samples": 0
+      },
+      "weighted2": {
+        "status": "PASS_INSTALLED_CONSECUTIVE_BUDGET",
+        "nuserentries": 2,
+        "nentries": 2,
+        "cache_allocated": true,
+        "declared_budget": 64,
+        "budget_eligible": true,
+        "calls": 1176,
+        "dispatch_transitions": 10,
+        "initializations": 12,
+        "context_resets": 2,
+        "phase_calls": {
+          "continuous": 146,
+          "hit_after_63": 260,
+          "interleaved": 384,
+          "independence_and_context_reset": 386
+        },
+        "timing_samples": 0
+      },
+      "prefix2": {
+        "status": "PASS_INSTALLED_CONSECUTIVE_BUDGET",
+        "nuserentries": 2,
+        "nentries": 2,
+        "cache_allocated": true,
+        "declared_budget": 64,
+        "budget_eligible": true,
+        "calls": 1176,
+        "dispatch_transitions": 10,
+        "initializations": 12,
+        "context_resets": 2,
+        "phase_calls": {
+          "continuous": 146,
+          "hit_after_63": 260,
+          "interleaved": 384,
+          "independence_and_context_reset": 386
+        },
+        "timing_samples": 0
+      },
+      "not2": {
+        "status": "PASS_INSTALLED_CONSECUTIVE_BUDGET",
+        "nuserentries": 2,
+        "nentries": 2,
+        "cache_allocated": true,
+        "declared_budget": 64,
+        "budget_eligible": true,
+        "calls": 1176,
+        "dispatch_transitions": 10,
+        "initializations": 12,
+        "context_resets": 2,
+        "phase_calls": {
+          "continuous": 146,
+          "hit_after_63": 260,
+          "interleaved": 384,
+          "independence_and_context_reset": 386
+        },
+        "timing_samples": 0
+      },
+      "eight": {
+        "status": "PASS_INSTALLED_CONSECUTIVE_BUDGET",
+        "nuserentries": 8,
+        "nentries": 8,
+        "cache_allocated": true,
+        "declared_budget": 64,
+        "budget_eligible": true,
+        "calls": 1176,
+        "dispatch_transitions": 10,
+        "initializations": 12,
+        "context_resets": 2,
+        "phase_calls": {
+          "continuous": 146,
+          "hit_after_63": 260,
+          "interleaved": 384,
+          "independence_and_context_reset": 386
+        },
+        "timing_samples": 0
+      },
+      "nine": {
+        "status": "PASS_INSTALLED_CONSECUTIVE_BUDGET",
+        "nuserentries": 9,
+        "nentries": 9,
+        "cache_allocated": false,
+        "declared_budget": 64,
+        "budget_eligible": false,
+        "calls": 1176,
+        "dispatch_transitions": 0,
+        "initializations": 12,
+        "context_resets": 2,
+        "phase_calls": {
+          "continuous": 146,
+          "hit_after_63": 260,
+          "interleaved": 384,
+          "independence_and_context_reset": 386
+        },
+        "timing_samples": 0
+      },
+      "hidden9": {
+        "status": "PASS_INSTALLED_CONSECUTIVE_BUDGET",
+        "nuserentries": 8,
+        "nentries": 9,
+        "cache_allocated": true,
+        "declared_budget": 64,
+        "budget_eligible": false,
+        "calls": 1176,
+        "dispatch_transitions": 0,
+        "initializations": 12,
+        "context_resets": 2,
+        "phase_calls": {
+          "continuous": 146,
+          "hit_after_63": 260,
+          "interleaved": 384,
+          "independence_and_context_reset": 386
+        },
+        "timing_samples": 0
+      },
+      "hidden2": {
+        "status": "PASS_INSTALLED_CONSECUTIVE_BUDGET",
+        "nuserentries": 1,
+        "nentries": 2,
+        "cache_allocated": true,
+        "declared_budget": 64,
+        "budget_eligible": true,
+        "calls": 1176,
+        "dispatch_transitions": 10,
+        "initializations": 12,
+        "context_resets": 2,
+        "phase_calls": {
+          "continuous": 146,
+          "hit_after_63": 260,
+          "interleaved": 384,
+          "independence_and_context_reset": 386
+        },
+        "timing_samples": 0
+      }
+    },
+    "K3_assert": {
+      "one": {
+        "status": "PASS_INSTALLED_CONSECUTIVE_BUDGET",
+        "nuserentries": 1,
+        "nentries": 1,
+        "cache_allocated": true,
+        "declared_budget": 64,
+        "budget_eligible": true,
+        "calls": 1176,
+        "dispatch_transitions": 10,
+        "initializations": 12,
+        "context_resets": 2,
+        "phase_calls": {
+          "continuous": 146,
+          "hit_after_63": 260,
+          "interleaved": 384,
+          "independence_and_context_reset": 386
+        },
+        "timing_samples": 0,
+        "return_counts": {
+          "false": 394,
+          "true": 400,
+          "maybe": 382
+        }
+      },
+      "or2": {
+        "status": "PASS_INSTALLED_CONSECUTIVE_BUDGET",
+        "nuserentries": 2,
+        "nentries": 2,
+        "cache_allocated": true,
+        "declared_budget": 64,
+        "budget_eligible": true,
+        "calls": 1176,
+        "dispatch_transitions": 10,
+        "initializations": 12,
+        "context_resets": 2,
+        "phase_calls": {
+          "continuous": 146,
+          "hit_after_63": 260,
+          "interleaved": 384,
+          "independence_and_context_reset": 386
+        },
+        "timing_samples": 0
+      },
+      "dense2": {
+        "status": "PASS_INSTALLED_CONSECUTIVE_BUDGET",
+        "nuserentries": 2,
+        "nentries": 2,
+        "cache_allocated": true,
+        "declared_budget": 64,
+        "budget_eligible": true,
+        "calls": 1176,
+        "dispatch_transitions": 10,
+        "initializations": 12,
+        "context_resets": 2,
+        "phase_calls": {
+          "continuous": 146,
+          "hit_after_63": 260,
+          "interleaved": 384,
+          "independence_and_context_reset": 386
+        },
+        "timing_samples": 0
+      },
+      "phrase2": {
+        "status": "PASS_INSTALLED_CONSECUTIVE_BUDGET",
+        "nuserentries": 2,
+        "nentries": 2,
+        "cache_allocated": true,
+        "declared_budget": 64,
+        "budget_eligible": true,
+        "calls": 1176,
+        "dispatch_transitions": 10,
+        "initializations": 12,
+        "context_resets": 2,
+        "phase_calls": {
+          "continuous": 146,
+          "hit_after_63": 260,
+          "interleaved": 384,
+          "independence_and_context_reset": 386
+        },
+        "timing_samples": 0
+      },
+      "weighted2": {
+        "status": "PASS_INSTALLED_CONSECUTIVE_BUDGET",
+        "nuserentries": 2,
+        "nentries": 2,
+        "cache_allocated": true,
+        "declared_budget": 64,
+        "budget_eligible": true,
+        "calls": 1176,
+        "dispatch_transitions": 10,
+        "initializations": 12,
+        "context_resets": 2,
+        "phase_calls": {
+          "continuous": 146,
+          "hit_after_63": 260,
+          "interleaved": 384,
+          "independence_and_context_reset": 386
+        },
+        "timing_samples": 0
+      },
+      "prefix2": {
+        "status": "PASS_INSTALLED_CONSECUTIVE_BUDGET",
+        "nuserentries": 2,
+        "nentries": 2,
+        "cache_allocated": true,
+        "declared_budget": 64,
+        "budget_eligible": true,
+        "calls": 1176,
+        "dispatch_transitions": 10,
+        "initializations": 12,
+        "context_resets": 2,
+        "phase_calls": {
+          "continuous": 146,
+          "hit_after_63": 260,
+          "interleaved": 384,
+          "independence_and_context_reset": 386
+        },
+        "timing_samples": 0
+      },
+      "not2": {
+        "status": "PASS_INSTALLED_CONSECUTIVE_BUDGET",
+        "nuserentries": 2,
+        "nentries": 2,
+        "cache_allocated": true,
+        "declared_budget": 64,
+        "budget_eligible": true,
+        "calls": 1176,
+        "dispatch_transitions": 10,
+        "initializations": 12,
+        "context_resets": 2,
+        "phase_calls": {
+          "continuous": 146,
+          "hit_after_63": 260,
+          "interleaved": 384,
+          "independence_and_context_reset": 386
+        },
+        "timing_samples": 0
+      },
+      "eight": {
+        "status": "PASS_INSTALLED_CONSECUTIVE_BUDGET",
+        "nuserentries": 8,
+        "nentries": 8,
+        "cache_allocated": true,
+        "declared_budget": 64,
+        "budget_eligible": true,
+        "calls": 1176,
+        "dispatch_transitions": 10,
+        "initializations": 12,
+        "context_resets": 2,
+        "phase_calls": {
+          "continuous": 146,
+          "hit_after_63": 260,
+          "interleaved": 384,
+          "independence_and_context_reset": 386
+        },
+        "timing_samples": 0
+      },
+      "nine": {
+        "status": "PASS_INSTALLED_CONSECUTIVE_BUDGET",
+        "nuserentries": 9,
+        "nentries": 9,
+        "cache_allocated": false,
+        "declared_budget": 64,
+        "budget_eligible": false,
+        "calls": 1176,
+        "dispatch_transitions": 0,
+        "initializations": 12,
+        "context_resets": 2,
+        "phase_calls": {
+          "continuous": 146,
+          "hit_after_63": 260,
+          "interleaved": 384,
+          "independence_and_context_reset": 386
+        },
+        "timing_samples": 0
+      },
+      "hidden9": {
+        "status": "PASS_INSTALLED_CONSECUTIVE_BUDGET",
+        "nuserentries": 8,
+        "nentries": 9,
+        "cache_allocated": true,
+        "declared_budget": 64,
+        "budget_eligible": false,
+        "calls": 1176,
+        "dispatch_transitions": 0,
+        "initializations": 12,
+        "context_resets": 2,
+        "phase_calls": {
+          "continuous": 146,
+          "hit_after_63": 260,
+          "interleaved": 384,
+          "independence_and_context_reset": 386
+        },
+        "timing_samples": 0
+      },
+      "hidden2": {
+        "status": "PASS_INSTALLED_CONSECUTIVE_BUDGET",
+        "nuserentries": 1,
+        "nentries": 2,
+        "cache_allocated": true,
+        "declared_budget": 64,
+        "budget_eligible": true,
+        "calls": 1176,
+        "dispatch_transitions": 10,
+        "initializations": 12,
+        "context_resets": 2,
+        "phase_calls": {
+          "continuous": 146,
+          "hit_after_63": 260,
+          "interleaved": 384,
+          "independence_and_context_reset": 386
+        },
+        "timing_samples": 0
+      }
+    }
+  },
+  "remaining_return_counts_rule": "For the other ten queries require integer nonnegative counts summing to 1176; require all three return counts byte-equal across four variants. Every individual dispatch return is checked against a separate direct native callback invocation inside the helper.",
+  "expected_total_calls": 51744,
+  "expected_total_initializations": 528,
+  "expected_total_context_resets": 88,
+  "expected_total_dispatch_transitions": 180,
+  "timing_samples": 0,
+  "actual_index_rescan": "Not invoked by this helper. Context reset/reinitialize models the keyCtx lifetime; actual repeated/prepared/index-rescan checks remain in the standard SQL gate."
+}
