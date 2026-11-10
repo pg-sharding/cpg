@@ -1,0 +1,18 @@
+diff --git a/src/backend/access/gin/ginlogic.c b/src/backend/access/gin/ginlogic.c
+index 9312a6c2ca1..542a82bc384 100644
+--- a/src/backend/access/gin/ginlogic.c
++++ b/src/backend/access/gin/ginlogic.c
+@@ -134,9 +134,12 @@ cachedTsqueryTriConsistentFn(GinScanKey key)
+ 	if (cache->valid && cache->nentries == key->nentries &&
+ 		memcmp(cache->entryRes, key->entryRes,
+ 			   key->nentries * sizeof(GinTernaryValue)) == 0)
++	{
++		cache->misses = 0;
+ 		return cache->result;
++	}
+ 	result = directTriConsistentFn(key);
+-	/* Stop paying for the memo after a fixed cumulative miss budget. */
++	/* Stop paying for the memo after a fixed consecutive miss budget. */
+ 	if (++cache->misses >= TSQUERY_CACHE_MAX_MISSES)
+ 	{
+ 		cache->valid = false;

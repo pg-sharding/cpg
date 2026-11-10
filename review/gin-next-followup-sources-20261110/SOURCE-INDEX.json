@@ -1,0 +1,79 @@
+{
+  "D2": {
+    "status": "SOURCE_ONLY_NOT_COMPILED_OR_TIMED",
+    "base": "8a8c475037bfde101da23cc9b0364c9c020eca93",
+    "inherited_D1_source_commit": "c2b5dd6f9012cc4a27628c9d6c507ac467795ac5",
+    "commit": "a85a9242f455b12c93528f3ace33eb69b6cd1008",
+    "branch": "experiments/gin-next-decoder-byte4-firstbit-v2-20261110",
+    "tree": "861d9e34b5a6795a2b8b2ec4a0e4269328f5553c",
+    "author": "root <localhost>",
+    "committer": "root <localhost>",
+    "source_file": "src/backend/access/gin/ginpostinglist.c",
+    "source_sha256": "0235eb70b0d860fed7e41476074b93617ed7013ac5af00856faffd60ab956705",
+    "standalone_diff_sha256": "aea0dbc26cdd2075c228b89253319395a7aaef4c495733534c2a69e62993912a",
+    "incremental_review_diff_sha256": "20f40bab7f877758766a6c4ddb88dd3d373504598ddd1af4729fa2a56e822f1d",
+    "candidate_kind": "Independent standalone alternative over fixed B, not a series with D1",
+    "own_repository_HEAD_unchanged": "0c40334f5fdcedede251875ab9e3bf7bc95b9319",
+    "runtime_status": "NOTRUN",
+    "timing_samples": 0,
+    "scope": "Ordinary valid posting-list decode only; same format/API/allocation/capacity/ordering and scalar fallback"
+  },
+  "K2": {
+    "status": "SOURCE_ONLY_NOT_COMPILED_OR_TIMED",
+    "base": "8a8c475037bfde101da23cc9b0364c9c020eca93",
+    "inherited_K1_source_commit": "9e0d6e84c5bd538e58a534c99cb39ca669c567b7",
+    "commit": "57ec1dcda0dc18a04c2598edad6207ea7c25e3fa",
+    "branch": "experiments/gin-next-tsquery-cache-budget-v2-20261110",
+    "tree": "97414065770e4f22b7cc90a79236caf5636000ee",
+    "author": "root <localhost>",
+    "committer": "root <localhost>",
+    "source_files": {
+      "src/backend/access/gin/ginlogic.c": {
+        "bytes": 10522,
+        "sha256": "8458c5a542d8e20c19d6889ebf7e304c978bf13bf1fcc6588ed1a9184a38cac2"
+      },
+      "src/include/access/gin_private.h": {
+        "bytes": 18542,
+        "sha256": "cb6b3a876c1ec8fa2621eae95d5e7f3e3b4a7ef86fc5bfa8cd52415e96aa1fb0"
+      }
+    },
+    "standalone_diff_sha256": "110555c3061058ec59cec00cb0aabafb1b97a744cd44e6b70387d826f4d5ddf6",
+    "incremental_review_diff_sha256": "2680afeb1310e30e8c62cf0f20c7815cdbf91283187f15165a4a8b1eef44b61a",
+    "miss_budget": 64,
+    "budget_definition": "First fill and every eligible different vector count cumulatively per GinScanKey; hits do not reset. On miss64 return direct result and select original direct helper thereafter.",
+    "source_kind": "Standalone alternative over fixed B, not a series with K1",
+    "own_repository_HEAD_worktree_unchanged": true,
+    "runtime": "NOTRUN",
+    "timing_samples": 0
+  },
+  "K3": {
+    "status": "SOURCE_ONLY_NOT_COMPILED_OR_TIMED",
+    "base": "8a8c475037bfde101da23cc9b0364c9c020eca93",
+    "inherited_K1_source_commit": "9e0d6e84c5bd538e58a534c99cb39ca669c567b7",
+    "K2_cumulative_source_only_alternative": "57ec1dcda0dc18a04c2598edad6207ea7c25e3fa",
+    "commit": "ec32d586cf3bb6cfa76eb672db70160b436ce47c",
+    "branch": "experiments/gin-next-tsquery-cache-consecutive-v3-20261110",
+    "tree": "7d3bb305b0b8653359d0b7df10c68ad034d2d89e",
+    "author": "root <localhost>",
+    "committer": "root <localhost>",
+    "source_files": {
+      "src/backend/access/gin/ginlogic.c": {
+        "bytes": 10550,
+        "sha256": "9537f66e95ad8d9f45f12f4cc95d96339a29d21e724ef9c86737e2637fde9ec1"
+      },
+      "src/include/access/gin_private.h": {
+        "bytes": 18542,
+        "sha256": "cb6b3a876c1ec8fa2621eae95d5e7f3e3b4a7ef86fc5bfa8cd52415e96aa1fb0"
+      }
+    },
+    "standalone_diff_sha256": "43e37871447f8d2a150f55cb825c809f75ae667873a697ca37966ed3c01709b1",
+    "incremental_K1_review_diff_sha256": "7d762ad9f1ca98550c2fa780c2601b9fb89d30babcbe8eec13461c3800da83d0",
+    "incremental_K2_review_diff_sha256": "d33b2fade79de11bc74c7fa9dc568c211be59c14211713e830c8ca13ba69569c",
+    "miss_budget": 64,
+    "budget_definition": "First fill and every eligible mismatching vector count as consecutive misses; every memo hit resets to zero. On miss 64 return the direct native result once and select the original direct helper for the rest of this key.",
+    "source_kind": "Standalone alternative over fixed B, not a series with K1 or K2",
+    "own_repository_HEAD_worktree_unchanged": true,
+    "runtime": "NOTRUN",
+    "timing_samples": 0
+  }
+}

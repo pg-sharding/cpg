@@ -1,0 +1,25 @@
+Subject: [SOURCE-ONLY DRAFT, UNSENT] GIN decoder and memo regression follow-ups
+
+The completed independent D1/K1 trials retain both target gains and material
+negatives. D1 long-delta2 decode CPU regressed about39-41%; K1 dense actual-AM
+CPU regressed about14%, while full-read/OR SQL CPU improved about7% on the
+shared-load diagnostic. The original packets include all absolute/spread/pair
+results and environmental limits; these are not clean-host conclusions.
+
+D2 tests the first continuation bit before the four-byte batch bounds/OR. K2
+uses a fixed64 cumulative-miss budget but could lose later OR reuse. K3 uses
+64 consecutive misses, resets on a memo hit and then selects the original
+direct builtin helper for the rest of the scan key. Exact builtin guards,
+ternary results, recheck and ordinary callback fallbacks remain unchanged.
+
+These are independent source-only alternatives, not a series. None has yet
+been compiled, qualified or timed in this snapshot; they do not establish a
+regression fix. Four fresh B/K1/K3/K3_assert builds, native64-boundary checks,
+ordinary SQL and the original23-cell controls precede any new latency claim.
+The threshold is fixed before observing results.
+
+Consistent-result caching is direct prior art from Heikki's2014 discussion[1].
+No novelty claim is made for caching itself. These concrete cost-control and
+short-circuit hypotheses require measurement; nothing has been mailed.
+
+[1] https://www.postgresql.org/message-id/52F373CC.4050800%40vmware.com
