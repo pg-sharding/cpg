@@ -1,0 +1,136 @@
+diff --git a/src/backend/access/gin/ginlogic.c b/src/backend/access/gin/ginlogic.c
+index 14af56300f5..dc30aa07d3c 100644
+--- a/src/backend/access/gin/ginlogic.c
++++ b/src/backend/access/gin/ginlogic.c
+@@ -35,6 +35,8 @@
+ #include "postgres.h"
+ 
+ #include "access/gin_private.h"
++#include "utils/fmgroids.h"
++#include "utils/fmgrprotos.h"
+ 
+ 
+ /*
+@@ -43,6 +45,17 @@
+  */
+ #define MAX_MAYBE_ENTRIES	4
+ 
++/* This is a bounded builtin specialization, not an opclass purity promise. */
++#define TSQUERY_CACHE_MAX_ENTRIES 8
++
++struct GinTriConsistentCacheData
++{
++	bool		valid;
++	uint32		nentries;
++	GinTernaryValue result;
++	GinTernaryValue entryRes[TSQUERY_CACHE_MAX_ENTRIES];
++};
++
+ /*
+  * Dummy consistent functions for an EVERYTHING key.  Just claim it matches.
+  */
+@@ -99,6 +112,59 @@ directTriConsistentFn(GinScanKey key)
+ 													 PointerGetDatum(key->queryCategories)));
+ }
+ 
++/*
++ * Native tri callbacks leave recheckCurItem unchanged.  Return the same ternary
++ * value here, including MAYBE, without manufacturing a new recheck state.
++ * All other callback inputs are fixed for the lifetime of this scan key.
++ */
++static GinTernaryValue
++cachedTsqueryTriConsistentFn(GinScanKey key)
++{
++	GinTriConsistentCacheData *cache = key->triCache;
++	GinTernaryValue result;
++
++	/* A hidden entry may have been appended after initialization. */
++	if (key->nentries > TSQUERY_CACHE_MAX_ENTRIES)
++	{
++		cache->valid = false;
++		return directTriConsistentFn(key);
++	}
++	if (cache->valid && cache->nentries == key->nentries &&
++		memcmp(cache->entryRes, key->entryRes,
++			   key->nentries * sizeof(GinTernaryValue)) == 0)
++		return cache->result;
++	result = directTriConsistentFn(key);
++	memcpy(cache->entryRes, key->entryRes,
++		   key->nentries * sizeof(GinTernaryValue));
++	cache->nentries = key->nentries;
++	cache->result = result;
++	cache->valid = true;
++	return result;
++}
++
++/*
++ * Arbitrary opclasses may keep mutable state in extra_data.  Only specialize
++ * the reviewed builtin support set, checking native addresses as well as OIDs.
++ * In particular, a user callback must not change the query map behind a memo.
++ */
++static bool
++isBuiltinTsquerySupport(GinState *ginstate, OffsetNumber attnum)
++{
++	int			i = attnum - 1;
++
++	return ginstate->compareFn[i].fn_oid == F_GIN_CMP_TSLEXEME &&
++		ginstate->compareFn[i].fn_addr == gin_cmp_tslexeme &&
++		ginstate->extractQueryFn[i].fn_oid == F_GIN_EXTRACT_TSQUERY_TSVECTOR_INTERNAL_INT2_INTERNAL_INTERNAL_INTERNAL_INTERNAL &&
++		ginstate->extractQueryFn[i].fn_addr == gin_extract_tsquery &&
++		ginstate->consistentFn[i].fn_oid == F_GIN_TSQUERY_CONSISTENT_INTERNAL_INT2_TSVECTOR_INT4_INTERNAL_INTERNAL_INTERNAL_INTERNAL &&
++		ginstate->consistentFn[i].fn_addr == gin_tsquery_consistent &&
++		ginstate->triConsistentFn[i].fn_oid == F_GIN_TSQUERY_TRICONSISTENT &&
++		ginstate->triConsistentFn[i].fn_addr == gin_tsquery_triconsistent &&
++		ginstate->canPartialMatch[i] &&
++		ginstate->comparePartialFn[i].fn_oid == F_GIN_CMP_PREFIX &&
++		ginstate->comparePartialFn[i].fn_addr == gin_cmp_prefix;
++}
++
+ /*
+  * This function implements a binary logic consistency check, using a ternary
+  * logic consistent function provided by the opclass. GIN_MAYBE return value
+@@ -227,6 +293,7 @@ shimTriConsistentFn(GinScanKey key)
+ void
+ ginInitConsistentFunction(GinState *ginstate, GinScanKey key)
+ {
++	key->triCache = NULL;
+ 	if (key->searchMode == GIN_SEARCH_MODE_EVERYTHING)
+ 	{
+ 		key->boolConsistentFn = trueConsistentFn;
+@@ -247,5 +314,13 @@ ginInitConsistentFunction(GinState *ginstate, GinScanKey key)
+ 			key->triConsistentFn = directTriConsistentFn;
+ 		else
+ 			key->triConsistentFn = shimTriConsistentFn;
++
++		if (key->nuserentries > 0 &&
++			key->nuserentries <= TSQUERY_CACHE_MAX_ENTRIES &&
++			isBuiltinTsquerySupport(ginstate, key->attnum))
++		{
++			key->triCache = palloc0(sizeof(GinTriConsistentCacheData));
++			key->triConsistentFn = cachedTsqueryTriConsistentFn;
++		}
+ 	}
+ }
+diff --git a/src/include/access/gin_private.h b/src/include/access/gin_private.h
+index 3c5fd6ba817..62d53f2f12f 100644
+--- a/src/include/access/gin_private.h
++++ b/src/include/access/gin_private.h
+@@ -262,6 +262,8 @@ typedef struct GinScanKeyData *GinScanKey;
+ 
+ typedef struct GinScanEntryData *GinScanEntry;
+ 
++typedef struct GinTriConsistentCacheData GinTriConsistentCacheData;
++
+ typedef struct GinScanKeyData
+ {
+ 	/* Real number of entries in scanEntry[] (always > 0) */
+@@ -328,6 +330,9 @@ typedef struct GinScanKeyData
+ 	bool		curItemMatches;
+ 	bool		recheckCurItem;
+ 	bool		isFinished;
++
++	/* Optional scan-key-local memo for the builtin tsquery ternary function. */
++	GinTriConsistentCacheData *triCache;
+ } GinScanKeyData;
+ 
+ typedef struct GinScanEntryData

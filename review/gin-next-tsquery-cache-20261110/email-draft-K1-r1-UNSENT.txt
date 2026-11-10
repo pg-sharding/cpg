@@ -1,0 +1,64 @@
+Subject: [DRAFT, UNSENT] Bounded builtin-tsquery GIN ternary memo: gains and dense negative
+
+This independent alternative is based on fixed B, with the identical supplied
+prerequisite in every build. It is not a series with the startup/decoder patches.
+K1 memoizes only the previous at-most-eight-entry ternary vector and result for
+one scan key. It requires exact builtin support OIDs and function addresses;
+arbitrary operator classes and shim paths keep their normal callbacks. The
+query/strategy/categories/map have that key's lifetime. FALSE/TRUE/MAYBE results
+are preserved, native tri leaves recheck unchanged, and hidden-entry growth
+beyond the bound uses the original dispatcher. The on-disk format and callback API are unchanged; a small per-key memo
+allocation is added.
+
+Three clean B/K1/K1_assert builds passed unchanged core239 and posting-list tests.
+Actual installed-header/native-dispatch checks plus ordinary SQL, prepared,
+lifecycle, and VOLATILE custom-opclass fallback checks passed before a complete
+69-row smoke and independent root live review. The fixed B/T/K1 screen then
+completed 1104 raw /828 retained /276 warm observations across two fresh cohorts.
+Every 23 SQL/actual-AM cells and all three pairs are retained. Independent local
+reconstruction checked 25992 numerical fields and all semantic/schedule fields.
+
+This is explicitly a SHARED-LOAD DIAGNOSTIC on VM84, not a clean-host gain claim.
+The host load was near 11–12 on eight guest CPUs. SQL executor, whole-command
+backend CPU/client wall and actual-AM inner CPU/wall are distinct boundaries.
+A literal answer runs separately before each measured command as extra warming.
+
+Observed paired median changes versus B (cohort 0 /cohort 1):
+
+* Full-read actual-AM inner CPU: -16.79% / -17.13%; B medians 157.542 /160.270ms,
+  K1 129.568 /132.563ms for 10 complete scans. SQL whole CPU: -7.23% / -7.06%.
+* OR actual-AM inner CPU: -19.56% / -18.56%; B 187.365 /186.223ms,
+  K1 148.637 /149.135ms. SQL whole CPU: -6.74% / -6.82%.
+* The material no-reuse dense negative: actual-AM inner CPU +13.63% / +13.94%,
+  direct ranges +9.64..+14.56% / +8.09..+17.76%; B 70.464 /70.434ms,
+  K1 79.138 /80.106ms. SQL whole CPU +13.08% / +7.43%, executor +10.17% / +2.84%.
+  Exact T/B inner CPU medians were about +0.15% / +0.03% in that native cell.
+
+These target gains and dense regression coexist; K1 is not a general adoption
+recommendation. Phrase executor was +0.95% / -1.62%, NOT +1.61% / +5.83%.
+Unchanged Seq whole CPU K1/B was -1.14% / +5.25%, T/B +2.97% / +2.79%.
+Tiny client-wall ranges are broad under shared load. We retain them without
+normalization, trimming, pooling, significance or causal attribution. Absolute
+median ratios and median same-round ratios are different summaries. Complete
+min/median/max, sample stdev/MAD, raw/difference arrays and all 23 controls follow.
+
+The original frozen local analyzer stopped on a stale n==10 assertion although
+the protocol registered six retained rounds. It created no output; its failure
+is preserved. A new local analyzer changes only that guard to 6. Statistics,
+metrics and samples are unchanged, and an independent implementation reproduced
+the complete result. No VM timing was retried or edited.
+
+An untimed earlier wrapper probe found high consecutive-vector repetition in
+full-read/OR and none in dense; it motivated this bounded trial but is not a
+K1 hit counter or proof of the latency cause. Heikki's 2014 cache proposal [1]
+is explicit prior art, so no novelty claim is made for caching itself. No decoder
+benefit or unmeasured C9 combination is claimed. Future miss-budget work, if any,
+is a separate source-only alternative and has no timing result in this packet.
+
+The artifacts include the standalone source patch, source/ELF/header/compiler
+bindings, complete raw observations, exact analyzer replay, fresh build/setup/
+qualification/run scripts, all negative controls and own-cluster cleanup proof.
+Canonical source commit is 9e0d6e84c5bd538e58a534c99cb39ca669c567b7, root <localhost>.
+Nothing has been sent to the mailing list.
+
+[1] https://www.postgresql.org/message-id/52F373CC.4050800%40vmware.com
