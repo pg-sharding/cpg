@@ -1,0 +1,28 @@
+UNSENT DRAFT — related scan experiments; no mail has been sent
+
+Subject: GIN scan experiments: scope relative to the build/extraction work
+
+Hi David,
+
+I have been comparing a separate set of GIN scan experiments with this
+thread, including v12. The older trigram radix, MSD and adaptive-sort
+experiments are follow-ups to your extraction work. The typed positional
+trigram sort is related too, although it sorts pos_trgm with an additional
+position tie-break.
+
+The current experiments operate later: advancing decoded posting lists,
+decoding private compressed snapshots on demand, selecting required entry
+streams with a heap, and memoizing the reviewed builtin tsquery ternary
+callback. Your accumulator and extraction patches do not implement these
+scan paths. The heap, logical TID, consistent-cache and deferred-decode
+ideas already have direct prior discussion in Heikki's 2014 message [1];
+the contribution here is the concrete contracts and reproducible positive
+and negative evidence, without an algorithmic novelty claim.
+
+Our historical B72 baseline already includes the inline comparison,
+April sort/dedup commits and November integer-comparator change. We have
+not measured a combined reader/builder patch set, so the scan results
+should not be added to the CREATE INDEX speedups in this thread.
+
+[1] https://www.postgresql.org/message-id/52F373CC.4050800%40vmware.com
+[2] https://www.postgresql.org/message-id/b53f3df9-d584-47e4-a1dd-405dd8146e27%40gmail.com

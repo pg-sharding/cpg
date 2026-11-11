@@ -1,0 +1,90 @@
+# Тред David Geier и наши GIN-эксперименты
+
+Проверено 11 ноября 2026, срез около 06:17 UTC. Прочитан основной тред целиком: **60 публичных писем, 64 вложения**, включая v12 от 9 ноября и ответы 10 ноября. Архив `hackorum` содержит первые 52 письма / 59 вложений до 23 октября; недостающее проверено на публичном сервере. Отдельное collation-продолжение: **22 письма / 15 вложений**, включая новый отрицательный результат 6 ноября. Вложения декодированы/прочитаны как данные, без применения или исполнения. Индексы, даты, URL, SHA256, границы запросов и Git-проверки — в [SOURCE-AUDIT.json](SOURCE-AUDIT.json); ключевые первичные ссылки — в [PRIMARY-SOURCES.md](PRIMARY-SOURCES.md).
+
+**Вывод для нынешней работы:** Geier не реализует наши posting-list advance/lazy decode, required-entry heap, builtin ternary memo, absent startup или delta decoder. Его основные участки — извлечение/сортировка trigrams и временное накопление ключей при построении/cleanup. Прямое пересечение есть с нашими прежними extraction radix/MSD/adaptive экспериментами. Отсутствие дубликата в этом треде не означает новизну scan-идей: логические TID, heap, consistent cache и deferred decode прямо предложены [Heikki в 2014 году](https://www.postgresql.org/message-id/52F373CC.4050800%40vmware.com).
+
+Старый [обзор 8 ноября](../../../index-optimizations-20261107/gin-thread-comparison-20261108/GIN-THREAD-COMPARISON-20261108.md) полезен как сохранённая история, но его «последняя v11 / ответы 5 ноября / collation 21 письмо» теперь устарело. Frozen packets не изменялись.
+
+## Что менялось от v1 к v12
+
+| Период / версия | Механизм и решение обсуждения |
+|---|---|
+| 5–9 января, v1/v2 | Inline `ginCompareAttEntries`; reuse `FunctionCallInfo` вместо подготовки `FunctionCall2Coll`; templated trigram qsort; пропуск повторного sort/dedup в `ginExtractEntries`; branchless int4 comparator; signed-char LSD radix; equality-only unique; ASCII extraction fast path. Это восемь разных изменений, а исходные 3.02× / 1.59× относятся к их сочетанию. |
+| 9–14 января, v2/v3 | Предположение v1 «нет nullFlags ⇒ sorted+unique» признано некорректным. v2 добавляла явный output flag, но автор увидел регрессию и затем исключил этот путь. Вместо него принята обработка NULL отдельно, sort Datums через template и dedup только при обнаруженных duplicates. Подготовленный `FunctionCallInfo` также снят: заметного выигрыша не найдено даже на несортированных int arrays. Это **не** кэш результата consistent. |
+| Март, v4/v5 | ASCII fast path исключён из серии: casing зависит от locale/provider и иногда контекста; начат отдельный collation thread. В radix удалён неверный assertion. |
+| Апрель, v6/v7 | После коммитов sort/dedup в серии остаются integer comparator и radix. v7 добавляет `simplehash` accumulator в `ginbulk.c`: lookup по `(attnum, category, Datum image)`, затем sort distinct keys и TID arrays при выдаче. Общий comparator TID здесь обслуживает **сортировку записей**, не чтение posting streams. |
+| Сентябрь, v8–v11 | Добавлены int8 comparator, unsigned-char radix, документация мотивации, исправление лишнего copying by-reference Datum при попадании в hash. Автор проверял signedness codegen; unique на конечном radix buffer с последующим копированием только survivors оказался примерно в шуме. Первый in-place MSD prototype дал >30% общей регрессии. v11 от 23 октября повторяет сентябрьские diff hunks после rebase. |
+| 5–10 ноября, v12 | Integer comparator уже committed. Новая четвёрка: accumulator; packed trigram comparator; out-of-place LSD + insertion fallback; **альтернативный** in-place American Flag MSD + insertion fallback. Добавлены свежие negatives по generic GIN accumulator. |
+
+Первоначальная методика автора — fastest из трёх CREATE INDEX, не распределение paired runs. Профили и январские/апрельские/ноябрьские результаты относятся к разным base snapshots. Их нельзя складывать или напрямую сравнивать с нашими B72 scan percentages. История StaticAssert/PointerGetDatum/Coverity в апрельской части тоже прочитана: это сопутствующая корректность интерфейса, не дополнительный алгоритм скана.
+
+## Что именно в поздней v12
+
+[Письмо 9 ноября](https://www.postgresql.org/message-id/b53f3df9-d584-47e4-a1dd-405dd8146e27%40gmail.com) уже существенно меняет старую картину. Точный код, а не только изложение письма:
+
+- **0001** меняет `ginInsertBAEntry`, `ginInsertBAEntries`, `ginInitBA`, `ginBeginBAScan`, `ginGetBAEntry`. Lookup использует `datum_image_hash`/`datumIsEqual`; `sort_keys` вызывает прежний GIN opclass comparator. Удалён RB-tree `shouldSort`, TID arrays сортируются при `ginBeginBAScan`. Diff hunks совпадают с октябрьским v11-0003; файлы format-patch не byte-identical из-за metadata/index hashes/footer.
+- **0002** собирает три байта trgm в логический `uint32`, первый байт — старший; signed order сохраняет XOR `0x00808080`. Только byte loads, без чтения четвёртого байта. `CMPTRGM_SIGNED`/`CMPTRGM_UNSIGNED` используются и вне extraction sort, в том числе word similarity. Это другой объект, чем шестибайтовый `ItemPointerData`.
+- **0003** меняет `generate_trgm` и `generate_wildcard_trgm` на `trigram_sort_and_unique`. При `count < 64` — insertion sort; иначе три LSD passes с временным массивом `trgm`, `uint32_t freqs[3][256]` и signedness mapping. В опубликованных bytes после radix остаются отдельные `qunique(buffer, ...)` и `memcpy` survivors; fused source/destination unique-copy здесь нет.
+- **0004** применяется поверх 0003 и **заменяет** её LSD алгоритм: `trigram_radix_sort_recurse`, in-place bucket partitioning, пропуск уже правильно расположенных элементов, рекурсия максимум по трём байтам и insertion sort для малых partitions. Общий `qunique` выполняется после сортировки. Это альтернативы с разной памятью/скоростью, не два суммируемых улучшения.
+
+Ноябрьские авторские CREATE INDEX времена, мс:
+
+| Набор | master | + accumulator | + comparator | + LSD | MSD вместо LSD |
+|---|---:|---:|---:|---:|---:|
+| movies, длинные plot | 8772 | 7344 | 6812 | 3814 | 5514 |
+| dictionary words | 554 | 307 | 304 | 292 | 288 |
+| TPC-H lineitem comments | 219540 | 146679 | 141465 | 124011 | 124745 |
+
+Это опубликованные автором числа, **не новые наши измерения**. Письмо не даёт raw samples, разброса, контроля drift или правила агрегирования этой таблицы; приложенный SQL делает пять CREATE INDEX для основных наборов и содержит домашние пути автора. Он полезен как пример, но не готовый переносимый harness. Смысл crossover ясен: длинные строки лучше используют LSD; малые строки требуют fallback, а преимущество in-place по памяти особенно важно на больших массивах, где он заметно медленнее. Ближайшая практическая идея здесь — проверять стоимость dispatch и tiny inputs, а не выбирать алгоритм по одному длинному положительному случаю.
+
+## Предметное сопоставление с нашими пакетами
+
+| Наш вариант | Совпадение с Geier | Точная граница и применимость |
+|---|---|---|
+| Старые extraction radix / bitmap buckets / 6-bit radix / MSD / adaptive fallback | **Прямое направление** | Те же trgm arrays до дедупликации, те же `generate_trgm`/`generate_wildcard_trgm`. MSD и small fallback теперь есть и в v12. Вклад возможен в конкретном коде, thresholds и измерениях; «новая идея radix/adaptive GIN» неверно. |
+| Старый `word-typed.patch` | **Частичное** | Наш typed `pos_trgm` sort в `calc_word_similarity` сохраняет tie-break по `index`, устраняет generic qsort и `CMPTRGM` indirection. v12-0002 ускоряет общий trigram comparator, но не вводит этот positional typed sort. Нельзя смешивать его с extraction radix или утверждать полное дублирование реализации. |
+| C9 advance + private lazy snapshots | **Другой слой** | `entryGetItem`, `ginAdvanceDecoded`, `entryLoadNextSegment`, `entryCopyPostingPage`; first-page count по varbyte terminators. Уже отсортированные TID, strict `> advancePast`, сохранение last TID/page transition, RNG для eligible items. Geier не меняет эти функции/codec. Сам baseline уже выбирает compressed segment suffix: впервые пропускать segments мы его не учим. |
+| C10/C11 logical TID comparator | **Общий принцип представления, другой объект** | `ginItemPointerKey`, bounded 4-byte block load через `memcpy`, endian handling и offset, затем сравнение логического ключа. Geier 0002 пакует **trgm**, а branchless int4/int8 функции не являются `ginCompareItemPointers`. Прямой старый контекст TID — Heikki2014. C11 не дал универсального increment над C10; крупные selective gains нельзя приписывать comparator вместо унаследованного C9. |
+| Heap `03dff8bf…` | **Другой слой** | `startScanKey`, `ginRequiredHeapSiftDown`, `ginRequiredHeapGetItem`, `keyGetItem`: минимум среди required streams при `nrequired >= 8`, без fuzzy. Cached immutable lower bounds чинят stale root после продвижения shared entry другим key. Sort hash entries при flush не решает эту задачу. Идея heap прямо есть у Heikki2014 вместе с предупреждением shared entries; вклад — реализация контракта и доказательства поведения. |
+| K1/K3 `ec32d586…` | **Другой слой** | `ginlogic.c`: scan-key-local last-vector/result memo для строго проверенного builtin tsquery support set, максимум 8 entries; K3 переключает callback после 64 **последовательных** misses. Январский reuse fmgr call-info не хранит результат вызова и не даёт такого пропуска. Heikki2014 уже предлагает consistent cache. Generic opclasses с mutable `extra_data` нельзя объявлять чистыми по аналогии с comparator. |
+| S1 absent startup | **Другой слой** | `scanEntriesCanMatch`: дополнительный entry-tree lookup, absent=FALSE / остальные=MAYBE, прежние predicate locks и opclass proof до materialization. Это не `ginExtractEntries` и не sorted flag. Положительный absent результат не отменяет цену лишнего прохода на существующих entries; общий S1 v1 уже отклонён. |
+| D1/D2 decoder | **Другой слой** | `ginPostingListDecodeAllSegments`: четыре однобайтовые дельты, проверка input/output bounds; D2 сначала отбрасывает длинную первую дельту. Geier не меняет `ginpostinglist.c` и posting format. В исходном срезе D2 был source-only; отдельно 11 ноября root начал build/qualification на VM158. Результатов квалификации и timings на момент дополнения нет, ускорение D2 не установлено. |
+
+Проверены changed paths **всех** основного-треда patch attachments, а не только последней версии: нет изменений `ginget.c`, `ginscan.c`, `ginlogic.c` или `ginpostinglist.c`. `GinSegmentInfo` в контексте `typedefs.list` ничего не говорит о lazy decoder. Общий `gin_private.h` — ещё не общий hunk: поздний Geier меняет `BuildAccumulator`, Heap/K3/C9 — scan structures, C10/C11 — TID helper.
+
+При этом фраза «у него только build, у нас SELECT» слишком груба. Radix участвует в query extraction pg_trgm; accumulator используется также pending-list cleanup и параллельным build. Он может изменить flush batches, размер и физическую форму индекса, поэтому reader end-to-end cost тоже может измениться при новом builder. Совместное apply/build/SQL здесь **не выполнялось**; никаких combined speedup claims нет. Наши нынешние tsquery fixtures вообще не упражняют pg_trgm extraction, поэтому совместный trgm benchmark не является условием завершённости опубликованных Heap/K3 результатов.
+
+## Статус: что committed, что обсуждается
+
+Повторная `git merge-base --is-ancestor` проверка в объектном repository подтвердила все четыре commit как предков B72 `72b9498df9a369e747f8d96efb5a6cd33c2451e2` и, следовательно, наших fixedB-пакетов:
+
+| SHA | Дата | Уже включённое изменение |
+|---|---|---|
+| `bba81f9d3d4f512280bd55751a450dac6f02d406` | 2026-01-09 | Inline `ginCompareAttEntries` |
+| `6f5ad00ab763f9e029ec591f7f650bd09c1e933f` | 2026-04-07 | NULL handling + templated Datum sort/dedup `ginExtractEntries` |
+| `9f3755ea07aa8858999bdac3d33151e93d2643e2` | 2026-04-07 | Templated trigram sort + equality comparator |
+| `41467b1d88303fbaea4ddd20c21ac4b8ce6b92d7` | 2026-11-05 | Branchless `btint4cmp`/`btint8cmp` |
+
+[CommitFest6418](https://commitfest.postgresql.org/patch/6418/) сейчас: target20, Ready for Committer, v12, четыре patches, последнее письмо 10 ноября11:01:43. Это общий флаг записи, **не** подтверждение merge оставшихся частей. Свежий upstream master зафиксирован как `c5daeb1e0f5adfbc19ed621bb97ce2d68c8455bf` (11 ноября03:14:26 UTC): в [ginbulk.c](https://raw.githubusercontent.com/postgres/postgres/c5daeb1e0f5adfbc19ed621bb97ce2d68c8455bf/src/backend/access/gin/ginbulk.c) остаётся RB-tree, в [trgm_op.c](https://raw.githubusercontent.com/postgres/postgres/c5daeb1e0f5adfbc19ed621bb97ce2d68c8455bf/contrib/pg_trgm/trgm_op.c) — старый comparator/templated qsort. Accumulator и новые comparator/radix alternatives на этом срезе не merged.
+
+Последние ответы также не позволяют писать «все general GIN случаи хороши». [Kirill9 ноября](https://www.postgresql.org/message-id/CALdSSPj0amESJpj0FYoruotCOHAQf6UeJyb_JsyKAe2n98gdrQ%40mail.gmail.com) сообщил numeric-array build ~4.08× и размер ~7.35× baseline. [David10 ноября](https://www.postgresql.org/message-id/40df4dbe-5fbb-4a7c-b0b7-34422d03e4f6%40gmail.com) объяснил отложенное semantic merging в entry tree и предложил варианты; нового patch с выбранным ремонтом в просмотренной истории нет. [Последний ответ](https://www.postgresql.org/message-id/352ae0e6-4aa8-483e-9aa9-01d4a4e2bdf8%40gmail.com) подтверждает long-identical-key hashing regression и другой случай с обратным знаком. Здесь это только статус публичного обсуждения; новых hash-экспериментов не делалось.
+
+Collation [CF6454](https://commitfest.postgresql.org/patch/6454/) остаётся Ready for Committer, v8; поле target по-прежнему19. Fresh live thread содержит [письмо Zsolt6 ноября](https://www.postgresql.org/message-id/CAN4CZFN5dvVe1a5iB_jJYGazL%3DQzMpUmFXn6bMi2g3zmSX9PdA%40mail.gmail.com): mixed C/POSIX arguments вызывают XX000 lookup collation0. Это позднее прежнего положительного review; ответа/исправления после него в просмотренном thread нет. Поэтому нельзя считать collation серию завершённой по старому LGTM/CF flag. Её casing/word-boundary API не дублирует наши scan algorithms; для будущего pg_trgm объединения нужны collation-aware result oracles.
+
+## Как формулировать вклад и что проверить дальше
+
+Для текущих packets достаточно узкого описания: реализация known GIN scan ideas с конкретными shared-entry/callback/lifecycle контрактами и воспроизводимыми положительными **и отрицательными** результатами на историческом B72. Не писать «first heap/cache/logical TID/lazy segment skipping», «Geier only affects CREATE INDEX», «all GIN prior art checked» или «v12 целиком merged». Старые опубликованные snapshots не переписывать: новый addendum сообщает актуальную границу.
+
+Свежая серия учит двум вещам, применимым к нашему следующему шагу: фиксированная overhead может перевернуть tiny-input результат, а сохранённая семантика/формат не гарантирует прежнюю физическую стоимость. У Heap уже есть natural-plan OR32/128 и отдельный 100-rescan work unit; они не стирают отрицательные singleton/OR7/OR8 данные. У K3 observer подтвердил dense:0 hits,64 misses, затем direct callback, но не объяснил прежние +2.62/+3.02% executor к B. Перенастраивать64 по этому наблюдению оснований нет.
+
+**Отдельная проверка D2 против D1 и B.** Эта рекомендация уже начала исполняться root 11 ноября как build/qualification на VM158; на момент дополнения результатов и timings ещё нет. Гипотеза остаётся непроверенной: первый-byte guard должен уменьшить известную цену D1 на long deltas, сохранив выигрыш на плотных runs. Фиксированный текущий screen включает **18 native allocation-inclusive cases и 7 whole-SQL workloads**. Он не обещает полного actual-AM/rescan покрытия. Пороги Heap/K3 и исходные freezes не меняются; новый результат оформляется отдельно.
+
+1. Exact B72 + общий fixedB prerequisite; идентичные flags/compiler и один immutable physical fixture для reader comparisons. Четыре роли B/T/D1/D2, где B/T — exact twins; balanced/interleaved order и две заранее заданные когорты. До timings — codec oracle для всех длинообразующих boundary/tail cases, одинаковые decoded TID и end-state. Код из upstream вложений для этого не нужен.
+2. Сначала существующий actual decoder kernel: dense128, long delta2, mixed1/2/3/long, короткие tails и случаи с недостатком output capacity для batch. Сохранить абсолютные CPU/wall samples и spread; посчитать долю batch eligibility вне timed executable. D2 pointer read допустим только в прежнем непустом loop.
+3. Для текущих 7 whole-SQL workloads сохранять планы/ответы и раздельные whole-command executor, backend CPU и wall. **Дополнительная желательная последующая проверка**, сверх фиксированного screen: actual AM и rescan на том же seed с dense/selective AND, full single term, OR, rare/absent и prefix. Она здесь не выполнена и не объявляется частью текущего обязательства. При отсутствии wins/при exact-twin drift ограничить вывод micro или отклонить D2; новый положительный short-run результат не заменяет исходные negatives.
+4. Решение заранее: D2 не считать улучшением, если long-delta cost лишь переносится в dense/full SQL или эффект не отделяется от controls. Никакого обещания прироста сейчас: это спецификация ещё не выполненной проверки.
+
+Параллельно полезна read-only проверка hot objects/ASM старого K3 ELF и B: сравнить caller/direct callback placement и отличие от observer overlay. Сам instrumentation не даёт причинной атрибуции старой регрессии. Для будущего совместного reader/builder исследования нужны две разные постановки: сначала общий физический index для изоляции reader, затем отдельно построенные индексы для end-to-end эффекта. Это исследовательские варианты, не требование или новый запуск этой записки.
+
+Автор этого обзора не выполнял build/qualification/timing команд на VM158/84 и не менял production, источники/HEAD/object refs или frozen packets. Указанное начало отдельной D2 qualification сообщено root; это не новый результат обзора. VM51 использовалась только для ограниченных READ ONLY запросов к архиву. Ничего не отправлено, не опубликовано и не загружено в S3 этой задачей. Статусное дополнение внесено 11 ноября около06:30 UTC; source/status research сохраняет исходный срез около06:17 UTC.
