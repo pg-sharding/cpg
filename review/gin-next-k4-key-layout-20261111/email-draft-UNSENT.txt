@@ -1,0 +1,27 @@
+UNSENT WORKING NOTE — compile-only experiment, not performance evidence
+
+Subject: GIN scan-key layout experiment for the tsquery memo prototype
+
+Hi,
+
+While investigating the remaining dense-query regression of the K3
+tsquery memo prototype, I noticed that adding its private cache pointer
+increased GinScanKeyData from152 to160 bytes on our measured64-bit ABI.
+The attached incremental layout change keeps nadditional next to nrequired,
+using an existing alignment gap and bringing the size back to152 bytes.
+It leaves the memo eligibility and64-consecutive-miss policy unchanged.
+
+Actual GCC syntax-only assertions pass against the pinned B/K3 installed
+headers, including the changed offsets. No K4 backend, SQL or timing
+comparison has been run, so this is not a demonstrated regression fix.
+Matching the B size does not restore its offsets or establish a cause;
+caller code generation, key stride and allocator size classes still need
+separate measurement.
+
+The parent memo experiment follows the consistent-cache idea discussed
+by Heikki in2014 [1]. This small packing change makes no algorithmic
+novelty claim. It is separate from David's trigram extraction/build work
+[2] and from the decoder experiment.
+
+[1] https://www.postgresql.org/message-id/52F373CC.4050800%40vmware.com
+[2] https://www.postgresql.org/message-id/b53f3df9-d584-47e4-a1dd-405dd8146e27%40gmail.com

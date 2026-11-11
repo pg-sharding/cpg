@@ -1,0 +1,384 @@
+
+/home/reshke/allfuzz/gin-cache-k3-20261110/build-r1/common-build/src/backend/access/gin/ginlogic.o:     file format elf64-x86-64
+
+
+Disassembly of section .text:
+
+0000000000000000 <trueConsistentFn>:
+   0:	f3 0f 1e fa          	endbr64
+   4:	c6 87 93 00 00 00 00 	movb   $0x0,0x93(%rdi)
+   b:	b8 01 00 00 00       	mov    $0x1,%eax
+  10:	c3                   	ret
+  11:	66 66 2e 0f 1f 84 00 00 00 00 00 	data16 cs nopw 0x0(%rax,%rax,1)
+  1c:	0f 1f 40 00          	nopl   0x0(%rax)
+
+0000000000000020 <trueTriConsistentFn>:
+  20:	f3 0f 1e fa          	endbr64
+  24:	b8 01 00 00 00       	mov    $0x1,%eax
+  29:	c3                   	ret
+  2a:	66 0f 1f 44 00 00    	nopw   0x0(%rax,%rax,1)
+
+0000000000000030 <directTriConsistentFn>:
+  30:	f3 0f 1e fa          	endbr64
+  34:	48 83 ec 10          	sub    $0x10,%rsp
+  38:	0f b7 8f 80 00 00 00 	movzwl 0x80(%rdi),%ecx
+  3f:	48 8b 57 30          	mov    0x30(%rdi),%rdx
+  43:	8b 77 58             	mov    0x58(%rdi),%esi
+  46:	48 8b 47 50          	mov    0x50(%rdi),%rax
+  4a:	ff 77 70             	push   0x70(%rdi)
+  4d:	ff 77 68             	push   0x68(%rdi)
+  50:	ff 77 78             	push   0x78(%rdi)
+  53:	4c 63 4f 04          	movslq 0x4(%rdi),%r9
+  57:	4c 8b 47 60          	mov    0x60(%rdi),%r8
+  5b:	48 89 c7             	mov    %rax,%rdi
+  5e:	e8 00 00 00 00       	call   63 <directTriConsistentFn+0x33>	5f: R_X86_64_PLT32	FunctionCall7Coll-0x4
+  63:	48 83 c4 28          	add    $0x28,%rsp
+  67:	c3                   	ret
+  68:	0f 1f 84 00 00 00 00 00 	nopl   0x0(%rax,%rax,1)
+
+0000000000000070 <shimBoolConsistentFn>:
+  70:	f3 0f 1e fa          	endbr64
+  74:	53                   	push   %rbx
+  75:	48 89 fb             	mov    %rdi,%rbx
+  78:	0f b7 8f 80 00 00 00 	movzwl 0x80(%rdi),%ecx
+  7f:	48 8b 57 30          	mov    0x30(%rdi),%rdx
+  83:	8b 77 58             	mov    0x58(%rdi),%esi
+  86:	48 8b 7f 50          	mov    0x50(%rdi),%rdi
+  8a:	48 83 ec 08          	sub    $0x8,%rsp
+  8e:	ff 73 70             	push   0x70(%rbx)
+  91:	ff 73 68             	push   0x68(%rbx)
+  94:	ff 73 78             	push   0x78(%rbx)
+  97:	4c 63 4b 04          	movslq 0x4(%rbx),%r9
+  9b:	4c 8b 43 60          	mov    0x60(%rbx),%r8
+  9f:	e8 00 00 00 00       	call   a4 <shimBoolConsistentFn+0x34>	a0: R_X86_64_PLT32	FunctionCall7Coll-0x4
+  a4:	48 83 c4 20          	add    $0x20,%rsp
+  a8:	3c 02                	cmp    $0x2,%al
+  aa:	74 14                	je     c0 <shimBoolConsistentFn+0x50>
+  ac:	84 c0                	test   %al,%al
+  ae:	0f 95 c0             	setne  %al
+  b1:	31 d2                	xor    %edx,%edx
+  b3:	88 93 93 00 00 00    	mov    %dl,0x93(%rbx)
+  b9:	5b                   	pop    %rbx
+  ba:	c3                   	ret
+  bb:	0f 1f 44 00 00       	nopl   0x0(%rax,%rax,1)
+  c0:	ba 01 00 00 00       	mov    $0x1,%edx
+  c5:	b8 01 00 00 00       	mov    $0x1,%eax
+  ca:	88 93 93 00 00 00    	mov    %dl,0x93(%rbx)
+  d0:	5b                   	pop    %rbx
+  d1:	c3                   	ret
+  d2:	66 66 2e 0f 1f 84 00 00 00 00 00 	data16 cs nopw 0x0(%rax,%rax,1)
+  dd:	0f 1f 00             	nopl   (%rax)
+
+00000000000000e0 <directBoolConsistentFn>:
+  e0:	f3 0f 1e fa          	endbr64
+  e4:	48 83 ec 08          	sub    $0x8,%rsp
+  e8:	4c 8d 87 93 00 00 00 	lea    0x93(%rdi),%r8
+  ef:	48 8b 57 30          	mov    0x30(%rdi),%rdx
+  f3:	8b 77 58             	mov    0x58(%rdi),%esi
+  f6:	c6 87 93 00 00 00 01 	movb   $0x1,0x93(%rdi)
+  fd:	0f b7 8f 80 00 00 00 	movzwl 0x80(%rdi),%ecx
+ 104:	48 8b 47 48          	mov    0x48(%rdi),%rax
+ 108:	ff 77 70             	push   0x70(%rdi)
+ 10b:	ff 77 68             	push   0x68(%rdi)
+ 10e:	41 50                	push   %r8
+ 110:	ff 77 78             	push   0x78(%rdi)
+ 113:	4c 63 4f 04          	movslq 0x4(%rdi),%r9
+ 117:	4c 8b 47 60          	mov    0x60(%rdi),%r8
+ 11b:	48 89 c7             	mov    %rax,%rdi
+ 11e:	e8 00 00 00 00       	call   123 <directBoolConsistentFn+0x43>	11f: R_X86_64_PLT32	FunctionCall8Coll-0x4
+ 123:	48 85 c0             	test   %rax,%rax
+ 126:	0f 95 c0             	setne  %al
+ 129:	48 83 c4 28          	add    $0x28,%rsp
+ 12d:	c3                   	ret
+ 12e:	66 90                	xchg   %ax,%ax
+
+0000000000000130 <shimTriConsistentFn>:
+ 130:	f3 0f 1e fa          	endbr64
+ 134:	41 56                	push   %r14
+ 136:	41 55                	push   %r13
+ 138:	49 89 fd             	mov    %rdi,%r13
+ 13b:	41 54                	push   %r12
+ 13d:	55                   	push   %rbp
+ 13e:	53                   	push   %rbx
+ 13f:	48 83 ec 20          	sub    $0x20,%rsp
+ 143:	8b 17                	mov    (%rdi),%edx
+ 145:	64 48 8b 04 25 28 00 00 00 	mov    %fs:0x28,%rax
+ 14e:	48 89 44 24 18       	mov    %rax,0x18(%rsp)
+ 153:	31 c0                	xor    %eax,%eax
+ 155:	85 d2                	test   %edx,%edx
+ 157:	0f 84 43 01 00 00    	je     2a0 <shimTriConsistentFn+0x170>
+ 15d:	48 8b 4f 30          	mov    0x30(%rdi),%rcx
+ 161:	45 31 e4             	xor    %r12d,%r12d
+ 164:	eb 13                	jmp    179 <shimTriConsistentFn+0x49>
+ 166:	66 2e 0f 1f 84 00 00 00 00 00 	cs nopw 0x0(%rax,%rax,1)
+ 170:	48 83 c0 01          	add    $0x1,%rax
+ 174:	48 39 d0             	cmp    %rdx,%rax
+ 177:	74 26                	je     19f <shimTriConsistentFn+0x6f>
+ 179:	0f b6 1c 01          	movzbl (%rcx,%rax,1),%ebx
+ 17d:	80 fb 02             	cmp    $0x2,%bl
+ 180:	75 ee                	jne    170 <shimTriConsistentFn+0x40>
+ 182:	41 83 fc 03          	cmp    $0x3,%r12d
+ 186:	0f 8f d8 00 00 00    	jg     264 <shimTriConsistentFn+0x134>
+ 18c:	49 63 f4             	movslq %r12d,%rsi
+ 18f:	41 83 c4 01          	add    $0x1,%r12d
+ 193:	89 04 b4             	mov    %eax,(%rsp,%rsi,4)
+ 196:	48 83 c0 01          	add    $0x1,%rax
+ 19a:	48 39 d0             	cmp    %rdx,%rax
+ 19d:	75 da                	jne    179 <shimTriConsistentFn+0x49>
+ 19f:	45 85 e4             	test   %r12d,%r12d
+ 1a2:	0f 84 f8 00 00 00    	je     2a0 <shimTriConsistentFn+0x170>
+ 1a8:	7e 29                	jle    1d3 <shimTriConsistentFn+0xa3>
+ 1aa:	8b 04 24             	mov    (%rsp),%eax
+ 1ad:	48 89 e6             	mov    %rsp,%rsi
+ 1b0:	c6 04 01 00          	movb   $0x0,(%rcx,%rax,1)
+ 1b4:	b8 01 00 00 00       	mov    $0x1,%eax
+ 1b9:	41 83 fc 01          	cmp    $0x1,%r12d
+ 1bd:	74 14                	je     1d3 <shimTriConsistentFn+0xa3>
+ 1bf:	8b 14 86             	mov    (%rsi,%rax,4),%edx
+ 1c2:	49 8b 4d 30          	mov    0x30(%r13),%rcx
+ 1c6:	48 83 c0 01          	add    $0x1,%rax
+ 1ca:	c6 04 11 00          	movb   $0x0,(%rcx,%rdx,1)
+ 1ce:	41 39 c4             	cmp    %eax,%r12d
+ 1d1:	7f ec                	jg     1bf <shimTriConsistentFn+0x8f>
+ 1d3:	4c 89 ef             	mov    %r13,%rdi
+ 1d6:	48 89 e5             	mov    %rsp,%rbp
+ 1d9:	e8 02 ff ff ff       	call   e0 <directBoolConsistentFn>
+ 1de:	45 0f b6 b5 93 00 00 00 	movzbl 0x93(%r13),%r14d
+ 1e6:	89 c3                	mov    %eax,%ebx
+ 1e8:	0f 1f 84 00 00 00 00 00 	nopl   0x0(%rax,%rax,1)
+ 1f0:	48 89 ee             	mov    %rbp,%rsi
+ 1f3:	48 89 e9             	mov    %rbp,%rcx
+ 1f6:	31 d2                	xor    %edx,%edx
+ 1f8:	45 85 e4             	test   %r12d,%r12d
+ 1fb:	7f 12                	jg     20f <shimTriConsistentFn+0xdf>
+ 1fd:	eb 23                	jmp    222 <shimTriConsistentFn+0xf2>
+ 1ff:	90                   	nop
+ 200:	83 c2 01             	add    $0x1,%edx
+ 203:	c6 00 00             	movb   $0x0,(%rax)
+ 206:	48 83 c1 04          	add    $0x4,%rcx
+ 20a:	41 39 d4             	cmp    %edx,%r12d
+ 20d:	74 79                	je     288 <shimTriConsistentFn+0x158>
+ 20f:	8b 01                	mov    (%rcx),%eax
+ 211:	49 03 45 30          	add    0x30(%r13),%rax
+ 215:	80 38 00             	cmpb   $0x0,(%rax)
+ 218:	75 e6                	jne    200 <shimTriConsistentFn+0xd0>
+ 21a:	c6 00 01             	movb   $0x1,(%rax)
+ 21d:	41 39 d4             	cmp    %edx,%r12d
+ 220:	74 66                	je     288 <shimTriConsistentFn+0x158>
+ 222:	4c 89 ef             	mov    %r13,%rdi
+ 225:	e8 b6 fe ff ff       	call   e0 <directBoolConsistentFn>
+ 22a:	45 0a b5 93 00 00 00 	or     0x93(%r13),%r14b
+ 231:	38 c3                	cmp    %al,%bl
+ 233:	74 bb                	je     1f0 <shimTriConsistentFn+0xc0>
+ 235:	bb 02 00 00 00       	mov    $0x2,%ebx
+ 23a:	45 85 e4             	test   %r12d,%r12d
+ 23d:	7e 25                	jle    264 <shimTriConsistentFn+0x134>
+ 23f:	48 89 e6             	mov    %rsp,%rsi
+ 242:	bb 02 00 00 00       	mov    $0x2,%ebx
+ 247:	4d 63 e4             	movslq %r12d,%r12
+ 24a:	48 89 f0             	mov    %rsi,%rax
+ 24d:	4a 8d 34 a6          	lea    (%rsi,%r12,4),%rsi
+ 251:	8b 10                	mov    (%rax),%edx
+ 253:	49 8b 4d 30          	mov    0x30(%r13),%rcx
+ 257:	48 83 c0 04          	add    $0x4,%rax
+ 25b:	c6 04 11 02          	movb   $0x2,(%rcx,%rdx,1)
+ 25f:	48 39 c6             	cmp    %rax,%rsi
+ 262:	75 ed                	jne    251 <shimTriConsistentFn+0x121>
+ 264:	48 8b 44 24 18       	mov    0x18(%rsp),%rax
+ 269:	64 48 2b 04 25 28 00 00 00 	sub    %fs:0x28,%rax
+ 272:	75 50                	jne    2c4 <shimTriConsistentFn+0x194>
+ 274:	48 83 c4 20          	add    $0x20,%rsp
+ 278:	89 d8                	mov    %ebx,%eax
+ 27a:	5b                   	pop    %rbx
+ 27b:	5d                   	pop    %rbp
+ 27c:	41 5c                	pop    %r12
+ 27e:	41 5d                	pop    %r13
+ 280:	41 5e                	pop    %r14
+ 282:	c3                   	ret
+ 283:	0f 1f 44 00 00       	nopl   0x0(%rax,%rax,1)
+ 288:	84 db                	test   %bl,%bl
+ 28a:	74 bb                	je     247 <shimTriConsistentFn+0x117>
+ 28c:	45 84 f6             	test   %r14b,%r14b
+ 28f:	74 b6                	je     247 <shimTriConsistentFn+0x117>
+ 291:	bb 02 00 00 00       	mov    $0x2,%ebx
+ 296:	eb af                	jmp    247 <shimTriConsistentFn+0x117>
+ 298:	0f 1f 84 00 00 00 00 00 	nopl   0x0(%rax,%rax,1)
+ 2a0:	48 8b 44 24 18       	mov    0x18(%rsp),%rax
+ 2a5:	64 48 2b 04 25 28 00 00 00 	sub    %fs:0x28,%rax
+ 2ae:	75 14                	jne    2c4 <shimTriConsistentFn+0x194>
+ 2b0:	48 83 c4 20          	add    $0x20,%rsp
+ 2b4:	4c 89 ef             	mov    %r13,%rdi
+ 2b7:	5b                   	pop    %rbx
+ 2b8:	5d                   	pop    %rbp
+ 2b9:	41 5c                	pop    %r12
+ 2bb:	41 5d                	pop    %r13
+ 2bd:	41 5e                	pop    %r14
+ 2bf:	e9 1c fe ff ff       	jmp    e0 <directBoolConsistentFn>
+ 2c4:	e8 00 00 00 00       	call   2c9 <shimTriConsistentFn+0x199>	2c5: R_X86_64_PLT32	__stack_chk_fail-0x4
+ 2c9:	0f 1f 80 00 00 00 00 	nopl   0x0(%rax)
+
+00000000000002d0 <cachedTsqueryTriConsistentFn>:
+ 2d0:	f3 0f 1e fa          	endbr64
+ 2d4:	41 56                	push   %r14
+ 2d6:	41 55                	push   %r13
+ 2d8:	41 54                	push   %r12
+ 2da:	55                   	push   %rbp
+ 2db:	53                   	push   %rbx
+ 2dc:	8b 17                	mov    (%rdi),%edx
+ 2de:	48 89 fb             	mov    %rdi,%rbx
+ 2e1:	48 8b af 98 00 00 00 	mov    0x98(%rdi),%rbp
+ 2e8:	83 fa 08             	cmp    $0x8,%edx
+ 2eb:	77 73                	ja     360 <cachedTsqueryTriConsistentFn+0x90>
+ 2ed:	80 7d 00 00          	cmpb   $0x0,0x0(%rbp)
+ 2f1:	4c 8b 67 30          	mov    0x30(%rdi),%r12
+ 2f5:	4c 8d 6d 09          	lea    0x9(%rbp),%r13
+ 2f9:	74 09                	je     304 <cachedTsqueryTriConsistentFn+0x34>
+ 2fb:	3b 55 04             	cmp    0x4(%rbp),%edx
+ 2fe:	0f 84 a4 00 00 00    	je     3a8 <cachedTsqueryTriConsistentFn+0xd8>
+ 304:	8b 73 58             	mov    0x58(%rbx),%esi
+ 307:	48 8b 7b 50          	mov    0x50(%rbx),%rdi
+ 30b:	48 83 ec 08          	sub    $0x8,%rsp
+ 30f:	4c 89 e2             	mov    %r12,%rdx
+ 312:	0f b7 8b 80 00 00 00 	movzwl 0x80(%rbx),%ecx
+ 319:	ff 73 70             	push   0x70(%rbx)
+ 31c:	ff 73 68             	push   0x68(%rbx)
+ 31f:	ff 73 78             	push   0x78(%rbx)
+ 322:	4c 63 4b 04          	movslq 0x4(%rbx),%r9
+ 326:	4c 8b 43 60          	mov    0x60(%rbx),%r8
+ 32a:	e8 00 00 00 00       	call   32f <cachedTsqueryTriConsistentFn+0x5f>	32b: R_X86_64_PLT32	FunctionCall7Coll-0x4
+ 32f:	8b 13                	mov    (%rbx),%edx
+ 331:	48 8b 73 30          	mov    0x30(%rbx),%rsi
+ 335:	48 83 c4 20          	add    $0x20,%rsp
+ 339:	4c 89 ef             	mov    %r13,%rdi
+ 33c:	49 89 c4             	mov    %rax,%r12
+ 33f:	41 89 c6             	mov    %eax,%r14d
+ 342:	e8 00 00 00 00       	call   347 <cachedTsqueryTriConsistentFn+0x77>	343: R_X86_64_PLT32	memcpy-0x4
+ 347:	8b 03                	mov    (%rbx),%eax
+ 349:	44 88 65 08          	mov    %r12b,0x8(%rbp)
+ 34d:	c6 45 00 01          	movb   $0x1,0x0(%rbp)
+ 351:	89 45 04             	mov    %eax,0x4(%rbp)
+ 354:	5b                   	pop    %rbx
+ 355:	44 89 f0             	mov    %r14d,%eax
+ 358:	5d                   	pop    %rbp
+ 359:	41 5c                	pop    %r12
+ 35b:	41 5d                	pop    %r13
+ 35d:	41 5e                	pop    %r14
+ 35f:	c3                   	ret
+ 360:	c6 45 00 00          	movb   $0x0,0x0(%rbp)
+ 364:	48 83 ec 08          	sub    $0x8,%rsp
+ 368:	0f b7 8f 80 00 00 00 	movzwl 0x80(%rdi),%ecx
+ 36f:	48 8b 57 30          	mov    0x30(%rdi),%rdx
+ 373:	8b 77 58             	mov    0x58(%rdi),%esi
+ 376:	48 8b 7f 50          	mov    0x50(%rdi),%rdi
+ 37a:	ff 73 70             	push   0x70(%rbx)
+ 37d:	ff 73 68             	push   0x68(%rbx)
+ 380:	ff 73 78             	push   0x78(%rbx)
+ 383:	4c 63 4b 04          	movslq 0x4(%rbx),%r9
+ 387:	4c 8b 43 60          	mov    0x60(%rbx),%r8
+ 38b:	e8 00 00 00 00       	call   390 <cachedTsqueryTriConsistentFn+0xc0>	38c: R_X86_64_PLT32	FunctionCall7Coll-0x4
+ 390:	48 83 c4 20          	add    $0x20,%rsp
+ 394:	41 89 c6             	mov    %eax,%r14d
+ 397:	5b                   	pop    %rbx
+ 398:	5d                   	pop    %rbp
+ 399:	44 89 f0             	mov    %r14d,%eax
+ 39c:	41 5c                	pop    %r12
+ 39e:	41 5d                	pop    %r13
+ 3a0:	41 5e                	pop    %r14
+ 3a2:	c3                   	ret
+ 3a3:	0f 1f 44 00 00       	nopl   0x0(%rax,%rax,1)
+ 3a8:	4c 89 e6             	mov    %r12,%rsi
+ 3ab:	4c 89 ef             	mov    %r13,%rdi
+ 3ae:	e8 00 00 00 00       	call   3b3 <cachedTsqueryTriConsistentFn+0xe3>	3af: R_X86_64_PLT32	memcmp-0x4
+ 3b3:	85 c0                	test   %eax,%eax
+ 3b5:	0f 85 49 ff ff ff    	jne    304 <cachedTsqueryTriConsistentFn+0x34>
+ 3bb:	44 0f b6 75 08       	movzbl 0x8(%rbp),%r14d
+ 3c0:	eb 92                	jmp    354 <cachedTsqueryTriConsistentFn+0x84>
+ 3c2:	66 66 2e 0f 1f 84 00 00 00 00 00 	data16 cs nopw 0x0(%rax,%rax,1)
+ 3cd:	0f 1f 00             	nopl   (%rax)
+
+00000000000003d0 <ginInitConsistentFunction>:
+ 3d0:	f3 0f 1e fa          	endbr64
+ 3d4:	53                   	push   %rbx
+ 3d5:	83 be 84 00 00 00 03 	cmpl   $0x3,0x84(%rsi)
+ 3dc:	48 89 f3             	mov    %rsi,%rbx
+ 3df:	48 c7 86 98 00 00 00 00 00 00 00 	movq   $0x0,0x98(%rsi)
+ 3ea:	0f 84 a0 00 00 00    	je     490 <ginInitConsistentFunction+0xc0>
+ 3f0:	0f b7 96 88 00 00 00 	movzwl 0x88(%rsi),%edx
+ 3f7:	66 48 0f 6e c7       	movq   %rdi,%xmm0
+ 3fc:	66 0f 6c c0          	punpcklqdq %xmm0,%xmm0
+ 400:	66 0f d4 05 00 00 00 00 	paddq  0x0(%rip),%xmm0        # 408 <ginInitConsistentFunction+0x38>	404: R_X86_64_PC32	.LC0-0x4
+ 408:	83 ea 01             	sub    $0x1,%edx
+ 40b:	48 63 d2             	movslq %edx,%rdx
+ 40e:	48 8d 04 52          	lea    (%rdx,%rdx,2),%rax
+ 412:	48 c1 e0 04          	shl    $0x4,%rax
+ 416:	66 48 0f 6e c8       	movq   %rax,%xmm1
+ 41b:	48 01 f8             	add    %rdi,%rax
+ 41e:	66 0f 6c c9          	punpcklqdq %xmm1,%xmm1
+ 422:	66 0f d4 c1          	paddq  %xmm1,%xmm0
+ 426:	0f 11 46 48          	movups %xmm0,0x48(%rsi)
+ 42a:	8b 8c 97 38 25 00 00 	mov    0x2538(%rdi,%rdx,4),%ecx
+ 431:	89 4e 58             	mov    %ecx,0x58(%rsi)
+ 434:	8b 88 20 13 00 00    	mov    0x1320(%rax),%ecx
+ 43a:	48 8d 35 9f fc ff ff 	lea    -0x361(%rip),%rsi        # e0 <directBoolConsistentFn>
+ 441:	85 c9                	test   %ecx,%ecx
+ 443:	48 8d 0d 26 fc ff ff 	lea    -0x3da(%rip),%rcx        # 70 <shimBoolConsistentFn>
+ 44a:	48 0f 45 ce          	cmovne %rsi,%rcx
+ 44e:	48 89 4b 38          	mov    %rcx,0x38(%rbx)
+ 452:	8b b0 20 19 00 00    	mov    0x1920(%rax),%esi
+ 458:	48 8d 0d d1 fc ff ff 	lea    -0x32f(%rip),%rcx        # 130 <shimTriConsistentFn>
+ 45f:	85 f6                	test   %esi,%esi
+ 461:	48 8d 35 c8 fb ff ff 	lea    -0x438(%rip),%rsi        # 30 <directTriConsistentFn>
+ 468:	48 0f 45 ce          	cmovne %rsi,%rcx
+ 46c:	8b 73 04             	mov    0x4(%rbx),%esi
+ 46f:	48 89 4b 40          	mov    %rcx,0x40(%rbx)
+ 473:	8d 4e ff             	lea    -0x1(%rsi),%ecx
+ 476:	83 f9 07             	cmp    $0x7,%ecx
+ 479:	77 0c                	ja     487 <ginInitConsistentFunction+0xb7>
+ 47b:	81 b8 20 01 00 00 8c 0e 00 00 	cmpl   $0xe8c,0x120(%rax)
+ 485:	74 31                	je     4b8 <ginInitConsistentFunction+0xe8>
+ 487:	5b                   	pop    %rbx
+ 488:	c3                   	ret
+ 489:	0f 1f 80 00 00 00 00 	nopl   0x0(%rax)
+ 490:	48 8d 05 89 fb ff ff 	lea    -0x477(%rip),%rax        # 20 <trueTriConsistentFn>
+ 497:	48 8d 15 62 fb ff ff 	lea    -0x49e(%rip),%rdx        # 0 <trueConsistentFn>
+ 49e:	66 48 0f 6e c2       	movq   %rdx,%xmm0
+ 4a3:	66 48 0f 6e d0       	movq   %rax,%xmm2
+ 4a8:	66 0f 6c c2          	punpcklqdq %xmm2,%xmm0
+ 4ac:	0f 11 46 38          	movups %xmm0,0x38(%rsi)
+ 4b0:	5b                   	pop    %rbx
+ 4b1:	c3                   	ret
+ 4b2:	66 0f 1f 44 00 00    	nopw   0x0(%rax,%rax,1)
+ 4b8:	48 8b 35 00 00 00 00 	mov    0x0(%rip),%rsi        # 4bf <ginInitConsistentFunction+0xef>	4bb: R_X86_64_REX_GOTPCRELX	gin_cmp_tslexeme-0x4
+ 4bf:	48 39 b0 18 01 00 00 	cmp    %rsi,0x118(%rax)
+ 4c6:	75 bf                	jne    487 <ginInitConsistentFunction+0xb7>
+ 4c8:	81 b8 20 0d 00 00 49 0e 00 00 	cmpl   $0xe49,0xd20(%rax)
+ 4d2:	75 b3                	jne    487 <ginInitConsistentFunction+0xb7>
+ 4d4:	48 8b 35 00 00 00 00 	mov    0x0(%rip),%rsi        # 4db <ginInitConsistentFunction+0x10b>	4d7: R_X86_64_REX_GOTPCRELX	gin_extract_tsquery-0x4
+ 4db:	48 39 b0 18 0d 00 00 	cmp    %rsi,0xd18(%rax)
+ 4e2:	75 a3                	jne    487 <ginInitConsistentFunction+0xb7>
+ 4e4:	81 b8 20 13 00 00 4a 0e 00 00 	cmpl   $0xe4a,0x1320(%rax)
+ 4ee:	75 97                	jne    487 <ginInitConsistentFunction+0xb7>
+ 4f0:	48 8b 35 00 00 00 00 	mov    0x0(%rip),%rsi        # 4f7 <ginInitConsistentFunction+0x127>	4f3: R_X86_64_REX_GOTPCRELX	gin_tsquery_consistent-0x4
+ 4f7:	48 39 b0 18 13 00 00 	cmp    %rsi,0x1318(%rax)
+ 4fe:	75 87                	jne    487 <ginInitConsistentFunction+0xb7>
+ 500:	48 6b c2 30          	imul   $0x30,%rdx,%rax
+ 504:	48 01 f8             	add    %rdi,%rax
+ 507:	81 b8 20 19 00 00 51 0f 00 00 	cmpl   $0xf51,0x1920(%rax)
+ 511:	0f 85 70 ff ff ff    	jne    487 <ginInitConsistentFunction+0xb7>
+ 517:	48 8b 35 00 00 00 00 	mov    0x0(%rip),%rsi        # 51e <ginInitConsistentFunction+0x14e>	51a: R_X86_64_REX_GOTPCRELX	gin_tsquery_triconsistent-0x4
+ 51e:	48 39 b0 18 19 00 00 	cmp    %rsi,0x1918(%rax)
+ 525:	0f 85 5c ff ff ff    	jne    487 <ginInitConsistentFunction+0xb7>
+ 52b:	80 bc 17 18 25 00 00 00 	cmpb   $0x0,0x2518(%rdi,%rdx,1)
+ 533:	0f 84 4e ff ff ff    	je     487 <ginInitConsistentFunction+0xb7>
+ 539:	81 b8 20 1f 00 00 8c 0a 00 00 	cmpl   $0xa8c,0x1f20(%rax)
+ 543:	0f 85 3e ff ff ff    	jne    487 <ginInitConsistentFunction+0xb7>
+ 549:	48 8b 15 00 00 00 00 	mov    0x0(%rip),%rdx        # 550 <ginInitConsistentFunction+0x180>	54c: R_X86_64_REX_GOTPCRELX	gin_cmp_prefix-0x4
+ 550:	48 39 90 18 1f 00 00 	cmp    %rdx,0x1f18(%rax)
+ 557:	0f 85 2a ff ff ff    	jne    487 <ginInitConsistentFunction+0xb7>
+ 55d:	bf 14 00 00 00       	mov    $0x14,%edi
+ 562:	e8 00 00 00 00       	call   567 <ginInitConsistentFunction+0x197>	563: R_X86_64_PLT32	palloc0-0x4
+ 567:	48 89 83 98 00 00 00 	mov    %rax,0x98(%rbx)
+ 56e:	48 8d 05 5b fd ff ff 	lea    -0x2a5(%rip),%rax        # 2d0 <cachedTsqueryTriConsistentFn>
+ 575:	48 89 43 40          	mov    %rax,0x40(%rbx)
+ 579:	5b                   	pop    %rbx
+ 57a:	c3                   	ret
