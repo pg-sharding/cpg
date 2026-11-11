@@ -1,0 +1,1065 @@
+
+/home/reshke/wpgpg/ios14-199-1111/build/common-build/src/backend/access/index/genam.o:     file format elf64-x86-64
+
+
+Disassembly of section .text:
+
+0000000000000000 <systable_endscan>:
+   0:	f3 0f 1e fa          	endbr64
+   4:	53                   	push   %rbx
+   5:	48 89 fb             	mov    %rdi,%rbx
+   8:	48 8b 7f 28          	mov    0x28(%rdi),%rdi
+   c:	48 85 ff             	test   %rdi,%rdi
+   f:	74 0d                	je     1e <systable_endscan+0x1e>
+  11:	e8 00 00 00 00       	call   16 <systable_endscan+0x16>	12: R_X86_64_PLT32	ExecDropSingleTupleTableSlot-0x4
+  16:	48 c7 43 28 00 00 00 00 	movq   $0x0,0x28(%rbx)
+  1e:	48 83 7b 08 00       	cmpq   $0x0,0x8(%rbx)
+  23:	74 43                	je     68 <systable_endscan+0x68>
+  25:	48 8b 7b 18          	mov    0x18(%rbx),%rdi
+  29:	e8 00 00 00 00       	call   2e <systable_endscan+0x2e>	2a: R_X86_64_PLT32	index_endscan-0x4
+  2e:	48 8b 7b 08          	mov    0x8(%rbx),%rdi
+  32:	be 01 00 00 00       	mov    $0x1,%esi
+  37:	e8 00 00 00 00       	call   3c <systable_endscan+0x3c>	38: R_X86_64_PLT32	index_close-0x4
+  3c:	48 8b 7b 20          	mov    0x20(%rbx),%rdi
+  40:	48 85 ff             	test   %rdi,%rdi
+  43:	74 05                	je     4a <systable_endscan+0x4a>
+  45:	e8 00 00 00 00       	call   4a <systable_endscan+0x4a>	46: R_X86_64_PLT32	UnregisterSnapshot-0x4
+  4a:	8b 05 00 00 00 00    	mov    0x0(%rip),%eax        # 50 <systable_endscan+0x50>	4c: R_X86_64_PC32	CheckXidAlive-0x4
+  50:	85 c0                	test   %eax,%eax
+  52:	74 07                	je     5b <systable_endscan+0x5b>
+  54:	c6 05 00 00 00 00 00 	movb   $0x0,0x0(%rip)        # 5b <systable_endscan+0x5b>	56: R_X86_64_PC32	bsysscan-0x5
+  5b:	48 89 df             	mov    %rbx,%rdi
+  5e:	5b                   	pop    %rbx
+  5f:	e9 00 00 00 00       	jmp    64 <systable_endscan+0x64>	60: R_X86_64_PLT32	pfree-0x4
+  64:	0f 1f 40 00          	nopl   0x0(%rax)
+  68:	48 8b 7b 10          	mov    0x10(%rbx),%rdi
+  6c:	48 8b 07             	mov    (%rdi),%rax
+  6f:	48 8b 80 40 01 00 00 	mov    0x140(%rax),%rax
+  76:	ff 50 18             	call   *0x18(%rax)
+  79:	eb c1                	jmp    3c <systable_endscan+0x3c>
+  7b:	0f 1f 44 00 00       	nopl   0x0(%rax,%rax,1)
+
+0000000000000080 <RelationGetIndexScan>:
+  80:	f3 0f 1e fa          	endbr64
+  84:	41 55                	push   %r13
+  86:	49 89 fd             	mov    %rdi,%r13
+  89:	bf c0 00 00 00       	mov    $0xc0,%edi
+  8e:	41 54                	push   %r12
+  90:	41 89 f4             	mov    %esi,%r12d
+  93:	55                   	push   %rbp
+  94:	89 d5                	mov    %edx,%ebp
+  96:	53                   	push   %rbx
+  97:	48 83 ec 08          	sub    $0x8,%rsp
+  9b:	e8 00 00 00 00       	call   a0 <RelationGetIndexScan+0x20>	9c: R_X86_64_PLT32	palloc-0x4
+  a0:	48 c7 00 00 00 00 00 	movq   $0x0,(%rax)
+  a7:	48 89 c3             	mov    %rax,%rbx
+  aa:	48 c7 40 78 00 00 00 00 	movq   $0x0,0x78(%rax)
+  b2:	4c 89 68 08          	mov    %r13,0x8(%rax)
+  b6:	48 c7 40 10 00 00 00 00 	movq   $0x0,0x10(%rax)
+  be:	44 89 60 18          	mov    %r12d,0x18(%rax)
+  c2:	89 68 1c             	mov    %ebp,0x1c(%rax)
+  c5:	31 c0                	xor    %eax,%eax
+  c7:	45 85 e4             	test   %r12d,%r12d
+  ca:	7e 0d                	jle    d9 <RelationGetIndexScan+0x59>
+  cc:	49 63 f4             	movslq %r12d,%rsi
+  cf:	bf 48 00 00 00       	mov    $0x48,%edi
+  d4:	e8 00 00 00 00       	call   d9 <RelationGetIndexScan+0x59>	d5: R_X86_64_PLT32	palloc_mul-0x4
+  d9:	48 89 43 20          	mov    %rax,0x20(%rbx)
+  dd:	31 c0                	xor    %eax,%eax
+  df:	85 ed                	test   %ebp,%ebp
+  e1:	7e 0d                	jle    f0 <RelationGetIndexScan+0x70>
+  e3:	48 63 f5             	movslq %ebp,%rsi
+  e6:	bf 48 00 00 00       	mov    $0x48,%edi
+  eb:	e8 00 00 00 00       	call   f0 <RelationGetIndexScan+0x70>	ec: R_X86_64_PLT32	palloc_mul-0x4
+  f0:	48 89 43 28          	mov    %rax,0x28(%rbx)
+  f4:	c6 43 30 00          	movb   $0x0,0x30(%rbx)
+  f8:	c6 43 32 00          	movb   $0x0,0x32(%rbx)
+  fc:	e8 00 00 00 00       	call   101 <RelationGetIndexScan+0x81>	fd: R_X86_64_PLT32	TransactionStartedDuringRecovery-0x4
+ 101:	66 0f ef c0          	pxor   %xmm0,%xmm0
+ 105:	48 c7 43 68 00 00 00 00 	movq   $0x0,0x68(%rbx)
+ 10d:	88 43 34             	mov    %al,0x34(%rbx)
+ 110:	83 f0 01             	xor    $0x1,%eax
+ 113:	88 43 33             	mov    %al,0x33(%rbx)
+ 116:	48 89 d8             	mov    %rbx,%rax
+ 119:	48 c7 83 80 00 00 00 00 00 00 00 	movq   $0x0,0x80(%rbx)
+ 124:	c7 83 b0 00 00 00 00 00 00 00 	movl   $0x0,0xb0(%rbx)
+ 12e:	c6 83 b4 00 00 00 00 	movb   $0x0,0xb4(%rbx)
+ 135:	0f 11 43 38          	movups %xmm0,0x38(%rbx)
+ 139:	0f 11 43 48          	movups %xmm0,0x48(%rbx)
+ 13d:	0f 11 43 58          	movups %xmm0,0x58(%rbx)
+ 141:	0f 11 83 a0 00 00 00 	movups %xmm0,0xa0(%rbx)
+ 148:	48 83 c4 08          	add    $0x8,%rsp
+ 14c:	5b                   	pop    %rbx
+ 14d:	5d                   	pop    %rbp
+ 14e:	41 5c                	pop    %r12
+ 150:	41 5d                	pop    %r13
+ 152:	c3                   	ret
+ 153:	66 66 2e 0f 1f 84 00 00 00 00 00 	data16 cs nopw 0x0(%rax,%rax,1)
+ 15e:	66 90                	xchg   %ax,%ax
+
+0000000000000160 <IndexScanEnd>:
+ 160:	f3 0f 1e fa          	endbr64
+ 164:	53                   	push   %rbx
+ 165:	48 89 fb             	mov    %rdi,%rbx
+ 168:	48 8b 7f 20          	mov    0x20(%rdi),%rdi
+ 16c:	48 85 ff             	test   %rdi,%rdi
+ 16f:	74 05                	je     176 <IndexScanEnd+0x16>
+ 171:	e8 00 00 00 00       	call   176 <IndexScanEnd+0x16>	172: R_X86_64_PLT32	pfree-0x4
+ 176:	48 8b 7b 28          	mov    0x28(%rbx),%rdi
+ 17a:	48 85 ff             	test   %rdi,%rdi
+ 17d:	74 05                	je     184 <IndexScanEnd+0x24>
+ 17f:	e8 00 00 00 00       	call   184 <IndexScanEnd+0x24>	180: R_X86_64_PLT32	pfree-0x4
+ 184:	48 8b bb a0 00 00 00 	mov    0xa0(%rbx),%rdi
+ 18b:	48 85 ff             	test   %rdi,%rdi
+ 18e:	74 05                	je     195 <IndexScanEnd+0x35>
+ 190:	e8 00 00 00 00       	call   195 <IndexScanEnd+0x35>	191: R_X86_64_PLT32	pfree-0x4
+ 195:	48 8b bb a8 00 00 00 	mov    0xa8(%rbx),%rdi
+ 19c:	48 85 ff             	test   %rdi,%rdi
+ 19f:	74 05                	je     1a6 <IndexScanEnd+0x46>
+ 1a1:	e8 00 00 00 00       	call   1a6 <IndexScanEnd+0x46>	1a2: R_X86_64_PLT32	pfree-0x4
+ 1a6:	48 89 df             	mov    %rbx,%rdi
+ 1a9:	5b                   	pop    %rbx
+ 1aa:	e9 00 00 00 00       	jmp    1af <IndexScanEnd+0x4f>	1ab: R_X86_64_PLT32	pfree-0x4
+ 1af:	90                   	nop
+
+00000000000001b0 <BuildIndexValueDescription>:
+ 1b0:	f3 0f 1e fa          	endbr64
+ 1b4:	41 57                	push   %r15
+ 1b6:	41 56                	push   %r14
+ 1b8:	41 55                	push   %r13
+ 1ba:	41 54                	push   %r12
+ 1bc:	49 89 fc             	mov    %rdi,%r12
+ 1bf:	55                   	push   %rbp
+ 1c0:	53                   	push   %rbx
+ 1c1:	48 83 ec 58          	sub    $0x58,%rsp
+ 1c5:	4c 8b bf 48 01 00 00 	mov    0x148(%rdi),%r15
+ 1cc:	48 89 74 24 10       	mov    %rsi,0x10(%rsp)
+ 1d1:	31 f6                	xor    %esi,%esi
+ 1d3:	41 8b 5f 04          	mov    0x4(%r15),%ebx
+ 1d7:	45 0f bf 6f 0a       	movswl 0xa(%r15),%r13d
+ 1dc:	48 89 14 24          	mov    %rdx,(%rsp)
+ 1e0:	ba 01 00 00 00       	mov    $0x1,%edx
+ 1e5:	64 48 8b 04 25 28 00 00 00 	mov    %fs:0x28,%rax
+ 1ee:	48 89 44 24 48       	mov    %rax,0x48(%rsp)
+ 1f3:	8b 47 48             	mov    0x48(%rdi),%eax
+ 1f6:	89 df                	mov    %ebx,%edi
+ 1f8:	89 44 24 08          	mov    %eax,0x8(%rsp)
+ 1fc:	e8 00 00 00 00       	call   201 <BuildIndexValueDescription+0x51>	1fd: R_X86_64_PLT32	check_enable_rls-0x4
+ 201:	83 f8 02             	cmp    $0x2,%eax
+ 204:	74 62                	je     268 <BuildIndexValueDescription+0xb8>
+ 206:	e8 00 00 00 00       	call   20b <BuildIndexValueDescription+0x5b>	207: R_X86_64_PLT32	GetUserId-0x4
+ 20b:	ba 02 00 00 00       	mov    $0x2,%edx
+ 210:	89 df                	mov    %ebx,%edi
+ 212:	89 c6                	mov    %eax,%esi
+ 214:	e8 00 00 00 00       	call   219 <BuildIndexValueDescription+0x69>	215: R_X86_64_PLT32	pg_class_aclcheck-0x4
+ 219:	85 c0                	test   %eax,%eax
+ 21b:	74 73                	je     290 <BuildIndexValueDescription+0xe0>
+ 21d:	45 85 ed             	test   %r13d,%r13d
+ 220:	0f 8e 37 01 00 00    	jle    35d <BuildIndexValueDescription+0x1ad>
+ 226:	41 8d 45 ff          	lea    -0x1(%r13),%eax
+ 22a:	4d 8d 77 30          	lea    0x30(%r15),%r14
+ 22e:	4d 8d 7c 47 32       	lea    0x32(%r15,%rax,2),%r15
+ 233:	eb 2a                	jmp    25f <BuildIndexValueDescription+0xaf>
+ 235:	0f 1f 00             	nopl   (%rax)
+ 238:	e8 00 00 00 00       	call   23d <BuildIndexValueDescription+0x8d>	239: R_X86_64_PLT32	GetUserId-0x4
+ 23d:	0f bf f5             	movswl %bp,%esi
+ 240:	b9 02 00 00 00       	mov    $0x2,%ecx
+ 245:	89 df                	mov    %ebx,%edi
+ 247:	89 c2                	mov    %eax,%edx
+ 249:	e8 00 00 00 00       	call   24e <BuildIndexValueDescription+0x9e>	24a: R_X86_64_PLT32	pg_attribute_aclcheck-0x4
+ 24e:	85 c0                	test   %eax,%eax
+ 250:	75 16                	jne    268 <BuildIndexValueDescription+0xb8>
+ 252:	49 83 c6 02          	add    $0x2,%r14
+ 256:	4d 39 fe             	cmp    %r15,%r14
+ 259:	0f 84 51 01 00 00    	je     3b0 <BuildIndexValueDescription+0x200>
+ 25f:	41 0f b7 2e          	movzwl (%r14),%ebp
+ 263:	66 85 ed             	test   %bp,%bp
+ 266:	75 d0                	jne    238 <BuildIndexValueDescription+0x88>
+ 268:	31 c0                	xor    %eax,%eax
+ 26a:	48 8b 54 24 48       	mov    0x48(%rsp),%rdx
+ 26f:	64 48 2b 14 25 28 00 00 00 	sub    %fs:0x28,%rdx
+ 278:	0f 85 66 01 00 00    	jne    3e4 <BuildIndexValueDescription+0x234>
+ 27e:	48 83 c4 58          	add    $0x58,%rsp
+ 282:	5b                   	pop    %rbx
+ 283:	5d                   	pop    %rbp
+ 284:	41 5c                	pop    %r12
+ 286:	41 5d                	pop    %r13
+ 288:	41 5e                	pop    %r14
+ 28a:	41 5f                	pop    %r15
+ 28c:	c3                   	ret
+ 28d:	0f 1f 00             	nopl   (%rax)
+ 290:	48 8d 5c 24 30       	lea    0x30(%rsp),%rbx
+ 295:	48 89 df             	mov    %rbx,%rdi
+ 298:	e8 00 00 00 00       	call   29d <BuildIndexValueDescription+0xed>	299: R_X86_64_PLT32	initStringInfo-0x4
+ 29d:	8b 7c 24 08          	mov    0x8(%rsp),%edi
+ 2a1:	be 01 00 00 00       	mov    $0x1,%esi
+ 2a6:	e8 00 00 00 00       	call   2ab <BuildIndexValueDescription+0xfb>	2a7: R_X86_64_PLT32	pg_get_indexdef_columns-0x4
+ 2ab:	48 8d 35 00 00 00 00 	lea    0x0(%rip),%rsi        # 2b2 <BuildIndexValueDescription+0x102>	2ae: R_X86_64_PC32	.LC3-0x4
+ 2b2:	48 89 df             	mov    %rbx,%rdi
+ 2b5:	48 89 c2             	mov    %rax,%rdx
+ 2b8:	31 c0                	xor    %eax,%eax
+ 2ba:	e8 00 00 00 00       	call   2bf <BuildIndexValueDescription+0x10f>	2bb: R_X86_64_PLT32	appendStringInfo-0x4
+ 2bf:	45 85 ed             	test   %r13d,%r13d
+ 2c2:	0f 8e c8 00 00 00    	jle    390 <BuildIndexValueDescription+0x1e0>
+ 2c8:	48 8d 44 24 2b       	lea    0x2b(%rsp),%rax
+ 2cd:	45 31 f6             	xor    %r14d,%r14d
+ 2d0:	4c 8d 3d 00 00 00 00 	lea    0x0(%rip),%r15        # 2d7 <BuildIndexValueDescription+0x127>	2d3: R_X86_64_PC32	.LC2-0x4
+ 2d7:	48 89 c5             	mov    %rax,%rbp
+ 2da:	48 8d 44 24 2c       	lea    0x2c(%rsp),%rax
+ 2df:	48 89 44 24 18       	mov    %rax,0x18(%rsp)
+ 2e4:	eb 3c                	jmp    322 <BuildIndexValueDescription+0x172>
+ 2e6:	66 2e 0f 1f 84 00 00 00 00 00 	cs nopw 0x0(%rax,%rax,1)
+ 2f0:	4d 85 f6             	test   %r14,%r14
+ 2f3:	74 19                	je     30e <BuildIndexValueDescription+0x15e>
+ 2f5:	48 8d 35 00 00 00 00 	lea    0x0(%rip),%rsi        # 2fc <BuildIndexValueDescription+0x14c>	2f8: R_X86_64_PC32	.LC4-0x4
+ 2fc:	48 89 df             	mov    %rbx,%rdi
+ 2ff:	48 89 44 24 08       	mov    %rax,0x8(%rsp)
+ 304:	e8 00 00 00 00       	call   309 <BuildIndexValueDescription+0x159>	305: R_X86_64_PLT32	appendStringInfoString-0x4
+ 309:	48 8b 44 24 08       	mov    0x8(%rsp),%rax
+ 30e:	48 89 c6             	mov    %rax,%rsi
+ 311:	48 89 df             	mov    %rbx,%rdi
+ 314:	49 83 c6 01          	add    $0x1,%r14
+ 318:	e8 00 00 00 00       	call   31d <BuildIndexValueDescription+0x16d>	319: R_X86_64_PLT32	appendStringInfoString-0x4
+ 31d:	45 39 f5             	cmp    %r14d,%r13d
+ 320:	7e 6e                	jle    390 <BuildIndexValueDescription+0x1e0>
+ 322:	48 8b 0c 24          	mov    (%rsp),%rcx
+ 326:	4c 89 f8             	mov    %r15,%rax
+ 329:	42 80 3c 31 00       	cmpb   $0x0,(%rcx,%r14,1)
+ 32e:	75 c0                	jne    2f0 <BuildIndexValueDescription+0x140>
+ 330:	49 8b 84 24 70 01 00 00 	mov    0x170(%r12),%rax
+ 338:	48 8b 74 24 18       	mov    0x18(%rsp),%rsi
+ 33d:	48 89 ea             	mov    %rbp,%rdx
+ 340:	42 8b 3c b0          	mov    (%rax,%r14,4),%edi
+ 344:	e8 00 00 00 00       	call   349 <BuildIndexValueDescription+0x199>	345: R_X86_64_PLT32	getTypeOutputInfo-0x4
+ 349:	48 8b 44 24 10       	mov    0x10(%rsp),%rax
+ 34e:	8b 7c 24 2c          	mov    0x2c(%rsp),%edi
+ 352:	4a 8b 34 f0          	mov    (%rax,%r14,8),%rsi
+ 356:	e8 00 00 00 00       	call   35b <BuildIndexValueDescription+0x1ab>	357: R_X86_64_PLT32	OidOutputFunctionCall-0x4
+ 35b:	eb 93                	jmp    2f0 <BuildIndexValueDescription+0x140>
+ 35d:	48 8d 5c 24 30       	lea    0x30(%rsp),%rbx
+ 362:	48 89 df             	mov    %rbx,%rdi
+ 365:	e8 00 00 00 00       	call   36a <BuildIndexValueDescription+0x1ba>	366: R_X86_64_PLT32	initStringInfo-0x4
+ 36a:	8b 7c 24 08          	mov    0x8(%rsp),%edi
+ 36e:	be 01 00 00 00       	mov    $0x1,%esi
+ 373:	e8 00 00 00 00       	call   378 <BuildIndexValueDescription+0x1c8>	374: R_X86_64_PLT32	pg_get_indexdef_columns-0x4
+ 378:	48 8d 35 00 00 00 00 	lea    0x0(%rip),%rsi        # 37f <BuildIndexValueDescription+0x1cf>	37b: R_X86_64_PC32	.LC3-0x4
+ 37f:	48 89 df             	mov    %rbx,%rdi
+ 382:	48 89 c2             	mov    %rax,%rdx
+ 385:	31 c0                	xor    %eax,%eax
+ 387:	e8 00 00 00 00       	call   38c <BuildIndexValueDescription+0x1dc>	388: R_X86_64_PLT32	appendStringInfo-0x4
+ 38c:	0f 1f 40 00          	nopl   0x0(%rax)
+ 390:	be 29 00 00 00       	mov    $0x29,%esi
+ 395:	48 89 df             	mov    %rbx,%rdi
+ 398:	e8 00 00 00 00       	call   39d <BuildIndexValueDescription+0x1ed>	399: R_X86_64_PLT32	appendStringInfoChar-0x4
+ 39d:	48 8b 44 24 30       	mov    0x30(%rsp),%rax
+ 3a2:	e9 c3 fe ff ff       	jmp    26a <BuildIndexValueDescription+0xba>
+ 3a7:	66 0f 1f 84 00 00 00 00 00 	nopw   0x0(%rax,%rax,1)
+ 3b0:	48 8d 5c 24 30       	lea    0x30(%rsp),%rbx
+ 3b5:	48 89 df             	mov    %rbx,%rdi
+ 3b8:	e8 00 00 00 00       	call   3bd <BuildIndexValueDescription+0x20d>	3b9: R_X86_64_PLT32	initStringInfo-0x4
+ 3bd:	8b 7c 24 08          	mov    0x8(%rsp),%edi
+ 3c1:	be 01 00 00 00       	mov    $0x1,%esi
+ 3c6:	e8 00 00 00 00       	call   3cb <BuildIndexValueDescription+0x21b>	3c7: R_X86_64_PLT32	pg_get_indexdef_columns-0x4
+ 3cb:	48 8d 35 00 00 00 00 	lea    0x0(%rip),%rsi        # 3d2 <BuildIndexValueDescription+0x222>	3ce: R_X86_64_PC32	.LC3-0x4
+ 3d2:	48 89 df             	mov    %rbx,%rdi
+ 3d5:	48 89 c2             	mov    %rax,%rdx
+ 3d8:	31 c0                	xor    %eax,%eax
+ 3da:	e8 00 00 00 00       	call   3df <BuildIndexValueDescription+0x22f>	3db: R_X86_64_PLT32	appendStringInfo-0x4
+ 3df:	e9 e4 fe ff ff       	jmp    2c8 <BuildIndexValueDescription+0x118>
+ 3e4:	e8 00 00 00 00       	call   3e9 <BuildIndexValueDescription+0x239>	3e5: R_X86_64_PLT32	__stack_chk_fail-0x4
+ 3e9:	0f 1f 80 00 00 00 00 	nopl   0x0(%rax)
+
+00000000000003f0 <index_compute_xid_horizon_for_tuples>:
+ 3f0:	f3 0f 1e fa          	endbr64
+ 3f4:	41 56                	push   %r14
+ 3f6:	48 89 f8             	mov    %rdi,%rax
+ 3f9:	89 d7                	mov    %edx,%edi
+ 3fb:	45 89 c6             	mov    %r8d,%r14d
+ 3fe:	41 55                	push   %r13
+ 400:	41 54                	push   %r12
+ 402:	49 89 cc             	mov    %rcx,%r12
+ 405:	55                   	push   %rbp
+ 406:	48 89 f5             	mov    %rsi,%rbp
+ 409:	53                   	push   %rbx
+ 40a:	48 83 ec 30          	sub    $0x30,%rsp
+ 40e:	64 48 8b 14 25 28 00 00 00 	mov    %fs:0x28,%rdx
+ 417:	48 89 54 24 28       	mov    %rdx,0x28(%rsp)
+ 41c:	31 d2                	xor    %edx,%edx
+ 41e:	85 ff                	test   %edi,%edi
+ 420:	0f 88 3a 01 00 00    	js     560 <index_compute_xid_horizon_for_tuples+0x170>
+ 426:	8d 5f ff             	lea    -0x1(%rdi),%ebx
+ 429:	48 63 db             	movslq %ebx,%rbx
+ 42c:	48 c1 e3 0d          	shl    $0xd,%rbx
+ 430:	48 03 1d 00 00 00 00 	add    0x0(%rip),%rbx        # 437 <index_compute_xid_horizon_for_tuples+0x47>	433: R_X86_64_PC32	BufferBlocks-0x4
+ 437:	4d 63 ee             	movslq %r14d,%r13
+ 43a:	48 89 04 24          	mov    %rax,(%rsp)
+ 43e:	e8 00 00 00 00       	call   443 <index_compute_xid_horizon_for_tuples+0x53>	43f: R_X86_64_PLT32	BufferGetBlockNumber-0x4
+ 443:	4c 89 ee             	mov    %r13,%rsi
+ 446:	bf 08 00 00 00       	mov    $0x8,%edi
+ 44b:	c6 44 24 0c 00       	movb   $0x0,0xc(%rsp)
+ 450:	89 44 24 08          	mov    %eax,0x8(%rsp)
+ 454:	48 c7 44 24 10 00 00 00 00 	movq   $0x0,0x10(%rsp)
+ 45d:	e8 00 00 00 00       	call   462 <index_compute_xid_horizon_for_tuples+0x72>	45e: R_X86_64_PLT32	palloc_mul-0x4
+ 462:	4c 89 ee             	mov    %r13,%rsi
+ 465:	bf 06 00 00 00       	mov    $0x6,%edi
+ 46a:	48 89 44 24 18       	mov    %rax,0x18(%rsp)
+ 46f:	e8 00 00 00 00       	call   474 <index_compute_xid_horizon_for_tuples+0x84>	470: R_X86_64_PLT32	palloc_mul-0x4
+ 474:	48 89 44 24 20       	mov    %rax,0x20(%rsp)
+ 479:	45 85 f6             	test   %r14d,%r14d
+ 47c:	0f 8e 95 00 00 00    	jle    517 <index_compute_xid_horizon_for_tuples+0x127>
+ 482:	31 d2                	xor    %edx,%edx
+ 484:	31 c0                	xor    %eax,%eax
+ 486:	66 2e 0f 1f 84 00 00 00 00 00 	cs nopw 0x0(%rax,%rax,1)
+ 490:	41 0f b7 0c 44       	movzwl (%r12,%rax,2),%ecx
+ 495:	4c 8b 44 24 18       	mov    0x18(%rsp),%r8
+ 49a:	48 8d 3c c5 00 00 00 00 	lea    0x0(,%rax,8),%rdi
+ 4a2:	89 ce                	mov    %ecx,%esi
+ 4a4:	83 e9 01             	sub    $0x1,%ecx
+ 4a7:	48 63 c9             	movslq %ecx,%rcx
+ 4aa:	0f b7 4c 8b 18       	movzwl 0x18(%rbx,%rcx,4),%ecx
+ 4af:	81 e1 ff 7f 00 00    	and    $0x7fff,%ecx
+ 4b5:	44 8b 0c 0b          	mov    (%rbx,%rcx,1),%r9d
+ 4b9:	45 89 0c c0          	mov    %r9d,(%r8,%rax,8)
+ 4bd:	0f b7 4c 0b 04       	movzwl 0x4(%rbx,%rcx,1),%ecx
+ 4c2:	48 83 c0 01          	add    $0x1,%rax
+ 4c6:	66 41 89 4c 38 04    	mov    %cx,0x4(%r8,%rdi,1)
+ 4cc:	48 8b 4c 24 18       	mov    0x18(%rsp),%rcx
+ 4d1:	44 8b 44 24 14       	mov    0x14(%rsp),%r8d
+ 4d6:	66 44 89 44 39 06    	mov    %r8w,0x6(%rcx,%rdi,1)
+ 4dc:	48 8b 4c 24 20       	mov    0x20(%rsp),%rcx
+ 4e1:	66 89 34 11          	mov    %si,(%rcx,%rdx,1)
+ 4e5:	48 8b 4c 24 20       	mov    0x20(%rsp),%rcx
+ 4ea:	31 f6                	xor    %esi,%esi
+ 4ec:	c6 44 11 02 01       	movb   $0x1,0x2(%rcx,%rdx,1)
+ 4f1:	48 8b 4c 24 20       	mov    0x20(%rsp),%rcx
+ 4f6:	c6 44 11 03 00       	movb   $0x0,0x3(%rcx,%rdx,1)
+ 4fb:	48 8b 4c 24 20       	mov    0x20(%rsp),%rcx
+ 500:	66 89 74 11 04       	mov    %si,0x4(%rcx,%rdx,1)
+ 505:	48 83 c2 06          	add    $0x6,%rdx
+ 509:	83 44 24 14 01       	addl   $0x1,0x14(%rsp)
+ 50e:	49 39 c5             	cmp    %rax,%r13
+ 511:	0f 85 79 ff ff ff    	jne    490 <index_compute_xid_horizon_for_tuples+0xa0>
+ 517:	48 8b 85 40 01 00 00 	mov    0x140(%rbp),%rax
+ 51e:	48 89 e6             	mov    %rsp,%rsi
+ 521:	48 89 ef             	mov    %rbp,%rdi
+ 524:	ff 90 98 00 00 00    	call   *0x98(%rax)
+ 52a:	48 8b 7c 24 18       	mov    0x18(%rsp),%rdi
+ 52f:	89 c3                	mov    %eax,%ebx
+ 531:	e8 00 00 00 00       	call   536 <index_compute_xid_horizon_for_tuples+0x146>	532: R_X86_64_PLT32	pfree-0x4
+ 536:	48 8b 7c 24 20       	mov    0x20(%rsp),%rdi
+ 53b:	e8 00 00 00 00       	call   540 <index_compute_xid_horizon_for_tuples+0x150>	53c: R_X86_64_PLT32	pfree-0x4
+ 540:	48 8b 44 24 28       	mov    0x28(%rsp),%rax
+ 545:	64 48 2b 04 25 28 00 00 00 	sub    %fs:0x28,%rax
+ 54e:	75 27                	jne    577 <index_compute_xid_horizon_for_tuples+0x187>
+ 550:	48 83 c4 30          	add    $0x30,%rsp
+ 554:	89 d8                	mov    %ebx,%eax
+ 556:	5b                   	pop    %rbx
+ 557:	5d                   	pop    %rbp
+ 558:	41 5c                	pop    %r12
+ 55a:	41 5d                	pop    %r13
+ 55c:	41 5e                	pop    %r14
+ 55e:	c3                   	ret
+ 55f:	90                   	nop
+ 560:	89 fa                	mov    %edi,%edx
+ 562:	48 8b 0d 00 00 00 00 	mov    0x0(%rip),%rcx        # 569 <index_compute_xid_horizon_for_tuples+0x179>	565: R_X86_64_PC32	LocalBufferBlockPointers-0x4
+ 569:	f7 d2                	not    %edx
+ 56b:	48 63 d2             	movslq %edx,%rdx
+ 56e:	48 8b 1c d1          	mov    (%rcx,%rdx,8),%rbx
+ 572:	e9 c0 fe ff ff       	jmp    437 <index_compute_xid_horizon_for_tuples+0x47>
+ 577:	e8 00 00 00 00       	call   57c <index_compute_xid_horizon_for_tuples+0x18c>	578: R_X86_64_PLT32	__stack_chk_fail-0x4
+ 57c:	0f 1f 40 00          	nopl   0x0(%rax)
+
+0000000000000580 <systable_beginscan>:
+ 580:	f3 0f 1e fa          	endbr64
+ 584:	41 57                	push   %r15
+ 586:	4d 89 cf             	mov    %r9,%r15
+ 589:	41 56                	push   %r14
+ 58b:	41 55                	push   %r13
+ 58d:	49 89 cd             	mov    %rcx,%r13
+ 590:	41 54                	push   %r12
+ 592:	45 89 c4             	mov    %r8d,%r12d
+ 595:	55                   	push   %rbp
+ 596:	48 89 fd             	mov    %rdi,%rbp
+ 599:	53                   	push   %rbx
+ 59a:	48 83 ec 18          	sub    $0x18,%rsp
+ 59e:	84 d2                	test   %dl,%dl
+ 5a0:	74 0d                	je     5af <systable_beginscan+0x2f>
+ 5a2:	80 3d 00 00 00 00 00 	cmpb   $0x0,0x0(%rip)        # 5a9 <systable_beginscan+0x29>	5a4: R_X86_64_PC32	IgnoreSystemIndexes-0x5
+ 5a9:	0f 84 ba 01 00 00    	je     769 <systable_beginscan+0x1e9>
+ 5af:	45 31 f6             	xor    %r14d,%r14d
+ 5b2:	bf 30 00 00 00       	mov    $0x30,%edi
+ 5b7:	e8 00 00 00 00       	call   5bc <systable_beginscan+0x3c>	5b8: R_X86_64_PLT32	palloc-0x4
+ 5bc:	31 f6                	xor    %esi,%esi
+ 5be:	48 89 ef             	mov    %rbp,%rdi
+ 5c1:	48 89 28             	mov    %rbp,(%rax)
+ 5c4:	48 89 c3             	mov    %rax,%rbx
+ 5c7:	4c 89 70 08          	mov    %r14,0x8(%rax)
+ 5cb:	e8 00 00 00 00       	call   5d0 <systable_beginscan+0x50>	5cc: R_X86_64_PLT32	table_slot_create-0x4
+ 5d0:	48 89 43 28          	mov    %rax,0x28(%rbx)
+ 5d4:	31 c0                	xor    %eax,%eax
+ 5d6:	4d 85 ed             	test   %r13,%r13
+ 5d9:	0f 84 af 01 00 00    	je     78e <systable_beginscan+0x20e>
+ 5df:	8b 0d 00 00 00 00    	mov    0x0(%rip),%ecx        # 5e5 <systable_beginscan+0x65>	5e1: R_X86_64_PC32	CheckXidAlive-0x4
+ 5e5:	48 89 43 20          	mov    %rax,0x20(%rbx)
+ 5e9:	85 c9                	test   %ecx,%ecx
+ 5eb:	0f 85 34 01 00 00    	jne    725 <systable_beginscan+0x1a5>
+ 5f1:	4d 85 f6             	test   %r14,%r14
+ 5f4:	0f 84 3b 01 00 00    	je     735 <systable_beginscan+0x1b5>
+ 5fa:	49 63 d4             	movslq %r12d,%rdx
+ 5fd:	bf 48 00 00 00       	mov    $0x48,%edi
+ 602:	48 89 d6             	mov    %rdx,%rsi
+ 605:	48 89 54 24 08       	mov    %rdx,0x8(%rsp)
+ 60a:	e8 00 00 00 00       	call   60f <systable_beginscan+0x8f>	60b: R_X86_64_PLT32	palloc_mul-0x4
+ 60f:	45 85 e4             	test   %r12d,%r12d
+ 612:	48 8b 54 24 08       	mov    0x8(%rsp),%rdx
+ 617:	48 89 04 24          	mov    %rax,(%rsp)
+ 61b:	0f 8e a3 00 00 00    	jle    6c4 <systable_beginscan+0x144>
+ 621:	48 8b 0c 24          	mov    (%rsp),%rcx
+ 625:	48 8d 04 d2          	lea    (%rdx,%rdx,8),%rax
+ 629:	49 89 c8             	mov    %rcx,%r8
+ 62c:	4c 8d 0c c1          	lea    (%rcx,%rax,8),%r9
+ 630:	f3 41 0f 6f 07       	movdqu (%r15),%xmm0
+ 635:	41 0f 11 00          	movups %xmm0,(%r8)
+ 639:	f3 41 0f 6f 4f 10    	movdqu 0x10(%r15),%xmm1
+ 63f:	41 0f 11 48 10       	movups %xmm1,0x10(%r8)
+ 644:	f3 41 0f 6f 57 20    	movdqu 0x20(%r15),%xmm2
+ 64a:	41 0f 11 50 20       	movups %xmm2,0x20(%r8)
+ 64f:	f3 41 0f 6f 5f 30    	movdqu 0x30(%r15),%xmm3
+ 655:	41 0f 11 58 30       	movups %xmm3,0x30(%r8)
+ 65a:	49 8b 47 40          	mov    0x40(%r15),%rax
+ 65e:	49 89 40 40          	mov    %rax,0x40(%r8)
+ 662:	49 8b b6 48 01 00 00 	mov    0x148(%r14),%rsi
+ 669:	0f bf 4e 08          	movswl 0x8(%rsi),%ecx
+ 66d:	66 85 c9             	test   %cx,%cx
+ 670:	0f 8e ec 00 00 00    	jle    762 <systable_beginscan+0x1e2>
+ 676:	41 0f b7 7f 04       	movzwl 0x4(%r15),%edi
+ 67b:	31 c0                	xor    %eax,%eax
+ 67d:	eb 10                	jmp    68f <systable_beginscan+0x10f>
+ 67f:	90                   	nop
+ 680:	48 8d 50 01          	lea    0x1(%rax),%rdx
+ 684:	39 d1                	cmp    %edx,%ecx
+ 686:	0f 8e 94 00 00 00    	jle    720 <systable_beginscan+0x1a0>
+ 68c:	48 89 d0             	mov    %rdx,%rax
+ 68f:	66 3b 7c 46 30       	cmp    0x30(%rsi,%rax,2),%di
+ 694:	75 ea                	jne    680 <systable_beginscan+0x100>
+ 696:	89 c2                	mov    %eax,%edx
+ 698:	83 c0 01             	add    $0x1,%eax
+ 69b:	66 41 89 40 04       	mov    %ax,0x4(%r8)
+ 6a0:	49 8b 86 48 01 00 00 	mov    0x148(%r14),%rax
+ 6a7:	0f bf 48 08          	movswl 0x8(%rax),%ecx
+ 6ab:	39 d1                	cmp    %edx,%ecx
+ 6ad:	0f 84 00 00 00 00    	je     6b3 <systable_beginscan+0x133>	6af: R_X86_64_PC32	.text.unlikely+0x3b
+ 6b3:	49 83 c0 48          	add    $0x48,%r8
+ 6b7:	49 83 c7 48          	add    $0x48,%r15
+ 6bb:	4d 39 c8             	cmp    %r9,%r8
+ 6be:	0f 85 6c ff ff ff    	jne    630 <systable_beginscan+0xb0>
+ 6c4:	6a 00                	push   $0x0
+ 6c6:	45 89 e1             	mov    %r12d,%r9d
+ 6c9:	4c 89 f6             	mov    %r14,%rsi
+ 6cc:	45 31 c0             	xor    %r8d,%r8d
+ 6cf:	6a 00                	push   $0x0
+ 6d1:	4c 89 e9             	mov    %r13,%rcx
+ 6d4:	31 d2                	xor    %edx,%edx
+ 6d6:	48 89 ef             	mov    %rbp,%rdi
+ 6d9:	e8 00 00 00 00       	call   6de <systable_beginscan+0x15e>	6da: R_X86_64_PLT32	index_beginscan-0x4
+ 6de:	4c 8b 74 24 10       	mov    0x10(%rsp),%r14
+ 6e3:	44 89 e2             	mov    %r12d,%edx
+ 6e6:	45 31 c0             	xor    %r8d,%r8d
+ 6e9:	48 89 43 18          	mov    %rax,0x18(%rbx)
+ 6ed:	48 89 c7             	mov    %rax,%rdi
+ 6f0:	31 c9                	xor    %ecx,%ecx
+ 6f2:	4c 89 f6             	mov    %r14,%rsi
+ 6f5:	e8 00 00 00 00       	call   6fa <systable_beginscan+0x17a>	6f6: R_X86_64_PLT32	index_rescan-0x4
+ 6fa:	48 c7 43 10 00 00 00 00 	movq   $0x0,0x10(%rbx)
+ 702:	4c 89 f7             	mov    %r14,%rdi
+ 705:	e8 00 00 00 00       	call   70a <systable_beginscan+0x18a>	706: R_X86_64_PLT32	pfree-0x4
+ 70a:	58                   	pop    %rax
+ 70b:	5a                   	pop    %rdx
+ 70c:	48 83 c4 18          	add    $0x18,%rsp
+ 710:	48 89 d8             	mov    %rbx,%rax
+ 713:	5b                   	pop    %rbx
+ 714:	5d                   	pop    %rbp
+ 715:	41 5c                	pop    %r12
+ 717:	41 5d                	pop    %r13
+ 719:	41 5e                	pop    %r14
+ 71b:	41 5f                	pop    %r15
+ 71d:	c3                   	ret
+ 71e:	66 90                	xchg   %ax,%ax
+ 720:	8d 50 01             	lea    0x1(%rax),%edx
+ 723:	eb 86                	jmp    6ab <systable_beginscan+0x12b>
+ 725:	c6 05 00 00 00 00 01 	movb   $0x1,0x0(%rip)        # 72c <systable_beginscan+0x1ac>	727: R_X86_64_PC32	bsysscan-0x5
+ 72c:	4d 85 f6             	test   %r14,%r14
+ 72f:	0f 85 c5 fe ff ff    	jne    5fa <systable_beginscan+0x7a>
+ 735:	48 8b 85 40 01 00 00 	mov    0x140(%rbp),%rax
+ 73c:	45 31 c0             	xor    %r8d,%r8d
+ 73f:	4c 89 f9             	mov    %r15,%rcx
+ 742:	44 89 e2             	mov    %r12d,%edx
+ 745:	41 b9 41 01 00 00    	mov    $0x141,%r9d
+ 74b:	4c 89 ee             	mov    %r13,%rsi
+ 74e:	48 89 ef             	mov    %rbp,%rdi
+ 751:	ff 50 10             	call   *0x10(%rax)
+ 754:	48 c7 43 18 00 00 00 00 	movq   $0x0,0x18(%rbx)
+ 75c:	48 89 43 10          	mov    %rax,0x10(%rbx)
+ 760:	eb aa                	jmp    70c <systable_beginscan+0x18c>
+ 762:	31 d2                	xor    %edx,%edx
+ 764:	e9 42 ff ff ff       	jmp    6ab <systable_beginscan+0x12b>
+ 769:	89 f7                	mov    %esi,%edi
+ 76b:	89 f3                	mov    %esi,%ebx
+ 76d:	e8 00 00 00 00       	call   772 <systable_beginscan+0x1f2>	76e: R_X86_64_PLT32	ReindexIsProcessingIndex-0x4
+ 772:	84 c0                	test   %al,%al
+ 774:	0f 85 35 fe ff ff    	jne    5af <systable_beginscan+0x2f>
+ 77a:	be 01 00 00 00       	mov    $0x1,%esi
+ 77f:	89 df                	mov    %ebx,%edi
+ 781:	e8 00 00 00 00       	call   786 <systable_beginscan+0x206>	782: R_X86_64_PLT32	index_open-0x4
+ 786:	49 89 c6             	mov    %rax,%r14
+ 789:	e9 24 fe ff ff       	jmp    5b2 <systable_beginscan+0x32>
+ 78e:	8b 7d 48             	mov    0x48(%rbp),%edi
+ 791:	e8 00 00 00 00       	call   796 <systable_beginscan+0x216>	792: R_X86_64_PLT32	GetCatalogSnapshot-0x4
+ 796:	48 89 c7             	mov    %rax,%rdi
+ 799:	e8 00 00 00 00       	call   79e <systable_beginscan+0x21e>	79a: R_X86_64_PLT32	RegisterSnapshot-0x4
+ 79e:	49 89 c5             	mov    %rax,%r13
+ 7a1:	e9 39 fe ff ff       	jmp    5df <systable_beginscan+0x5f>
+ 7a6:	66 2e 0f 1f 84 00 00 00 00 00 	cs nopw 0x0(%rax,%rax,1)
+
+00000000000007b0 <systable_getnext>:
+ 7b0:	f3 0f 1e fa          	endbr64
+ 7b4:	55                   	push   %rbp
+ 7b5:	53                   	push   %rbx
+ 7b6:	48 89 fb             	mov    %rdi,%rbx
+ 7b9:	48 83 ec 18          	sub    $0x18,%rsp
+ 7bd:	48 8b 57 28          	mov    0x28(%rdi),%rdx
+ 7c1:	64 48 8b 04 25 28 00 00 00 	mov    %fs:0x28,%rax
+ 7ca:	48 89 44 24 08       	mov    %rax,0x8(%rsp)
+ 7cf:	31 c0                	xor    %eax,%eax
+ 7d1:	48 83 7f 08 00       	cmpq   $0x0,0x8(%rdi)
+ 7d6:	0f 84 94 00 00 00    	je     870 <systable_getnext+0xc0>
+ 7dc:	48 8b 47 18          	mov    0x18(%rdi),%rax
+ 7e0:	be 01 00 00 00       	mov    $0x1,%esi
+ 7e5:	48 89 c7             	mov    %rax,%rdi
+ 7e8:	ff 90 80 00 00 00    	call   *0x80(%rax)
+ 7ee:	84 c0                	test   %al,%al
+ 7f0:	74 4e                	je     840 <systable_getnext+0x90>
+ 7f2:	48 8b 7b 28          	mov    0x28(%rbx),%rdi
+ 7f6:	31 f6                	xor    %esi,%esi
+ 7f8:	48 8d 54 24 07       	lea    0x7(%rsp),%rdx
+ 7fd:	e8 00 00 00 00       	call   802 <systable_getnext+0x52>	7fe: R_X86_64_PLT32	ExecFetchSlotHeapTuple-0x4
+ 802:	48 89 c5             	mov    %rax,%rbp
+ 805:	48 8b 43 18          	mov    0x18(%rbx),%rax
+ 809:	80 78 77 00          	cmpb   $0x0,0x77(%rax)
+ 80d:	0f 85 00 00 00 00    	jne    813 <systable_getnext+0x63>	80f: R_X86_64_PC32	.text.unlikely+0x72
+ 813:	8b 3d 00 00 00 00    	mov    0x0(%rip),%edi        # 819 <systable_getnext+0x69>	815: R_X86_64_PC32	CheckXidAlive-0x4
+ 819:	85 ff                	test   %edi,%edi
+ 81b:	75 2f                	jne    84c <systable_getnext+0x9c>
+ 81d:	48 8b 44 24 08       	mov    0x8(%rsp),%rax
+ 822:	64 48 2b 04 25 28 00 00 00 	sub    %fs:0x28,%rax
+ 82b:	75 7e                	jne    8ab <systable_getnext+0xfb>
+ 82d:	48 83 c4 18          	add    $0x18,%rsp
+ 831:	48 89 e8             	mov    %rbp,%rax
+ 834:	5b                   	pop    %rbx
+ 835:	5d                   	pop    %rbp
+ 836:	c3                   	ret
+ 837:	66 0f 1f 84 00 00 00 00 00 	nopw   0x0(%rax,%rax,1)
+ 840:	8b 3d 00 00 00 00    	mov    0x0(%rip),%edi        # 846 <systable_getnext+0x96>	842: R_X86_64_PC32	CheckXidAlive-0x4
+ 846:	31 ed                	xor    %ebp,%ebp
+ 848:	85 ff                	test   %edi,%edi
+ 84a:	74 d1                	je     81d <systable_getnext+0x6d>
+ 84c:	e8 00 00 00 00       	call   851 <systable_getnext+0xa1>	84d: R_X86_64_PLT32	TransactionIdIsInProgress-0x4
+ 851:	84 c0                	test   %al,%al
+ 853:	75 c8                	jne    81d <systable_getnext+0x6d>
+ 855:	8b 3d 00 00 00 00    	mov    0x0(%rip),%edi        # 85b <systable_getnext+0xab>	857: R_X86_64_PC32	CheckXidAlive-0x4
+ 85b:	e8 00 00 00 00       	call   860 <systable_getnext+0xb0>	85c: R_X86_64_PLT32	TransactionIdDidCommit-0x4
+ 860:	84 c0                	test   %al,%al
+ 862:	75 b9                	jne    81d <systable_getnext+0x6d>
+ 864:	e9 00 00 00 00       	jmp    869 <systable_getnext+0xb9>	865: R_X86_64_PC32	.text.unlikely+0x6d
+ 869:	0f 1f 80 00 00 00 00 	nopl   0x0(%rax)
+ 870:	48 8b 7f 10          	mov    0x10(%rdi),%rdi
+ 874:	be 01 00 00 00       	mov    $0x1,%esi
+ 879:	48 8b 07             	mov    (%rdi),%rax
+ 87c:	8b 40 48             	mov    0x48(%rax),%eax
+ 87f:	89 42 40             	mov    %eax,0x40(%rdx)
+ 882:	48 8b 07             	mov    (%rdi),%rax
+ 885:	48 8b 80 40 01 00 00 	mov    0x140(%rax),%rax
+ 88c:	ff 50 28             	call   *0x28(%rax)
+ 88f:	84 c0                	test   %al,%al
+ 891:	74 ad                	je     840 <systable_getnext+0x90>
+ 893:	48 8b 7b 28          	mov    0x28(%rbx),%rdi
+ 897:	48 8d 54 24 07       	lea    0x7(%rsp),%rdx
+ 89c:	31 f6                	xor    %esi,%esi
+ 89e:	e8 00 00 00 00       	call   8a3 <systable_getnext+0xf3>	89f: R_X86_64_PLT32	ExecFetchSlotHeapTuple-0x4
+ 8a3:	48 89 c5             	mov    %rax,%rbp
+ 8a6:	e9 68 ff ff ff       	jmp    813 <systable_getnext+0x63>
+ 8ab:	e8 00 00 00 00       	call   8b0 <systable_recheck_tuple>	8ac: R_X86_64_PLT32	__stack_chk_fail-0x4
+
+00000000000008b0 <systable_recheck_tuple>:
+ 8b0:	f3 0f 1e fa          	endbr64
+ 8b4:	55                   	push   %rbp
+ 8b5:	53                   	push   %rbx
+ 8b6:	48 89 fb             	mov    %rdi,%rbx
+ 8b9:	48 83 ec 08          	sub    $0x8,%rsp
+ 8bd:	48 8b 07             	mov    (%rdi),%rax
+ 8c0:	8b 78 48             	mov    0x48(%rax),%edi
+ 8c3:	e8 00 00 00 00       	call   8c8 <systable_recheck_tuple+0x18>	8c4: R_X86_64_PLT32	GetCatalogSnapshot-0x4
+ 8c8:	48 89 c7             	mov    %rax,%rdi
+ 8cb:	e8 00 00 00 00       	call   8d0 <systable_recheck_tuple+0x20>	8cc: R_X86_64_PLT32	RegisterSnapshot-0x4
+ 8d0:	48 8b 3b             	mov    (%rbx),%rdi
+ 8d3:	48 8b 73 28          	mov    0x28(%rbx),%rsi
+ 8d7:	48 89 c5             	mov    %rax,%rbp
+ 8da:	48 8b 87 40 01 00 00 	mov    0x140(%rdi),%rax
+ 8e1:	48 89 ea             	mov    %rbp,%rdx
+ 8e4:	ff 90 90 00 00 00    	call   *0x90(%rax)
+ 8ea:	48 89 ef             	mov    %rbp,%rdi
+ 8ed:	89 c3                	mov    %eax,%ebx
+ 8ef:	e8 00 00 00 00       	call   8f4 <systable_recheck_tuple+0x44>	8f0: R_X86_64_PLT32	UnregisterSnapshot-0x4
+ 8f4:	8b 3d 00 00 00 00    	mov    0x0(%rip),%edi        # 8fa <systable_recheck_tuple+0x4a>	8f6: R_X86_64_PC32	CheckXidAlive-0x4
+ 8fa:	85 ff                	test   %edi,%edi
+ 8fc:	75 12                	jne    910 <systable_recheck_tuple+0x60>
+ 8fe:	48 83 c4 08          	add    $0x8,%rsp
+ 902:	89 d8                	mov    %ebx,%eax
+ 904:	5b                   	pop    %rbx
+ 905:	5d                   	pop    %rbp
+ 906:	c3                   	ret
+ 907:	66 0f 1f 84 00 00 00 00 00 	nopw   0x0(%rax,%rax,1)
+ 910:	e8 00 00 00 00       	call   915 <systable_recheck_tuple+0x65>	911: R_X86_64_PLT32	TransactionIdIsInProgress-0x4
+ 915:	84 c0                	test   %al,%al
+ 917:	75 e5                	jne    8fe <systable_recheck_tuple+0x4e>
+ 919:	8b 3d 00 00 00 00    	mov    0x0(%rip),%edi        # 91f <systable_recheck_tuple+0x6f>	91b: R_X86_64_PC32	CheckXidAlive-0x4
+ 91f:	e8 00 00 00 00       	call   924 <systable_recheck_tuple+0x74>	920: R_X86_64_PLT32	TransactionIdDidCommit-0x4
+ 924:	84 c0                	test   %al,%al
+ 926:	0f 84 00 00 00 00    	je     92c <systable_recheck_tuple+0x7c>	928: R_X86_64_PC32	.text.unlikely+0xa4
+ 92c:	48 83 c4 08          	add    $0x8,%rsp
+ 930:	89 d8                	mov    %ebx,%eax
+ 932:	5b                   	pop    %rbx
+ 933:	5d                   	pop    %rbp
+ 934:	c3                   	ret
+ 935:	66 66 2e 0f 1f 84 00 00 00 00 00 	data16 cs nopw 0x0(%rax,%rax,1)
+
+0000000000000940 <systable_beginscan_ordered>:
+ 940:	f3 0f 1e fa          	endbr64
+ 944:	41 57                	push   %r15
+ 946:	4d 89 c7             	mov    %r8,%r15
+ 949:	41 56                	push   %r14
+ 94b:	49 89 f6             	mov    %rsi,%r14
+ 94e:	41 55                	push   %r13
+ 950:	49 89 fd             	mov    %rdi,%r13
+ 953:	41 54                	push   %r12
+ 955:	55                   	push   %rbp
+ 956:	89 cd                	mov    %ecx,%ebp
+ 958:	53                   	push   %rbx
+ 959:	48 83 ec 18          	sub    $0x18,%rsp
+ 95d:	8b 7e 48             	mov    0x48(%rsi),%edi
+ 960:	48 89 14 24          	mov    %rdx,(%rsp)
+ 964:	e8 00 00 00 00       	call   969 <systable_beginscan_ordered+0x29>	965: R_X86_64_PLT32	ReindexIsProcessingIndex-0x4
+ 969:	84 c0                	test   %al,%al
+ 96b:	0f 85 00 00 00 00    	jne    971 <systable_beginscan_ordered+0x31>	96d: R_X86_64_PC32	.text.unlikely+0xdb
+ 971:	80 3d 00 00 00 00 00 	cmpb   $0x0,0x0(%rip)        # 978 <systable_beginscan_ordered+0x38>	973: R_X86_64_PC32	IgnoreSystemIndexes-0x5
+ 978:	0f 85 81 01 00 00    	jne    aff <systable_beginscan_ordered+0x1bf>
+ 97e:	bf 30 00 00 00       	mov    $0x30,%edi
+ 983:	e8 00 00 00 00       	call   988 <systable_beginscan_ordered+0x48>	984: R_X86_64_PLT32	palloc-0x4
+ 988:	31 f6                	xor    %esi,%esi
+ 98a:	4c 89 ef             	mov    %r13,%rdi
+ 98d:	4c 89 28             	mov    %r13,(%rax)
+ 990:	48 89 c3             	mov    %rax,%rbx
+ 993:	4c 89 70 08          	mov    %r14,0x8(%rax)
+ 997:	e8 00 00 00 00       	call   99c <systable_beginscan_ordered+0x5c>	998: R_X86_64_PLT32	table_slot_create-0x4
+ 99c:	48 89 43 28          	mov    %rax,0x28(%rbx)
+ 9a0:	31 c0                	xor    %eax,%eax
+ 9a2:	48 83 3c 24 00       	cmpq   $0x0,(%rsp)
+ 9a7:	0f 84 99 01 00 00    	je     b46 <systable_beginscan_ordered+0x206>
+ 9ad:	48 89 43 20          	mov    %rax,0x20(%rbx)
+ 9b1:	48 63 d5             	movslq %ebp,%rdx
+ 9b4:	bf 48 00 00 00       	mov    $0x48,%edi
+ 9b9:	48 89 d6             	mov    %rdx,%rsi
+ 9bc:	48 89 54 24 08       	mov    %rdx,0x8(%rsp)
+ 9c1:	e8 00 00 00 00       	call   9c6 <systable_beginscan_ordered+0x86>	9c2: R_X86_64_PLT32	palloc_mul-0x4
+ 9c6:	85 ed                	test   %ebp,%ebp
+ 9c8:	48 8b 54 24 08       	mov    0x8(%rsp),%rdx
+ 9cd:	49 89 c4             	mov    %rax,%r12
+ 9d0:	0f 8e ae 00 00 00    	jle    a84 <systable_beginscan_ordered+0x144>
+ 9d6:	49 89 c0             	mov    %rax,%r8
+ 9d9:	48 8d 04 d2          	lea    (%rdx,%rdx,8),%rax
+ 9dd:	4d 8d 0c c4          	lea    (%r12,%rax,8),%r9
+ 9e1:	0f 1f 80 00 00 00 00 	nopl   0x0(%rax)
+ 9e8:	f3 41 0f 6f 07       	movdqu (%r15),%xmm0
+ 9ed:	41 0f 11 00          	movups %xmm0,(%r8)
+ 9f1:	f3 41 0f 6f 4f 10    	movdqu 0x10(%r15),%xmm1
+ 9f7:	41 0f 11 48 10       	movups %xmm1,0x10(%r8)
+ 9fc:	f3 41 0f 6f 57 20    	movdqu 0x20(%r15),%xmm2
+ a02:	41 0f 11 50 20       	movups %xmm2,0x20(%r8)
+ a07:	f3 41 0f 6f 5f 30    	movdqu 0x30(%r15),%xmm3
+ a0d:	41 0f 11 58 30       	movups %xmm3,0x30(%r8)
+ a12:	49 8b 47 40          	mov    0x40(%r15),%rax
+ a16:	49 89 40 40          	mov    %rax,0x40(%r8)
+ a1a:	49 8b b6 48 01 00 00 	mov    0x148(%r14),%rsi
+ a21:	0f bf 4e 08          	movswl 0x8(%rsi),%ecx
+ a25:	66 85 c9             	test   %cx,%cx
+ a28:	0f 8e ca 00 00 00    	jle    af8 <systable_beginscan_ordered+0x1b8>
+ a2e:	41 0f b7 7f 04       	movzwl 0x4(%r15),%edi
+ a33:	31 c0                	xor    %eax,%eax
+ a35:	eb 18                	jmp    a4f <systable_beginscan_ordered+0x10f>
+ a37:	66 0f 1f 84 00 00 00 00 00 	nopw   0x0(%rax,%rax,1)
+ a40:	48 8d 50 01          	lea    0x1(%rax),%rdx
+ a44:	39 d1                	cmp    %edx,%ecx
+ a46:	0f 8e a4 00 00 00    	jle    af0 <systable_beginscan_ordered+0x1b0>
+ a4c:	48 89 d0             	mov    %rdx,%rax
+ a4f:	66 3b 7c 46 30       	cmp    0x30(%rsi,%rax,2),%di
+ a54:	75 ea                	jne    a40 <systable_beginscan_ordered+0x100>
+ a56:	89 c2                	mov    %eax,%edx
+ a58:	83 c0 01             	add    $0x1,%eax
+ a5b:	66 41 89 40 04       	mov    %ax,0x4(%r8)
+ a60:	49 8b 86 48 01 00 00 	mov    0x148(%r14),%rax
+ a67:	0f bf 48 08          	movswl 0x8(%rax),%ecx
+ a6b:	39 ca                	cmp    %ecx,%edx
+ a6d:	0f 84 00 00 00 00    	je     a73 <systable_beginscan_ordered+0x133>	a6f: R_X86_64_PC32	.text.unlikely+0xa9
+ a73:	49 83 c0 48          	add    $0x48,%r8
+ a77:	49 83 c7 48          	add    $0x48,%r15
+ a7b:	4d 39 c8             	cmp    %r9,%r8
+ a7e:	0f 85 64 ff ff ff    	jne    9e8 <systable_beginscan_ordered+0xa8>
+ a84:	8b 05 00 00 00 00    	mov    0x0(%rip),%eax        # a8a <systable_beginscan_ordered+0x14a>	a86: R_X86_64_PC32	CheckXidAlive-0x4
+ a8a:	85 c0                	test   %eax,%eax
+ a8c:	74 07                	je     a95 <systable_beginscan_ordered+0x155>
+ a8e:	c6 05 00 00 00 00 01 	movb   $0x1,0x0(%rip)        # a95 <systable_beginscan_ordered+0x155>	a90: R_X86_64_PC32	bsysscan-0x5
+ a95:	6a 00                	push   $0x0
+ a97:	41 89 e9             	mov    %ebp,%r9d
+ a9a:	4c 89 f6             	mov    %r14,%rsi
+ a9d:	4c 89 ef             	mov    %r13,%rdi
+ aa0:	6a 00                	push   $0x0
+ aa2:	48 8b 4c 24 10       	mov    0x10(%rsp),%rcx
+ aa7:	45 31 c0             	xor    %r8d,%r8d
+ aaa:	31 d2                	xor    %edx,%edx
+ aac:	e8 00 00 00 00       	call   ab1 <systable_beginscan_ordered+0x171>	aad: R_X86_64_PLT32	index_beginscan-0x4
+ ab1:	89 ea                	mov    %ebp,%edx
+ ab3:	4c 89 e6             	mov    %r12,%rsi
+ ab6:	45 31 c0             	xor    %r8d,%r8d
+ ab9:	48 89 43 18          	mov    %rax,0x18(%rbx)
+ abd:	48 89 c7             	mov    %rax,%rdi
+ ac0:	31 c9                	xor    %ecx,%ecx
+ ac2:	e8 00 00 00 00       	call   ac7 <systable_beginscan_ordered+0x187>	ac3: R_X86_64_PLT32	index_rescan-0x4
+ ac7:	48 c7 43 10 00 00 00 00 	movq   $0x0,0x10(%rbx)
+ acf:	4c 89 e7             	mov    %r12,%rdi
+ ad2:	e8 00 00 00 00       	call   ad7 <systable_beginscan_ordered+0x197>	ad3: R_X86_64_PLT32	pfree-0x4
+ ad7:	48 83 c4 28          	add    $0x28,%rsp
+ adb:	48 89 d8             	mov    %rbx,%rax
+ ade:	5b                   	pop    %rbx
+ adf:	5d                   	pop    %rbp
+ ae0:	41 5c                	pop    %r12
+ ae2:	41 5d                	pop    %r13
+ ae4:	41 5e                	pop    %r14
+ ae6:	41 5f                	pop    %r15
+ ae8:	c3                   	ret
+ ae9:	0f 1f 80 00 00 00 00 	nopl   0x0(%rax)
+ af0:	8d 50 01             	lea    0x1(%rax),%edx
+ af3:	e9 73 ff ff ff       	jmp    a6b <systable_beginscan_ordered+0x12b>
+ af8:	31 d2                	xor    %edx,%edx
+ afa:	e9 6c ff ff ff       	jmp    a6b <systable_beginscan_ordered+0x12b>
+ aff:	31 f6                	xor    %esi,%esi
+ b01:	bf 13 00 00 00       	mov    $0x13,%edi
+ b06:	e8 00 00 00 00       	call   b0b <systable_beginscan_ordered+0x1cb>	b07: R_X86_64_PLT32	errstart-0x4
+ b0b:	84 c0                	test   %al,%al
+ b0d:	0f 84 6b fe ff ff    	je     97e <systable_beginscan_ordered+0x3e>
+ b13:	49 8b 46 38          	mov    0x38(%r14),%rax
+ b17:	48 8d 3d 00 00 00 00 	lea    0x0(%rip),%rdi        # b1e <systable_beginscan_ordered+0x1de>	b1a: R_X86_64_PC32	.LC11-0x4
+ b1e:	48 8d 70 04          	lea    0x4(%rax),%rsi
+ b22:	31 c0                	xor    %eax,%eax
+ b24:	e8 00 00 00 00       	call   b29 <systable_beginscan_ordered+0x1e9>	b25: R_X86_64_PLT32	errmsg_internal-0x4
+ b29:	48 8d 15 00 00 00 00 	lea    0x0(%rip),%rdx        # b30 <systable_beginscan_ordered+0x1f0>	b2c: R_X86_64_PC32	.rodata+0x3c
+ b30:	be aa 02 00 00       	mov    $0x2aa,%esi
+ b35:	48 8d 3d 00 00 00 00 	lea    0x0(%rip),%rdi        # b3c <systable_beginscan_ordered+0x1fc>	b38: R_X86_64_PC32	.LC1-0x4
+ b3c:	e8 00 00 00 00       	call   b41 <systable_beginscan_ordered+0x201>	b3d: R_X86_64_PLT32	errfinish-0x4
+ b41:	e9 38 fe ff ff       	jmp    97e <systable_beginscan_ordered+0x3e>
+ b46:	41 8b 7d 48          	mov    0x48(%r13),%edi
+ b4a:	e8 00 00 00 00       	call   b4f <systable_beginscan_ordered+0x20f>	b4b: R_X86_64_PLT32	GetCatalogSnapshot-0x4
+ b4f:	48 89 c7             	mov    %rax,%rdi
+ b52:	e8 00 00 00 00       	call   b57 <systable_beginscan_ordered+0x217>	b53: R_X86_64_PLT32	RegisterSnapshot-0x4
+ b57:	48 89 04 24          	mov    %rax,(%rsp)
+ b5b:	e9 4d fe ff ff       	jmp    9ad <systable_beginscan_ordered+0x6d>
+
+0000000000000b60 <systable_getnext_ordered>:
+ b60:	f3 0f 1e fa          	endbr64
+ b64:	55                   	push   %rbp
+ b65:	53                   	push   %rbx
+ b66:	48 89 fb             	mov    %rdi,%rbx
+ b69:	48 83 ec 08          	sub    $0x8,%rsp
+ b6d:	48 8b 47 18          	mov    0x18(%rdi),%rax
+ b71:	48 8b 57 28          	mov    0x28(%rdi),%rdx
+ b75:	48 89 c7             	mov    %rax,%rdi
+ b78:	ff 90 80 00 00 00    	call   *0x80(%rax)
+ b7e:	84 c0                	test   %al,%al
+ b80:	74 56                	je     bd8 <systable_getnext_ordered+0x78>
+ b82:	48 8b 7b 28          	mov    0x28(%rbx),%rdi
+ b86:	31 d2                	xor    %edx,%edx
+ b88:	31 f6                	xor    %esi,%esi
+ b8a:	e8 00 00 00 00       	call   b8f <systable_getnext_ordered+0x2f>	b8b: R_X86_64_PLT32	ExecFetchSlotHeapTuple-0x4
+ b8f:	48 89 c5             	mov    %rax,%rbp
+ b92:	48 85 c0             	test   %rax,%rax
+ b95:	74 41                	je     bd8 <systable_getnext_ordered+0x78>
+ b97:	48 8b 43 18          	mov    0x18(%rbx),%rax
+ b9b:	80 78 77 00          	cmpb   $0x0,0x77(%rax)
+ b9f:	0f 85 00 00 00 00    	jne    ba5 <systable_getnext_ordered+0x45>	ba1: R_X86_64_PC32	.text.unlikely+0x124
+ ba5:	8b 3d 00 00 00 00    	mov    0x0(%rip),%edi        # bab <systable_getnext_ordered+0x4b>	ba7: R_X86_64_PC32	CheckXidAlive-0x4
+ bab:	85 ff                	test   %edi,%edi
+ bad:	74 35                	je     be4 <systable_getnext_ordered+0x84>
+ baf:	e8 00 00 00 00       	call   bb4 <systable_getnext_ordered+0x54>	bb0: R_X86_64_PLT32	TransactionIdIsInProgress-0x4
+ bb4:	84 c0                	test   %al,%al
+ bb6:	75 2c                	jne    be4 <systable_getnext_ordered+0x84>
+ bb8:	8b 3d 00 00 00 00    	mov    0x0(%rip),%edi        # bbe <systable_getnext_ordered+0x5e>	bba: R_X86_64_PC32	CheckXidAlive-0x4
+ bbe:	e8 00 00 00 00       	call   bc3 <systable_getnext_ordered+0x63>	bbf: R_X86_64_PLT32	TransactionIdDidCommit-0x4
+ bc3:	84 c0                	test   %al,%al
+ bc5:	0f 84 00 00 00 00    	je     bcb <systable_getnext_ordered+0x6b>	bc7: R_X86_64_PC32	.text.unlikely+0x11f
+ bcb:	48 83 c4 08          	add    $0x8,%rsp
+ bcf:	48 89 e8             	mov    %rbp,%rax
+ bd2:	5b                   	pop    %rbx
+ bd3:	5d                   	pop    %rbp
+ bd4:	c3                   	ret
+ bd5:	0f 1f 00             	nopl   (%rax)
+ bd8:	8b 3d 00 00 00 00    	mov    0x0(%rip),%edi        # bde <systable_getnext_ordered+0x7e>	bda: R_X86_64_PC32	CheckXidAlive-0x4
+ bde:	31 ed                	xor    %ebp,%ebp
+ be0:	85 ff                	test   %edi,%edi
+ be2:	75 cb                	jne    baf <systable_getnext_ordered+0x4f>
+ be4:	48 83 c4 08          	add    $0x8,%rsp
+ be8:	48 89 e8             	mov    %rbp,%rax
+ beb:	5b                   	pop    %rbx
+ bec:	5d                   	pop    %rbp
+ bed:	c3                   	ret
+ bee:	66 90                	xchg   %ax,%ax
+
+0000000000000bf0 <systable_endscan_ordered>:
+ bf0:	f3 0f 1e fa          	endbr64
+ bf4:	53                   	push   %rbx
+ bf5:	48 89 fb             	mov    %rdi,%rbx
+ bf8:	48 8b 7f 28          	mov    0x28(%rdi),%rdi
+ bfc:	48 85 ff             	test   %rdi,%rdi
+ bff:	74 0d                	je     c0e <systable_endscan_ordered+0x1e>
+ c01:	e8 00 00 00 00       	call   c06 <systable_endscan_ordered+0x16>	c02: R_X86_64_PLT32	ExecDropSingleTupleTableSlot-0x4
+ c06:	48 c7 43 28 00 00 00 00 	movq   $0x0,0x28(%rbx)
+ c0e:	48 8b 7b 18          	mov    0x18(%rbx),%rdi
+ c12:	e8 00 00 00 00       	call   c17 <systable_endscan_ordered+0x27>	c13: R_X86_64_PLT32	index_endscan-0x4
+ c17:	48 8b 7b 20          	mov    0x20(%rbx),%rdi
+ c1b:	48 85 ff             	test   %rdi,%rdi
+ c1e:	74 05                	je     c25 <systable_endscan_ordered+0x35>
+ c20:	e8 00 00 00 00       	call   c25 <systable_endscan_ordered+0x35>	c21: R_X86_64_PLT32	UnregisterSnapshot-0x4
+ c25:	8b 05 00 00 00 00    	mov    0x0(%rip),%eax        # c2b <systable_endscan_ordered+0x3b>	c27: R_X86_64_PC32	CheckXidAlive-0x4
+ c2b:	85 c0                	test   %eax,%eax
+ c2d:	74 07                	je     c36 <systable_endscan_ordered+0x46>
+ c2f:	c6 05 00 00 00 00 00 	movb   $0x0,0x0(%rip)        # c36 <systable_endscan_ordered+0x46>	c31: R_X86_64_PC32	bsysscan-0x5
+ c36:	48 89 df             	mov    %rbx,%rdi
+ c39:	5b                   	pop    %rbx
+ c3a:	e9 00 00 00 00       	jmp    c3f <systable_endscan_ordered+0x4f>	c3b: R_X86_64_PLT32	pfree-0x4
+ c3f:	90                   	nop
+
+0000000000000c40 <systable_inplace_update_begin>:
+ c40:	f3 0f 1e fa          	endbr64
+ c44:	41 57                	push   %r15
+ c46:	41 56                	push   %r14
+ c48:	49 89 ce             	mov    %rcx,%r14
+ c4b:	41 55                	push   %r13
+ c4d:	41 54                	push   %r12
+ c4f:	41 89 f4             	mov    %esi,%r12d
+ c52:	55                   	push   %rbp
+ c53:	48 89 fd             	mov    %rdi,%rbp
+ c56:	53                   	push   %rbx
+ c57:	48 83 ec 18          	sub    $0x18,%rsp
+ c5b:	44 89 44 24 04       	mov    %r8d,0x4(%rsp)
+ c60:	4c 89 4c 24 08       	mov    %r9,0x8(%rsp)
+ c65:	88 54 24 03          	mov    %dl,0x3(%rsp)
+ c69:	e8 00 00 00 00       	call   c6e <systable_inplace_update_begin+0x2e>	c6a: R_X86_64_PLT32	IsInParallelMode-0x4
+ c6e:	84 c0                	test   %al,%al
+ c70:	0f 85 00 00 00 00    	jne    c76 <systable_inplace_update_begin+0x36>	c72: R_X86_64_PC32	.text.unlikely+0x188
+ c76:	bb 12 27 00 00       	mov    $0x2712,%ebx
+ c7b:	eb 5d                	jmp    cda <systable_inplace_update_begin+0x9a>
+ c7d:	0f 1f 00             	nopl   (%rax)
+ c80:	83 eb 01             	sub    $0x1,%ebx
+ c83:	0f 84 00 00 00 00    	je     c89 <systable_inplace_update_begin+0x49>	c85: R_X86_64_PC32	.text.unlikely+0x156
+ c89:	0f b6 54 24 03       	movzbl 0x3(%rsp),%edx
+ c8e:	4c 8b 4c 24 08       	mov    0x8(%rsp),%r9
+ c93:	4c 89 f1             	mov    %r14,%rcx
+ c96:	44 89 e6             	mov    %r12d,%esi
+ c99:	44 8b 44 24 04       	mov    0x4(%rsp),%r8d
+ c9e:	48 89 ef             	mov    %rbp,%rdi
+ ca1:	e8 00 00 00 00       	call   ca6 <systable_inplace_update_begin+0x66>	ca2: R_X86_64_PLT32	systable_beginscan-0x4
+ ca6:	48 89 c7             	mov    %rax,%rdi
+ ca9:	49 89 c7             	mov    %rax,%r15
+ cac:	e8 00 00 00 00       	call   cb1 <systable_inplace_update_begin+0x71>	cad: R_X86_64_PLT32	systable_getnext-0x4
+ cb1:	49 89 c5             	mov    %rax,%r13
+ cb4:	48 85 c0             	test   %rax,%rax
+ cb7:	74 37                	je     cf0 <systable_inplace_update_begin+0xb0>
+ cb9:	49 8b 47 28          	mov    0x28(%r15),%rax
+ cbd:	49 8b 3f             	mov    (%r15),%rdi
+ cc0:	4d 89 f8             	mov    %r15,%r8
+ cc3:	48 8d 0d 00 00 00 00 	lea    0x0(%rip),%rcx        # cca <systable_inplace_update_begin+0x8a>	cc6: R_X86_64_PC32	systable_endscan-0x4
+ cca:	8b 50 70             	mov    0x70(%rax),%edx
+ ccd:	48 8b 70 48          	mov    0x48(%rax),%rsi
+ cd1:	e8 00 00 00 00       	call   cd6 <systable_inplace_update_begin+0x96>	cd2: R_X86_64_PLT32	heap_inplace_lock-0x4
+ cd6:	84 c0                	test   %al,%al
+ cd8:	75 3e                	jne    d18 <systable_inplace_update_begin+0xd8>
+ cda:	8b 05 00 00 00 00    	mov    0x0(%rip),%eax        # ce0 <systable_inplace_update_begin+0xa0>	cdc: R_X86_64_PC32	InterruptPending-0x4
+ ce0:	85 c0                	test   %eax,%eax
+ ce2:	74 9c                	je     c80 <systable_inplace_update_begin+0x40>
+ ce4:	e8 00 00 00 00       	call   ce9 <systable_inplace_update_begin+0xa9>	ce5: R_X86_64_PLT32	ProcessInterrupts-0x4
+ ce9:	eb 95                	jmp    c80 <systable_inplace_update_begin+0x40>
+ ceb:	0f 1f 44 00 00       	nopl   0x0(%rax,%rax,1)
+ cf0:	4c 89 ff             	mov    %r15,%rdi
+ cf3:	e8 00 00 00 00       	call   cf8 <systable_inplace_update_begin+0xb8>	cf4: R_X86_64_PLT32	systable_endscan-0x4
+ cf8:	48 8b 44 24 50       	mov    0x50(%rsp),%rax
+ cfd:	48 c7 00 00 00 00 00 	movq   $0x0,(%rax)
+ d04:	48 83 c4 18          	add    $0x18,%rsp
+ d08:	5b                   	pop    %rbx
+ d09:	5d                   	pop    %rbp
+ d0a:	41 5c                	pop    %r12
+ d0c:	41 5d                	pop    %r13
+ d0e:	41 5e                	pop    %r14
+ d10:	41 5f                	pop    %r15
+ d12:	c3                   	ret
+ d13:	0f 1f 44 00 00       	nopl   0x0(%rax,%rax,1)
+ d18:	4c 89 ef             	mov    %r13,%rdi
+ d1b:	e8 00 00 00 00       	call   d20 <systable_inplace_update_begin+0xe0>	d1c: R_X86_64_PLT32	heap_copytuple-0x4
+ d20:	48 8b 5c 24 50       	mov    0x50(%rsp),%rbx
+ d25:	48 89 03             	mov    %rax,(%rbx)
+ d28:	48 8b 44 24 58       	mov    0x58(%rsp),%rax
+ d2d:	4c 89 38             	mov    %r15,(%rax)
+ d30:	48 83 c4 18          	add    $0x18,%rsp
+ d34:	5b                   	pop    %rbx
+ d35:	5d                   	pop    %rbp
+ d36:	41 5c                	pop    %r12
+ d38:	41 5d                	pop    %r13
+ d3a:	41 5e                	pop    %r14
+ d3c:	41 5f                	pop    %r15
+ d3e:	c3                   	ret
+ d3f:	90                   	nop
+
+0000000000000d40 <systable_inplace_update_finish>:
+ d40:	f3 0f 1e fa          	endbr64
+ d44:	53                   	push   %rbx
+ d45:	48 8b 47 28          	mov    0x28(%rdi),%rax
+ d49:	48 89 fb             	mov    %rdi,%rbx
+ d4c:	48 89 f2             	mov    %rsi,%rdx
+ d4f:	48 8b 3f             	mov    (%rdi),%rdi
+ d52:	8b 48 70             	mov    0x70(%rax),%ecx
+ d55:	48 8b 70 48          	mov    0x48(%rax),%rsi
+ d59:	e8 00 00 00 00       	call   d5e <systable_inplace_update_finish+0x1e>	d5a: R_X86_64_PLT32	heap_inplace_update_and_unlock-0x4
+ d5e:	48 89 df             	mov    %rbx,%rdi
+ d61:	5b                   	pop    %rbx
+ d62:	e9 99 f2 ff ff       	jmp    0 <systable_endscan>
+ d67:	66 0f 1f 84 00 00 00 00 00 	nopw   0x0(%rax,%rax,1)
+
+0000000000000d70 <systable_inplace_update_cancel>:
+ d70:	f3 0f 1e fa          	endbr64
+ d74:	53                   	push   %rbx
+ d75:	48 8b 47 28          	mov    0x28(%rdi),%rax
+ d79:	48 89 fb             	mov    %rdi,%rbx
+ d7c:	48 8b 3f             	mov    (%rdi),%rdi
+ d7f:	8b 50 70             	mov    0x70(%rax),%edx
+ d82:	48 8b 70 48          	mov    0x48(%rax),%rsi
+ d86:	e8 00 00 00 00       	call   d8b <systable_inplace_update_cancel+0x1b>	d87: R_X86_64_PLT32	heap_inplace_unlock-0x4
+ d8b:	48 89 df             	mov    %rbx,%rdi
+ d8e:	5b                   	pop    %rbx
+ d8f:	e9 6c f2 ff ff       	jmp    0 <systable_endscan>
+
+Disassembly of section .text.unlikely:
+
+0000000000000000 <HandleConcurrentAbort.part.0>:
+   0:	50                   	push   %rax
+   1:	58                   	pop    %rax
+   2:	31 f6                	xor    %esi,%esi
+   4:	bf 15 00 00 00       	mov    $0x15,%edi
+   9:	50                   	push   %rax
+   a:	e8 00 00 00 00       	call   f <HandleConcurrentAbort.part.0+0xf>	b: R_X86_64_PLT32	errstart_cold-0x4
+   f:	bf 04 00 00 00       	mov    $0x4,%edi
+  14:	e8 00 00 00 00       	call   19 <HandleConcurrentAbort.part.0+0x19>	15: R_X86_64_PLT32	errcode-0x4
+  19:	48 8d 3d 00 00 00 00 	lea    0x0(%rip),%rdi        # 20 <HandleConcurrentAbort.part.0+0x20>	1c: R_X86_64_PC32	.LC0-0x4
+  20:	31 c0                	xor    %eax,%eax
+  22:	e8 00 00 00 00       	call   27 <HandleConcurrentAbort.part.0+0x27>	23: R_X86_64_PLT32	errmsg-0x4
+  27:	48 8d 15 00 00 00 00 	lea    0x0(%rip),%rdx        # 2e <HandleConcurrentAbort.part.0+0x2e>	2a: R_X86_64_PC32	.rodata+0x5c
+  2e:	be fe 01 00 00       	mov    $0x1fe,%esi
+  33:	48 8d 3d 00 00 00 00 	lea    0x0(%rip),%rdi        # 3a <HandleConcurrentAbort.part.0+0x3a>	36: R_X86_64_PC32	.LC1-0x4
+  3a:	e8 00 00 00 00       	call   3f <systable_beginscan.cold>	3b: R_X86_64_PLT32	errfinish-0x4
+
+000000000000003f <systable_beginscan.cold>:
+  3f:	31 f6                	xor    %esi,%esi
+  41:	bf 15 00 00 00       	mov    $0x15,%edi
+  46:	e8 00 00 00 00       	call   4b <systable_beginscan.cold+0xc>	47: R_X86_64_PLT32	errstart_cold-0x4
+  4b:	48 8d 3d 00 00 00 00 	lea    0x0(%rip),%rdi        # 52 <systable_beginscan.cold+0x13>	4e: R_X86_64_PC32	.LC5-0x4
+  52:	31 c0                	xor    %eax,%eax
+  54:	e8 00 00 00 00       	call   59 <systable_beginscan.cold+0x1a>	55: R_X86_64_PLT32	errmsg_internal-0x4
+  59:	48 8d 15 00 00 00 00 	lea    0x0(%rip),%rdx        # 60 <systable_beginscan.cold+0x21>	5c: R_X86_64_PC32	.rodata+0x9c
+  60:	be d3 01 00 00       	mov    $0x1d3,%esi
+  65:	48 8d 3d 00 00 00 00 	lea    0x0(%rip),%rdi        # 6c <systable_beginscan.cold+0x2d>	68: R_X86_64_PC32	.LC1-0x4
+  6c:	e8 00 00 00 00       	call   71 <systable_getnext.cold>	6d: R_X86_64_PLT32	errfinish-0x4
+
+0000000000000071 <systable_getnext.cold>:
+  71:	e8 8a ff ff ff       	call   0 <HandleConcurrentAbort.part.0>
+  76:	31 f6                	xor    %esi,%esi
+  78:	bf 15 00 00 00       	mov    $0x15,%edi
+  7d:	e8 00 00 00 00       	call   82 <systable_getnext.cold+0x11>	7e: R_X86_64_PLT32	errstart_cold-0x4
+  82:	48 8d 3d 00 00 00 00 	lea    0x0(%rip),%rdi        # 89 <systable_getnext.cold+0x18>	85: R_X86_64_PC32	.LC7-0x4
+  89:	31 c0                	xor    %eax,%eax
+  8b:	e8 00 00 00 00       	call   90 <systable_getnext.cold+0x1f>	8c: R_X86_64_PLT32	errmsg_internal-0x4
+  90:	48 8d 15 00 00 00 00 	lea    0x0(%rip),%rdx        # 97 <systable_getnext.cold+0x26>	93: R_X86_64_PC32	.rodata+0x7c
+  97:	be 27 02 00 00       	mov    $0x227,%esi
+  9c:	48 8d 3d 00 00 00 00 	lea    0x0(%rip),%rdi        # a3 <systable_getnext.cold+0x32>	9f: R_X86_64_PC32	.LC1-0x4
+  a3:	e8 00 00 00 00       	call   a8 <systable_recheck_tuple.cold>	a4: R_X86_64_PLT32	errfinish-0x4
+
+00000000000000a8 <systable_recheck_tuple.cold>:
+  a8:	e8 53 ff ff ff       	call   0 <HandleConcurrentAbort.part.0>
+
+00000000000000ad <systable_beginscan_ordered.cold>:
+  ad:	31 f6                	xor    %esi,%esi
+  af:	bf 15 00 00 00       	mov    $0x15,%edi
+  b4:	e8 00 00 00 00       	call   b9 <systable_beginscan_ordered.cold+0xc>	b5: R_X86_64_PLT32	errstart_cold-0x4
+  b9:	48 8d 3d 00 00 00 00 	lea    0x0(%rip),%rdi        # c0 <systable_beginscan_ordered.cold+0x13>	bc: R_X86_64_PC32	.LC5-0x4
+  c0:	31 c0                	xor    %eax,%eax
+  c2:	e8 00 00 00 00       	call   c7 <systable_beginscan_ordered.cold+0x1a>	c3: R_X86_64_PLT32	errmsg_internal-0x4
+  c7:	48 8d 15 00 00 00 00 	lea    0x0(%rip),%rdx        # ce <systable_beginscan_ordered.cold+0x21>	ca: R_X86_64_PC32	.rodata+0x3c
+  ce:	be d2 02 00 00       	mov    $0x2d2,%esi
+  d3:	48 8d 3d 00 00 00 00 	lea    0x0(%rip),%rdi        # da <systable_beginscan_ordered.cold+0x2d>	d6: R_X86_64_PC32	.LC1-0x4
+  da:	e8 00 00 00 00       	call   df <systable_beginscan_ordered.cold+0x32>	db: R_X86_64_PLT32	errfinish-0x4
+  df:	31 f6                	xor    %esi,%esi
+  e1:	bf 15 00 00 00       	mov    $0x15,%edi
+  e6:	e8 00 00 00 00       	call   eb <systable_beginscan_ordered.cold+0x3e>	e7: R_X86_64_PLT32	errstart_cold-0x4
+  eb:	bf 40 04 00 00       	mov    $0x440,%edi
+  f0:	e8 00 00 00 00       	call   f5 <systable_beginscan_ordered.cold+0x48>	f1: R_X86_64_PLT32	errcode-0x4
+  f5:	49 8b 76 38          	mov    0x38(%r14),%rsi
+  f9:	48 8d 3d 00 00 00 00 	lea    0x0(%rip),%rdi        # 100 <systable_beginscan_ordered.cold+0x53>	fc: R_X86_64_PC32	.LC10-0x4
+ 100:	31 c0                	xor    %eax,%eax
+ 102:	48 83 c6 04          	add    $0x4,%rsi
+ 106:	e8 00 00 00 00       	call   10b <systable_beginscan_ordered.cold+0x5e>	107: R_X86_64_PLT32	errmsg-0x4
+ 10b:	48 8d 15 00 00 00 00 	lea    0x0(%rip),%rdx        # 112 <systable_beginscan_ordered.cold+0x65>	10e: R_X86_64_PC32	.rodata+0x3c
+ 112:	be a4 02 00 00       	mov    $0x2a4,%esi
+ 117:	48 8d 3d 00 00 00 00 	lea    0x0(%rip),%rdi        # 11e <systable_beginscan_ordered.cold+0x71>	11a: R_X86_64_PC32	.LC1-0x4
+ 11e:	e8 00 00 00 00       	call   123 <systable_getnext_ordered.cold>	11f: R_X86_64_PLT32	errfinish-0x4
+
+0000000000000123 <systable_getnext_ordered.cold>:
+ 123:	e8 d8 fe ff ff       	call   0 <HandleConcurrentAbort.part.0>
+ 128:	31 f6                	xor    %esi,%esi
+ 12a:	bf 15 00 00 00       	mov    $0x15,%edi
+ 12f:	e8 00 00 00 00       	call   134 <systable_getnext_ordered.cold+0x11>	130: R_X86_64_PLT32	errstart_cold-0x4
+ 134:	48 8d 3d 00 00 00 00 	lea    0x0(%rip),%rdi        # 13b <systable_getnext_ordered.cold+0x18>	137: R_X86_64_PC32	.LC7-0x4
+ 13b:	31 c0                	xor    %eax,%eax
+ 13d:	e8 00 00 00 00       	call   142 <systable_getnext_ordered.cold+0x1f>	13e: R_X86_64_PLT32	errmsg_internal-0x4
+ 142:	48 8d 15 00 00 00 00 	lea    0x0(%rip),%rdx        # 149 <systable_getnext_ordered.cold+0x26>	145: R_X86_64_PC32	.rodata+0x1c
+ 149:	be f6 02 00 00       	mov    $0x2f6,%esi
+ 14e:	48 8d 3d 00 00 00 00 	lea    0x0(%rip),%rdi        # 155 <systable_getnext_ordered.cold+0x32>	151: R_X86_64_PC32	.LC1-0x4
+ 155:	e8 00 00 00 00       	call   15a <systable_inplace_update_begin.cold>	156: R_X86_64_PLT32	errfinish-0x4
+
+000000000000015a <systable_inplace_update_begin.cold>:
+ 15a:	31 f6                	xor    %esi,%esi
+ 15c:	bf 15 00 00 00       	mov    $0x15,%edi
+ 161:	e8 00 00 00 00       	call   166 <systable_inplace_update_begin.cold+0xc>	162: R_X86_64_PLT32	errstart_cold-0x4
+ 166:	48 8d 3d 00 00 00 00 	lea    0x0(%rip),%rdi        # 16d <systable_inplace_update_begin.cold+0x13>	169: R_X86_64_PC32	.LC15-0x4
+ 16d:	31 c0                	xor    %eax,%eax
+ 16f:	e8 00 00 00 00       	call   174 <systable_inplace_update_begin.cold+0x1a>	170: R_X86_64_PLT32	errmsg_internal-0x4
+ 174:	48 8d 15 00 00 00 00 	lea    0x0(%rip),%rdx        # 17b <systable_inplace_update_begin.cold+0x21>	177: R_X86_64_PC32	.rodata-0x4
+ 17b:	be 65 03 00 00       	mov    $0x365,%esi
+ 180:	48 8d 3d 00 00 00 00 	lea    0x0(%rip),%rdi        # 187 <systable_inplace_update_begin.cold+0x2d>	183: R_X86_64_PC32	.LC1-0x4
+ 187:	e8 00 00 00 00       	call   18c <systable_inplace_update_begin.cold+0x32>	188: R_X86_64_PLT32	errfinish-0x4
+ 18c:	31 f6                	xor    %esi,%esi
+ 18e:	bf 15 00 00 00       	mov    $0x15,%edi
+ 193:	e8 00 00 00 00       	call   198 <systable_inplace_update_begin.cold+0x3e>	194: R_X86_64_PLT32	errstart_cold-0x4
+ 198:	bf 42 01 00 00       	mov    $0x142,%edi
+ 19d:	e8 00 00 00 00       	call   1a2 <systable_inplace_update_begin.cold+0x48>	19e: R_X86_64_PLT32	errcode-0x4
+ 1a2:	48 8d 3d 00 00 00 00 	lea    0x0(%rip),%rdi        # 1a9 <systable_inplace_update_begin.cold+0x4f>	1a5: R_X86_64_PC32	.LC14-0x4
+ 1a9:	31 c0                	xor    %eax,%eax
+ 1ab:	e8 00 00 00 00       	call   1b0 <systable_inplace_update_begin.cold+0x56>	1ac: R_X86_64_PLT32	errmsg-0x4
+ 1b0:	48 8d 15 00 00 00 00 	lea    0x0(%rip),%rdx        # 1b7 <systable_inplace_update_begin.cold+0x5d>	1b3: R_X86_64_PC32	.rodata-0x4
+ 1b7:	be 4c 03 00 00       	mov    $0x34c,%esi
+ 1bc:	48 8d 3d 00 00 00 00 	lea    0x0(%rip),%rdi        # 1c3 <systable_inplace_update_begin.cold+0x69>	1bf: R_X86_64_PC32	.LC1-0x4
+ 1c3:	e8 00 00 00 00       	call   1c8 <BuildIndexValueDescription+0x18>	1c4: R_X86_64_PLT32	errfinish-0x4

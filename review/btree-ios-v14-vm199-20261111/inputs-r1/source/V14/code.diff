@@ -1,0 +1,403 @@
+diff --git a/src/backend/access/index/genam.c b/src/backend/access/index/genam.c
+--- a/src/backend/access/index/genam.c
++++ b/src/backend/access/index/genam.c
+@@ -123,6 +123,7 @@
+ 
+ 	scan->xs_itup = NULL;
+ 	scan->xs_itupdesc = NULL;
++	scan->xs_itupcache = NULL;
+ 	scan->xs_hitup = NULL;
+ 	scan->xs_hitupdesc = NULL;
+ 
+diff --git a/src/backend/access/nbtree/nbtreadpage.c b/src/backend/access/nbtree/nbtreadpage.c
+--- a/src/backend/access/nbtree/nbtreadpage.c
++++ b/src/backend/access/nbtree/nbtreadpage.c
+@@ -155,6 +155,10 @@
+ 	/* delay setting so->currPos.lsn until _bt_drop_lock_and_maybe_pin */
+ 	pstate.dir = so->currPos.dir = dir;
+ 	so->currPos.nextTupleOffset = 0;
++	so->currPos.hasPosting = false;
++	/* currTuples is about to be overwritten with a new page's tuples. */
++	so->iosCache.itup = NULL;
++	scan->xs_itupcache = NULL;
+ 
+ 	/* either moreRight or moreLeft should be set now (may be unset later) */
+ 	Assert(ScanDirectionIsForward(dir) ? so->currPos.moreRight :
+@@ -523,6 +527,10 @@
+ 	 * arrays to recover.  Assert that that step hasn't been missed.
+ 	 */
+ 	Assert(!pstate.forcenonrequired);
++
++	/* Attach once per saved page; tuple selection happens after visibility. */
++	if (so->currPos.hasPosting)
++		scan->xs_itupcache = &so->iosCache;
+ 
+ 	return (so->currPos.firstItem <= so->currPos.lastItem);
+ }
+@@ -1084,6 +1092,14 @@
+ 		base->t_info |= itupsz;
+ 		so->currPos.nextTupleOffset += itupsz;
+ 
++		/*
++		 * Saved non-pivot tuples with INDEX_ALT_TID_MASK set are posting bases.
++		 * Reducing t_info's size above preserves this flag.  The base no longer
++		 * contains its posting TID array; consumers may only deform its values.
++		 * Ineligible descriptors leave the deformation cache disabled.
++		 */
++		if (so->iosCache.values != NULL)
++			so->currPos.hasPosting = true;
+ 		return currItem->tupleOffset;
+ 	}
+ 
+diff --git a/src/backend/access/nbtree/nbtree.c b/src/backend/access/nbtree/nbtree.c
+--- a/src/backend/access/nbtree/nbtree.c
++++ b/src/backend/access/nbtree/nbtree.c
+@@ -373,8 +373,13 @@
+ 	 * scan->xs_itupdesc whether we'll need it or not, since that's so cheap.
+ 	 */
+ 	so->currTuples = so->markTuples = NULL;
++	so->iosCache.values = NULL;
++	so->iosCache.isnull = NULL;
++	so->iosCache.itup = NULL;
++	so->iosCache.required_flags = INDEX_ALT_TID_MASK;
+ 
+ 	scan->xs_itupdesc = RelationGetDescr(rel);
++	so->iosCache.natts = scan->xs_itupdesc->natts;
+ 
+ 	scan->opaque = so;
+ 
+@@ -389,6 +394,9 @@
+ 		 ScanKey orderbys, int norderbys)
+ {
+ 	BTScanOpaque so = (BTScanOpaque) scan->opaque;
++
++	so->iosCache.itup = NULL;
++	scan->xs_itupcache = NULL;
+ 
+ 	/* we aren't holding any read locks, but gotta drop the pins */
+ 	if (BTScanPosIsValid(so->currPos))
+@@ -435,8 +443,22 @@
+ 	 */
+ 	if (scan->xs_want_itup && so->currTuples == NULL)
+ 	{
+-		so->currTuples = (char *) palloc(BLCKSZ * 2);
++		int			natts = scan->xs_itupdesc->natts;
++		Size		cachesz = 0;
++
++		/*
++		 * A one-attribute tuple has no attribute-prefix walk to reuse.  Cache
++		 * setup and copying can cost more than deformation for short postings.
++		 */
++		if (natts > 1)
++			cachesz = natts * (sizeof(Datum) + sizeof(bool));
++		so->currTuples = palloc(BLCKSZ * 2 + cachesz);
+ 		so->markTuples = so->currTuples + BLCKSZ;
++		if (cachesz > 0)
++		{
++			so->iosCache.values = (Datum *) (so->currTuples + BLCKSZ * 2);
++			so->iosCache.isnull = (bool *) (so->iosCache.values + natts);
++		}
+ 	}
+ 
+ 	/*
+@@ -517,6 +539,10 @@
+ btrestrpos(IndexScanDesc scan)
+ {
+ 	BTScanOpaque so = (BTScanOpaque) scan->opaque;
++
++	/* Restore may overwrite currTuples, including its by-reference datums. */
++	so->iosCache.itup = NULL;
++	scan->xs_itupcache = NULL;
+ 
+ 	if (so->markItemIndex >= 0)
+ 	{
+@@ -566,6 +592,10 @@
+ 		else
+ 			BTScanPosInvalidate(so->currPos);
+ 	}
++
++	/* A restored workspace needs the same page-level attachment as a read. */
++	if (BTScanPosIsValid(so->currPos) && so->currPos.hasPosting)
++		scan->xs_itupcache = &so->iosCache;
+ }
+ 
+ /*
+diff --git a/src/backend/access/table/tableam_indexscan.c b/src/backend/access/table/tableam_indexscan.c
+--- a/src/backend/access/table/tableam_indexscan.c
++++ b/src/backend/access/table/tableam_indexscan.c
+@@ -21,6 +21,83 @@
+ 
+ #include "access/tableam_indexscan.h"
+ #include "utils/builtins.h"
++
++/*
++ * Handle an attached optional deformation cache out of line.  Keeping this
++ * independent of the ordinary fill path avoids exposing cache-copy state to
++ * the caller when the index AM did not attach a cache.
++ *
++ * The caller has already selected IndexTuple format over any HeapTuple,
++ * checked xs_itup, and supplied the current non-NULL xs_itupcache.  Cache
++ * identity, invalidation and independently owned raw arrays retain the same
++ * contract as the inline fill helper.
++ */
++pg_noinline void
++tableam_index_fill_ios_cached_slot(IndexScanDesc scan, TupleTableSlot *slot,
++				  IndexTupleDeformCache *cache)
++{
++	bool		cache_hit = cache->itup == scan->xs_itup;
++
++	Assert(scan->xs_hitup == NULL);
++	Assert(scan->xs_itup != NULL);
++	Assert(cache != NULL && cache == scan->xs_itupcache);
++	Assert(slot->tts_tupleDescriptor->natts == scan->xs_itupdesc->natts);
++
++	/* A cached identity was qualified before and remains immutable. */
++	if (likely(cache_hit) ||
++		(scan->xs_itup->t_info & cache->required_flags) == cache->required_flags)
++	{
++		int			natts = cache->natts;
++
++		Assert(natts == scan->xs_itupdesc->natts);
++
++		/* Heap representation and name conversion retain their full path. */
++		if (cache_hit && scan->xs_name_cstring_attnums == NULL &&
++			ExecTryReplaceVirtualTupleFromArrays(slot, cache->values,
++											cache->isnull, natts))
++			return;
++
++		ExecClearTuple(slot);
++		if (!cache_hit)
++		{
++			index_deform_tuple(scan->xs_itup, scan->xs_itupdesc,
++							   cache->values, cache->isnull);
++			cache->itup = scan->xs_itup;
++		}
++		/* Use constant sizes for common short tuple descriptors. */
++		switch (natts)
++		{
++			case 2:
++				memcpy(slot->tts_values, cache->values, sizeof(Datum) * 2);
++				memcpy(slot->tts_isnull, cache->isnull, sizeof(bool) * 2);
++				break;
++			case 3:
++				memcpy(slot->tts_values, cache->values, sizeof(Datum) * 3);
++				memcpy(slot->tts_isnull, cache->isnull, sizeof(bool) * 3);
++				break;
++			case 4:
++				memcpy(slot->tts_values, cache->values, sizeof(Datum) * 4);
++				memcpy(slot->tts_isnull, cache->isnull, sizeof(bool) * 4);
++				break;
++			default:
++				memcpy(slot->tts_values, cache->values, sizeof(Datum) * natts);
++				memcpy(slot->tts_isnull, cache->isnull, sizeof(bool) * natts);
++				break;
++		}
++	}
++	else
++	{
++		ExecClearTuple(slot);
++		index_deform_tuple(scan->xs_itup, scan->xs_itupdesc,
++						   slot->tts_values, slot->tts_isnull);
++	}
++
++	/* Name conversion and non-builtin slot protocols keep their full path. */
++	if (unlikely(scan->xs_name_cstring_attnums != NULL))
++		tableam_index_fill_ios_names(scan, slot);
++
++	ExecStoreVirtualTuple(slot);
++}
+ 
+ /*
+  * Copy all name columns stored as cstrings back into NAMEDATALEN bytes of
+diff --git a/src/include/access/nbtree.h b/src/include/access/nbtree.h
+--- a/src/include/access/nbtree.h
++++ b/src/include/access/nbtree.h
+@@ -16,6 +16,7 @@
+ 
+ #include "access/amapi.h"
+ #include "access/itup.h"
++#include "access/relscan.h"
+ #include "access/sdir.h"
+ #include "catalog/pg_am_d.h"
+ #include "catalog/pg_class.h"
+@@ -984,6 +985,7 @@
+ 	 */
+ 	bool		moreLeft;
+ 	bool		moreRight;
++	bool		hasPosting;		/* saved IOS items include cacheable postings */
+ 
+ 	/*
+ 	 * The items array is always ordered in index order (ie, increasing
+@@ -1079,6 +1081,7 @@
+ 	 */
+ 	char	   *currTuples;		/* tuple storage for currPos */
+ 	char	   *markTuples;		/* tuple storage for markPos */
++	IndexTupleDeformCache iosCache; /* lazily deformed posting tuple */
+ 
+ 	/*
+ 	 * If the marked position is on the same page as current position, we
+diff --git a/src/include/access/relscan.h b/src/include/access/relscan.h
+--- a/src/include/access/relscan.h
++++ b/src/include/access/relscan.h
+@@ -123,6 +123,29 @@
+ struct IndexScanInstrumentation;
+ 
+ /*
++ * Optional storage for a reusable index tuple's deformation.  The index AM
++ * owns this object, its arrays, and the referenced tuple data.  The table AM
++ * fills the cache lazily after verifying heap visibility and checking that
++ * xs_itup has all required_flags set in t_info.  A cached identity need not be
++ * qualified again.  Other tuples are deformed directly without disturbing
++ * the cache.  The AM must clear itup before changing required_flags or any
++ * referenced tuple data, including its eligibility flags, even when the
++ * workspace address is unchanged.  It may detach the cache while the tuple
++ * data and required_flags remain unchanged.  The AM initializes natts from
++ * xs_itupdesc and provides arrays with at least that many entries.  While the
++ * cache is attached, natts must match xs_itupdesc->natts.  The AM must detach
++ * and invalidate the cache before changing the descriptor or its storage.
++ */
++typedef struct IndexTupleDeformCache
++{
++	IndexTuple	itup;			/* cached tuple identity, or NULL if invalid */
++	uint16		required_flags; /* AM-declared t_info bits for reusable tuples */
++	int			natts;			/* attribute count of the AM tuple descriptor */
++	Datum	   *values;
++	bool	   *isnull;
++} IndexTupleDeformCache;
++
++/*
+  * We use the same IndexScanDescData structure for both amgettuple-based
+  * and amgetbitmap-based index scans.  Some fields are only relevant in
+  * amgettuple-based scans.
+@@ -163,6 +186,8 @@
+ 	 */
+ 	IndexTuple	xs_itup;		/* index tuple returned by AM */
+ 	struct TupleDescData *xs_itupdesc;	/* rowtype descriptor of xs_itup */
++	/* Optional AM-owned cache for this tuple workspace, or NULL */
++	IndexTupleDeformCache *xs_itupcache;
+ 	HeapTuple	xs_hitup;		/* index data returned by AM, as HeapTuple */
+ 	struct TupleDescData *xs_hitupdesc; /* rowtype descriptor of xs_hitup */
+ 
+diff --git a/src/include/access/tableam_indexscan.h b/src/include/access/tableam_indexscan.h
+--- a/src/include/access/tableam_indexscan.h
++++ b/src/include/access/tableam_indexscan.h
+@@ -25,6 +25,10 @@
+ 
+ extern pg_attribute_cold void tableam_index_fill_ios_names(IndexScanDesc scan,
+ 														   TupleTableSlot *slot);
++
++extern pg_noinline void tableam_index_fill_ios_cached_slot(IndexScanDesc scan,
++												 TupleTableSlot *slot,
++												 IndexTupleDeformCache *cache);
+ 
+ 
+ /*
+@@ -68,8 +72,6 @@
+ static inline void
+ tableam_index_fill_ios_slot(IndexScanDesc scan, TupleTableSlot *slot)
+ {
+-	ExecClearTuple(slot);
+-
+ 	/*
+ 	 * We must deform the tuple using the tupdesc the index AM formed it with
+ 	 * (xs_hitupdesc or xs_itupdesc), not the slot's tupdesc.  The datums
+@@ -81,6 +83,8 @@
+ 	 */
+ 	if (scan->xs_hitup)
+ 	{
++		ExecClearTuple(slot);
++
+ 		Assert(slot->tts_tupleDescriptor->natts == scan->xs_hitupdesc->natts);
+ 
+ 		heap_deform_tuple(scan->xs_hitup, scan->xs_hitupdesc,
+@@ -88,8 +92,19 @@
+ 	}
+ 	else if (scan->xs_itup)
+ 	{
++		IndexTupleDeformCache *cache = scan->xs_itupcache;
++
+ 		Assert(slot->tts_tupleDescriptor->natts == scan->xs_itupdesc->natts);
+ 
++		/* Leave noneligible tuples on the ordinary inline fill path. */
++		if (cache != NULL &&
++			(scan->xs_itup->t_info & cache->required_flags) == cache->required_flags)
++		{
++			tableam_index_fill_ios_cached_slot(scan, slot, cache);
++			return;
++		}
++
++		ExecClearTuple(slot);
+ 		index_deform_tuple(scan->xs_itup, scan->xs_itupdesc,
+ 						   slot->tts_values, slot->tts_isnull);
+ 
+@@ -104,7 +119,10 @@
+ 			tableam_index_fill_ios_names(scan, slot);
+ 	}
+ 	else
++	{
++		ExecClearTuple(slot);
+ 		elog(ERROR, "no data returned for index-only scan");
++	}
+ 
+ 	ExecStoreVirtualTuple(slot);
+ }
+diff --git a/src/include/executor/tuptable.h b/src/include/executor/tuptable.h
+--- a/src/include/executor/tuptable.h
++++ b/src/include/executor/tuptable.h
+@@ -481,6 +481,56 @@
+ }
+ 
+ /*
++ * Replace an unowned built-in virtual tuple from independently owned arrays.
++ * The caller supplies a validated descriptor count and keeps referenced data
++ * alive.  In particular, neither source array may alias the slot's arrays or
++ * storage owned by the slot.  Copy even NULL Datums: consumers may have changed
++ * the slot since its previous use.
++ *
++ * Other slot implementations and materialized virtual tuples need their clear
++ * callback.  Return false without changing them.  For an unowned virtual slot,
++ * combine the observable effects of virtual clear, array copies and store;
++ * preserve tableOid, descriptor flags and all unrelated slot fields.
++ */
++static inline bool
++ExecTryReplaceVirtualTupleFromArrays(TupleTableSlot *slot,
++									const Datum *values, const bool *isnull,
++									int natts)
++{
++	if (!TTS_IS_VIRTUAL(slot) || TTS_SHOULDFREE(slot))
++		return false;
++
++	Assert(slot->tts_tupleDescriptor != NULL);
++	Assert(natts > 0 && natts == slot->tts_tupleDescriptor->natts);
++
++	/* Keep the same constant-size copies as the IOS cache's ordinary path. */
++	switch (natts)
++	{
++		case 2:
++			memcpy(slot->tts_values, values, sizeof(Datum) * 2);
++			memcpy(slot->tts_isnull, isnull, sizeof(bool) * 2);
++			break;
++		case 3:
++			memcpy(slot->tts_values, values, sizeof(Datum) * 3);
++			memcpy(slot->tts_isnull, isnull, sizeof(bool) * 3);
++			break;
++		case 4:
++			memcpy(slot->tts_values, values, sizeof(Datum) * 4);
++			memcpy(slot->tts_isnull, isnull, sizeof(bool) * 4);
++			break;
++		default:
++			memcpy(slot->tts_values, values, sizeof(Datum) * natts);
++			memcpy(slot->tts_isnull, isnull, sizeof(bool) * natts);
++			break;
++	}
++
++	ItemPointerSetInvalid(&slot->tts_tid);
++	slot->tts_nvalid = natts;
++	slot->tts_flags &= ~TTS_FLAG_EMPTY;
++	return true;
++}
++
++/*
+  * ExecMaterializeSlot - force a slot into the "materialized" state.
+  *
+  * This causes the slot's tuple to be a local copy not dependent on any

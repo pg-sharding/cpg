@@ -1,0 +1,130 @@
+
+/home/reshke/wpgpg/ios14-199-1111/build/stage-V13/home/reshke/wpgpg/ios14-199-1111/build/prefix/bin/postgres:     file format elf64-x86-64
+
+
+Disassembly of section .init:
+
+Disassembly of section .plt:
+
+Disassembly of section .plt.got:
+
+Disassembly of section .plt.sec:
+
+Disassembly of section .text:
+
+00000000001ccc60 <heapam_index_only_tuple_getnext_slot>:
+  1ccc60:	f3 0f 1e fa          	endbr64
+  1ccc64:	41 55                	push   %r13
+  1ccc66:	41 89 f5             	mov    %esi,%r13d
+  1ccc69:	41 54                	push   %r12
+  1ccc6b:	55                   	push   %rbp
+  1ccc6c:	48 89 d5             	mov    %rdx,%rbp
+  1ccc6f:	53                   	push   %rbx
+  1ccc70:	48 89 fb             	mov    %rdi,%rbx
+  1ccc73:	48 83 ec 08          	sub    $0x8,%rsp
+  1ccc77:	48 8b 43 08          	mov    0x8(%rbx),%rax
+  1ccc7b:	44 89 ee             	mov    %r13d,%esi
+  1ccc7e:	48 89 df             	mov    %rbx,%rdi
+  1ccc81:	48 8b 80 60 01 00 00 	mov    0x160(%rax),%rax
+  1ccc88:	ff 90 a8 00 00 00    	call   *0xa8(%rax)
+  1ccc8e:	c6 43 32 00          	movb   $0x0,0x32(%rbx)
+  1ccc92:	c6 43 76 00          	movb   $0x0,0x76(%rbx)
+  1ccc96:	41 89 c4             	mov    %eax,%r12d
+  1ccc99:	84 c0                	test   %al,%al
+  1ccc9b:	0f 84 b8 00 00 00    	je     1ccd59 <heapam_index_only_tuple_getnext_slot+0xf9>
+  1ccca1:	48 8b 7b 08          	mov    0x8(%rbx),%rdi
+  1ccca5:	48 8b 87 e8 01 00 00 	mov    0x1e8(%rdi),%rax
+  1cccac:	48 85 c0             	test   %rax,%rax
+  1cccaf:	0f 84 2b 01 00 00    	je     1ccde0 <heapam_index_only_tuple_getnext_slot+0x180>
+  1cccb5:	48 83 40 18 01       	addq   $0x1,0x18(%rax)
+  1cccba:	48 8b 43 78          	mov    0x78(%rbx),%rax
+  1cccbe:	0f b7 73 70          	movzwl 0x70(%rbx),%esi
+  1cccc2:	48 8b 3b             	mov    (%rbx),%rdi
+  1cccc5:	48 8d 50 08          	lea    0x8(%rax),%rdx
+  1cccc9:	0f b7 43 72          	movzwl 0x72(%rbx),%eax
+  1ccccd:	c1 e6 10             	shl    $0x10,%esi
+  1cccd0:	09 c6                	or     %eax,%esi
+  1cccd2:	e8 59 d9 00 00       	call   1da630 <visibilitymap_get_status>
+  1cccd7:	a8 01                	test   $0x1,%al
+  1cccd9:	74 55                	je     1ccd30 <heapam_index_only_tuple_getnext_slot+0xd0>
+  1cccdb:	0f b7 73 70          	movzwl 0x70(%rbx),%esi
+  1cccdf:	0f b7 43 72          	movzwl 0x72(%rbx),%eax
+  1ccce3:	48 8b 53 10          	mov    0x10(%rbx),%rdx
+  1ccce7:	48 8b 3b             	mov    (%rbx),%rdi
+  1cccea:	c1 e6 10             	shl    $0x10,%esi
+  1ccced:	09 c6                	or     %eax,%esi
+  1cccef:	e8 5c f3 34 00       	call   51c050 <PredicateLockPage>
+  1cccf4:	48 83 7b 60 00       	cmpq   $0x0,0x60(%rbx)
+  1cccf9:	74 75                	je     1ccd70 <heapam_index_only_tuple_getnext_slot+0x110>
+  1cccfb:	48 8b 45 08          	mov    0x8(%rbp),%rax
+  1cccff:	48 89 ef             	mov    %rbp,%rdi
+  1ccd02:	ff 50 18             	call   *0x18(%rax)
+  1ccd05:	48 8b 4d 20          	mov    0x20(%rbp),%rcx
+  1ccd09:	48 8b 55 18          	mov    0x18(%rbp),%rdx
+  1ccd0d:	48 8b 73 68          	mov    0x68(%rbx),%rsi
+  1ccd11:	48 8b 7b 60          	mov    0x60(%rbx),%rdi
+  1ccd15:	e8 06 da fb ff       	call   18a720 <heap_deform_tuple>
+  1ccd1a:	48 89 ef             	mov    %rbp,%rdi
+  1ccd1d:	e8 ee af 18 00       	call   357d10 <ExecStoreVirtualTuple>
+  1ccd22:	48 83 c4 08          	add    $0x8,%rsp
+  1ccd26:	44 89 e0             	mov    %r12d,%eax
+  1ccd29:	5b                   	pop    %rbx
+  1ccd2a:	5d                   	pop    %rbp
+  1ccd2b:	41 5c                	pop    %r12
+  1ccd2d:	41 5d                	pop    %r13
+  1ccd2f:	c3                   	ret
+  1ccd30:	48 89 df             	mov    %rbx,%rdi
+  1ccd33:	e8 b8 fd ff ff       	call   1ccaf0 <heapam_index_only_heap_fetch>
+  1ccd38:	84 c0                	test   %al,%al
+  1ccd3a:	75 b8                	jne    1cccf4 <heapam_index_only_tuple_getnext_slot+0x94>
+  1ccd3c:	0f b6 83 b4 00 00 00 	movzbl 0xb4(%rbx),%eax
+  1ccd43:	48 8b 53 78          	mov    0x78(%rbx),%rdx
+  1ccd47:	84 c0                	test   %al,%al
+  1ccd49:	0f 84 28 ff ff ff    	je     1ccc77 <heapam_index_only_tuple_getnext_slot+0x17>
+  1ccd4f:	66 3b 42 0e          	cmp    0xe(%rdx),%ax
+  1ccd53:	0f 83 1e ff ff ff    	jae    1ccc77 <heapam_index_only_tuple_getnext_slot+0x17>
+  1ccd59:	48 83 c4 08          	add    $0x8,%rsp
+  1ccd5d:	45 31 e4             	xor    %r12d,%r12d
+  1ccd60:	5b                   	pop    %rbx
+  1ccd61:	44 89 e0             	mov    %r12d,%eax
+  1ccd64:	5d                   	pop    %rbp
+  1ccd65:	41 5c                	pop    %r12
+  1ccd67:	41 5d                	pop    %r13
+  1ccd69:	c3                   	ret
+  1ccd6a:	66 0f 1f 44 00 00    	nopw   0x0(%rax,%rax,1)
+  1ccd70:	48 83 7b 48 00       	cmpq   $0x0,0x48(%rbx)
+  1ccd75:	0f 84 bb 26 f2 ff    	je     ef436 <heapam_index_only_tuple_getnext_slot.cold+0x10>
+  1ccd7b:	48 8b 53 58          	mov    0x58(%rbx),%rdx
+  1ccd7f:	48 85 d2             	test   %rdx,%rdx
+  1ccd82:	75 3c                	jne    1ccdc0 <heapam_index_only_tuple_getnext_slot+0x160>
+  1ccd84:	48 8b 45 08          	mov    0x8(%rbp),%rax
+  1ccd88:	48 89 ef             	mov    %rbp,%rdi
+  1ccd8b:	ff 50 18             	call   *0x18(%rax)
+  1ccd8e:	48 8b 4d 20          	mov    0x20(%rbp),%rcx
+  1ccd92:	48 8b 55 18          	mov    0x18(%rbp),%rdx
+  1ccd96:	48 8b 73 50          	mov    0x50(%rbx),%rsi
+  1ccd9a:	48 8b 7b 48          	mov    0x48(%rbx),%rdi
+  1ccd9e:	e8 ed f1 fb ff       	call   18bf90 <index_deform_tuple>
+  1ccda3:	48 83 bb a0 00 00 00 00 	cmpq   $0x0,0xa0(%rbx)
+  1ccdab:	0f 84 69 ff ff ff    	je     1ccd1a <heapam_index_only_tuple_getnext_slot+0xba>
+  1ccdb1:	e9 70 26 f2 ff       	jmp    ef426 <heapam_index_only_tuple_getnext_slot.cold>
+  1ccdb6:	66 2e 0f 1f 84 00 00 00 00 00 	cs nopw 0x0(%rax,%rax,1)
+  1ccdc0:	48 89 ee             	mov    %rbp,%rsi
+  1ccdc3:	48 89 df             	mov    %rbx,%rdi
+  1ccdc6:	e8 85 a0 03 00       	call   206e50 <tableam_index_fill_ios_cached_slot>
+  1ccdcb:	48 83 c4 08          	add    $0x8,%rsp
+  1ccdcf:	44 89 e0             	mov    %r12d,%eax
+  1ccdd2:	5b                   	pop    %rbx
+  1ccdd3:	5d                   	pop    %rbp
+  1ccdd4:	41 5c                	pop    %r12
+  1ccdd6:	41 5d                	pop    %r13
+  1ccdd8:	c3                   	ret
+  1ccdd9:	0f 1f 80 00 00 00 00 	nopl   0x0(%rax)
+  1ccde0:	80 bf e0 01 00 00 00 	cmpb   $0x0,0x1e0(%rdi)
+  1ccde7:	0f 84 cd fe ff ff    	je     1cccba <heapam_index_only_tuple_getnext_slot+0x5a>
+  1ccded:	e8 5e a7 37 00       	call   547550 <pgstat_assoc_relation>
+  1ccdf2:	48 8b 43 08          	mov    0x8(%rbx),%rax
+  1ccdf6:	48 8b 80 e8 01 00 00 	mov    0x1e8(%rax),%rax
+  1ccdfd:	e9 b3 fe ff ff       	jmp    1cccb5 <heapam_index_only_tuple_getnext_slot+0x55>
+
+Disassembly of section .fini:

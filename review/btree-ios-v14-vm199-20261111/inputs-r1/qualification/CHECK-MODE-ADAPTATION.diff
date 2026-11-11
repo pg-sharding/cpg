@@ -1,0 +1,44 @@
+--- V13-batch/check_mode
++++ V14-gate/check_mode
+@@ -1,8 +1,8 @@
+ def check_mode(mode, prefix, micro, result, logs):
+-    contract_count = 640 if mode in ('v13','assert') else 0
+-    old_data = oldroot / 'data-correctness-v9'
++    contract_count = 640 if mode in ('V13','V14','V14_assert') else 0
++    old_data = target_seed
+     data = w / ('data-' + mode)
+-    env = {**os.environ, 'LD_LIBRARY_PATH': str(prefix / 'lib')}
++    env = common.env(prefix)
+     assert old_data.is_dir() and not old_data.is_symlink() and not (old_data / 'postmaster.pid').exists()
+     assert subprocess.run([str(prefix / 'bin/pg_ctl'), '-D', str(old_data), 'status'], env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 3
+     assert not data.exists()
+@@ -10,12 +10,12 @@
+     shutil.copytree(old_data, data)
+     assert sha(old_data / 'global/pg_control') == old_control
+     with (data / 'postgresql.conf').open('a') as f:
+-        f.write("\nlisten_addresses = ''\nunix_socket_directories = '" + str(w) + "'\nport = 12840\n")
+-    conn = [str(prefix / 'bin/psql'), '-X', '-v', 'ON_ERROR_STOP=1', '-h', str(w), '-p', '12840', '-d', 'postgres']
++        f.write("\nlisten_addresses = ''\nunix_socket_directories = '" + str(w) + "'\nport = " + str(port) + "\n")
++    conn = [str(prefix / 'bin/psql'), '-X', '-v', 'ON_ERROR_STOP=1', '-h', str(w), '-p', str(port), '-d', 'postgres']
+     try:
+         run([str(prefix / 'bin/pg_ctl'), '-D', str(data), '-l', str(logs / 'postmaster.txt'), '-w', 'start'], logs / 'start.txt', env=env)
+         actual = run(conn + ['-A', '-t', '-c', 'SHOW debug_assertions;'], result / 'actual-mode.txt', env=env).strip()
+-        assert actual == ('on' if mode == 'assert' else 'off'), (mode, actual)
++        assert actual == ('on' if mode == 'V14_assert' else 'off'), (mode, actual)
+         for name, reference in (('correctness.sql', 'correctness-base.txt'), ('correctness-boundaries.sql', 'boundaries-base.txt'), ('correctness-transition.sql', 'transition-base.txt')):
+             output = result / reference
+             run(conn + ['-f', str(w / 'inputs' / name)], output, env=env)
+@@ -34,7 +34,7 @@
+         script.write_text(sql)
+         output = run(conn + ['-q', '-A', '-t', '-f', str(script)], result / 'native-output.txt', env=env)
+         assert output.splitlines() == ['oracle|751812', 'contract|' + str(contract_count), 'slot2r2|5504', 'slot2r64|5504', 'slot8|4096', 'slot32null|128']
+-        if mode in ('v13','assert'):
++        if mode in ('V13','V14','V14_assert'):
+             ownership_sql = "CREATE OR REPLACE FUNCTION ios_v12_ownership_oracle() RETURNS text AS '" + str(micro / 'ownership.so') + "','ios_v12_ownership_oracle' LANGUAGE C STRICT; SELECT ios_v12_ownership_oracle();"
+             answer = run(conn + ['-q', '-A', '-t', '-c', ownership_sql], result / 'ownership-answer.txt', env=env)
+             ownership = json.loads(answer.strip())
+@@ -60,3 +60,4 @@
+             'oracle': 751812, 'contract': contract_count, 'slot_checksums': [5504, 5504, 4096, 128],
+             'target_outputs_equal_unchanged_base': True, 'old_control_unchanged': sha(old_data / 'global/pg_control') == old_control}
+ 
++

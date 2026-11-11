@@ -1,0 +1,40 @@
+\set ON_ERROR_STOP on
+SET client_min_messages=warning;SET jit=off;SET max_parallel_workers_per_gather=0;SET statement_timeout='30s';
+CREATE OR REPLACE FUNCTION compare_boundary_paths(q text) RETURNS void LANGUAGE plpgsql AS $$
+DECLARE expected text; actual text;
+BEGIN
+ PERFORM set_config('enable_seqscan','on',true);PERFORM set_config('enable_indexscan','off',true);PERFORM set_config('enable_indexonlyscan','off',true);PERFORM set_config('enable_bitmapscan','off',true);EXECUTE q INTO expected;
+ PERFORM set_config('enable_seqscan','off',true);PERFORM set_config('enable_indexscan','on',true);PERFORM set_config('enable_indexonlyscan','on',true);EXECUTE q INTO actual;
+ IF actual IS DISTINCT FROM expected THEN RAISE EXCEPTION 'boundary mismatch: % versus %, SQL %',expected,actual,q;END IF;
+END $$;
+CREATE TABLE boundary7 AS SELECT g,CASE WHEN k%3=0 THEN NULL ELSE (k+1)::int END AS m1,CASE WHEN k%4=0 THEN NULL ELSE repeat((k+2)::text,1+k%7)COLLATE "C" END AS m2,CASE WHEN k%5=0 THEN NULL ELSE lpad((k+3)::text,1+(k+3)%63,'n')::name END AS m3,CASE WHEN k%6=0 THEN NULL ELSE (k+4)::bigint END AS m4,CASE WHEN k%7=0 THEN NULL ELSE (k+5)::int END AS m5,CASE WHEN k%8=0 THEN NULL ELSE repeat((k+6)::text,1+k%7)COLLATE "C" END AS m6,CASE WHEN k%9=0 THEN NULL ELSE lpad((k+7)::text,1+(k+7)%63,'n')::name END AS m7 FROM (SELECT g,g%97 k FROM generate_series(1,10000)g)s;
+CREATE INDEX boundary7_idx ON boundary7(m1,m2,m3,m4,m5,m6,m7);
+VACUUM(FREEZE,ANALYZE)boundary7;
+SET enable_seqscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;SET enable_bitmapscan=off;
+EXPLAIN(COSTS OFF)SELECT sum(hashtextextended(ROW(m1,m2,m3,m4,m5,m6,m7)::text,0)::numeric) FROM boundary7;
+SELECT compare_boundary_paths($q$SELECT json_build_array(count(*),sum(hashtextextended(ROW(m1,m2,m3,m4,m5,m6,m7)::text,0)::numeric))::text FROM boundary7$q$);
+DELETE FROM boundary7 WHERE g%5=0;
+SELECT compare_boundary_paths($q$SELECT json_build_array(count(*),sum(hashtextextended(ROW(m1,m2,m3,m4,m5,m6,m7)::text,0)::numeric))::text FROM boundary7$q$);
+SELECT bt_index_check('boundary7_idx',true);
+DROP TABLE boundary7;
+CREATE TABLE boundary9 AS SELECT g,CASE WHEN k%3=0 THEN NULL ELSE (k+1)::int END AS m1,CASE WHEN k%4=0 THEN NULL ELSE repeat((k+2)::text,1+k%7)COLLATE "C" END AS m2,CASE WHEN k%5=0 THEN NULL ELSE lpad((k+3)::text,1+(k+3)%63,'n')::name END AS m3,CASE WHEN k%6=0 THEN NULL ELSE (k+4)::bigint END AS m4,CASE WHEN k%7=0 THEN NULL ELSE (k+5)::int END AS m5,CASE WHEN k%8=0 THEN NULL ELSE repeat((k+6)::text,1+k%7)COLLATE "C" END AS m6,CASE WHEN k%9=0 THEN NULL ELSE lpad((k+7)::text,1+(k+7)%63,'n')::name END AS m7,CASE WHEN k%10=0 THEN NULL ELSE (k+8)::bigint END AS m8,CASE WHEN k%11=0 THEN NULL ELSE (k+9)::int END AS m9 FROM (SELECT g,g%97 k FROM generate_series(1,10000)g)s;
+CREATE INDEX boundary9_idx ON boundary9(m1,m2,m3,m4,m5,m6,m7,m8,m9);
+VACUUM(FREEZE,ANALYZE)boundary9;
+SET enable_seqscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;SET enable_bitmapscan=off;
+EXPLAIN(COSTS OFF)SELECT sum(hashtextextended(ROW(m1,m2,m3,m4,m5,m6,m7,m8,m9)::text,0)::numeric) FROM boundary9;
+SELECT compare_boundary_paths($q$SELECT json_build_array(count(*),sum(hashtextextended(ROW(m1,m2,m3,m4,m5,m6,m7,m8,m9)::text,0)::numeric))::text FROM boundary9$q$);
+DELETE FROM boundary9 WHERE g%5=0;
+SELECT compare_boundary_paths($q$SELECT json_build_array(count(*),sum(hashtextextended(ROW(m1,m2,m3,m4,m5,m6,m7,m8,m9)::text,0)::numeric))::text FROM boundary9$q$);
+SELECT bt_index_check('boundary9_idx',true);
+DROP TABLE boundary9;
+CREATE TABLE boundary31 AS SELECT g,CASE WHEN k%3=0 THEN NULL ELSE (k+1)::int END AS m1,CASE WHEN k%4=0 THEN NULL ELSE repeat((k+2)::text,1+k%7)COLLATE "C" END AS m2,CASE WHEN k%5=0 THEN NULL ELSE lpad((k+3)::text,1+(k+3)%63,'n')::name END AS m3,CASE WHEN k%6=0 THEN NULL ELSE (k+4)::bigint END AS m4,CASE WHEN k%7=0 THEN NULL ELSE (k+5)::int END AS m5,CASE WHEN k%8=0 THEN NULL ELSE repeat((k+6)::text,1+k%7)COLLATE "C" END AS m6,CASE WHEN k%9=0 THEN NULL ELSE lpad((k+7)::text,1+(k+7)%63,'n')::name END AS m7,CASE WHEN k%10=0 THEN NULL ELSE (k+8)::bigint END AS m8,CASE WHEN k%11=0 THEN NULL ELSE (k+9)::int END AS m9,CASE WHEN k%12=0 THEN NULL ELSE repeat((k+10)::text,1+k%7)COLLATE "C" END AS m10,CASE WHEN k%13=0 THEN NULL ELSE lpad((k+11)::text,1+(k+11)%63,'n')::name END AS m11,CASE WHEN k%14=0 THEN NULL ELSE (k+12)::bigint END AS m12,CASE WHEN k%15=0 THEN NULL ELSE (k+13)::int END AS m13,CASE WHEN k%16=0 THEN NULL ELSE repeat((k+14)::text,1+k%7)COLLATE "C" END AS m14,CASE WHEN k%17=0 THEN NULL ELSE lpad((k+15)::text,1+(k+15)%63,'n')::name END AS m15,CASE WHEN k%18=0 THEN NULL ELSE (k+16)::bigint END AS m16,CASE WHEN k%19=0 THEN NULL ELSE (k+17)::int END AS m17,CASE WHEN k%20=0 THEN NULL ELSE repeat((k+18)::text,1+k%7)COLLATE "C" END AS m18,CASE WHEN k%21=0 THEN NULL ELSE lpad((k+19)::text,1+(k+19)%63,'n')::name END AS m19,CASE WHEN k%22=0 THEN NULL ELSE (k+20)::bigint END AS m20,CASE WHEN k%23=0 THEN NULL ELSE (k+21)::int END AS m21,CASE WHEN k%24=0 THEN NULL ELSE repeat((k+22)::text,1+k%7)COLLATE "C" END AS m22,CASE WHEN k%25=0 THEN NULL ELSE lpad((k+23)::text,1+(k+23)%63,'n')::name END AS m23,CASE WHEN k%26=0 THEN NULL ELSE (k+24)::bigint END AS m24,CASE WHEN k%27=0 THEN NULL ELSE (k+25)::int END AS m25,CASE WHEN k%28=0 THEN NULL ELSE repeat((k+26)::text,1+k%7)COLLATE "C" END AS m26,CASE WHEN k%29=0 THEN NULL ELSE lpad((k+27)::text,1+(k+27)%63,'n')::name END AS m27,CASE WHEN k%30=0 THEN NULL ELSE (k+28)::bigint END AS m28,CASE WHEN k%31=0 THEN NULL ELSE (k+29)::int END AS m29,CASE WHEN k%32=0 THEN NULL ELSE repeat((k+30)::text,1+k%7)COLLATE "C" END AS m30,CASE WHEN k%33=0 THEN NULL ELSE lpad((k+31)::text,1+(k+31)%63,'n')::name END AS m31 FROM (SELECT g,g%97 k FROM generate_series(1,10000)g)s;
+CREATE INDEX boundary31_idx ON boundary31(m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12,m13,m14,m15,m16,m17,m18,m19,m20,m21,m22,m23,m24,m25,m26,m27,m28,m29,m30,m31);
+VACUUM(FREEZE,ANALYZE)boundary31;
+SET enable_seqscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;SET enable_bitmapscan=off;
+EXPLAIN(COSTS OFF)SELECT sum(hashtextextended(ROW(m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12,m13,m14,m15,m16,m17,m18,m19,m20,m21,m22,m23,m24,m25,m26,m27,m28,m29,m30,m31)::text,0)::numeric) FROM boundary31;
+SELECT compare_boundary_paths($q$SELECT json_build_array(count(*),sum(hashtextextended(ROW(m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12,m13,m14,m15,m16,m17,m18,m19,m20,m21,m22,m23,m24,m25,m26,m27,m28,m29,m30,m31)::text,0)::numeric))::text FROM boundary31$q$);
+DELETE FROM boundary31 WHERE g%5=0;
+SELECT compare_boundary_paths($q$SELECT json_build_array(count(*),sum(hashtextextended(ROW(m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12,m13,m14,m15,m16,m17,m18,m19,m20,m21,m22,m23,m24,m25,m26,m27,m28,m29,m30,m31)::text,0)::numeric))::text FROM boundary31$q$);
+SELECT bt_index_check('boundary31_idx',true);
+DROP TABLE boundary31;
+DROP FUNCTION compare_boundary_paths(text);

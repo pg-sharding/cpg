@@ -1,0 +1,71 @@
+To: pgsql-hackers@lists.postgresql.org
+Subject: [RFC] B-tree IOS posting cache: V14 measurements on a second VM
+Status: UNSENT DRAFT
+
+Hi,
+
+I repeated the unchanged B-tree IOS V13/V14 prototypes on a new AMD EPYC
+Genoa VM (8 vCPUs, 64 GB RAM). V14 moves the tuple eligibility check into
+the caller before entering the optional outlined cache helper; V13's cache
+ownership, invalidation and mark/restore rules remain unchanged. The new
+contribution here is an independent VM repeat and explicit regression/control
+evidence, not a new algorithm or a priority claim.
+
+The wide-key SQL gains repeat (17–50% less execution time versus B), but
+LIMIT 1/2 remain 2.1–3.9% slower. The backward short-posting query is also
+0.9–2.1% slower, with all 24 paired execution-time observations slower than
+both B and its exact twin. Most wide-key gains are already present in V13;
+V14's added gate does not complete the regression repair.
+
+All 19 SQL cases were retained, with baseline/exact baseline twin/V13/V14,
+two warm and 12 retained balanced rounds in each of two CPU/slot/order
+placements. Absolute executor medians below are milliseconds per complete
+statement; LIMIT statements contain 20000 parameterized scans. CPU changes
+are medians of paired same-round ratios. Values are cohort 0 / cohort 1.
+
+case | B executor ms | V14 executor ms | V14/B CPU % | V14/twin CPU % | V14/V13 CPU %
+w8_long_count | 64.636 / 60.228 | 50.166 / 49.240 | -22.00 / -18.11 | -17.59 / -16.30 | -0.70 / -0.14
+f32_long_count | 15.840 / 14.992 | 10.262 / 9.709 | -34.17 / -34.76 | -36.74 / -33.94 | -0.90 / -3.00
+w32_long_tail | 23.245 / 23.231 | 12.018 / 11.735 | -48.39 / -49.13 | -49.44 / -48.11 | -1.61 / -1.77
+f2_p2_count | 59.938 / 51.215 | 64.171 / 50.335 | -0.62 / -1.62 | -2.09 / +0.09 | +1.78 / -0.11
+limit1_from_long | 28.165 / 27.239 | 28.981 / 27.778 | +3.40 / +2.18 | +4.08 / +2.96 | +3.05 / -0.02
+limit2_from_long | 52.194 / 28.603 | 53.793 / 29.489 | +2.46 / +4.11 | +2.40 / +4.50 | +2.47 / +2.25
+mixed2_count | 51.605 / 30.101 | 52.014 / 29.683 | +0.61 / -1.29 | +0.13 / +0.35 | -0.93 / -1.34
+backward_mixed2_sum | 32.683 / 32.487 | 33.483 / 32.556 | +2.24 / +0.32 | +3.22 / +0.90 | +0.37 / -1.21
+backward_f2_p2_sum | 58.701 / 58.728 | 59.962 / 59.227 | +2.13 / +0.83 | +3.05 / +1.37 | +0.72 / +0.01
+regular_heap_index_control | 37.644 / 36.294 | 37.132 / 34.889 | -1.86 / -3.97 | +1.31 / -4.12 | -0.60 / +0.22
+seq_control | 42.445 / 43.272 | 42.427 / 42.713 | +0.46 / -1.27 | -0.68 / +1.12 | +0.73 / +0.92
+
+V14/V13 CPU is higher in both cohorts for: f3_p2_count, limit2_from_long, one_bigint_long_count, seq_control, backward_f2_p2_sum.
+Every negative, control and range is in the accompanying all-case tables.
+The large posting-cache gains versus B, where present, must be distinguished
+from the additional V14-versus-V13 tradeoff. Exact-twin or SeqScan changes
+are not normalized away, and no source/layout/scheduler explanation or
+significance claim is assigned from these measurements alone.
+
+Four fresh full clean matched builds passed all 239 original core tests each.
+The documented replacement correctness seed was recreated on baseline and
+all original target outputs matched unchanged. Native dispatch/cache/ownership
+and actual ABI checks passed. Separate smoke verified 76 plans with zero
+accepted timing observations, before both fixed SQL cohorts completed:
+2128 raw / 1824 retained / 304 warm observations. An independent recount
+checked every cell and pair; zero-denominator ratios are explicitly undefined,
+with every raw value and difference retained. All owned clusters stopped.
+
+GCC 13.3, -O2 -g -fno-lto, OpenSSL, no ICU/readline; release timing,
+JIT/parallel/memoize/autovacuum off, 1GB shared_buffers, warm synthetic data.
+Native helpers here are correctness checks, not new microbenchmark timings.
+CREATE INDEX is fixture setup. This does not establish current-master
+performance or a universal regression repair.
+
+Base is 72b9498df9a369e747f8d96efb5a6cd33c2451e2; V14 source identity is
+113e61347b43d2ae4afb187944ede9e9f6108c24. The packet contains standalone
+V13/V14 alternatives and an optional exact V13-to-V14 diff, not a three-patch
+series, together with full raw/statistical evidence and REPRODUCE.md.
+
+Previous prototype context:
+https://github.com/pg-sharding/cpg/tree/review/index-opt-20261107/ios-v12
+The previous measurement packet was an unsent RFC; no existing mailing-list
+thread or new exhaustive prior-art search is claimed for this draft.
+
+This draft has not been sent.

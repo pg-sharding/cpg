@@ -1,0 +1,119 @@
+{
+  "f2_p2_count": {
+    "sql": "SELECT count(*) FROM f2_p2",
+    "planner": "forced_ios",
+    "heap_fetches": 0,
+    "corpus": "original16"
+  },
+  "f3_p2_count": {
+    "sql": "SELECT count(*) FROM f3_p2",
+    "planner": "forced_ios",
+    "heap_fetches": 0,
+    "corpus": "original16"
+  },
+  "f4_p2_count": {
+    "sql": "SELECT count(*) FROM f4_p2",
+    "planner": "forced_ios",
+    "heap_fetches": 0,
+    "corpus": "original16"
+  },
+  "limit1_from_long": {
+    "sql": "SELECT sum(q.s) FROM generate_series(1,20000)g CROSS JOIN LATERAL (SELECT sum(a4) AS s FROM (SELECT a4 FROM f4_long WHERE a1=g%10000 ORDER BY a2,a3,a4 LIMIT 1)x)q",
+    "planner": "forced_ios",
+    "heap_fetches": 0,
+    "corpus": "original16"
+  },
+  "limit2_from_long": {
+    "sql": "SELECT sum(q.s) FROM generate_series(1,20000)g CROSS JOIN LATERAL (SELECT sum(a4) AS s FROM (SELECT a4 FROM f4_long WHERE a1=g%10000 ORDER BY a2,a3,a4 LIMIT 2)x)q",
+    "planner": "forced_ios",
+    "heap_fetches": 0,
+    "corpus": "original16"
+  },
+  "heap_f4_count": {
+    "sql": "SELECT count(*) FROM heap_f4",
+    "planner": "forced_ios",
+    "heap_fetches": 1000000,
+    "corpus": "original16"
+  },
+  "w8_long_count": {
+    "sql": "SELECT count(*) FROM w8_long",
+    "planner": "default_ios",
+    "heap_fetches": 0,
+    "corpus": "original16"
+  },
+  "w8_long_tail": {
+    "sql": "SELECT sum(octet_length(a8)) FROM w8_long",
+    "planner": "default_ios",
+    "heap_fetches": 0,
+    "corpus": "original16"
+  },
+  "f32_long_count": {
+    "sql": "SELECT count(*) FROM f32_long",
+    "planner": "default_ios",
+    "heap_fetches": 0,
+    "corpus": "original16"
+  },
+  "w32_long_tail": {
+    "sql": "SELECT sum(octet_length(a32)) FROM w32_long",
+    "planner": "default_ios",
+    "heap_fetches": 0,
+    "corpus": "original16"
+  },
+  "one_bigint_long_count": {
+    "sql": "SELECT count(*) FROM one_bigint_long",
+    "planner": "forced_ios",
+    "heap_fetches": 0,
+    "corpus": "original16"
+  },
+  "one_bigint_singleton_count": {
+    "sql": "SELECT count(*) FROM one_bigint_singleton",
+    "planner": "forced_ios",
+    "heap_fetches": 0,
+    "corpus": "original16"
+  },
+  "seq_control": {
+    "sql": "SELECT sum(a::bigint) FROM seq_control",
+    "planner": "seq",
+    "heap_fetches": 0,
+    "corpus": "original16"
+  },
+  "regular_heap_index_control": {
+    "sql": "SELECT sum(a3) FROM incl WHERE a1>=2000 AND a1<4000",
+    "planner": "heap_index",
+    "heap_fetches": 0,
+    "corpus": "original16"
+  },
+  "mixed2_count": {
+    "sql": "SELECT count(*) FROM mixed2",
+    "planner": "forced_ios",
+    "heap_fetches": 0,
+    "corpus": "original16"
+  },
+  "mixed64_count": {
+    "sql": "SELECT count(*) FROM mixed64",
+    "planner": "forced_ios",
+    "heap_fetches": 0,
+    "corpus": "original16"
+  },
+  "backward_mixed2_sum": {
+    "sql": "SELECT sum(a2) FROM (SELECT a2 FROM mixed2 ORDER BY a1 DESC,a2 DESC LIMIT 400000)s",
+    "planner": "forced_ios",
+    "heap_fetches": 0,
+    "limit_rows": 400000,
+    "corpus": "backward-holdout"
+  },
+  "backward_mixed64_sum": {
+    "sql": "SELECT sum(a2) FROM (SELECT a2 FROM mixed64 ORDER BY a1 DESC,a2 DESC LIMIT 400000)s",
+    "planner": "forced_ios",
+    "heap_fetches": 0,
+    "limit_rows": 400000,
+    "corpus": "backward-holdout"
+  },
+  "backward_f2_p2_sum": {
+    "sql": "SELECT sum(a2) FROM (SELECT a2 FROM f2_p2 ORDER BY a1 DESC,a2 DESC LIMIT 800000)s",
+    "planner": "forced_ios",
+    "heap_fetches": 0,
+    "limit_rows": 800000,
+    "corpus": "backward-holdout"
+  }
+}

@@ -1,0 +1,2088 @@
+{
+  "status": "PASS",
+  "phase": "smoke",
+  "scope": "Executed same sequential-reference/actual-query/checksum/GUC statement order in every timed persistent backend before CHECKPOINT and timed rounds. This does not prove all backend/shared state equal. Old R2 used asymmetric histories and remains unchanged.",
+  "expected_command_count_per_role": 128,
+  "roles": {
+    "base": {
+      "pid": 191109,
+      "command_count": 128,
+      "statement_sequence_sha256": "f5019ba3d88b3a16738263396207c9e957961fd6b8b88f0e807587f5752da18f",
+      "response_sequence_sha256": "1630e53e626d6bc1c5d5bbb12b94b1234b3702ca574a3e854e39b09e468fa550",
+      "statements": [
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM f2_p2;",
+          "result_sha256": "085c348f64a3b543e973a33749e90ba20847b99016a87e5228847597d61ce582"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM f2_p2;",
+          "result_sha256": "085c348f64a3b543e973a33749e90ba20847b99016a87e5228847597d61ce582"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM f3_p2;",
+          "result_sha256": "085c348f64a3b543e973a33749e90ba20847b99016a87e5228847597d61ce582"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM f3_p2;",
+          "result_sha256": "085c348f64a3b543e973a33749e90ba20847b99016a87e5228847597d61ce582"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM f4_p2;",
+          "result_sha256": "085c348f64a3b543e973a33749e90ba20847b99016a87e5228847597d61ce582"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM f4_p2;",
+          "result_sha256": "085c348f64a3b543e973a33749e90ba20847b99016a87e5228847597d61ce582"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT sum(v)*2 FROM (SELECT a1,min(a4) AS v FROM f4_long GROUP BY a1)s;",
+          "result_sha256": "3d0d94fcdc915153e412eb65a860a24af1b8aa1ed995ffee87fe2b23fc4cc1b2"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT sum(q.s) FROM generate_series(1,20000)g CROSS JOIN LATERAL (SELECT sum(a4) AS s FROM (SELECT a4 FROM f4_long WHERE a1=g%10000 ORDER BY a2,a3,a4 LIMIT 1)x)q;",
+          "result_sha256": "3d0d94fcdc915153e412eb65a860a24af1b8aa1ed995ffee87fe2b23fc4cc1b2"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT sum(v)*4 FROM (SELECT a1,min(a4) AS v FROM f4_long GROUP BY a1)s;",
+          "result_sha256": "b8c9668e0824e5359823639a8b5fb54df1ac98a4245c8042c91e08045af7cc09"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT sum(q.s) FROM generate_series(1,20000)g CROSS JOIN LATERAL (SELECT sum(a4) AS s FROM (SELECT a4 FROM f4_long WHERE a1=g%10000 ORDER BY a2,a3,a4 LIMIT 2)x)q;",
+          "result_sha256": "b8c9668e0824e5359823639a8b5fb54df1ac98a4245c8042c91e08045af7cc09"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM heap_f4;",
+          "result_sha256": "085c348f64a3b543e973a33749e90ba20847b99016a87e5228847597d61ce582"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM heap_f4;",
+          "result_sha256": "085c348f64a3b543e973a33749e90ba20847b99016a87e5228847597d61ce582"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM w8_long;",
+          "result_sha256": "085c348f64a3b543e973a33749e90ba20847b99016a87e5228847597d61ce582"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_bitmapscan=on;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM w8_long;",
+          "result_sha256": "085c348f64a3b543e973a33749e90ba20847b99016a87e5228847597d61ce582"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT sum(octet_length(a8)) FROM w8_long;",
+          "result_sha256": "fea0be6c7b2b74a6181bcf68ba2fa6555a04aa48405f5e1b0e2c6f3cad267b18"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_bitmapscan=on;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT sum(octet_length(a8)) FROM w8_long;",
+          "result_sha256": "fea0be6c7b2b74a6181bcf68ba2fa6555a04aa48405f5e1b0e2c6f3cad267b18"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM f32_long;",
+          "result_sha256": "d43574be921c54215a1e05bb2fc0c1a4b63dd2aea4bbfd5b9ebc11a2685943e2"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_bitmapscan=on;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM f32_long;",
+          "result_sha256": "d43574be921c54215a1e05bb2fc0c1a4b63dd2aea4bbfd5b9ebc11a2685943e2"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT sum(octet_length(a32)) FROM w32_long;",
+          "result_sha256": "b7a7fb5fca3373c696194cf746ddadb22bed65402e8135b376889d6204cfe873"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_bitmapscan=on;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT sum(octet_length(a32)) FROM w32_long;",
+          "result_sha256": "b7a7fb5fca3373c696194cf746ddadb22bed65402e8135b376889d6204cfe873"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM one_bigint_long;",
+          "result_sha256": "085c348f64a3b543e973a33749e90ba20847b99016a87e5228847597d61ce582"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM one_bigint_long;",
+          "result_sha256": "085c348f64a3b543e973a33749e90ba20847b99016a87e5228847597d61ce582"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM one_bigint_singleton;",
+          "result_sha256": "085c348f64a3b543e973a33749e90ba20847b99016a87e5228847597d61ce582"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM one_bigint_singleton;",
+          "result_sha256": "085c348f64a3b543e973a33749e90ba20847b99016a87e5228847597d61ce582"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT sum(a::bigint) FROM seq_control;",
+          "result_sha256": "5686e0c7e4dc13fd1094468bd05fec6364410fc61f519c0b8310911c822a7374"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_bitmapscan=on;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT sum(a::bigint) FROM seq_control;",
+          "result_sha256": "5686e0c7e4dc13fd1094468bd05fec6364410fc61f519c0b8310911c822a7374"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT sum(a3) FROM incl WHERE a1>=2000 AND a1<4000;",
+          "result_sha256": "84aeb303f724da6f9d14d1e2765ce3fb559dcb6625037b9d38cd15a4331cf8f7"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT sum(a3) FROM incl WHERE a1>=2000 AND a1<4000;",
+          "result_sha256": "84aeb303f724da6f9d14d1e2765ce3fb559dcb6625037b9d38cd15a4331cf8f7"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM mixed2;",
+          "result_sha256": "89feddbbbd149a2a454fc3b6db450c6cbe8cd926237521f2080641499af13f0a"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM mixed2;",
+          "result_sha256": "89feddbbbd149a2a454fc3b6db450c6cbe8cd926237521f2080641499af13f0a"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM mixed64;",
+          "result_sha256": "7e165c1d59dc6841b4ecb256d7eff8c9bdf2c582cfa4ca670f01025d6fb76a9d"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM mixed64;",
+          "result_sha256": "7e165c1d59dc6841b4ecb256d7eff8c9bdf2c582cfa4ca670f01025d6fb76a9d"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT sum(a2) FROM (SELECT a2 FROM mixed2 ORDER BY a1 DESC,a2 DESC LIMIT 400000)s;",
+          "result_sha256": "6f9738f0e073544cd7d647e709b4ee84bfafa1ef47f5a405737ae0d1f36e269b"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT sum(a2) FROM (SELECT a2 FROM mixed2 ORDER BY a1 DESC,a2 DESC LIMIT 400000)s;",
+          "result_sha256": "6f9738f0e073544cd7d647e709b4ee84bfafa1ef47f5a405737ae0d1f36e269b"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT sum(a2) FROM (SELECT a2 FROM mixed64 ORDER BY a1 DESC,a2 DESC LIMIT 400000)s;",
+          "result_sha256": "d0542070b05534adb921953f777e612ecc5558a2b15e30bad0a27ea786194132"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT sum(a2) FROM (SELECT a2 FROM mixed64 ORDER BY a1 DESC,a2 DESC LIMIT 400000)s;",
+          "result_sha256": "d0542070b05534adb921953f777e612ecc5558a2b15e30bad0a27ea786194132"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT sum(a2) FROM (SELECT a2 FROM f2_p2 ORDER BY a1 DESC,a2 DESC LIMIT 800000)s;",
+          "result_sha256": "f9991d8a225ed462a7655eeede530e3720808b50b7825c5a27b82fadc0292780"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT sum(a2) FROM (SELECT a2 FROM f2_p2 ORDER BY a1 DESC,a2 DESC LIMIT 800000)s;",
+          "result_sha256": "f9991d8a225ed462a7655eeede530e3720808b50b7825c5a27b82fadc0292780"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2)::text,0)::numeric))::text FROM f2_p2;",
+          "result_sha256": "e236199461c14e18c1a8cfda258b021eb567a7a7c1e6c598d978a216f1e06e4a"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2)::text,0)::numeric))::text FROM f2_p2;",
+          "result_sha256": "e236199461c14e18c1a8cfda258b021eb567a7a7c1e6c598d978a216f1e06e4a"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2,a3)::text,0)::numeric))::text FROM f3_p2;",
+          "result_sha256": "b3790bf7d2520bbef1038f034485fd80dbfc538adb91b27054d5e049759b5964"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2,a3)::text,0)::numeric))::text FROM f3_p2;",
+          "result_sha256": "b3790bf7d2520bbef1038f034485fd80dbfc538adb91b27054d5e049759b5964"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2,a3,a4)::text,0)::numeric))::text FROM f4_p2;",
+          "result_sha256": "ebbea507fbd4f5a68f354f811484c58d22156adf0479d98aa137701190855c63"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2,a3,a4)::text,0)::numeric))::text FROM f4_p2;",
+          "result_sha256": "ebbea507fbd4f5a68f354f811484c58d22156adf0479d98aa137701190855c63"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2,a3,a4)::text,0)::numeric))::text FROM f4_long;",
+          "result_sha256": "b3c76419cc062a7158e67ebabc83fd83f357c01d1d1b0fbcaa2351fa841ee61c"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2,a3,a4)::text,0)::numeric))::text FROM f4_long;",
+          "result_sha256": "b3c76419cc062a7158e67ebabc83fd83f357c01d1d1b0fbcaa2351fa841ee61c"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2,a3,a4,a5,a6,a7,a8)::text,0)::numeric))::text FROM w8_long;",
+          "result_sha256": "fa813e3b342e66582e14ee8bd532cb275fc5e0080911b8d4255750984c86e258"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2,a3,a4,a5,a6,a7,a8)::text,0)::numeric))::text FROM w8_long;",
+          "result_sha256": "fa813e3b342e66582e14ee8bd532cb275fc5e0080911b8d4255750984c86e258"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2)::text,0)::numeric))::text FROM incl;",
+          "result_sha256": "dec74ad0e0b09b065e6a30d7f7a4175f8f159789f76daf6e8491e0096d5087c4"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2)::text,0)::numeric))::text FROM incl;",
+          "result_sha256": "dec74ad0e0b09b065e6a30d7f7a4175f8f159789f76daf6e8491e0096d5087c4"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2,a3,a4)::text,0)::numeric))::text FROM heap_f4;",
+          "result_sha256": "b3c76419cc062a7158e67ebabc83fd83f357c01d1d1b0fbcaa2351fa841ee61c"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2,a3,a4)::text,0)::numeric))::text FROM heap_f4;",
+          "result_sha256": "b3c76419cc062a7158e67ebabc83fd83f357c01d1d1b0fbcaa2351fa841ee61c"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13,a14,a15,a16,a17,a18,a19,a20,a21,a22,a23,a24,a25,a26,a27,a28,a29,a30,a31,a32)::text,0)::numeric))::text FROM f32_long;",
+          "result_sha256": "c23d5cbb8f671bc5ad6d2033f656876dcbcb8534aa4be81533fecb2fe553b00d"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13,a14,a15,a16,a17,a18,a19,a20,a21,a22,a23,a24,a25,a26,a27,a28,a29,a30,a31,a32)::text,0)::numeric))::text FROM f32_long;",
+          "result_sha256": "c23d5cbb8f671bc5ad6d2033f656876dcbcb8534aa4be81533fecb2fe553b00d"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13,a14,a15,a16,a17,a18,a19,a20,a21,a22,a23,a24,a25,a26,a27,a28,a29,a30,a31,a32)::text,0)::numeric))::text FROM w32_long;",
+          "result_sha256": "d5439283ceb6e6ab7ed19ad7f045370fe1dd8a84728e3241aa20cb2e4afeafe5"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13,a14,a15,a16,a17,a18,a19,a20,a21,a22,a23,a24,a25,a26,a27,a28,a29,a30,a31,a32)::text,0)::numeric))::text FROM w32_long;",
+          "result_sha256": "d5439283ceb6e6ab7ed19ad7f045370fe1dd8a84728e3241aa20cb2e4afeafe5"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1)::text,0)::numeric))::text FROM one_bigint_long;",
+          "result_sha256": "f9ad6cf17098a48654743d816894c0063eca7388d42af65194dbd941b6bd5d7a"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1)::text,0)::numeric))::text FROM one_bigint_long;",
+          "result_sha256": "f9ad6cf17098a48654743d816894c0063eca7388d42af65194dbd941b6bd5d7a"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1)::text,0)::numeric))::text FROM one_bigint_singleton;",
+          "result_sha256": "453865caa8ad03c9ada9882951b27f7f57c72fac9a9308909570ee74b910b9b0"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1)::text,0)::numeric))::text FROM one_bigint_singleton;",
+          "result_sha256": "453865caa8ad03c9ada9882951b27f7f57c72fac9a9308909570ee74b910b9b0"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2)::text,0)::numeric))::text FROM mixed2;",
+          "result_sha256": "f935799e61f9280956bdab120c2f1e3a188263dc2ffcdc1a15b087231250655c"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2)::text,0)::numeric))::text FROM mixed2;",
+          "result_sha256": "f935799e61f9280956bdab120c2f1e3a188263dc2ffcdc1a15b087231250655c"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2)::text,0)::numeric))::text FROM mixed64;",
+          "result_sha256": "05cba49ee74c3560ef1398d8075acb5e53b9e6c4cd18829ec292a7fdfab6db12"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2)::text,0)::numeric))::text FROM mixed64;",
+          "result_sha256": "05cba49ee74c3560ef1398d8075acb5e53b9e6c4cd18829ec292a7fdfab6db12"
+        }
+      ]
+    },
+    "base_twin": {
+      "pid": 191111,
+      "command_count": 128,
+      "statement_sequence_sha256": "f5019ba3d88b3a16738263396207c9e957961fd6b8b88f0e807587f5752da18f",
+      "response_sequence_sha256": "1630e53e626d6bc1c5d5bbb12b94b1234b3702ca574a3e854e39b09e468fa550",
+      "statements": [
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM f2_p2;",
+          "result_sha256": "085c348f64a3b543e973a33749e90ba20847b99016a87e5228847597d61ce582"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM f2_p2;",
+          "result_sha256": "085c348f64a3b543e973a33749e90ba20847b99016a87e5228847597d61ce582"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM f3_p2;",
+          "result_sha256": "085c348f64a3b543e973a33749e90ba20847b99016a87e5228847597d61ce582"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM f3_p2;",
+          "result_sha256": "085c348f64a3b543e973a33749e90ba20847b99016a87e5228847597d61ce582"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM f4_p2;",
+          "result_sha256": "085c348f64a3b543e973a33749e90ba20847b99016a87e5228847597d61ce582"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM f4_p2;",
+          "result_sha256": "085c348f64a3b543e973a33749e90ba20847b99016a87e5228847597d61ce582"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT sum(v)*2 FROM (SELECT a1,min(a4) AS v FROM f4_long GROUP BY a1)s;",
+          "result_sha256": "3d0d94fcdc915153e412eb65a860a24af1b8aa1ed995ffee87fe2b23fc4cc1b2"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT sum(q.s) FROM generate_series(1,20000)g CROSS JOIN LATERAL (SELECT sum(a4) AS s FROM (SELECT a4 FROM f4_long WHERE a1=g%10000 ORDER BY a2,a3,a4 LIMIT 1)x)q;",
+          "result_sha256": "3d0d94fcdc915153e412eb65a860a24af1b8aa1ed995ffee87fe2b23fc4cc1b2"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT sum(v)*4 FROM (SELECT a1,min(a4) AS v FROM f4_long GROUP BY a1)s;",
+          "result_sha256": "b8c9668e0824e5359823639a8b5fb54df1ac98a4245c8042c91e08045af7cc09"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT sum(q.s) FROM generate_series(1,20000)g CROSS JOIN LATERAL (SELECT sum(a4) AS s FROM (SELECT a4 FROM f4_long WHERE a1=g%10000 ORDER BY a2,a3,a4 LIMIT 2)x)q;",
+          "result_sha256": "b8c9668e0824e5359823639a8b5fb54df1ac98a4245c8042c91e08045af7cc09"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM heap_f4;",
+          "result_sha256": "085c348f64a3b543e973a33749e90ba20847b99016a87e5228847597d61ce582"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM heap_f4;",
+          "result_sha256": "085c348f64a3b543e973a33749e90ba20847b99016a87e5228847597d61ce582"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM w8_long;",
+          "result_sha256": "085c348f64a3b543e973a33749e90ba20847b99016a87e5228847597d61ce582"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_bitmapscan=on;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM w8_long;",
+          "result_sha256": "085c348f64a3b543e973a33749e90ba20847b99016a87e5228847597d61ce582"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT sum(octet_length(a8)) FROM w8_long;",
+          "result_sha256": "fea0be6c7b2b74a6181bcf68ba2fa6555a04aa48405f5e1b0e2c6f3cad267b18"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_bitmapscan=on;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT sum(octet_length(a8)) FROM w8_long;",
+          "result_sha256": "fea0be6c7b2b74a6181bcf68ba2fa6555a04aa48405f5e1b0e2c6f3cad267b18"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM f32_long;",
+          "result_sha256": "d43574be921c54215a1e05bb2fc0c1a4b63dd2aea4bbfd5b9ebc11a2685943e2"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_bitmapscan=on;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM f32_long;",
+          "result_sha256": "d43574be921c54215a1e05bb2fc0c1a4b63dd2aea4bbfd5b9ebc11a2685943e2"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT sum(octet_length(a32)) FROM w32_long;",
+          "result_sha256": "b7a7fb5fca3373c696194cf746ddadb22bed65402e8135b376889d6204cfe873"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_bitmapscan=on;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT sum(octet_length(a32)) FROM w32_long;",
+          "result_sha256": "b7a7fb5fca3373c696194cf746ddadb22bed65402e8135b376889d6204cfe873"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM one_bigint_long;",
+          "result_sha256": "085c348f64a3b543e973a33749e90ba20847b99016a87e5228847597d61ce582"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM one_bigint_long;",
+          "result_sha256": "085c348f64a3b543e973a33749e90ba20847b99016a87e5228847597d61ce582"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM one_bigint_singleton;",
+          "result_sha256": "085c348f64a3b543e973a33749e90ba20847b99016a87e5228847597d61ce582"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM one_bigint_singleton;",
+          "result_sha256": "085c348f64a3b543e973a33749e90ba20847b99016a87e5228847597d61ce582"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT sum(a::bigint) FROM seq_control;",
+          "result_sha256": "5686e0c7e4dc13fd1094468bd05fec6364410fc61f519c0b8310911c822a7374"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_bitmapscan=on;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT sum(a::bigint) FROM seq_control;",
+          "result_sha256": "5686e0c7e4dc13fd1094468bd05fec6364410fc61f519c0b8310911c822a7374"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT sum(a3) FROM incl WHERE a1>=2000 AND a1<4000;",
+          "result_sha256": "84aeb303f724da6f9d14d1e2765ce3fb559dcb6625037b9d38cd15a4331cf8f7"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT sum(a3) FROM incl WHERE a1>=2000 AND a1<4000;",
+          "result_sha256": "84aeb303f724da6f9d14d1e2765ce3fb559dcb6625037b9d38cd15a4331cf8f7"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM mixed2;",
+          "result_sha256": "89feddbbbd149a2a454fc3b6db450c6cbe8cd926237521f2080641499af13f0a"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM mixed2;",
+          "result_sha256": "89feddbbbd149a2a454fc3b6db450c6cbe8cd926237521f2080641499af13f0a"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM mixed64;",
+          "result_sha256": "7e165c1d59dc6841b4ecb256d7eff8c9bdf2c582cfa4ca670f01025d6fb76a9d"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM mixed64;",
+          "result_sha256": "7e165c1d59dc6841b4ecb256d7eff8c9bdf2c582cfa4ca670f01025d6fb76a9d"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT sum(a2) FROM (SELECT a2 FROM mixed2 ORDER BY a1 DESC,a2 DESC LIMIT 400000)s;",
+          "result_sha256": "6f9738f0e073544cd7d647e709b4ee84bfafa1ef47f5a405737ae0d1f36e269b"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT sum(a2) FROM (SELECT a2 FROM mixed2 ORDER BY a1 DESC,a2 DESC LIMIT 400000)s;",
+          "result_sha256": "6f9738f0e073544cd7d647e709b4ee84bfafa1ef47f5a405737ae0d1f36e269b"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT sum(a2) FROM (SELECT a2 FROM mixed64 ORDER BY a1 DESC,a2 DESC LIMIT 400000)s;",
+          "result_sha256": "d0542070b05534adb921953f777e612ecc5558a2b15e30bad0a27ea786194132"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT sum(a2) FROM (SELECT a2 FROM mixed64 ORDER BY a1 DESC,a2 DESC LIMIT 400000)s;",
+          "result_sha256": "d0542070b05534adb921953f777e612ecc5558a2b15e30bad0a27ea786194132"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT sum(a2) FROM (SELECT a2 FROM f2_p2 ORDER BY a1 DESC,a2 DESC LIMIT 800000)s;",
+          "result_sha256": "f9991d8a225ed462a7655eeede530e3720808b50b7825c5a27b82fadc0292780"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT sum(a2) FROM (SELECT a2 FROM f2_p2 ORDER BY a1 DESC,a2 DESC LIMIT 800000)s;",
+          "result_sha256": "f9991d8a225ed462a7655eeede530e3720808b50b7825c5a27b82fadc0292780"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2)::text,0)::numeric))::text FROM f2_p2;",
+          "result_sha256": "e236199461c14e18c1a8cfda258b021eb567a7a7c1e6c598d978a216f1e06e4a"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2)::text,0)::numeric))::text FROM f2_p2;",
+          "result_sha256": "e236199461c14e18c1a8cfda258b021eb567a7a7c1e6c598d978a216f1e06e4a"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2,a3)::text,0)::numeric))::text FROM f3_p2;",
+          "result_sha256": "b3790bf7d2520bbef1038f034485fd80dbfc538adb91b27054d5e049759b5964"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2,a3)::text,0)::numeric))::text FROM f3_p2;",
+          "result_sha256": "b3790bf7d2520bbef1038f034485fd80dbfc538adb91b27054d5e049759b5964"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2,a3,a4)::text,0)::numeric))::text FROM f4_p2;",
+          "result_sha256": "ebbea507fbd4f5a68f354f811484c58d22156adf0479d98aa137701190855c63"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2,a3,a4)::text,0)::numeric))::text FROM f4_p2;",
+          "result_sha256": "ebbea507fbd4f5a68f354f811484c58d22156adf0479d98aa137701190855c63"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2,a3,a4)::text,0)::numeric))::text FROM f4_long;",
+          "result_sha256": "b3c76419cc062a7158e67ebabc83fd83f357c01d1d1b0fbcaa2351fa841ee61c"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2,a3,a4)::text,0)::numeric))::text FROM f4_long;",
+          "result_sha256": "b3c76419cc062a7158e67ebabc83fd83f357c01d1d1b0fbcaa2351fa841ee61c"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2,a3,a4,a5,a6,a7,a8)::text,0)::numeric))::text FROM w8_long;",
+          "result_sha256": "fa813e3b342e66582e14ee8bd532cb275fc5e0080911b8d4255750984c86e258"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2,a3,a4,a5,a6,a7,a8)::text,0)::numeric))::text FROM w8_long;",
+          "result_sha256": "fa813e3b342e66582e14ee8bd532cb275fc5e0080911b8d4255750984c86e258"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2)::text,0)::numeric))::text FROM incl;",
+          "result_sha256": "dec74ad0e0b09b065e6a30d7f7a4175f8f159789f76daf6e8491e0096d5087c4"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2)::text,0)::numeric))::text FROM incl;",
+          "result_sha256": "dec74ad0e0b09b065e6a30d7f7a4175f8f159789f76daf6e8491e0096d5087c4"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2,a3,a4)::text,0)::numeric))::text FROM heap_f4;",
+          "result_sha256": "b3c76419cc062a7158e67ebabc83fd83f357c01d1d1b0fbcaa2351fa841ee61c"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2,a3,a4)::text,0)::numeric))::text FROM heap_f4;",
+          "result_sha256": "b3c76419cc062a7158e67ebabc83fd83f357c01d1d1b0fbcaa2351fa841ee61c"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13,a14,a15,a16,a17,a18,a19,a20,a21,a22,a23,a24,a25,a26,a27,a28,a29,a30,a31,a32)::text,0)::numeric))::text FROM f32_long;",
+          "result_sha256": "c23d5cbb8f671bc5ad6d2033f656876dcbcb8534aa4be81533fecb2fe553b00d"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13,a14,a15,a16,a17,a18,a19,a20,a21,a22,a23,a24,a25,a26,a27,a28,a29,a30,a31,a32)::text,0)::numeric))::text FROM f32_long;",
+          "result_sha256": "c23d5cbb8f671bc5ad6d2033f656876dcbcb8534aa4be81533fecb2fe553b00d"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13,a14,a15,a16,a17,a18,a19,a20,a21,a22,a23,a24,a25,a26,a27,a28,a29,a30,a31,a32)::text,0)::numeric))::text FROM w32_long;",
+          "result_sha256": "d5439283ceb6e6ab7ed19ad7f045370fe1dd8a84728e3241aa20cb2e4afeafe5"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13,a14,a15,a16,a17,a18,a19,a20,a21,a22,a23,a24,a25,a26,a27,a28,a29,a30,a31,a32)::text,0)::numeric))::text FROM w32_long;",
+          "result_sha256": "d5439283ceb6e6ab7ed19ad7f045370fe1dd8a84728e3241aa20cb2e4afeafe5"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1)::text,0)::numeric))::text FROM one_bigint_long;",
+          "result_sha256": "f9ad6cf17098a48654743d816894c0063eca7388d42af65194dbd941b6bd5d7a"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1)::text,0)::numeric))::text FROM one_bigint_long;",
+          "result_sha256": "f9ad6cf17098a48654743d816894c0063eca7388d42af65194dbd941b6bd5d7a"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1)::text,0)::numeric))::text FROM one_bigint_singleton;",
+          "result_sha256": "453865caa8ad03c9ada9882951b27f7f57c72fac9a9308909570ee74b910b9b0"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1)::text,0)::numeric))::text FROM one_bigint_singleton;",
+          "result_sha256": "453865caa8ad03c9ada9882951b27f7f57c72fac9a9308909570ee74b910b9b0"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2)::text,0)::numeric))::text FROM mixed2;",
+          "result_sha256": "f935799e61f9280956bdab120c2f1e3a188263dc2ffcdc1a15b087231250655c"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2)::text,0)::numeric))::text FROM mixed2;",
+          "result_sha256": "f935799e61f9280956bdab120c2f1e3a188263dc2ffcdc1a15b087231250655c"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2)::text,0)::numeric))::text FROM mixed64;",
+          "result_sha256": "05cba49ee74c3560ef1398d8075acb5e53b9e6c4cd18829ec292a7fdfab6db12"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2)::text,0)::numeric))::text FROM mixed64;",
+          "result_sha256": "05cba49ee74c3560ef1398d8075acb5e53b9e6c4cd18829ec292a7fdfab6db12"
+        }
+      ]
+    },
+    "v13": {
+      "pid": 191113,
+      "command_count": 128,
+      "statement_sequence_sha256": "f5019ba3d88b3a16738263396207c9e957961fd6b8b88f0e807587f5752da18f",
+      "response_sequence_sha256": "1630e53e626d6bc1c5d5bbb12b94b1234b3702ca574a3e854e39b09e468fa550",
+      "statements": [
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM f2_p2;",
+          "result_sha256": "085c348f64a3b543e973a33749e90ba20847b99016a87e5228847597d61ce582"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM f2_p2;",
+          "result_sha256": "085c348f64a3b543e973a33749e90ba20847b99016a87e5228847597d61ce582"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM f3_p2;",
+          "result_sha256": "085c348f64a3b543e973a33749e90ba20847b99016a87e5228847597d61ce582"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM f3_p2;",
+          "result_sha256": "085c348f64a3b543e973a33749e90ba20847b99016a87e5228847597d61ce582"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM f4_p2;",
+          "result_sha256": "085c348f64a3b543e973a33749e90ba20847b99016a87e5228847597d61ce582"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM f4_p2;",
+          "result_sha256": "085c348f64a3b543e973a33749e90ba20847b99016a87e5228847597d61ce582"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT sum(v)*2 FROM (SELECT a1,min(a4) AS v FROM f4_long GROUP BY a1)s;",
+          "result_sha256": "3d0d94fcdc915153e412eb65a860a24af1b8aa1ed995ffee87fe2b23fc4cc1b2"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT sum(q.s) FROM generate_series(1,20000)g CROSS JOIN LATERAL (SELECT sum(a4) AS s FROM (SELECT a4 FROM f4_long WHERE a1=g%10000 ORDER BY a2,a3,a4 LIMIT 1)x)q;",
+          "result_sha256": "3d0d94fcdc915153e412eb65a860a24af1b8aa1ed995ffee87fe2b23fc4cc1b2"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT sum(v)*4 FROM (SELECT a1,min(a4) AS v FROM f4_long GROUP BY a1)s;",
+          "result_sha256": "b8c9668e0824e5359823639a8b5fb54df1ac98a4245c8042c91e08045af7cc09"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT sum(q.s) FROM generate_series(1,20000)g CROSS JOIN LATERAL (SELECT sum(a4) AS s FROM (SELECT a4 FROM f4_long WHERE a1=g%10000 ORDER BY a2,a3,a4 LIMIT 2)x)q;",
+          "result_sha256": "b8c9668e0824e5359823639a8b5fb54df1ac98a4245c8042c91e08045af7cc09"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM heap_f4;",
+          "result_sha256": "085c348f64a3b543e973a33749e90ba20847b99016a87e5228847597d61ce582"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM heap_f4;",
+          "result_sha256": "085c348f64a3b543e973a33749e90ba20847b99016a87e5228847597d61ce582"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM w8_long;",
+          "result_sha256": "085c348f64a3b543e973a33749e90ba20847b99016a87e5228847597d61ce582"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_bitmapscan=on;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM w8_long;",
+          "result_sha256": "085c348f64a3b543e973a33749e90ba20847b99016a87e5228847597d61ce582"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT sum(octet_length(a8)) FROM w8_long;",
+          "result_sha256": "fea0be6c7b2b74a6181bcf68ba2fa6555a04aa48405f5e1b0e2c6f3cad267b18"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_bitmapscan=on;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT sum(octet_length(a8)) FROM w8_long;",
+          "result_sha256": "fea0be6c7b2b74a6181bcf68ba2fa6555a04aa48405f5e1b0e2c6f3cad267b18"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM f32_long;",
+          "result_sha256": "d43574be921c54215a1e05bb2fc0c1a4b63dd2aea4bbfd5b9ebc11a2685943e2"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_bitmapscan=on;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM f32_long;",
+          "result_sha256": "d43574be921c54215a1e05bb2fc0c1a4b63dd2aea4bbfd5b9ebc11a2685943e2"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT sum(octet_length(a32)) FROM w32_long;",
+          "result_sha256": "b7a7fb5fca3373c696194cf746ddadb22bed65402e8135b376889d6204cfe873"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_bitmapscan=on;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT sum(octet_length(a32)) FROM w32_long;",
+          "result_sha256": "b7a7fb5fca3373c696194cf746ddadb22bed65402e8135b376889d6204cfe873"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM one_bigint_long;",
+          "result_sha256": "085c348f64a3b543e973a33749e90ba20847b99016a87e5228847597d61ce582"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM one_bigint_long;",
+          "result_sha256": "085c348f64a3b543e973a33749e90ba20847b99016a87e5228847597d61ce582"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM one_bigint_singleton;",
+          "result_sha256": "085c348f64a3b543e973a33749e90ba20847b99016a87e5228847597d61ce582"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM one_bigint_singleton;",
+          "result_sha256": "085c348f64a3b543e973a33749e90ba20847b99016a87e5228847597d61ce582"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT sum(a::bigint) FROM seq_control;",
+          "result_sha256": "5686e0c7e4dc13fd1094468bd05fec6364410fc61f519c0b8310911c822a7374"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_bitmapscan=on;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT sum(a::bigint) FROM seq_control;",
+          "result_sha256": "5686e0c7e4dc13fd1094468bd05fec6364410fc61f519c0b8310911c822a7374"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT sum(a3) FROM incl WHERE a1>=2000 AND a1<4000;",
+          "result_sha256": "84aeb303f724da6f9d14d1e2765ce3fb559dcb6625037b9d38cd15a4331cf8f7"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT sum(a3) FROM incl WHERE a1>=2000 AND a1<4000;",
+          "result_sha256": "84aeb303f724da6f9d14d1e2765ce3fb559dcb6625037b9d38cd15a4331cf8f7"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM mixed2;",
+          "result_sha256": "89feddbbbd149a2a454fc3b6db450c6cbe8cd926237521f2080641499af13f0a"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM mixed2;",
+          "result_sha256": "89feddbbbd149a2a454fc3b6db450c6cbe8cd926237521f2080641499af13f0a"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM mixed64;",
+          "result_sha256": "7e165c1d59dc6841b4ecb256d7eff8c9bdf2c582cfa4ca670f01025d6fb76a9d"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM mixed64;",
+          "result_sha256": "7e165c1d59dc6841b4ecb256d7eff8c9bdf2c582cfa4ca670f01025d6fb76a9d"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT sum(a2) FROM (SELECT a2 FROM mixed2 ORDER BY a1 DESC,a2 DESC LIMIT 400000)s;",
+          "result_sha256": "6f9738f0e073544cd7d647e709b4ee84bfafa1ef47f5a405737ae0d1f36e269b"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT sum(a2) FROM (SELECT a2 FROM mixed2 ORDER BY a1 DESC,a2 DESC LIMIT 400000)s;",
+          "result_sha256": "6f9738f0e073544cd7d647e709b4ee84bfafa1ef47f5a405737ae0d1f36e269b"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT sum(a2) FROM (SELECT a2 FROM mixed64 ORDER BY a1 DESC,a2 DESC LIMIT 400000)s;",
+          "result_sha256": "d0542070b05534adb921953f777e612ecc5558a2b15e30bad0a27ea786194132"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT sum(a2) FROM (SELECT a2 FROM mixed64 ORDER BY a1 DESC,a2 DESC LIMIT 400000)s;",
+          "result_sha256": "d0542070b05534adb921953f777e612ecc5558a2b15e30bad0a27ea786194132"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT sum(a2) FROM (SELECT a2 FROM f2_p2 ORDER BY a1 DESC,a2 DESC LIMIT 800000)s;",
+          "result_sha256": "f9991d8a225ed462a7655eeede530e3720808b50b7825c5a27b82fadc0292780"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT sum(a2) FROM (SELECT a2 FROM f2_p2 ORDER BY a1 DESC,a2 DESC LIMIT 800000)s;",
+          "result_sha256": "f9991d8a225ed462a7655eeede530e3720808b50b7825c5a27b82fadc0292780"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2)::text,0)::numeric))::text FROM f2_p2;",
+          "result_sha256": "e236199461c14e18c1a8cfda258b021eb567a7a7c1e6c598d978a216f1e06e4a"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2)::text,0)::numeric))::text FROM f2_p2;",
+          "result_sha256": "e236199461c14e18c1a8cfda258b021eb567a7a7c1e6c598d978a216f1e06e4a"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2,a3)::text,0)::numeric))::text FROM f3_p2;",
+          "result_sha256": "b3790bf7d2520bbef1038f034485fd80dbfc538adb91b27054d5e049759b5964"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2,a3)::text,0)::numeric))::text FROM f3_p2;",
+          "result_sha256": "b3790bf7d2520bbef1038f034485fd80dbfc538adb91b27054d5e049759b5964"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2,a3,a4)::text,0)::numeric))::text FROM f4_p2;",
+          "result_sha256": "ebbea507fbd4f5a68f354f811484c58d22156adf0479d98aa137701190855c63"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2,a3,a4)::text,0)::numeric))::text FROM f4_p2;",
+          "result_sha256": "ebbea507fbd4f5a68f354f811484c58d22156adf0479d98aa137701190855c63"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2,a3,a4)::text,0)::numeric))::text FROM f4_long;",
+          "result_sha256": "b3c76419cc062a7158e67ebabc83fd83f357c01d1d1b0fbcaa2351fa841ee61c"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2,a3,a4)::text,0)::numeric))::text FROM f4_long;",
+          "result_sha256": "b3c76419cc062a7158e67ebabc83fd83f357c01d1d1b0fbcaa2351fa841ee61c"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2,a3,a4,a5,a6,a7,a8)::text,0)::numeric))::text FROM w8_long;",
+          "result_sha256": "fa813e3b342e66582e14ee8bd532cb275fc5e0080911b8d4255750984c86e258"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2,a3,a4,a5,a6,a7,a8)::text,0)::numeric))::text FROM w8_long;",
+          "result_sha256": "fa813e3b342e66582e14ee8bd532cb275fc5e0080911b8d4255750984c86e258"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2)::text,0)::numeric))::text FROM incl;",
+          "result_sha256": "dec74ad0e0b09b065e6a30d7f7a4175f8f159789f76daf6e8491e0096d5087c4"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2)::text,0)::numeric))::text FROM incl;",
+          "result_sha256": "dec74ad0e0b09b065e6a30d7f7a4175f8f159789f76daf6e8491e0096d5087c4"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2,a3,a4)::text,0)::numeric))::text FROM heap_f4;",
+          "result_sha256": "b3c76419cc062a7158e67ebabc83fd83f357c01d1d1b0fbcaa2351fa841ee61c"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2,a3,a4)::text,0)::numeric))::text FROM heap_f4;",
+          "result_sha256": "b3c76419cc062a7158e67ebabc83fd83f357c01d1d1b0fbcaa2351fa841ee61c"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13,a14,a15,a16,a17,a18,a19,a20,a21,a22,a23,a24,a25,a26,a27,a28,a29,a30,a31,a32)::text,0)::numeric))::text FROM f32_long;",
+          "result_sha256": "c23d5cbb8f671bc5ad6d2033f656876dcbcb8534aa4be81533fecb2fe553b00d"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13,a14,a15,a16,a17,a18,a19,a20,a21,a22,a23,a24,a25,a26,a27,a28,a29,a30,a31,a32)::text,0)::numeric))::text FROM f32_long;",
+          "result_sha256": "c23d5cbb8f671bc5ad6d2033f656876dcbcb8534aa4be81533fecb2fe553b00d"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13,a14,a15,a16,a17,a18,a19,a20,a21,a22,a23,a24,a25,a26,a27,a28,a29,a30,a31,a32)::text,0)::numeric))::text FROM w32_long;",
+          "result_sha256": "d5439283ceb6e6ab7ed19ad7f045370fe1dd8a84728e3241aa20cb2e4afeafe5"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13,a14,a15,a16,a17,a18,a19,a20,a21,a22,a23,a24,a25,a26,a27,a28,a29,a30,a31,a32)::text,0)::numeric))::text FROM w32_long;",
+          "result_sha256": "d5439283ceb6e6ab7ed19ad7f045370fe1dd8a84728e3241aa20cb2e4afeafe5"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1)::text,0)::numeric))::text FROM one_bigint_long;",
+          "result_sha256": "f9ad6cf17098a48654743d816894c0063eca7388d42af65194dbd941b6bd5d7a"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1)::text,0)::numeric))::text FROM one_bigint_long;",
+          "result_sha256": "f9ad6cf17098a48654743d816894c0063eca7388d42af65194dbd941b6bd5d7a"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1)::text,0)::numeric))::text FROM one_bigint_singleton;",
+          "result_sha256": "453865caa8ad03c9ada9882951b27f7f57c72fac9a9308909570ee74b910b9b0"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1)::text,0)::numeric))::text FROM one_bigint_singleton;",
+          "result_sha256": "453865caa8ad03c9ada9882951b27f7f57c72fac9a9308909570ee74b910b9b0"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2)::text,0)::numeric))::text FROM mixed2;",
+          "result_sha256": "f935799e61f9280956bdab120c2f1e3a188263dc2ffcdc1a15b087231250655c"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2)::text,0)::numeric))::text FROM mixed2;",
+          "result_sha256": "f935799e61f9280956bdab120c2f1e3a188263dc2ffcdc1a15b087231250655c"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2)::text,0)::numeric))::text FROM mixed64;",
+          "result_sha256": "05cba49ee74c3560ef1398d8075acb5e53b9e6c4cd18829ec292a7fdfab6db12"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2)::text,0)::numeric))::text FROM mixed64;",
+          "result_sha256": "05cba49ee74c3560ef1398d8075acb5e53b9e6c4cd18829ec292a7fdfab6db12"
+        }
+      ]
+    },
+    "v14": {
+      "pid": 191115,
+      "command_count": 128,
+      "statement_sequence_sha256": "f5019ba3d88b3a16738263396207c9e957961fd6b8b88f0e807587f5752da18f",
+      "response_sequence_sha256": "1630e53e626d6bc1c5d5bbb12b94b1234b3702ca574a3e854e39b09e468fa550",
+      "statements": [
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM f2_p2;",
+          "result_sha256": "085c348f64a3b543e973a33749e90ba20847b99016a87e5228847597d61ce582"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM f2_p2;",
+          "result_sha256": "085c348f64a3b543e973a33749e90ba20847b99016a87e5228847597d61ce582"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM f3_p2;",
+          "result_sha256": "085c348f64a3b543e973a33749e90ba20847b99016a87e5228847597d61ce582"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM f3_p2;",
+          "result_sha256": "085c348f64a3b543e973a33749e90ba20847b99016a87e5228847597d61ce582"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM f4_p2;",
+          "result_sha256": "085c348f64a3b543e973a33749e90ba20847b99016a87e5228847597d61ce582"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM f4_p2;",
+          "result_sha256": "085c348f64a3b543e973a33749e90ba20847b99016a87e5228847597d61ce582"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT sum(v)*2 FROM (SELECT a1,min(a4) AS v FROM f4_long GROUP BY a1)s;",
+          "result_sha256": "3d0d94fcdc915153e412eb65a860a24af1b8aa1ed995ffee87fe2b23fc4cc1b2"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT sum(q.s) FROM generate_series(1,20000)g CROSS JOIN LATERAL (SELECT sum(a4) AS s FROM (SELECT a4 FROM f4_long WHERE a1=g%10000 ORDER BY a2,a3,a4 LIMIT 1)x)q;",
+          "result_sha256": "3d0d94fcdc915153e412eb65a860a24af1b8aa1ed995ffee87fe2b23fc4cc1b2"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT sum(v)*4 FROM (SELECT a1,min(a4) AS v FROM f4_long GROUP BY a1)s;",
+          "result_sha256": "b8c9668e0824e5359823639a8b5fb54df1ac98a4245c8042c91e08045af7cc09"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT sum(q.s) FROM generate_series(1,20000)g CROSS JOIN LATERAL (SELECT sum(a4) AS s FROM (SELECT a4 FROM f4_long WHERE a1=g%10000 ORDER BY a2,a3,a4 LIMIT 2)x)q;",
+          "result_sha256": "b8c9668e0824e5359823639a8b5fb54df1ac98a4245c8042c91e08045af7cc09"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM heap_f4;",
+          "result_sha256": "085c348f64a3b543e973a33749e90ba20847b99016a87e5228847597d61ce582"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM heap_f4;",
+          "result_sha256": "085c348f64a3b543e973a33749e90ba20847b99016a87e5228847597d61ce582"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM w8_long;",
+          "result_sha256": "085c348f64a3b543e973a33749e90ba20847b99016a87e5228847597d61ce582"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_bitmapscan=on;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM w8_long;",
+          "result_sha256": "085c348f64a3b543e973a33749e90ba20847b99016a87e5228847597d61ce582"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT sum(octet_length(a8)) FROM w8_long;",
+          "result_sha256": "fea0be6c7b2b74a6181bcf68ba2fa6555a04aa48405f5e1b0e2c6f3cad267b18"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_bitmapscan=on;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT sum(octet_length(a8)) FROM w8_long;",
+          "result_sha256": "fea0be6c7b2b74a6181bcf68ba2fa6555a04aa48405f5e1b0e2c6f3cad267b18"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM f32_long;",
+          "result_sha256": "d43574be921c54215a1e05bb2fc0c1a4b63dd2aea4bbfd5b9ebc11a2685943e2"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_bitmapscan=on;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM f32_long;",
+          "result_sha256": "d43574be921c54215a1e05bb2fc0c1a4b63dd2aea4bbfd5b9ebc11a2685943e2"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT sum(octet_length(a32)) FROM w32_long;",
+          "result_sha256": "b7a7fb5fca3373c696194cf746ddadb22bed65402e8135b376889d6204cfe873"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_bitmapscan=on;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT sum(octet_length(a32)) FROM w32_long;",
+          "result_sha256": "b7a7fb5fca3373c696194cf746ddadb22bed65402e8135b376889d6204cfe873"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM one_bigint_long;",
+          "result_sha256": "085c348f64a3b543e973a33749e90ba20847b99016a87e5228847597d61ce582"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM one_bigint_long;",
+          "result_sha256": "085c348f64a3b543e973a33749e90ba20847b99016a87e5228847597d61ce582"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM one_bigint_singleton;",
+          "result_sha256": "085c348f64a3b543e973a33749e90ba20847b99016a87e5228847597d61ce582"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM one_bigint_singleton;",
+          "result_sha256": "085c348f64a3b543e973a33749e90ba20847b99016a87e5228847597d61ce582"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT sum(a::bigint) FROM seq_control;",
+          "result_sha256": "5686e0c7e4dc13fd1094468bd05fec6364410fc61f519c0b8310911c822a7374"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_bitmapscan=on;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT sum(a::bigint) FROM seq_control;",
+          "result_sha256": "5686e0c7e4dc13fd1094468bd05fec6364410fc61f519c0b8310911c822a7374"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT sum(a3) FROM incl WHERE a1>=2000 AND a1<4000;",
+          "result_sha256": "84aeb303f724da6f9d14d1e2765ce3fb559dcb6625037b9d38cd15a4331cf8f7"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT sum(a3) FROM incl WHERE a1>=2000 AND a1<4000;",
+          "result_sha256": "84aeb303f724da6f9d14d1e2765ce3fb559dcb6625037b9d38cd15a4331cf8f7"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM mixed2;",
+          "result_sha256": "89feddbbbd149a2a454fc3b6db450c6cbe8cd926237521f2080641499af13f0a"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM mixed2;",
+          "result_sha256": "89feddbbbd149a2a454fc3b6db450c6cbe8cd926237521f2080641499af13f0a"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM mixed64;",
+          "result_sha256": "7e165c1d59dc6841b4ecb256d7eff8c9bdf2c582cfa4ca670f01025d6fb76a9d"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT count(*) FROM mixed64;",
+          "result_sha256": "7e165c1d59dc6841b4ecb256d7eff8c9bdf2c582cfa4ca670f01025d6fb76a9d"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT sum(a2) FROM (SELECT a2 FROM mixed2 ORDER BY a1 DESC,a2 DESC LIMIT 400000)s;",
+          "result_sha256": "6f9738f0e073544cd7d647e709b4ee84bfafa1ef47f5a405737ae0d1f36e269b"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT sum(a2) FROM (SELECT a2 FROM mixed2 ORDER BY a1 DESC,a2 DESC LIMIT 400000)s;",
+          "result_sha256": "6f9738f0e073544cd7d647e709b4ee84bfafa1ef47f5a405737ae0d1f36e269b"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT sum(a2) FROM (SELECT a2 FROM mixed64 ORDER BY a1 DESC,a2 DESC LIMIT 400000)s;",
+          "result_sha256": "d0542070b05534adb921953f777e612ecc5558a2b15e30bad0a27ea786194132"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT sum(a2) FROM (SELECT a2 FROM mixed64 ORDER BY a1 DESC,a2 DESC LIMIT 400000)s;",
+          "result_sha256": "d0542070b05534adb921953f777e612ecc5558a2b15e30bad0a27ea786194132"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT sum(a2) FROM (SELECT a2 FROM f2_p2 ORDER BY a1 DESC,a2 DESC LIMIT 800000)s;",
+          "result_sha256": "f9991d8a225ed462a7655eeede530e3720808b50b7825c5a27b82fadc0292780"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT sum(a2) FROM (SELECT a2 FROM f2_p2 ORDER BY a1 DESC,a2 DESC LIMIT 800000)s;",
+          "result_sha256": "f9991d8a225ed462a7655eeede530e3720808b50b7825c5a27b82fadc0292780"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2)::text,0)::numeric))::text FROM f2_p2;",
+          "result_sha256": "e236199461c14e18c1a8cfda258b021eb567a7a7c1e6c598d978a216f1e06e4a"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2)::text,0)::numeric))::text FROM f2_p2;",
+          "result_sha256": "e236199461c14e18c1a8cfda258b021eb567a7a7c1e6c598d978a216f1e06e4a"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2,a3)::text,0)::numeric))::text FROM f3_p2;",
+          "result_sha256": "b3790bf7d2520bbef1038f034485fd80dbfc538adb91b27054d5e049759b5964"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2,a3)::text,0)::numeric))::text FROM f3_p2;",
+          "result_sha256": "b3790bf7d2520bbef1038f034485fd80dbfc538adb91b27054d5e049759b5964"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2,a3,a4)::text,0)::numeric))::text FROM f4_p2;",
+          "result_sha256": "ebbea507fbd4f5a68f354f811484c58d22156adf0479d98aa137701190855c63"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2,a3,a4)::text,0)::numeric))::text FROM f4_p2;",
+          "result_sha256": "ebbea507fbd4f5a68f354f811484c58d22156adf0479d98aa137701190855c63"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2,a3,a4)::text,0)::numeric))::text FROM f4_long;",
+          "result_sha256": "b3c76419cc062a7158e67ebabc83fd83f357c01d1d1b0fbcaa2351fa841ee61c"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2,a3,a4)::text,0)::numeric))::text FROM f4_long;",
+          "result_sha256": "b3c76419cc062a7158e67ebabc83fd83f357c01d1d1b0fbcaa2351fa841ee61c"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2,a3,a4,a5,a6,a7,a8)::text,0)::numeric))::text FROM w8_long;",
+          "result_sha256": "fa813e3b342e66582e14ee8bd532cb275fc5e0080911b8d4255750984c86e258"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2,a3,a4,a5,a6,a7,a8)::text,0)::numeric))::text FROM w8_long;",
+          "result_sha256": "fa813e3b342e66582e14ee8bd532cb275fc5e0080911b8d4255750984c86e258"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2)::text,0)::numeric))::text FROM incl;",
+          "result_sha256": "dec74ad0e0b09b065e6a30d7f7a4175f8f159789f76daf6e8491e0096d5087c4"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2)::text,0)::numeric))::text FROM incl;",
+          "result_sha256": "dec74ad0e0b09b065e6a30d7f7a4175f8f159789f76daf6e8491e0096d5087c4"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2,a3,a4)::text,0)::numeric))::text FROM heap_f4;",
+          "result_sha256": "b3c76419cc062a7158e67ebabc83fd83f357c01d1d1b0fbcaa2351fa841ee61c"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2,a3,a4)::text,0)::numeric))::text FROM heap_f4;",
+          "result_sha256": "b3c76419cc062a7158e67ebabc83fd83f357c01d1d1b0fbcaa2351fa841ee61c"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13,a14,a15,a16,a17,a18,a19,a20,a21,a22,a23,a24,a25,a26,a27,a28,a29,a30,a31,a32)::text,0)::numeric))::text FROM f32_long;",
+          "result_sha256": "c23d5cbb8f671bc5ad6d2033f656876dcbcb8534aa4be81533fecb2fe553b00d"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13,a14,a15,a16,a17,a18,a19,a20,a21,a22,a23,a24,a25,a26,a27,a28,a29,a30,a31,a32)::text,0)::numeric))::text FROM f32_long;",
+          "result_sha256": "c23d5cbb8f671bc5ad6d2033f656876dcbcb8534aa4be81533fecb2fe553b00d"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13,a14,a15,a16,a17,a18,a19,a20,a21,a22,a23,a24,a25,a26,a27,a28,a29,a30,a31,a32)::text,0)::numeric))::text FROM w32_long;",
+          "result_sha256": "d5439283ceb6e6ab7ed19ad7f045370fe1dd8a84728e3241aa20cb2e4afeafe5"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13,a14,a15,a16,a17,a18,a19,a20,a21,a22,a23,a24,a25,a26,a27,a28,a29,a30,a31,a32)::text,0)::numeric))::text FROM w32_long;",
+          "result_sha256": "d5439283ceb6e6ab7ed19ad7f045370fe1dd8a84728e3241aa20cb2e4afeafe5"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1)::text,0)::numeric))::text FROM one_bigint_long;",
+          "result_sha256": "f9ad6cf17098a48654743d816894c0063eca7388d42af65194dbd941b6bd5d7a"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1)::text,0)::numeric))::text FROM one_bigint_long;",
+          "result_sha256": "f9ad6cf17098a48654743d816894c0063eca7388d42af65194dbd941b6bd5d7a"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1)::text,0)::numeric))::text FROM one_bigint_singleton;",
+          "result_sha256": "453865caa8ad03c9ada9882951b27f7f57c72fac9a9308909570ee74b910b9b0"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1)::text,0)::numeric))::text FROM one_bigint_singleton;",
+          "result_sha256": "453865caa8ad03c9ada9882951b27f7f57c72fac9a9308909570ee74b910b9b0"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2)::text,0)::numeric))::text FROM mixed2;",
+          "result_sha256": "f935799e61f9280956bdab120c2f1e3a188263dc2ffcdc1a15b087231250655c"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2)::text,0)::numeric))::text FROM mixed2;",
+          "result_sha256": "f935799e61f9280956bdab120c2f1e3a188263dc2ffcdc1a15b087231250655c"
+        },
+        {
+          "sql": "SET enable_seqscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;SET enable_bitmapscan=off;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2)::text,0)::numeric))::text FROM mixed64;",
+          "result_sha256": "05cba49ee74c3560ef1398d8075acb5e53b9e6c4cd18829ec292a7fdfab6db12"
+        },
+        {
+          "sql": "SET enable_seqscan=off;SET enable_bitmapscan=off;SET enable_indexscan=on;SET enable_indexonlyscan=on;",
+          "result_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "sql": "SELECT json_build_array(count(*),sum(hashtextextended(ROW(a1,a2)::text,0)::numeric))::text FROM mixed64;",
+          "result_sha256": "05cba49ee74c3560ef1398d8075acb5e53b9e6c4cd18829ec292a7fdfab6db12"
+        }
+      ]
+    }
+  }
+}

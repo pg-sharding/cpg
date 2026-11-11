@@ -1,0 +1,118 @@
+SET
+SET
+SET
+SET
+CREATE EXTENSION
+CREATE TABLE
+INSERT 0 12000
+INSERT 0 5859
+CREATE INDEX
+VACUUM
+ real_posting_tuples 
+---------------------
+ t
+(1 row)
+
+DO
+SET
+SET
+SET
+SET
+                         QUERY PLAN                         
+------------------------------------------------------------
+ Index Only Scan using transition_mix_idx on transition_mix
+(1 row)
+
+BEGIN
+DECLARE CURSOR
+MOVE 127
+  a  |      b       |  n  
+-----+--------------+-----
+ 128 | xxxxxxxxx128 | 128
+ 128 | xxxxxxxxx128 | 128
+ 128 | xxxxxxxxx128 | 128
+ 128 | xxxxxxxxx128 | 128
+ 128 | xxxxxxxxx128 | 128
+(5 rows)
+
+  a  |      b       |  n  
+-----+--------------+-----
+ 128 | xxxxxxxxx128 | 128
+ 128 | xxxxxxxxx128 | 128
+ 128 | xxxxxxxxx128 | 128
+ 128 | xxxxxxxxx128 | 128
+ 127 | xxxxxxxxx127 | 12
+(5 rows)
+
+MOVE 300
+  a  |      b       |                         n                         
+-----+--------------+---------------------------------------------------
+ 300 | xxxxxxxxx300 | nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn300
+ 299 | xxxxxxxxx299 | nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn299
+ 298 | xxxxxxxxx298 | nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn298
+ 297 | xxxxxxxxx297 | 
+ 296 | xxxxxxxxx296 | nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn296
+(5 rows)
+
+MOVE 17437
+   a   |      b       |                n                
+-------+--------------+---------------------------------
+ 12000 | xxxxxxx12000 | nnnnnnnnnnnnnnnnnnnnnnnnnn12000
+ 11999 | xxxxxxx11999 | nnnnnnnnnnnnnnnnnnnnnnnnn11999
+ 11998 | xxxxxxx11998 | nnnnnnnnnnnnnnnnnnnnnnnn11998
+ 11997 | xxxxxxx11997 | nnnnnnnnnnnnnnnnnnnnnnn11997
+ 11996 | xxxxxxx11996 | nnnnnnnnnnnnnnnnnnnnnn11996
+(5 rows)
+
+MOVE 17854
+ a |      b       |   n    
+---+--------------+--------
+ 1 | xxxxxxxxxxx1 | n1
+ 2 | xxxxxxxxxxx2 | nn2
+ 3 | xxxxxxxxxxx3 | nnn3
+ 4 | xxxxxxxxxxx4 | nnnn4
+ 5 | xxxxxxxxxxx5 | nnnnn5
+(5 rows)
+
+CLOSE CURSOR
+COMMIT
+         sum          
+----------------------
+ 11631425495349642134
+(1 row)
+
+SELECT 1200
+CREATE INDEX
+VACUUM
+SET
+SET
+SET
+                                  QUERY PLAN                                  
+------------------------------------------------------------------------------
+ Aggregate
+   ->  Merge Join
+         Merge Cond: (t.a = p.a)
+         ->  Index Only Scan using transition_mix_idx on transition_mix t
+         ->  Index Only Scan using transition_probe_idx on transition_probe p
+(5 rows)
+
+ count 
+-------
+ 56640
+(1 row)
+
+RESET
+RESET
+RESET
+DELETE 3002
+DO
+ bt_index_check 
+----------------
+ 
+(1 row)
+
+         ?column?          
+---------------------------
+ transition lifecycle PASS
+(1 row)
+

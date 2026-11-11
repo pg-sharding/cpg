@@ -1,0 +1,207 @@
+
+/home/reshke/wpgpg/ios14-199-1111/build/common-build/src/backend/access/table/tableam_indexscan.o:     file format elf64-x86-64
+
+
+Disassembly of section .text:
+
+0000000000000000 <tableam_index_fill_ios_cached_slot>:
+   0:	f3 0f 1e fa          	endbr64
+   4:	41 55                	push   %r13
+   6:	49 89 fd             	mov    %rdi,%r13
+   9:	41 54                	push   %r12
+   b:	49 89 f4             	mov    %rsi,%r12
+   e:	55                   	push   %rbp
+   f:	53                   	push   %rbx
+  10:	48 89 d3             	mov    %rdx,%rbx
+  13:	48 83 ec 08          	sub    $0x8,%rsp
+  17:	48 8b 47 48          	mov    0x48(%rdi),%rax
+  1b:	48 8b 56 08          	mov    0x8(%rsi),%rdx
+  1f:	48 39 03             	cmp    %rax,(%rbx)
+  22:	0f 85 f0 00 00 00    	jne    118 <tableam_index_fill_ios_cached_slot+0x118>
+  28:	48 83 bf a0 00 00 00 00 	cmpq   $0x0,0xa0(%rdi)
+  30:	48 63 6b 0c          	movslq 0xc(%rbx),%rbp
+  34:	0f 84 46 01 00 00    	je     180 <tableam_index_fill_ios_cached_slot+0x180>
+  3a:	4c 89 e7             	mov    %r12,%rdi
+  3d:	ff 52 18             	call   *0x18(%rdx)
+  40:	48 8b 73 10          	mov    0x10(%rbx),%rsi
+  44:	49 8b 7c 24 18       	mov    0x18(%r12),%rdi
+  49:	83 fd 03             	cmp    $0x3,%ebp
+  4c:	74 72                	je     c0 <tableam_index_fill_ios_cached_slot+0xc0>
+  4e:	83 fd 04             	cmp    $0x4,%ebp
+  51:	74 45                	je     98 <tableam_index_fill_ios_cached_slot+0x98>
+  53:	83 fd 02             	cmp    $0x2,%ebp
+  56:	0f 85 94 00 00 00    	jne    f0 <tableam_index_fill_ios_cached_slot+0xf0>
+  5c:	f3 0f 6f 06          	movdqu (%rsi),%xmm0
+  60:	0f 11 07             	movups %xmm0,(%rdi)
+  63:	48 8b 53 18          	mov    0x18(%rbx),%rdx
+  67:	49 8b 44 24 20       	mov    0x20(%r12),%rax
+  6c:	0f b7 12             	movzwl (%rdx),%edx
+  6f:	66 89 10             	mov    %dx,(%rax)
+  72:	49 83 bd a0 00 00 00 00 	cmpq   $0x0,0xa0(%r13)
+  7a:	0f 85 00 00 00 00    	jne    80 <tableam_index_fill_ios_cached_slot+0x80>	7c: R_X86_64_PC32	.text.unlikely+0x6a
+  80:	48 83 c4 08          	add    $0x8,%rsp
+  84:	4c 89 e7             	mov    %r12,%rdi
+  87:	5b                   	pop    %rbx
+  88:	5d                   	pop    %rbp
+  89:	41 5c                	pop    %r12
+  8b:	41 5d                	pop    %r13
+  8d:	e9 00 00 00 00       	jmp    92 <tableam_index_fill_ios_cached_slot+0x92>	8e: R_X86_64_PLT32	ExecStoreVirtualTuple-0x4
+  92:	66 0f 1f 44 00 00    	nopw   0x0(%rax,%rax,1)
+  98:	f3 0f 6f 16          	movdqu (%rsi),%xmm2
+  9c:	0f 11 17             	movups %xmm2,(%rdi)
+  9f:	f3 0f 6f 5e 10       	movdqu 0x10(%rsi),%xmm3
+  a4:	0f 11 5f 10          	movups %xmm3,0x10(%rdi)
+  a8:	48 8b 53 18          	mov    0x18(%rbx),%rdx
+  ac:	49 8b 44 24 20       	mov    0x20(%r12),%rax
+  b1:	8b 12                	mov    (%rdx),%edx
+  b3:	89 10                	mov    %edx,(%rax)
+  b5:	eb bb                	jmp    72 <tableam_index_fill_ios_cached_slot+0x72>
+  b7:	66 0f 1f 84 00 00 00 00 00 	nopw   0x0(%rax,%rax,1)
+  c0:	f3 0f 6f 0e          	movdqu (%rsi),%xmm1
+  c4:	0f 11 0f             	movups %xmm1,(%rdi)
+  c7:	48 8b 46 10          	mov    0x10(%rsi),%rax
+  cb:	48 89 47 10          	mov    %rax,0x10(%rdi)
+  cf:	48 8b 53 18          	mov    0x18(%rbx),%rdx
+  d3:	49 8b 44 24 20       	mov    0x20(%r12),%rax
+  d8:	0f b7 0a             	movzwl (%rdx),%ecx
+  db:	66 89 08             	mov    %cx,(%rax)
+  de:	0f b6 52 02          	movzbl 0x2(%rdx),%edx
+  e2:	88 50 02             	mov    %dl,0x2(%rax)
+  e5:	eb 8b                	jmp    72 <tableam_index_fill_ios_cached_slot+0x72>
+  e7:	66 0f 1f 84 00 00 00 00 00 	nopw   0x0(%rax,%rax,1)
+  f0:	48 8d 14 ed 00 00 00 00 	lea    0x0(,%rbp,8),%rdx
+  f8:	e8 00 00 00 00       	call   fd <tableam_index_fill_ios_cached_slot+0xfd>	f9: R_X86_64_PLT32	memcpy-0x4
+  fd:	49 8b 7c 24 20       	mov    0x20(%r12),%rdi
+ 102:	48 8b 73 18          	mov    0x18(%rbx),%rsi
+ 106:	48 89 ea             	mov    %rbp,%rdx
+ 109:	e8 00 00 00 00       	call   10e <tableam_index_fill_ios_cached_slot+0x10e>	10a: R_X86_64_PLT32	memcpy-0x4
+ 10e:	e9 5f ff ff ff       	jmp    72 <tableam_index_fill_ios_cached_slot+0x72>
+ 113:	0f 1f 44 00 00       	nopl   0x0(%rax,%rax,1)
+ 118:	0f b7 4b 08          	movzwl 0x8(%rbx),%ecx
+ 11c:	0f b7 70 06          	movzwl 0x6(%rax),%esi
+ 120:	48 8b 52 18          	mov    0x18(%rdx),%rdx
+ 124:	21 ce                	and    %ecx,%esi
+ 126:	66 39 f1             	cmp    %si,%cx
+ 129:	74 25                	je     150 <tableam_index_fill_ios_cached_slot+0x150>
+ 12b:	4c 89 e7             	mov    %r12,%rdi
+ 12e:	ff d2                	call   *%rdx
+ 130:	49 8b 4c 24 20       	mov    0x20(%r12),%rcx
+ 135:	49 8b 54 24 18       	mov    0x18(%r12),%rdx
+ 13a:	49 8b 75 50          	mov    0x50(%r13),%rsi
+ 13e:	49 8b 7d 48          	mov    0x48(%r13),%rdi
+ 142:	e8 00 00 00 00       	call   147 <tableam_index_fill_ios_cached_slot+0x147>	143: R_X86_64_PLT32	index_deform_tuple-0x4
+ 147:	e9 26 ff ff ff       	jmp    72 <tableam_index_fill_ios_cached_slot+0x72>
+ 14c:	0f 1f 40 00          	nopl   0x0(%rax)
+ 150:	4c 89 e7             	mov    %r12,%rdi
+ 153:	48 63 6b 0c          	movslq 0xc(%rbx),%rbp
+ 157:	ff d2                	call   *%rdx
+ 159:	48 8b 4b 18          	mov    0x18(%rbx),%rcx
+ 15d:	48 8b 53 10          	mov    0x10(%rbx),%rdx
+ 161:	49 8b 75 50          	mov    0x50(%r13),%rsi
+ 165:	49 8b 7d 48          	mov    0x48(%r13),%rdi
+ 169:	e8 00 00 00 00       	call   16e <tableam_index_fill_ios_cached_slot+0x16e>	16a: R_X86_64_PLT32	index_deform_tuple-0x4
+ 16e:	49 8b 45 48          	mov    0x48(%r13),%rax
+ 172:	48 89 03             	mov    %rax,(%rbx)
+ 175:	e9 c6 fe ff ff       	jmp    40 <tableam_index_fill_ios_cached_slot+0x40>
+ 17a:	66 0f 1f 44 00 00    	nopw   0x0(%rax,%rax,1)
+ 180:	48 8d 05 00 00 00 00 	lea    0x0(%rip),%rax        # 187 <tableam_index_fill_ios_cached_slot+0x187>	183: R_X86_64_PC32	TTSOpsVirtual-0x4
+ 187:	48 39 c2             	cmp    %rax,%rdx
+ 18a:	0f 85 aa fe ff ff    	jne    3a <tableam_index_fill_ios_cached_slot+0x3a>
+ 190:	f6 46 04 04          	testb  $0x4,0x4(%rsi)
+ 194:	0f 85 a0 fe ff ff    	jne    3a <tableam_index_fill_ios_cached_slot+0x3a>
+ 19a:	4c 8b 6b 18          	mov    0x18(%rbx),%r13
+ 19e:	48 8b 73 10          	mov    0x10(%rbx),%rsi
+ 1a2:	49 8b 7c 24 18       	mov    0x18(%r12),%rdi
+ 1a7:	83 fd 03             	cmp    $0x3,%ebp
+ 1aa:	74 4b                	je     1f7 <tableam_index_fill_ios_cached_slot+0x1f7>
+ 1ac:	83 fd 04             	cmp    $0x4,%ebp
+ 1af:	0f 84 8a 00 00 00    	je     23f <tableam_index_fill_ios_cached_slot+0x23f>
+ 1b5:	83 fd 02             	cmp    $0x2,%ebp
+ 1b8:	75 63                	jne    21d <tableam_index_fill_ios_cached_slot+0x21d>
+ 1ba:	f3 0f 6f 26          	movdqu (%rsi),%xmm4
+ 1be:	0f 11 27             	movups %xmm4,(%rdi)
+ 1c1:	49 8b 44 24 20       	mov    0x20(%r12),%rax
+ 1c6:	41 0f b7 55 00       	movzwl 0x0(%r13),%edx
+ 1cb:	66 89 10             	mov    %dx,(%rax)
+ 1ce:	31 c0                	xor    %eax,%eax
+ 1d0:	66 41 83 64 24 04 fd 	andw   $0xfffd,0x4(%r12)
+ 1d7:	41 c7 44 24 38 ff ff ff ff 	movl   $0xffffffff,0x38(%r12)
+ 1e0:	66 41 89 44 24 3c    	mov    %ax,0x3c(%r12)
+ 1e6:	66 41 89 6c 24 06    	mov    %bp,0x6(%r12)
+ 1ec:	48 83 c4 08          	add    $0x8,%rsp
+ 1f0:	5b                   	pop    %rbx
+ 1f1:	5d                   	pop    %rbp
+ 1f2:	41 5c                	pop    %r12
+ 1f4:	41 5d                	pop    %r13
+ 1f6:	c3                   	ret
+ 1f7:	f3 0f 6f 2e          	movdqu (%rsi),%xmm5
+ 1fb:	0f 11 2f             	movups %xmm5,(%rdi)
+ 1fe:	48 8b 46 10          	mov    0x10(%rsi),%rax
+ 202:	48 89 47 10          	mov    %rax,0x10(%rdi)
+ 206:	41 0f b7 55 00       	movzwl 0x0(%r13),%edx
+ 20b:	49 8b 44 24 20       	mov    0x20(%r12),%rax
+ 210:	66 89 10             	mov    %dx,(%rax)
+ 213:	41 0f b6 55 02       	movzbl 0x2(%r13),%edx
+ 218:	88 50 02             	mov    %dl,0x2(%rax)
+ 21b:	eb b1                	jmp    1ce <tableam_index_fill_ios_cached_slot+0x1ce>
+ 21d:	48 63 dd             	movslq %ebp,%rbx
+ 220:	48 8d 14 dd 00 00 00 00 	lea    0x0(,%rbx,8),%rdx
+ 228:	e8 00 00 00 00       	call   22d <tableam_index_fill_ios_cached_slot+0x22d>	229: R_X86_64_PLT32	memcpy-0x4
+ 22d:	49 8b 7c 24 20       	mov    0x20(%r12),%rdi
+ 232:	48 89 da             	mov    %rbx,%rdx
+ 235:	4c 89 ee             	mov    %r13,%rsi
+ 238:	e8 00 00 00 00       	call   23d <tableam_index_fill_ios_cached_slot+0x23d>	239: R_X86_64_PLT32	memcpy-0x4
+ 23d:	eb 8f                	jmp    1ce <tableam_index_fill_ios_cached_slot+0x1ce>
+ 23f:	f3 0f 6f 36          	movdqu (%rsi),%xmm6
+ 243:	0f 11 37             	movups %xmm6,(%rdi)
+ 246:	f3 0f 6f 7e 10       	movdqu 0x10(%rsi),%xmm7
+ 24b:	0f 11 7f 10          	movups %xmm7,0x10(%rdi)
+ 24f:	49 8b 44 24 20       	mov    0x20(%r12),%rax
+ 254:	41 8b 55 00          	mov    0x0(%r13),%edx
+ 258:	89 10                	mov    %edx,(%rax)
+ 25a:	e9 6f ff ff ff       	jmp    1ce <tableam_index_fill_ios_cached_slot+0x1ce>
+
+Disassembly of section .text.unlikely:
+
+0000000000000000 <tableam_index_fill_ios_names>:
+   0:	f3 0f 1e fa          	endbr64
+   4:	41 56                	push   %r14
+   6:	49 89 fe             	mov    %rdi,%r14
+   9:	41 55                	push   %r13
+   b:	41 54                	push   %r12
+   d:	49 89 f4             	mov    %rsi,%r12
+  10:	55                   	push   %rbp
+  11:	31 ed                	xor    %ebp,%ebp
+  13:	53                   	push   %rbx
+  14:	41 39 ae b0 00 00 00 	cmp    %ebp,0xb0(%r14)
+  1b:	7e 48                	jle    65 <tableam_index_fill_ios_names+0x65>
+  1d:	49 8b 96 a0 00 00 00 	mov    0xa0(%r14),%rdx
+  24:	48 63 c5             	movslq %ebp,%rax
+  27:	4c 0f bf 2c 42       	movswq (%rdx,%rax,2),%r13
+  2c:	49 8b 44 24 20       	mov    0x20(%r12),%rax
+  31:	42 80 3c 28 00       	cmpb   $0x0,(%rax,%r13,1)
+  36:	75 29                	jne    61 <tableam_index_fill_ios_names+0x61>
+  38:	49 8b 44 24 18       	mov    0x18(%r12),%rax
+  3d:	89 eb                	mov    %ebp,%ebx
+  3f:	c1 e3 06             	shl    $0x6,%ebx
+  42:	4a 8b 34 e8          	mov    (%rax,%r13,8),%rsi
+  46:	48 63 db             	movslq %ebx,%rbx
+  49:	49 03 9e a8 00 00 00 	add    0xa8(%r14),%rbx
+  50:	48 89 df             	mov    %rbx,%rdi
+  53:	e8 00 00 00 00       	call   58 <tableam_index_fill_ios_names+0x58>	54: R_X86_64_PLT32	namestrcpy-0x4
+  58:	49 8b 44 24 18       	mov    0x18(%r12),%rax
+  5d:	4a 89 1c e8          	mov    %rbx,(%rax,%r13,8)
+  61:	ff c5                	inc    %ebp
+  63:	eb af                	jmp    14 <tableam_index_fill_ios_names+0x14>
+  65:	5b                   	pop    %rbx
+  66:	5d                   	pop    %rbp
+  67:	41 5c                	pop    %r12
+  69:	41 5d                	pop    %r13
+  6b:	41 5e                	pop    %r14
+  6d:	c3                   	ret
+
+000000000000006e <tableam_index_fill_ios_cached_slot.cold>:
+  6e:	4c 89 e6             	mov    %r12,%rsi
+  71:	4c 89 ef             	mov    %r13,%rdi
+  74:	e8 00 00 00 00       	call   79 <tableam_index_fill_ios_cached_slot.cold+0xb>	75: R_X86_64_PLT32	tableam_index_fill_ios_names-0x4
+  79:	e9 00 00 00 00       	jmp    7e <tableam_index_fill_ios_cached_slot.cold+0x10>	7a: R_X86_64_PC32	.text+0x7c

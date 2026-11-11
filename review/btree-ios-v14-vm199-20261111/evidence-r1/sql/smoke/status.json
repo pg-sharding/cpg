@@ -1,0 +1,949 @@
+{
+  "status": "PASS_FULL19_ZERO_ACCEPTED_SMOKE",
+  "accepted_samples": 0,
+  "input_sha256": "cf4bb7ab25f34be995155c90d0d83cf76a8309dee4f98477a724f967b59ebad4",
+  "copies": [
+    {
+      "slot": 0,
+      "data": "/home/reshke/wpgpg/ios14-199-1111/sql/smoke/slot-0",
+      "fsync": {
+        "files": 1109,
+        "bytes": 2375917869
+      },
+      "finished_ns": 5433361643078
+    },
+    {
+      "slot": 1,
+      "data": "/home/reshke/wpgpg/ios14-199-1111/sql/smoke/slot-1",
+      "fsync": {
+        "files": 1109,
+        "bytes": 2375917869
+      },
+      "finished_ns": 5445862741872
+    },
+    {
+      "slot": 2,
+      "data": "/home/reshke/wpgpg/ios14-199-1111/sql/smoke/slot-2",
+      "fsync": {
+        "files": 1109,
+        "bytes": 2375917869
+      },
+      "finished_ns": 5458696108060
+    },
+    {
+      "slot": 3,
+      "data": "/home/reshke/wpgpg/ios14-199-1111/sql/smoke/slot-3",
+      "fsync": {
+        "files": 1109,
+        "bytes": 2375917869
+      },
+      "finished_ns": 5471413533812
+    }
+  ],
+  "plan_signatures": {
+    "f2_p2_count": {
+      "Node Type": "Aggregate",
+      "Parallel Aware": false,
+      "Strategy": "Plain",
+      "Actual Rows": 1.0,
+      "Actual Loops": 1,
+      "Plans": [
+        {
+          "Node Type": "Index Only Scan",
+          "Parent Relationship": "Outer",
+          "Parallel Aware": false,
+          "Relation Name": "f2_p2",
+          "Alias": "f2_p2",
+          "Index Name": "f2_p2_idx",
+          "Scan Direction": "Forward",
+          "Actual Rows": 1000000.0,
+          "Actual Loops": 1,
+          "Heap Fetches": 0,
+          "Plans": []
+        }
+      ]
+    },
+    "f3_p2_count": {
+      "Node Type": "Aggregate",
+      "Parallel Aware": false,
+      "Strategy": "Plain",
+      "Actual Rows": 1.0,
+      "Actual Loops": 1,
+      "Plans": [
+        {
+          "Node Type": "Index Only Scan",
+          "Parent Relationship": "Outer",
+          "Parallel Aware": false,
+          "Relation Name": "f3_p2",
+          "Alias": "f3_p2",
+          "Index Name": "f3_p2_idx",
+          "Scan Direction": "Forward",
+          "Actual Rows": 1000000.0,
+          "Actual Loops": 1,
+          "Heap Fetches": 0,
+          "Plans": []
+        }
+      ]
+    },
+    "f4_p2_count": {
+      "Node Type": "Aggregate",
+      "Parallel Aware": false,
+      "Strategy": "Plain",
+      "Actual Rows": 1.0,
+      "Actual Loops": 1,
+      "Plans": [
+        {
+          "Node Type": "Index Only Scan",
+          "Parent Relationship": "Outer",
+          "Parallel Aware": false,
+          "Relation Name": "f4_p2",
+          "Alias": "f4_p2",
+          "Index Name": "f4_p2_idx",
+          "Scan Direction": "Forward",
+          "Actual Rows": 1000000.0,
+          "Actual Loops": 1,
+          "Heap Fetches": 0,
+          "Plans": []
+        }
+      ]
+    },
+    "limit1_from_long": {
+      "Node Type": "Aggregate",
+      "Parallel Aware": false,
+      "Strategy": "Plain",
+      "Actual Rows": 1.0,
+      "Actual Loops": 1,
+      "Plans": [
+        {
+          "Node Type": "Nested Loop",
+          "Parent Relationship": "Outer",
+          "Parallel Aware": false,
+          "Join Type": "Inner",
+          "Actual Rows": 20000.0,
+          "Actual Loops": 1,
+          "Plans": [
+            {
+              "Node Type": "Function Scan",
+              "Parent Relationship": "Outer",
+              "Parallel Aware": false,
+              "Alias": "g",
+              "Actual Rows": 20000.0,
+              "Actual Loops": 1,
+              "Plans": []
+            },
+            {
+              "Node Type": "Aggregate",
+              "Parent Relationship": "Inner",
+              "Parallel Aware": false,
+              "Strategy": "Plain",
+              "Actual Rows": 1.0,
+              "Actual Loops": 20000,
+              "Plans": [
+                {
+                  "Node Type": "Limit",
+                  "Parent Relationship": "Outer",
+                  "Parallel Aware": false,
+                  "Actual Rows": 1.0,
+                  "Actual Loops": 20000,
+                  "Plans": [
+                    {
+                      "Node Type": "Index Only Scan",
+                      "Parent Relationship": "Outer",
+                      "Parallel Aware": false,
+                      "Relation Name": "f4_long",
+                      "Alias": "f4_long",
+                      "Index Name": "f4_long_idx",
+                      "Scan Direction": "Forward",
+                      "Actual Rows": 1.0,
+                      "Actual Loops": 20000,
+                      "Rows Removed by Index Recheck": 0,
+                      "Heap Fetches": 0,
+                      "Index Cond": "(a1 = (g.g % 10000))",
+                      "Plans": []
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "limit2_from_long": {
+      "Node Type": "Aggregate",
+      "Parallel Aware": false,
+      "Strategy": "Plain",
+      "Actual Rows": 1.0,
+      "Actual Loops": 1,
+      "Plans": [
+        {
+          "Node Type": "Nested Loop",
+          "Parent Relationship": "Outer",
+          "Parallel Aware": false,
+          "Join Type": "Inner",
+          "Actual Rows": 20000.0,
+          "Actual Loops": 1,
+          "Plans": [
+            {
+              "Node Type": "Function Scan",
+              "Parent Relationship": "Outer",
+              "Parallel Aware": false,
+              "Alias": "g",
+              "Actual Rows": 20000.0,
+              "Actual Loops": 1,
+              "Plans": []
+            },
+            {
+              "Node Type": "Aggregate",
+              "Parent Relationship": "Inner",
+              "Parallel Aware": false,
+              "Strategy": "Plain",
+              "Actual Rows": 1.0,
+              "Actual Loops": 20000,
+              "Plans": [
+                {
+                  "Node Type": "Limit",
+                  "Parent Relationship": "Outer",
+                  "Parallel Aware": false,
+                  "Actual Rows": 2.0,
+                  "Actual Loops": 20000,
+                  "Plans": [
+                    {
+                      "Node Type": "Index Only Scan",
+                      "Parent Relationship": "Outer",
+                      "Parallel Aware": false,
+                      "Relation Name": "f4_long",
+                      "Alias": "f4_long",
+                      "Index Name": "f4_long_idx",
+                      "Scan Direction": "Forward",
+                      "Actual Rows": 2.0,
+                      "Actual Loops": 20000,
+                      "Rows Removed by Index Recheck": 0,
+                      "Heap Fetches": 0,
+                      "Index Cond": "(a1 = (g.g % 10000))",
+                      "Plans": []
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "heap_f4_count": {
+      "Node Type": "Aggregate",
+      "Parallel Aware": false,
+      "Strategy": "Plain",
+      "Actual Rows": 1.0,
+      "Actual Loops": 1,
+      "Plans": [
+        {
+          "Node Type": "Index Only Scan",
+          "Parent Relationship": "Outer",
+          "Parallel Aware": false,
+          "Relation Name": "heap_f4",
+          "Alias": "heap_f4",
+          "Index Name": "heap_f4_idx",
+          "Scan Direction": "Forward",
+          "Actual Rows": 1000000.0,
+          "Actual Loops": 1,
+          "Heap Fetches": 1000000,
+          "Plans": []
+        }
+      ]
+    },
+    "w8_long_count": {
+      "Node Type": "Aggregate",
+      "Parallel Aware": false,
+      "Strategy": "Plain",
+      "Actual Rows": 1.0,
+      "Actual Loops": 1,
+      "Plans": [
+        {
+          "Node Type": "Index Only Scan",
+          "Parent Relationship": "Outer",
+          "Parallel Aware": false,
+          "Relation Name": "w8_long",
+          "Alias": "w8_long",
+          "Index Name": "w8_long_idx",
+          "Scan Direction": "Forward",
+          "Actual Rows": 1000000.0,
+          "Actual Loops": 1,
+          "Heap Fetches": 0,
+          "Plans": []
+        }
+      ]
+    },
+    "w8_long_tail": {
+      "Node Type": "Aggregate",
+      "Parallel Aware": false,
+      "Strategy": "Plain",
+      "Actual Rows": 1.0,
+      "Actual Loops": 1,
+      "Plans": [
+        {
+          "Node Type": "Index Only Scan",
+          "Parent Relationship": "Outer",
+          "Parallel Aware": false,
+          "Relation Name": "w8_long",
+          "Alias": "w8_long",
+          "Index Name": "w8_long_idx",
+          "Scan Direction": "Forward",
+          "Actual Rows": 1000000.0,
+          "Actual Loops": 1,
+          "Heap Fetches": 0,
+          "Plans": []
+        }
+      ]
+    },
+    "f32_long_count": {
+      "Node Type": "Aggregate",
+      "Parallel Aware": false,
+      "Strategy": "Plain",
+      "Actual Rows": 1.0,
+      "Actual Loops": 1,
+      "Plans": [
+        {
+          "Node Type": "Index Only Scan",
+          "Parent Relationship": "Outer",
+          "Parallel Aware": false,
+          "Relation Name": "f32_long",
+          "Alias": "f32_long",
+          "Index Name": "f32_long_idx",
+          "Scan Direction": "Forward",
+          "Actual Rows": 200000.0,
+          "Actual Loops": 1,
+          "Heap Fetches": 0,
+          "Plans": []
+        }
+      ]
+    },
+    "w32_long_tail": {
+      "Node Type": "Aggregate",
+      "Parallel Aware": false,
+      "Strategy": "Plain",
+      "Actual Rows": 1.0,
+      "Actual Loops": 1,
+      "Plans": [
+        {
+          "Node Type": "Index Only Scan",
+          "Parent Relationship": "Outer",
+          "Parallel Aware": false,
+          "Relation Name": "w32_long",
+          "Alias": "w32_long",
+          "Index Name": "w32_long_idx",
+          "Scan Direction": "Forward",
+          "Actual Rows": 200000.0,
+          "Actual Loops": 1,
+          "Heap Fetches": 0,
+          "Plans": []
+        }
+      ]
+    },
+    "one_bigint_long_count": {
+      "Node Type": "Aggregate",
+      "Parallel Aware": false,
+      "Strategy": "Plain",
+      "Actual Rows": 1.0,
+      "Actual Loops": 1,
+      "Plans": [
+        {
+          "Node Type": "Index Only Scan",
+          "Parent Relationship": "Outer",
+          "Parallel Aware": false,
+          "Relation Name": "one_bigint_long",
+          "Alias": "one_bigint_long",
+          "Index Name": "one_bigint_long_idx",
+          "Scan Direction": "Forward",
+          "Actual Rows": 1000000.0,
+          "Actual Loops": 1,
+          "Heap Fetches": 0,
+          "Plans": []
+        }
+      ]
+    },
+    "one_bigint_singleton_count": {
+      "Node Type": "Aggregate",
+      "Parallel Aware": false,
+      "Strategy": "Plain",
+      "Actual Rows": 1.0,
+      "Actual Loops": 1,
+      "Plans": [
+        {
+          "Node Type": "Index Only Scan",
+          "Parent Relationship": "Outer",
+          "Parallel Aware": false,
+          "Relation Name": "one_bigint_singleton",
+          "Alias": "one_bigint_singleton",
+          "Index Name": "one_bigint_singleton_idx",
+          "Scan Direction": "Forward",
+          "Actual Rows": 1000000.0,
+          "Actual Loops": 1,
+          "Heap Fetches": 0,
+          "Plans": []
+        }
+      ]
+    },
+    "seq_control": {
+      "Node Type": "Aggregate",
+      "Parallel Aware": false,
+      "Strategy": "Plain",
+      "Actual Rows": 1.0,
+      "Actual Loops": 1,
+      "Plans": [
+        {
+          "Node Type": "Seq Scan",
+          "Parent Relationship": "Outer",
+          "Parallel Aware": false,
+          "Relation Name": "seq_control",
+          "Alias": "seq_control",
+          "Actual Rows": 1000000.0,
+          "Actual Loops": 1,
+          "Plans": []
+        }
+      ]
+    },
+    "regular_heap_index_control": {
+      "Node Type": "Aggregate",
+      "Parallel Aware": false,
+      "Strategy": "Plain",
+      "Actual Rows": 1.0,
+      "Actual Loops": 1,
+      "Plans": [
+        {
+          "Node Type": "Index Scan",
+          "Parent Relationship": "Outer",
+          "Parallel Aware": false,
+          "Relation Name": "incl",
+          "Alias": "incl",
+          "Index Name": "incl_idx",
+          "Scan Direction": "Forward",
+          "Actual Rows": 200000.0,
+          "Actual Loops": 1,
+          "Rows Removed by Index Recheck": 0,
+          "Index Cond": "((a1 >= 2000) AND (a1 < 4000))",
+          "Plans": []
+        }
+      ]
+    },
+    "mixed2_count": {
+      "Node Type": "Aggregate",
+      "Parallel Aware": false,
+      "Strategy": "Plain",
+      "Actual Rows": 1.0,
+      "Actual Loops": 1,
+      "Plans": [
+        {
+          "Node Type": "Index Only Scan",
+          "Parent Relationship": "Outer",
+          "Parallel Aware": false,
+          "Relation Name": "mixed2",
+          "Alias": "mixed2",
+          "Index Name": "mixed2_idx",
+          "Scan Direction": "Forward",
+          "Actual Rows": 507812.0,
+          "Actual Loops": 1,
+          "Heap Fetches": 0,
+          "Plans": []
+        }
+      ]
+    },
+    "mixed64_count": {
+      "Node Type": "Aggregate",
+      "Parallel Aware": false,
+      "Strategy": "Plain",
+      "Actual Rows": 1.0,
+      "Actual Loops": 1,
+      "Plans": [
+        {
+          "Node Type": "Index Only Scan",
+          "Parent Relationship": "Outer",
+          "Parallel Aware": false,
+          "Relation Name": "mixed64",
+          "Alias": "mixed64",
+          "Index Name": "mixed64_idx",
+          "Scan Direction": "Forward",
+          "Actual Rows": 746078.0,
+          "Actual Loops": 1,
+          "Heap Fetches": 0,
+          "Plans": []
+        }
+      ]
+    },
+    "backward_mixed2_sum": {
+      "Node Type": "Aggregate",
+      "Parallel Aware": false,
+      "Strategy": "Plain",
+      "Actual Rows": 1.0,
+      "Actual Loops": 1,
+      "Plans": [
+        {
+          "Node Type": "Limit",
+          "Parent Relationship": "Outer",
+          "Parallel Aware": false,
+          "Actual Rows": 400000.0,
+          "Actual Loops": 1,
+          "Plans": [
+            {
+              "Node Type": "Index Only Scan",
+              "Parent Relationship": "Outer",
+              "Parallel Aware": false,
+              "Relation Name": "mixed2",
+              "Alias": "mixed2",
+              "Index Name": "mixed2_idx",
+              "Scan Direction": "Backward",
+              "Actual Rows": 400000.0,
+              "Actual Loops": 1,
+              "Heap Fetches": 0,
+              "Plans": []
+            }
+          ]
+        }
+      ]
+    },
+    "backward_mixed64_sum": {
+      "Node Type": "Aggregate",
+      "Parallel Aware": false,
+      "Strategy": "Plain",
+      "Actual Rows": 1.0,
+      "Actual Loops": 1,
+      "Plans": [
+        {
+          "Node Type": "Limit",
+          "Parent Relationship": "Outer",
+          "Parallel Aware": false,
+          "Actual Rows": 400000.0,
+          "Actual Loops": 1,
+          "Plans": [
+            {
+              "Node Type": "Index Only Scan",
+              "Parent Relationship": "Outer",
+              "Parallel Aware": false,
+              "Relation Name": "mixed64",
+              "Alias": "mixed64",
+              "Index Name": "mixed64_idx",
+              "Scan Direction": "Backward",
+              "Actual Rows": 400000.0,
+              "Actual Loops": 1,
+              "Heap Fetches": 0,
+              "Plans": []
+            }
+          ]
+        }
+      ]
+    },
+    "backward_f2_p2_sum": {
+      "Node Type": "Aggregate",
+      "Parallel Aware": false,
+      "Strategy": "Plain",
+      "Actual Rows": 1.0,
+      "Actual Loops": 1,
+      "Plans": [
+        {
+          "Node Type": "Limit",
+          "Parent Relationship": "Outer",
+          "Parallel Aware": false,
+          "Actual Rows": 800000.0,
+          "Actual Loops": 1,
+          "Plans": [
+            {
+              "Node Type": "Index Only Scan",
+              "Parent Relationship": "Outer",
+              "Parallel Aware": false,
+              "Relation Name": "f2_p2",
+              "Alias": "f2_p2",
+              "Index Name": "f2_p2_idx",
+              "Scan Direction": "Backward",
+              "Actual Rows": 800000.0,
+              "Actual Loops": 1,
+              "Heap Fetches": 0,
+              "Plans": []
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "started_ns": 5420881199293,
+  "all_copy_fsync_done_ns": 5471413538339,
+  "assignments": [
+    {
+      "slot": 0,
+      "variant": "base",
+      "port": 40760,
+      "data": "/home/reshke/wpgpg/ios14-199-1111/sql/smoke/slot-0"
+    },
+    {
+      "slot": 1,
+      "variant": "base_twin",
+      "port": 40761,
+      "data": "/home/reshke/wpgpg/ios14-199-1111/sql/smoke/slot-1"
+    },
+    {
+      "slot": 2,
+      "variant": "v13",
+      "port": 40762,
+      "data": "/home/reshke/wpgpg/ios14-199-1111/sql/smoke/slot-2"
+    },
+    {
+      "slot": 3,
+      "variant": "v14",
+      "port": 40763,
+      "data": "/home/reshke/wpgpg/ios14-199-1111/sql/smoke/slot-3"
+    }
+  ],
+  "assignment_ns": 5471413625172,
+  "session_births": {
+    "base": {
+      "backend": {
+        "pid": 191109,
+        "exe": "/home/reshke/wpgpg/ios14-199-1111/build/stage-B/home/reshke/wpgpg/ios14-199-1111/build/prefix/bin/postgres",
+        "elf_sha256": "1ae63bd6846c2c16bd34a71fffa94c95563761582218f29f9013619f6bda51e8",
+        "affinity": [
+          6
+        ],
+        "nice": 10,
+        "maps": "62de67118000-62de67200000 r--p 00000000 fd:01 3146124                    /home/reshke/wpgpg/ios14-199-1111/build/stage-B/home/reshke/wpgpg/ios14-199-1111/build/prefix/bin/postgres\n62de67200000-62de677f7000 r-xp 000e8000 fd:01 3146124                    /home/reshke/wpgpg/ios14-199-1111/build/stage-B/home/reshke/wpgpg/ios14-199-1111/build/prefix/bin/postgres\n62de677f7000-62de67b31000 r--p 006df000 fd:01 3146124                    /home/reshke/wpgpg/ios14-199-1111/build/stage-B/home/reshke/wpgpg/ios14-199-1111/build/prefix/bin/postgres\n62de67b31000-62de67b58000 r--p 00a19000 fd:01 3146124                    /home/reshke/wpgpg/ios14-199-1111/build/stage-B/home/reshke/wpgpg/ios14-199-1111/build/prefix/bin/postgres\n62de67b58000-62de67b75000 rw-p 00a40000 fd:01 3146124                    /home/reshke/wpgpg/ios14-199-1111/build/stage-B/home/reshke/wpgpg/ios14-199-1111/build/prefix/bin/postgres\n62de67b75000-62de67bb8000 rw-p 00000000 00:00 0 \n62de7e052000-62de7e0e2000 rw-p 00000000 00:00 0                          [heap]\n62de7e0e2000-62de7e196000 rw-p 00000000 00:00 0                          [heap]\n7852d2b5d000-7852d2bde000 rw-p 00000000 00:00 0 \n7852d2bde000-785316c00000 rw-s 00000000 00:01 1075                       /dev/zero (deleted)\n785316c00000-785316c28000 r--p 00000000 fd:01 3016                       /usr/lib/x86_64-linux-gnu/libc.so.6\n785316c28000-785316db1000 r-xp 00028000 fd:01 3016                       /usr/lib/x86_64-linux-gnu/libc.so.6\n785316db1000-785316e00000 r--p 001b1000 fd:01 3016                       /usr/lib/x86_64-linux-gnu/libc.so.6\n785316e00000-785316e04000 r--p 001ff000 fd:01 3016                       /usr/lib/x86_64-linux-gnu/libc.so.6\n785316e04000-785316e06000 rw-p 00203000 fd:01 3016                       /usr/lib/x86_64-linux-gnu/libc.so.6\n785316e06000-785316e13000 rw-p 00000000 00:00 0 \n785316e17000-785316f17000 rw-s 00000000 00:1a 5003                       /dev/shm/PostgreSQL.4259111334\n785316f17000-785316f27000 r--p 00000000 fd:01 3019                       /usr/lib/x86_64-linux-gnu/libm.so.6\n785316f27000-785316fa6000 r-xp 00010000 fd:01 3019                       /usr/lib/x86_64-linux-gnu/libm.so.6\n785316fa6000-785316ffe000 r--p 0008f000 fd:01 3019                       /usr/lib/x86_64-linux-gnu/libm.so.6\n785316ffe000-785316fff000 r--p 000e7000 fd:01 3019                       /usr/lib/x86_64-linux-gnu/libm.so.6\n785316fff000-785317000000 rw-p 000e8000 fd:01 3019                       /usr/lib/x86_64-linux-gnu/libm.so.6\n785317000000-7853170b3000 r--p 00000000 fd:01 1977                       /usr/lib/x86_64-linux-gnu/libcrypto.so.3\n7853170b3000-7853173e7000 r-xp 000b3000 fd:01 1977                       /usr/lib/x86_64-linux-gnu/libcrypto.so.3\n7853173e7000-7853174b2000 r--p 003e7000 fd:01 1977                       /usr/lib/x86_64-linux-gnu/libcrypto.so.3\n7853174b2000-78531750e000 r--p 004b1000 fd:01 1977                       /usr/lib/x86_64-linux-gnu/libcrypto.so.3\n78531750e000-785317511000 rw-p 0050d000 fd:01 1977                       /usr/lib/x86_64-linux-gnu/libcrypto.so.3\n785317511000-785317514000 rw-p 00000000 00:00 0 \n78531757f000-7853175e1000 rw-p 00000000 00:00 0 \n7853175e1000-7853175e9000 rw-s 00000000 00:1a 5002                       /dev/shm/PostgreSQL.1304855304\n7853175e9000-7853175ee000 rw-p 00000000 00:00 0 \n7853175ee000-7853175f0000 r--p 00000000 fd:01 4802                       /usr/lib/x86_64-linux-gnu/libz.so.1.3\n7853175f0000-785317602000 r-xp 00002000 fd:01 4802                       /usr/lib/x86_64-linux-gnu/libz.so.1.3\n785317602000-785317608000 r--p 00014000 fd:01 4802                       /usr/lib/x86_64-linux-gnu/libz.so.1.3\n785317608000-785317609000 r--p 0001a000 fd:01 4802                       /usr/lib/x86_64-linux-gnu/libz.so.1.3\n785317609000-78531760a000 rw-p 0001b000 fd:01 4802                       /usr/lib/x86_64-linux-gnu/libz.so.1.3\n78531760a000-785317628000 r--p 00000000 fd:01 1978                       /usr/lib/x86_64-linux-gnu/libssl.so.3\n785317628000-78531768a000 r-xp 0001e000 fd:01 1978                       /usr/lib/x86_64-linux-gnu/libssl.so.3\n78531768a000-7853176a6000 r--p 00080000 fd:01 1978                       /usr/lib/x86_64-linux-gnu/libssl.so.3\n7853176a6000-7853176b0000 r--p 0009c000 fd:01 1978                       /usr/lib/x86_64-linux-gnu/libssl.so.3\n7853176b0000-7853176b4000 rw-p 000a6000 fd:01 1978                       /usr/lib/x86_64-linux-gnu/libssl.so.3\n7853176b9000-7853176ba000 rw-s 00000000 00:01 65577                      /SYSV00500003 (deleted)\n7853176ba000-7853176bc000 rw-p 00000000 00:00 0 \n7853176bc000-7853176bd000 r--p 00000000 fd:01 3013                       /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2\n7853176bd000-7853176e8000 r-xp 00001000 fd:01 3013                       /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2\n7853176e8000-7853176f2000 r--p 0002c000 fd:01 3013                       /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2\n7853176f2000-7853176f4000 r--p 00036000 fd:01 3013                       /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2\n7853176f4000-7853176f6000 rw-p 00038000 fd:01 3013                       /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2\n7ffc8b43c000-7ffc8b45d000 rw-p 00000000 00:00 0                          [stack]\n7ffc8b4a1000-7ffc8b4a5000 r--p 00000000 00:00 0                          [vvar]\n7ffc8b4a5000-7ffc8b4a7000 r-xp 00000000 00:00 0                          [vdso]\nffffffffff600000-ffffffffff601000 --xp 00000000 00:00 0                  [vsyscall]\n",
+        "status": "Name:\tpostgres\nUmask:\t0077\nState:\tS (sleeping)\nTgid:\t191109\nNgid:\t0\nPid:\t191109\nPPid:\t191064\nTracerPid:\t0\nUid:\t1000\t1000\t1000\t1000\nGid:\t1000\t1000\t1000\t1000\nFDSize:\t64\nGroups:\t1000 1001 \nNStgid:\t191109\nNSpid:\t191109\nNSpgid:\t191109\nNSsid:\t191109\nKthread:\t0\nVmPeak:\t 1137856 kB\nVmSize:\t 1137856 kB\nVmLck:\t       0 kB\nVmPin:\t       0 kB\nVmHWM:\t   19324 kB\nVmRSS:\t   19324 kB\nRssAnon:\t    2444 kB\nRssFile:\t    8044 kB\nRssShmem:\t    8836 kB\nVmData:\t    2732 kB\nVmStk:\t     132 kB\nVmExe:\t    6108 kB\nVmLib:\t    6004 kB\nVmPTE:\t     144 kB\nVmSwap:\t       0 kB\nHugetlbPages:\t       0 kB\nCoreDumping:\t0\nTHP_enabled:\t1\nuntag_mask:\t0xffffffffffffffff\nThreads:\t1\nSigQ:\t0/257057\nSigPnd:\t0000000000000000\nShdPnd:\t0000000000000000\nSigBlk:\t0000000000400000\nSigIgn:\t0000000001301800\nSigCgt:\t0000000020006287\nCapInh:\t0000000000000000\nCapPrm:\t0000000000000000\nCapEff:\t0000000000000000\nCapBnd:\t000001ffffffffff\nCapAmb:\t0000000000000000\nNoNewPrivs:\t0\nSeccomp:\t0\nSeccomp_filters:\t0\nSpeculation_Store_Bypass:\tthread vulnerable\nSpeculationIndirectBranch:\tconditional enabled\nCpus_allowed:\t40\nCpus_allowed_list:\t6\nMems_allowed:\t00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000001\nMems_allowed_list:\t0\nvoluntary_ctxt_switches:\t8\nnonvoluntary_ctxt_switches:\t20\nx86_Thread_features:\t\nx86_Thread_features_locked:\t\n",
+        "stat": "191109 (postgres) S 191064 191109 191109 0 -1 4194368 728 0 0 0 0 0 0 0 30 10 1 0 547225 1165164544 4800 18446744073709551615 108707352412160 108707358663985 140722645087024 0 0 0 4194304 19929088 536896135 1 0 0 17 6 0 0 0 0 0 108707362051504 108707362324952 108707736526848 140722645093089 140722645093250 140722645093250 140722645094285 0\n",
+        "schedstat": "9722723 1549315 28\n",
+        "smaps_rollup": "62de67118000-7ffc8b4a7000 ---p 00000000 00:00 0                          [rollup]\nRss:               19324 kB\nPss:                8648 kB\nPss_Dirty:          5933 kB\nPss_Anon:           1520 kB\nPss_File:           2715 kB\nPss_Shmem:          4412 kB\nShared_Clean:       6224 kB\nShared_Dirty:       9484 kB\nPrivate_Clean:      1820 kB\nPrivate_Dirty:      1796 kB\nReferenced:        18468 kB\nAnonymous:          2444 kB\nKSM:                   0 kB\nLazyFree:              0 kB\nAnonHugePages:         0 kB\nShmemPmdMapped:        0 kB\nFilePmdMapped:         0 kB\nShared_Hugetlb:        0 kB\nPrivate_Hugetlb:       0 kB\nSwap:                  0 kB\nSwapPss:               0 kB\nLocked:                0 kB\n",
+        "cgroup": "0::/user.slice/user-1000.slice/session-33.scope\n"
+      },
+      "psql": {
+        "pid": 191108,
+        "exe": "/home/reshke/wpgpg/ios14-199-1111/build/stage-B/home/reshke/wpgpg/ios14-199-1111/build/prefix/bin/psql",
+        "elf_sha256": "711060db1c984333ad53d5d00cee9d1c7461c74042306cec055291cae2279305",
+        "affinity": [
+          4
+        ],
+        "nice": 10,
+        "maps": "5c3c45a7f000-5c3c45a8a000 r--p 00000000 fd:01 3147223                    /home/reshke/wpgpg/ios14-199-1111/build/stage-B/home/reshke/wpgpg/ios14-199-1111/build/prefix/bin/psql\n5c3c45a8a000-5c3c45acb000 r-xp 0000b000 fd:01 3147223                    /home/reshke/wpgpg/ios14-199-1111/build/stage-B/home/reshke/wpgpg/ios14-199-1111/build/prefix/bin/psql\n5c3c45acb000-5c3c45b0a000 r--p 0004c000 fd:01 3147223                    /home/reshke/wpgpg/ios14-199-1111/build/stage-B/home/reshke/wpgpg/ios14-199-1111/build/prefix/bin/psql\n5c3c45b0a000-5c3c45b0e000 r--p 0008a000 fd:01 3147223                    /home/reshke/wpgpg/ios14-199-1111/build/stage-B/home/reshke/wpgpg/ios14-199-1111/build/prefix/bin/psql\n5c3c45b0e000-5c3c45b0f000 rw-p 0008e000 fd:01 3147223                    /home/reshke/wpgpg/ios14-199-1111/build/stage-B/home/reshke/wpgpg/ios14-199-1111/build/prefix/bin/psql\n5c3c5d691000-5c3c5d6b2000 rw-p 00000000 00:00 0                          [heap]\n7787d4400000-7787d44b3000 r--p 00000000 fd:01 1977                       /usr/lib/x86_64-linux-gnu/libcrypto.so.3\n7787d44b3000-7787d47e7000 r-xp 000b3000 fd:01 1977                       /usr/lib/x86_64-linux-gnu/libcrypto.so.3\n7787d47e7000-7787d48b2000 r--p 003e7000 fd:01 1977                       /usr/lib/x86_64-linux-gnu/libcrypto.so.3\n7787d48b2000-7787d490e000 r--p 004b1000 fd:01 1977                       /usr/lib/x86_64-linux-gnu/libcrypto.so.3\n7787d490e000-7787d4911000 rw-p 0050d000 fd:01 1977                       /usr/lib/x86_64-linux-gnu/libcrypto.so.3\n7787d4911000-7787d4914000 rw-p 00000000 00:00 0 \n7787d4a00000-7787d4a28000 r--p 00000000 fd:01 3016                       /usr/lib/x86_64-linux-gnu/libc.so.6\n7787d4a28000-7787d4bb1000 r-xp 00028000 fd:01 3016                       /usr/lib/x86_64-linux-gnu/libc.so.6\n7787d4bb1000-7787d4c00000 r--p 001b1000 fd:01 3016                       /usr/lib/x86_64-linux-gnu/libc.so.6\n7787d4c00000-7787d4c04000 r--p 001ff000 fd:01 3016                       /usr/lib/x86_64-linux-gnu/libc.so.6\n7787d4c04000-7787d4c06000 rw-p 00203000 fd:01 3016                       /usr/lib/x86_64-linux-gnu/libc.so.6\n7787d4c06000-7787d4c13000 rw-p 00000000 00:00 0 \n7787d4c9b000-7787d4ca0000 rw-p 00000000 00:00 0 \n7787d4ca0000-7787d4cbe000 r--p 00000000 fd:01 1978                       /usr/lib/x86_64-linux-gnu/libssl.so.3\n7787d4cbe000-7787d4d20000 r-xp 0001e000 fd:01 1978                       /usr/lib/x86_64-linux-gnu/libssl.so.3\n7787d4d20000-7787d4d3c000 r--p 00080000 fd:01 1978                       /usr/lib/x86_64-linux-gnu/libssl.so.3\n7787d4d3c000-7787d4d46000 r--p 0009c000 fd:01 1978                       /usr/lib/x86_64-linux-gnu/libssl.so.3\n7787d4d46000-7787d4d4a000 rw-p 000a6000 fd:01 1978                       /usr/lib/x86_64-linux-gnu/libssl.so.3\n7787d4d4a000-7787d4d5a000 r--p 00000000 fd:01 3019                       /usr/lib/x86_64-linux-gnu/libm.so.6\n7787d4d5a000-7787d4dd9000 r-xp 00010000 fd:01 3019                       /usr/lib/x86_64-linux-gnu/libm.so.6\n7787d4dd9000-7787d4e31000 r--p 0008f000 fd:01 3019                       /usr/lib/x86_64-linux-gnu/libm.so.6\n7787d4e31000-7787d4e32000 r--p 000e7000 fd:01 3019                       /usr/lib/x86_64-linux-gnu/libm.so.6\n7787d4e32000-7787d4e33000 rw-p 000e8000 fd:01 3019                       /usr/lib/x86_64-linux-gnu/libm.so.6\n7787d4e39000-7787d4e45000 r--p 00000000 fd:01 3147147                    /home/reshke/wpgpg/ios14-199-1111/build/stage-B/home/reshke/wpgpg/ios14-199-1111/build/prefix/lib/libpq.so.5.20\n7787d4e45000-7787d4e6f000 r-xp 0000c000 fd:01 3147147                    /home/reshke/wpgpg/ios14-199-1111/build/stage-B/home/reshke/wpgpg/ios14-199-1111/build/prefix/lib/libpq.so.5.20\n7787d4e6f000-7787d4e93000 r--p 00036000 fd:01 3147147                    /home/reshke/wpgpg/ios14-199-1111/build/stage-B/home/reshke/wpgpg/ios14-199-1111/build/prefix/lib/libpq.so.5.20\n7787d4e93000-7787d4e96000 r--p 0005a000 fd:01 3147147                    /home/reshke/wpgpg/ios14-199-1111/build/stage-B/home/reshke/wpgpg/ios14-199-1111/build/prefix/lib/libpq.so.5.20\n7787d4e96000-7787d4e97000 rw-p 0005d000 fd:01 3147147                    /home/reshke/wpgpg/ios14-199-1111/build/stage-B/home/reshke/wpgpg/ios14-199-1111/build/prefix/lib/libpq.so.5.20\n7787d4e97000-7787d4e99000 rw-p 00000000 00:00 0 \n7787d4e99000-7787d4e9a000 r--p 00000000 fd:01 3013                       /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2\n7787d4e9a000-7787d4ec5000 r-xp 00001000 fd:01 3013                       /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2\n7787d4ec5000-7787d4ecf000 r--p 0002c000 fd:01 3013                       /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2\n7787d4ecf000-7787d4ed1000 r--p 00036000 fd:01 3013                       /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2\n7787d4ed1000-7787d4ed3000 rw-p 00038000 fd:01 3013                       /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2\n7fff1f057000-7fff1f078000 rw-p 00000000 00:00 0                          [stack]\n7fff1f177000-7fff1f17b000 r--p 00000000 00:00 0                          [vvar]\n7fff1f17b000-7fff1f17d000 r-xp 00000000 00:00 0                          [vdso]\nffffffffff600000-ffffffffff601000 --xp 00000000 00:00 0                  [vsyscall]\n",
+        "status": "Name:\tpsql\nUmask:\t0002\nState:\tS (sleeping)\nTgid:\t191108\nNgid:\t0\nPid:\t191108\nPPid:\t190987\nTracerPid:\t0\nUid:\t1000\t1000\t1000\t1000\nGid:\t1000\t1000\t1000\t1000\nFDSize:\t64\nGroups:\t1000 1001 \nNStgid:\t191108\nNSpid:\t191108\nNSpgid:\t190987\nNSsid:\t190987\nKthread:\t0\nVmPeak:\t   10436 kB\nVmSize:\t   10436 kB\nVmLck:\t       0 kB\nVmPin:\t       0 kB\nVmHWM:\t    4748 kB\nVmRSS:\t    4748 kB\nRssAnon:\t     620 kB\nRssFile:\t    4128 kB\nRssShmem:\t       0 kB\nVmData:\t     280 kB\nVmStk:\t     132 kB\nVmExe:\t     260 kB\nVmLib:\t    6100 kB\nVmPTE:\t      60 kB\nVmSwap:\t       0 kB\nHugetlbPages:\t       0 kB\nCoreDumping:\t0\nTHP_enabled:\t1\nuntag_mask:\t0xffffffffffffffff\nThreads:\t1\nSigQ:\t0/257057\nSigPnd:\t0000000000000000\nShdPnd:\t0000000000000000\nSigBlk:\t0000000000000000\nSigIgn:\t0000000000000000\nSigCgt:\t0000000000012002\nCapInh:\t0000000000000000\nCapPrm:\t0000000000000000\nCapEff:\t0000000000000000\nCapBnd:\t000001ffffffffff\nCapAmb:\t0000000000000000\nNoNewPrivs:\t0\nSeccomp:\t0\nSeccomp_filters:\t0\nSpeculation_Store_Bypass:\tthread vulnerable\nSpeculationIndirectBranch:\tconditional enabled\nCpus_allowed:\t10\nCpus_allowed_list:\t4\nMems_allowed:\t00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000001\nMems_allowed_list:\t0\nvoluntary_ctxt_switches:\t12\nnonvoluntary_ctxt_switches:\t3\nx86_Thread_features:\t\nx86_Thread_features_locked:\t\n",
+        "stat": "191108 (psql) S 190987 190987 190987 0 -1 4194304 300 0 0 0 0 0 0 0 30 10 1 0 547225 10686464 1152 18446744073709551615 101413936472064 101413936734705 140733713971120 0 0 0 0 0 73730 1 0 0 17 4 0 0 0 0 0 101413936999088 101413937014156 101414334959616 140733713972137 140733713972333 140733713972333 140733713973137 0\n",
+        "schedstat": "3092447 3157026 15\n",
+        "smaps_rollup": "5c3c45a7f000-7fff1f17d000 ---p 00000000 00:00 0                          [rollup]\nRss:                4748 kB\nPss:                1548 kB\nPss_Dirty:           620 kB\nPss_Anon:            620 kB\nPss_File:            928 kB\nPss_Shmem:             0 kB\nShared_Clean:       3352 kB\nShared_Dirty:          0 kB\nPrivate_Clean:       776 kB\nPrivate_Dirty:       620 kB\nReferenced:         4748 kB\nAnonymous:           620 kB\nKSM:                   0 kB\nLazyFree:              0 kB\nAnonHugePages:         0 kB\nShmemPmdMapped:        0 kB\nFilePmdMapped:         0 kB\nShared_Hugetlb:        0 kB\nPrivate_Hugetlb:       0 kB\nSwap:                  0 kB\nSwapPss:               0 kB\nLocked:                0 kB\n",
+        "cgroup": "0::/user.slice/user-1000.slice/session-33.scope\n"
+      },
+      "settings": {
+        "clock": "system",
+        "buffers": "1GB",
+        "assertions": "off",
+        "parallel": "0",
+        "autovacuum": "off",
+        "jit": "off",
+        "fsync": "on"
+      }
+    },
+    "base_twin": {
+      "backend": {
+        "pid": 191111,
+        "exe": "/home/reshke/wpgpg/ios14-199-1111/build/stage-B/home/reshke/wpgpg/ios14-199-1111/build/prefix/bin/postgres",
+        "elf_sha256": "1ae63bd6846c2c16bd34a71fffa94c95563761582218f29f9013619f6bda51e8",
+        "affinity": [
+          6
+        ],
+        "nice": 10,
+        "maps": "5e88394a5000-5e883958d000 r--p 00000000 fd:01 3146124                    /home/reshke/wpgpg/ios14-199-1111/build/stage-B/home/reshke/wpgpg/ios14-199-1111/build/prefix/bin/postgres\n5e883958d000-5e8839b84000 r-xp 000e8000 fd:01 3146124                    /home/reshke/wpgpg/ios14-199-1111/build/stage-B/home/reshke/wpgpg/ios14-199-1111/build/prefix/bin/postgres\n5e8839b84000-5e8839ebe000 r--p 006df000 fd:01 3146124                    /home/reshke/wpgpg/ios14-199-1111/build/stage-B/home/reshke/wpgpg/ios14-199-1111/build/prefix/bin/postgres\n5e8839ebe000-5e8839ee5000 r--p 00a19000 fd:01 3146124                    /home/reshke/wpgpg/ios14-199-1111/build/stage-B/home/reshke/wpgpg/ios14-199-1111/build/prefix/bin/postgres\n5e8839ee5000-5e8839f02000 rw-p 00a40000 fd:01 3146124                    /home/reshke/wpgpg/ios14-199-1111/build/stage-B/home/reshke/wpgpg/ios14-199-1111/build/prefix/bin/postgres\n5e8839f02000-5e8839f45000 rw-p 00000000 00:00 0 \n5e88468d4000-5e8846964000 rw-p 00000000 00:00 0                          [heap]\n5e8846964000-5e8846a18000 rw-p 00000000 00:00 0                          [heap]\n7027145de000-702758600000 rw-s 00000000 00:01 1077                       /dev/zero (deleted)\n702758600000-702758628000 r--p 00000000 fd:01 3016                       /usr/lib/x86_64-linux-gnu/libc.so.6\n702758628000-7027587b1000 r-xp 00028000 fd:01 3016                       /usr/lib/x86_64-linux-gnu/libc.so.6\n7027587b1000-702758800000 r--p 001b1000 fd:01 3016                       /usr/lib/x86_64-linux-gnu/libc.so.6\n702758800000-702758804000 r--p 001ff000 fd:01 3016                       /usr/lib/x86_64-linux-gnu/libc.so.6\n702758804000-702758806000 rw-p 00203000 fd:01 3016                       /usr/lib/x86_64-linux-gnu/libc.so.6\n702758806000-702758813000 rw-p 00000000 00:00 0 \n702758815000-7027588d7000 rw-p 00000000 00:00 0 \n7027588d7000-7027589d7000 rw-s 00000000 00:1a 5005                       /dev/shm/PostgreSQL.2355110648\n7027589d7000-7027589f8000 rw-p 00000000 00:00 0 \n7027589f8000-702758a00000 rw-s 00000000 00:1a 5004                       /dev/shm/PostgreSQL.1776648786\n702758a00000-702758ab3000 r--p 00000000 fd:01 1977                       /usr/lib/x86_64-linux-gnu/libcrypto.so.3\n702758ab3000-702758de7000 r-xp 000b3000 fd:01 1977                       /usr/lib/x86_64-linux-gnu/libcrypto.so.3\n702758de7000-702758eb2000 r--p 003e7000 fd:01 1977                       /usr/lib/x86_64-linux-gnu/libcrypto.so.3\n702758eb2000-702758f0e000 r--p 004b1000 fd:01 1977                       /usr/lib/x86_64-linux-gnu/libcrypto.so.3\n702758f0e000-702758f11000 rw-p 0050d000 fd:01 1977                       /usr/lib/x86_64-linux-gnu/libcrypto.so.3\n702758f11000-702758f14000 rw-p 00000000 00:00 0 \n702758f17000-702758f1c000 rw-p 00000000 00:00 0 \n702758f1c000-702758f2c000 r--p 00000000 fd:01 3019                       /usr/lib/x86_64-linux-gnu/libm.so.6\n702758f2c000-702758fab000 r-xp 00010000 fd:01 3019                       /usr/lib/x86_64-linux-gnu/libm.so.6\n702758fab000-702759003000 r--p 0008f000 fd:01 3019                       /usr/lib/x86_64-linux-gnu/libm.so.6\n702759003000-702759004000 r--p 000e7000 fd:01 3019                       /usr/lib/x86_64-linux-gnu/libm.so.6\n702759004000-702759005000 rw-p 000e8000 fd:01 3019                       /usr/lib/x86_64-linux-gnu/libm.so.6\n702759005000-702759007000 r--p 00000000 fd:01 4802                       /usr/lib/x86_64-linux-gnu/libz.so.1.3\n702759007000-702759019000 r-xp 00002000 fd:01 4802                       /usr/lib/x86_64-linux-gnu/libz.so.1.3\n702759019000-70275901f000 r--p 00014000 fd:01 4802                       /usr/lib/x86_64-linux-gnu/libz.so.1.3\n70275901f000-702759020000 r--p 0001a000 fd:01 4802                       /usr/lib/x86_64-linux-gnu/libz.so.1.3\n702759020000-702759021000 rw-p 0001b000 fd:01 4802                       /usr/lib/x86_64-linux-gnu/libz.so.1.3\n702759021000-70275903f000 r--p 00000000 fd:01 1978                       /usr/lib/x86_64-linux-gnu/libssl.so.3\n70275903f000-7027590a1000 r-xp 0001e000 fd:01 1978                       /usr/lib/x86_64-linux-gnu/libssl.so.3\n7027590a1000-7027590bd000 r--p 00080000 fd:01 1978                       /usr/lib/x86_64-linux-gnu/libssl.so.3\n7027590bd000-7027590c7000 r--p 0009c000 fd:01 1978                       /usr/lib/x86_64-linux-gnu/libssl.so.3\n7027590c7000-7027590cb000 rw-p 000a6000 fd:01 1978                       /usr/lib/x86_64-linux-gnu/libssl.so.3\n7027590d0000-7027590d1000 rw-s 00000000 00:01 65578                      /SYSV00540001 (deleted)\n7027590d1000-7027590d3000 rw-p 00000000 00:00 0 \n7027590d3000-7027590d4000 r--p 00000000 fd:01 3013                       /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2\n7027590d4000-7027590ff000 r-xp 00001000 fd:01 3013                       /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2\n7027590ff000-702759109000 r--p 0002c000 fd:01 3013                       /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2\n702759109000-70275910b000 r--p 00036000 fd:01 3013                       /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2\n70275910b000-70275910d000 rw-p 00038000 fd:01 3013                       /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2\n7ffdba955000-7ffdba976000 rw-p 00000000 00:00 0                          [stack]\n7ffdba9c3000-7ffdba9c7000 r--p 00000000 00:00 0                          [vvar]\n7ffdba9c7000-7ffdba9c9000 r-xp 00000000 00:00 0                          [vdso]\nffffffffff600000-ffffffffff601000 --xp 00000000 00:00 0                  [vsyscall]\n",
+        "status": "Name:\tpostgres\nUmask:\t0077\nState:\tS (sleeping)\nTgid:\t191111\nNgid:\t0\nPid:\t191111\nPPid:\t191076\nTracerPid:\t0\nUid:\t1000\t1000\t1000\t1000\nGid:\t1000\t1000\t1000\t1000\nFDSize:\t64\nGroups:\t1000 1001 \nNStgid:\t191111\nNSpid:\t191111\nNSpgid:\t191111\nNSsid:\t191111\nKthread:\t0\nVmPeak:\t 1137856 kB\nVmSize:\t 1137856 kB\nVmLck:\t       0 kB\nVmPin:\t       0 kB\nVmHWM:\t   19516 kB\nVmRSS:\t   19516 kB\nRssAnon:\t    2444 kB\nRssFile:\t    8236 kB\nRssShmem:\t    8836 kB\nVmData:\t    2732 kB\nVmStk:\t     132 kB\nVmExe:\t    6108 kB\nVmLib:\t    6004 kB\nVmPTE:\t     152 kB\nVmSwap:\t       0 kB\nHugetlbPages:\t       0 kB\nCoreDumping:\t0\nTHP_enabled:\t1\nuntag_mask:\t0xffffffffffffffff\nThreads:\t1\nSigQ:\t0/257057\nSigPnd:\t0000000000000000\nShdPnd:\t0000000000000000\nSigBlk:\t0000000000400000\nSigIgn:\t0000000001301800\nSigCgt:\t0000000020006287\nCapInh:\t0000000000000000\nCapPrm:\t0000000000000000\nCapEff:\t0000000000000000\nCapBnd:\t000001ffffffffff\nCapAmb:\t0000000000000000\nNoNewPrivs:\t0\nSeccomp:\t0\nSeccomp_filters:\t0\nSpeculation_Store_Bypass:\tthread vulnerable\nSpeculationIndirectBranch:\tconditional enabled\nCpus_allowed:\t40\nCpus_allowed_list:\t6\nMems_allowed:\t00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000001\nMems_allowed_list:\t0\nvoluntary_ctxt_switches:\t8\nnonvoluntary_ctxt_switches:\t21\nx86_Thread_features:\t\nx86_Thread_features_locked:\t\n",
+        "stat": "191111 (postgres) S 191076 191111 191111 0 -1 4194368 731 0 0 0 0 0 0 0 30 10 1 0 547240 1165164544 4855 18446744073709551615 103939170684928 103939176936753 140727733928528 0 0 0 4194304 19929088 536896135 1 0 0 17 6 0 0 0 0 0 103939180324272 103939180597720 103939392225280 140727733934817 140727733934978 140727733934978 140727733936013 0\n",
+        "schedstat": "9621433 1577466 29\n",
+        "smaps_rollup": "5e88394a5000-7ffdba9c9000 ---p 00000000 00:00 0                          [rollup]\nRss:               19516 kB\nPss:                7699 kB\nPss_Dirty:          5929 kB\nPss_Anon:           1520 kB\nPss_File:           1770 kB\nPss_Shmem:          4408 kB\nShared_Clean:       8112 kB\nShared_Dirty:       9484 kB\nPrivate_Clean:       124 kB\nPrivate_Dirty:      1796 kB\nReferenced:        18660 kB\nAnonymous:          2444 kB\nKSM:                   0 kB\nLazyFree:              0 kB\nAnonHugePages:         0 kB\nShmemPmdMapped:        0 kB\nFilePmdMapped:         0 kB\nShared_Hugetlb:        0 kB\nPrivate_Hugetlb:       0 kB\nSwap:                  0 kB\nSwapPss:               0 kB\nLocked:                0 kB\n",
+        "cgroup": "0::/user.slice/user-1000.slice/session-33.scope\n"
+      },
+      "psql": {
+        "pid": 191110,
+        "exe": "/home/reshke/wpgpg/ios14-199-1111/build/stage-B/home/reshke/wpgpg/ios14-199-1111/build/prefix/bin/psql",
+        "elf_sha256": "711060db1c984333ad53d5d00cee9d1c7461c74042306cec055291cae2279305",
+        "affinity": [
+          4
+        ],
+        "nice": 10,
+        "maps": "618cb51a0000-618cb51ab000 r--p 00000000 fd:01 3147223                    /home/reshke/wpgpg/ios14-199-1111/build/stage-B/home/reshke/wpgpg/ios14-199-1111/build/prefix/bin/psql\n618cb51ab000-618cb51ec000 r-xp 0000b000 fd:01 3147223                    /home/reshke/wpgpg/ios14-199-1111/build/stage-B/home/reshke/wpgpg/ios14-199-1111/build/prefix/bin/psql\n618cb51ec000-618cb522b000 r--p 0004c000 fd:01 3147223                    /home/reshke/wpgpg/ios14-199-1111/build/stage-B/home/reshke/wpgpg/ios14-199-1111/build/prefix/bin/psql\n618cb522b000-618cb522f000 r--p 0008a000 fd:01 3147223                    /home/reshke/wpgpg/ios14-199-1111/build/stage-B/home/reshke/wpgpg/ios14-199-1111/build/prefix/bin/psql\n618cb522f000-618cb5230000 rw-p 0008e000 fd:01 3147223                    /home/reshke/wpgpg/ios14-199-1111/build/stage-B/home/reshke/wpgpg/ios14-199-1111/build/prefix/bin/psql\n618ccabae000-618ccabcf000 rw-p 00000000 00:00 0                          [heap]\n723b0c000000-723b0c0b3000 r--p 00000000 fd:01 1977                       /usr/lib/x86_64-linux-gnu/libcrypto.so.3\n723b0c0b3000-723b0c3e7000 r-xp 000b3000 fd:01 1977                       /usr/lib/x86_64-linux-gnu/libcrypto.so.3\n723b0c3e7000-723b0c4b2000 r--p 003e7000 fd:01 1977                       /usr/lib/x86_64-linux-gnu/libcrypto.so.3\n723b0c4b2000-723b0c50e000 r--p 004b1000 fd:01 1977                       /usr/lib/x86_64-linux-gnu/libcrypto.so.3\n723b0c50e000-723b0c511000 rw-p 0050d000 fd:01 1977                       /usr/lib/x86_64-linux-gnu/libcrypto.so.3\n723b0c511000-723b0c514000 rw-p 00000000 00:00 0 \n723b0c600000-723b0c628000 r--p 00000000 fd:01 3016                       /usr/lib/x86_64-linux-gnu/libc.so.6\n723b0c628000-723b0c7b1000 r-xp 00028000 fd:01 3016                       /usr/lib/x86_64-linux-gnu/libc.so.6\n723b0c7b1000-723b0c800000 r--p 001b1000 fd:01 3016                       /usr/lib/x86_64-linux-gnu/libc.so.6\n723b0c800000-723b0c804000 r--p 001ff000 fd:01 3016                       /usr/lib/x86_64-linux-gnu/libc.so.6\n723b0c804000-723b0c806000 rw-p 00203000 fd:01 3016                       /usr/lib/x86_64-linux-gnu/libc.so.6\n723b0c806000-723b0c813000 rw-p 00000000 00:00 0 \n723b0c82a000-723b0c82f000 rw-p 00000000 00:00 0 \n723b0c82f000-723b0c84d000 r--p 00000000 fd:01 1978                       /usr/lib/x86_64-linux-gnu/libssl.so.3\n723b0c84d000-723b0c8af000 r-xp 0001e000 fd:01 1978                       /usr/lib/x86_64-linux-gnu/libssl.so.3\n723b0c8af000-723b0c8cb000 r--p 00080000 fd:01 1978                       /usr/lib/x86_64-linux-gnu/libssl.so.3\n723b0c8cb000-723b0c8d5000 r--p 0009c000 fd:01 1978                       /usr/lib/x86_64-linux-gnu/libssl.so.3\n723b0c8d5000-723b0c8d9000 rw-p 000a6000 fd:01 1978                       /usr/lib/x86_64-linux-gnu/libssl.so.3\n723b0c8d9000-723b0c8e9000 r--p 00000000 fd:01 3019                       /usr/lib/x86_64-linux-gnu/libm.so.6\n723b0c8e9000-723b0c968000 r-xp 00010000 fd:01 3019                       /usr/lib/x86_64-linux-gnu/libm.so.6\n723b0c968000-723b0c9c0000 r--p 0008f000 fd:01 3019                       /usr/lib/x86_64-linux-gnu/libm.so.6\n723b0c9c0000-723b0c9c1000 r--p 000e7000 fd:01 3019                       /usr/lib/x86_64-linux-gnu/libm.so.6\n723b0c9c1000-723b0c9c2000 rw-p 000e8000 fd:01 3019                       /usr/lib/x86_64-linux-gnu/libm.so.6\n723b0c9c8000-723b0c9d4000 r--p 00000000 fd:01 3147147                    /home/reshke/wpgpg/ios14-199-1111/build/stage-B/home/reshke/wpgpg/ios14-199-1111/build/prefix/lib/libpq.so.5.20\n723b0c9d4000-723b0c9fe000 r-xp 0000c000 fd:01 3147147                    /home/reshke/wpgpg/ios14-199-1111/build/stage-B/home/reshke/wpgpg/ios14-199-1111/build/prefix/lib/libpq.so.5.20\n723b0c9fe000-723b0ca22000 r--p 00036000 fd:01 3147147                    /home/reshke/wpgpg/ios14-199-1111/build/stage-B/home/reshke/wpgpg/ios14-199-1111/build/prefix/lib/libpq.so.5.20\n723b0ca22000-723b0ca25000 r--p 0005a000 fd:01 3147147                    /home/reshke/wpgpg/ios14-199-1111/build/stage-B/home/reshke/wpgpg/ios14-199-1111/build/prefix/lib/libpq.so.5.20\n723b0ca25000-723b0ca26000 rw-p 0005d000 fd:01 3147147                    /home/reshke/wpgpg/ios14-199-1111/build/stage-B/home/reshke/wpgpg/ios14-199-1111/build/prefix/lib/libpq.so.5.20\n723b0ca26000-723b0ca28000 rw-p 00000000 00:00 0 \n723b0ca28000-723b0ca29000 r--p 00000000 fd:01 3013                       /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2\n723b0ca29000-723b0ca54000 r-xp 00001000 fd:01 3013                       /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2\n723b0ca54000-723b0ca5e000 r--p 0002c000 fd:01 3013                       /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2\n723b0ca5e000-723b0ca60000 r--p 00036000 fd:01 3013                       /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2\n723b0ca60000-723b0ca62000 rw-p 00038000 fd:01 3013                       /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2\n7ffffa620000-7ffffa641000 rw-p 00000000 00:00 0                          [stack]\n7ffffa673000-7ffffa677000 r--p 00000000 00:00 0                          [vvar]\n7ffffa677000-7ffffa679000 r-xp 00000000 00:00 0                          [vdso]\nffffffffff600000-ffffffffff601000 --xp 00000000 00:00 0                  [vsyscall]\n",
+        "status": "Name:\tpsql\nUmask:\t0002\nState:\tS (sleeping)\nTgid:\t191110\nNgid:\t0\nPid:\t191110\nPPid:\t190987\nTracerPid:\t0\nUid:\t1000\t1000\t1000\t1000\nGid:\t1000\t1000\t1000\t1000\nFDSize:\t64\nGroups:\t1000 1001 \nNStgid:\t191110\nNSpid:\t191110\nNSpgid:\t190987\nNSsid:\t190987\nKthread:\t0\nVmPeak:\t   10436 kB\nVmSize:\t   10436 kB\nVmLck:\t       0 kB\nVmPin:\t       0 kB\nVmHWM:\t    4824 kB\nVmRSS:\t    4824 kB\nRssAnon:\t     620 kB\nRssFile:\t    4204 kB\nRssShmem:\t       0 kB\nVmData:\t     280 kB\nVmStk:\t     132 kB\nVmExe:\t     260 kB\nVmLib:\t    6100 kB\nVmPTE:\t      68 kB\nVmSwap:\t       0 kB\nHugetlbPages:\t       0 kB\nCoreDumping:\t0\nTHP_enabled:\t1\nuntag_mask:\t0xffffffffffffffff\nThreads:\t1\nSigQ:\t0/257057\nSigPnd:\t0000000000000000\nShdPnd:\t0000000000000000\nSigBlk:\t0000000000000000\nSigIgn:\t0000000000000000\nSigCgt:\t0000000000012002\nCapInh:\t0000000000000000\nCapPrm:\t0000000000000000\nCapEff:\t0000000000000000\nCapBnd:\t000001ffffffffff\nCapAmb:\t0000000000000000\nNoNewPrivs:\t0\nSeccomp:\t0\nSeccomp_filters:\t0\nSpeculation_Store_Bypass:\tthread vulnerable\nSpeculationIndirectBranch:\tconditional enabled\nCpus_allowed:\t10\nCpus_allowed_list:\t4\nMems_allowed:\t00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000001\nMems_allowed_list:\t0\nvoluntary_ctxt_switches:\t12\nnonvoluntary_ctxt_switches:\t3\nx86_Thread_features:\t\nx86_Thread_features_locked:\t\n",
+        "stat": "191110 (psql) S 190987 190987 190987 0 -1 4194304 302 0 0 0 0 0 0 0 30 10 1 0 547239 10686464 1152 18446744073709551615 107256961740800 107256962003441 140737394245392 0 0 0 0 0 73730 1 0 0 17 4 0 0 0 0 0 107256962267824 107256962282892 107257324560384 140737394248617 140737394248813 140737394248813 140737394249617 0\n",
+        "schedstat": "3120777 3296072 15\n",
+        "smaps_rollup": "618cb51a0000-7ffffa679000 ---p 00000000 00:00 0                          [rollup]\nRss:                4824 kB\nPss:                1201 kB\nPss_Dirty:           620 kB\nPss_Anon:            620 kB\nPss_File:            581 kB\nPss_Shmem:             0 kB\nShared_Clean:       4152 kB\nShared_Dirty:          0 kB\nPrivate_Clean:        52 kB\nPrivate_Dirty:       620 kB\nReferenced:         4824 kB\nAnonymous:           620 kB\nKSM:                   0 kB\nLazyFree:              0 kB\nAnonHugePages:         0 kB\nShmemPmdMapped:        0 kB\nFilePmdMapped:         0 kB\nShared_Hugetlb:        0 kB\nPrivate_Hugetlb:       0 kB\nSwap:                  0 kB\nSwapPss:               0 kB\nLocked:                0 kB\n",
+        "cgroup": "0::/user.slice/user-1000.slice/session-33.scope\n"
+      },
+      "settings": {
+        "clock": "system",
+        "buffers": "1GB",
+        "assertions": "off",
+        "parallel": "0",
+        "autovacuum": "off",
+        "jit": "off",
+        "fsync": "on"
+      }
+    },
+    "v13": {
+      "backend": {
+        "pid": 191113,
+        "exe": "/home/reshke/wpgpg/ios14-199-1111/build/stage-V13/home/reshke/wpgpg/ios14-199-1111/build/prefix/bin/postgres",
+        "elf_sha256": "1318ac428d6ee37c07e60e182124c82d6af8fa4a8f6f6451b46b98715426bc25",
+        "affinity": [
+          6
+        ],
+        "nice": 10,
+        "maps": "5dfe0bbd8000-5dfe0bcc0000 r--p 00000000 fd:01 3147679                    /home/reshke/wpgpg/ios14-199-1111/build/stage-V13/home/reshke/wpgpg/ios14-199-1111/build/prefix/bin/postgres\n5dfe0bcc0000-5dfe0c2b7000 r-xp 000e8000 fd:01 3147679                    /home/reshke/wpgpg/ios14-199-1111/build/stage-V13/home/reshke/wpgpg/ios14-199-1111/build/prefix/bin/postgres\n5dfe0c2b7000-5dfe0c5f1000 r--p 006df000 fd:01 3147679                    /home/reshke/wpgpg/ios14-199-1111/build/stage-V13/home/reshke/wpgpg/ios14-199-1111/build/prefix/bin/postgres\n5dfe0c5f1000-5dfe0c618000 r--p 00a19000 fd:01 3147679                    /home/reshke/wpgpg/ios14-199-1111/build/stage-V13/home/reshke/wpgpg/ios14-199-1111/build/prefix/bin/postgres\n5dfe0c618000-5dfe0c635000 rw-p 00a40000 fd:01 3147679                    /home/reshke/wpgpg/ios14-199-1111/build/stage-V13/home/reshke/wpgpg/ios14-199-1111/build/prefix/bin/postgres\n5dfe0c635000-5dfe0c678000 rw-p 00000000 00:00 0 \n5dfe1fda9000-5dfe1fe39000 rw-p 00000000 00:00 0                          [heap]\n5dfe1fe39000-5dfe1feed000 rw-p 00000000 00:00 0                          [heap]\n73c672fde000-73c6b7000000 rw-s 00000000 00:01 1079                       /dev/zero (deleted)\n73c6b7000000-73c6b7028000 r--p 00000000 fd:01 3016                       /usr/lib/x86_64-linux-gnu/libc.so.6\n73c6b7028000-73c6b71b1000 r-xp 00028000 fd:01 3016                       /usr/lib/x86_64-linux-gnu/libc.so.6\n73c6b71b1000-73c6b7200000 r--p 001b1000 fd:01 3016                       /usr/lib/x86_64-linux-gnu/libc.so.6\n73c6b7200000-73c6b7204000 r--p 001ff000 fd:01 3016                       /usr/lib/x86_64-linux-gnu/libc.so.6\n73c6b7204000-73c6b7206000 rw-p 00203000 fd:01 3016                       /usr/lib/x86_64-linux-gnu/libc.so.6\n73c6b7206000-73c6b7213000 rw-p 00000000 00:00 0 \n73c6b723e000-73c6b7300000 rw-p 00000000 00:00 0 \n73c6b7300000-73c6b7400000 rw-s 00000000 00:1a 5007                       /dev/shm/PostgreSQL.1534961750\n73c6b7400000-73c6b74b3000 r--p 00000000 fd:01 1977                       /usr/lib/x86_64-linux-gnu/libcrypto.so.3\n73c6b74b3000-73c6b77e7000 r-xp 000b3000 fd:01 1977                       /usr/lib/x86_64-linux-gnu/libcrypto.so.3\n73c6b77e7000-73c6b78b2000 r--p 003e7000 fd:01 1977                       /usr/lib/x86_64-linux-gnu/libcrypto.so.3\n73c6b78b2000-73c6b790e000 r--p 004b1000 fd:01 1977                       /usr/lib/x86_64-linux-gnu/libcrypto.so.3\n73c6b790e000-73c6b7911000 rw-p 0050d000 fd:01 1977                       /usr/lib/x86_64-linux-gnu/libcrypto.so.3\n73c6b7911000-73c6b7914000 rw-p 00000000 00:00 0 \n73c6b793c000-73c6b795d000 rw-p 00000000 00:00 0 \n73c6b795d000-73c6b7965000 rw-s 00000000 00:1a 5006                       /dev/shm/PostgreSQL.3591790510\n73c6b7965000-73c6b796a000 rw-p 00000000 00:00 0 \n73c6b796a000-73c6b797a000 r--p 00000000 fd:01 3019                       /usr/lib/x86_64-linux-gnu/libm.so.6\n73c6b797a000-73c6b79f9000 r-xp 00010000 fd:01 3019                       /usr/lib/x86_64-linux-gnu/libm.so.6\n73c6b79f9000-73c6b7a51000 r--p 0008f000 fd:01 3019                       /usr/lib/x86_64-linux-gnu/libm.so.6\n73c6b7a51000-73c6b7a52000 r--p 000e7000 fd:01 3019                       /usr/lib/x86_64-linux-gnu/libm.so.6\n73c6b7a52000-73c6b7a53000 rw-p 000e8000 fd:01 3019                       /usr/lib/x86_64-linux-gnu/libm.so.6\n73c6b7a53000-73c6b7a55000 r--p 00000000 fd:01 4802                       /usr/lib/x86_64-linux-gnu/libz.so.1.3\n73c6b7a55000-73c6b7a67000 r-xp 00002000 fd:01 4802                       /usr/lib/x86_64-linux-gnu/libz.so.1.3\n73c6b7a67000-73c6b7a6d000 r--p 00014000 fd:01 4802                       /usr/lib/x86_64-linux-gnu/libz.so.1.3\n73c6b7a6d000-73c6b7a6e000 r--p 0001a000 fd:01 4802                       /usr/lib/x86_64-linux-gnu/libz.so.1.3\n73c6b7a6e000-73c6b7a6f000 rw-p 0001b000 fd:01 4802                       /usr/lib/x86_64-linux-gnu/libz.so.1.3\n73c6b7a6f000-73c6b7a8d000 r--p 00000000 fd:01 1978                       /usr/lib/x86_64-linux-gnu/libssl.so.3\n73c6b7a8d000-73c6b7aef000 r-xp 0001e000 fd:01 1978                       /usr/lib/x86_64-linux-gnu/libssl.so.3\n73c6b7aef000-73c6b7b0b000 r--p 00080000 fd:01 1978                       /usr/lib/x86_64-linux-gnu/libssl.so.3\n73c6b7b0b000-73c6b7b15000 r--p 0009c000 fd:01 1978                       /usr/lib/x86_64-linux-gnu/libssl.so.3\n73c6b7b15000-73c6b7b19000 rw-p 000a6000 fd:01 1978                       /usr/lib/x86_64-linux-gnu/libssl.so.3\n73c6b7b1e000-73c6b7b1f000 rw-s 00000000 00:01 65579                      /SYSV005c0001 (deleted)\n73c6b7b1f000-73c6b7b21000 rw-p 00000000 00:00 0 \n73c6b7b21000-73c6b7b22000 r--p 00000000 fd:01 3013                       /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2\n73c6b7b22000-73c6b7b4d000 r-xp 00001000 fd:01 3013                       /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2\n73c6b7b4d000-73c6b7b57000 r--p 0002c000 fd:01 3013                       /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2\n73c6b7b57000-73c6b7b59000 r--p 00036000 fd:01 3013                       /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2\n73c6b7b59000-73c6b7b5b000 rw-p 00038000 fd:01 3013                       /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2\n7ffc88ecd000-7ffc88eee000 rw-p 00000000 00:00 0                          [stack]\n7ffc88f1e000-7ffc88f22000 r--p 00000000 00:00 0                          [vvar]\n7ffc88f22000-7ffc88f24000 r-xp 00000000 00:00 0                          [vdso]\nffffffffff600000-ffffffffff601000 --xp 00000000 00:00 0                  [vsyscall]\n",
+        "status": "Name:\tpostgres\nUmask:\t0077\nState:\tS (sleeping)\nTgid:\t191113\nNgid:\t0\nPid:\t191113\nPPid:\t191088\nTracerPid:\t0\nUid:\t1000\t1000\t1000\t1000\nGid:\t1000\t1000\t1000\t1000\nFDSize:\t64\nGroups:\t1000 1001 \nNStgid:\t191113\nNSpid:\t191113\nNSpgid:\t191113\nNSsid:\t191113\nKthread:\t0\nVmPeak:\t 1137856 kB\nVmSize:\t 1137856 kB\nVmLck:\t       0 kB\nVmPin:\t       0 kB\nVmHWM:\t   19332 kB\nVmRSS:\t   19332 kB\nRssAnon:\t    2444 kB\nRssFile:\t    8044 kB\nRssShmem:\t    8844 kB\nVmData:\t    2732 kB\nVmStk:\t     132 kB\nVmExe:\t    6108 kB\nVmLib:\t    6004 kB\nVmPTE:\t     152 kB\nVmSwap:\t       0 kB\nHugetlbPages:\t       0 kB\nCoreDumping:\t0\nTHP_enabled:\t1\nuntag_mask:\t0xffffffffffffffff\nThreads:\t1\nSigQ:\t0/257057\nSigPnd:\t0000000000000000\nShdPnd:\t0000000000000000\nSigBlk:\t0000000000400000\nSigIgn:\t0000000001301800\nSigCgt:\t0000000020006287\nCapInh:\t0000000000000000\nCapPrm:\t0000000000000000\nCapEff:\t0000000000000000\nCapBnd:\t000001ffffffffff\nCapAmb:\t0000000000000000\nNoNewPrivs:\t0\nSeccomp:\t0\nSeccomp_filters:\t0\nSpeculation_Store_Bypass:\tthread vulnerable\nSpeculationIndirectBranch:\tconditional enabled\nCpus_allowed:\t40\nCpus_allowed_list:\t6\nMems_allowed:\t00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000001\nMems_allowed_list:\t0\nvoluntary_ctxt_switches:\t8\nnonvoluntary_ctxt_switches:\t20\nx86_Thread_features:\t\nx86_Thread_features_locked:\t\n",
+        "stat": "191113 (postgres) S 191088 191113 191113 0 -1 4194368 727 0 0 0 0 0 0 0 30 10 1 0 547254 1165164544 4791 18446744073709551615 103345700995072 103345707248145 140722605834304 0 0 0 4194304 19929088 536896135 1 0 0 17 6 0 0 0 0 0 103345710634416 103345710907864 103346037493760 140722605841113 140722605841276 140722605841276 140722605842315 0\n",
+        "schedstat": "9695074 1541221 28\n",
+        "smaps_rollup": "5dfe0bbd8000-7ffc88f24000 ---p 00000000 00:00 0                          [rollup]\nRss:               19332 kB\nPss:                9113 kB\nPss_Dirty:          5938 kB\nPss_Anon:           1517 kB\nPss_File:           3174 kB\nPss_Shmem:          4420 kB\nShared_Clean:       5996 kB\nShared_Dirty:       9488 kB\nPrivate_Clean:      2048 kB\nPrivate_Dirty:      1800 kB\nReferenced:        18472 kB\nAnonymous:          2444 kB\nKSM:                   0 kB\nLazyFree:              0 kB\nAnonHugePages:         0 kB\nShmemPmdMapped:        0 kB\nFilePmdMapped:         0 kB\nShared_Hugetlb:        0 kB\nPrivate_Hugetlb:       0 kB\nSwap:                  0 kB\nSwapPss:               0 kB\nLocked:                0 kB\n",
+        "cgroup": "0::/user.slice/user-1000.slice/session-33.scope\n"
+      },
+      "psql": {
+        "pid": 191112,
+        "exe": "/home/reshke/wpgpg/ios14-199-1111/build/stage-B/home/reshke/wpgpg/ios14-199-1111/build/prefix/bin/psql",
+        "elf_sha256": "711060db1c984333ad53d5d00cee9d1c7461c74042306cec055291cae2279305",
+        "affinity": [
+          4
+        ],
+        "nice": 10,
+        "maps": "5e07d3adc000-5e07d3ae7000 r--p 00000000 fd:01 3147223                    /home/reshke/wpgpg/ios14-199-1111/build/stage-B/home/reshke/wpgpg/ios14-199-1111/build/prefix/bin/psql\n5e07d3ae7000-5e07d3b28000 r-xp 0000b000 fd:01 3147223                    /home/reshke/wpgpg/ios14-199-1111/build/stage-B/home/reshke/wpgpg/ios14-199-1111/build/prefix/bin/psql\n5e07d3b28000-5e07d3b67000 r--p 0004c000 fd:01 3147223                    /home/reshke/wpgpg/ios14-199-1111/build/stage-B/home/reshke/wpgpg/ios14-199-1111/build/prefix/bin/psql\n5e07d3b67000-5e07d3b6b000 r--p 0008a000 fd:01 3147223                    /home/reshke/wpgpg/ios14-199-1111/build/stage-B/home/reshke/wpgpg/ios14-199-1111/build/prefix/bin/psql\n5e07d3b6b000-5e07d3b6c000 rw-p 0008e000 fd:01 3147223                    /home/reshke/wpgpg/ios14-199-1111/build/stage-B/home/reshke/wpgpg/ios14-199-1111/build/prefix/bin/psql\n5e07e0011000-5e07e0032000 rw-p 00000000 00:00 0                          [heap]\n78b393400000-78b3934b3000 r--p 00000000 fd:01 1977                       /usr/lib/x86_64-linux-gnu/libcrypto.so.3\n78b3934b3000-78b3937e7000 r-xp 000b3000 fd:01 1977                       /usr/lib/x86_64-linux-gnu/libcrypto.so.3\n78b3937e7000-78b3938b2000 r--p 003e7000 fd:01 1977                       /usr/lib/x86_64-linux-gnu/libcrypto.so.3\n78b3938b2000-78b39390e000 r--p 004b1000 fd:01 1977                       /usr/lib/x86_64-linux-gnu/libcrypto.so.3\n78b39390e000-78b393911000 rw-p 0050d000 fd:01 1977                       /usr/lib/x86_64-linux-gnu/libcrypto.so.3\n78b393911000-78b393914000 rw-p 00000000 00:00 0 \n78b393a00000-78b393a28000 r--p 00000000 fd:01 3016                       /usr/lib/x86_64-linux-gnu/libc.so.6\n78b393a28000-78b393bb1000 r-xp 00028000 fd:01 3016                       /usr/lib/x86_64-linux-gnu/libc.so.6\n78b393bb1000-78b393c00000 r--p 001b1000 fd:01 3016                       /usr/lib/x86_64-linux-gnu/libc.so.6\n78b393c00000-78b393c04000 r--p 001ff000 fd:01 3016                       /usr/lib/x86_64-linux-gnu/libc.so.6\n78b393c04000-78b393c06000 rw-p 00203000 fd:01 3016                       /usr/lib/x86_64-linux-gnu/libc.so.6\n78b393c06000-78b393c13000 rw-p 00000000 00:00 0 \n78b393d06000-78b393d0b000 rw-p 00000000 00:00 0 \n78b393d0b000-78b393d29000 r--p 00000000 fd:01 1978                       /usr/lib/x86_64-linux-gnu/libssl.so.3\n78b393d29000-78b393d8b000 r-xp 0001e000 fd:01 1978                       /usr/lib/x86_64-linux-gnu/libssl.so.3\n78b393d8b000-78b393da7000 r--p 00080000 fd:01 1978                       /usr/lib/x86_64-linux-gnu/libssl.so.3\n78b393da7000-78b393db1000 r--p 0009c000 fd:01 1978                       /usr/lib/x86_64-linux-gnu/libssl.so.3\n78b393db1000-78b393db5000 rw-p 000a6000 fd:01 1978                       /usr/lib/x86_64-linux-gnu/libssl.so.3\n78b393db5000-78b393dc5000 r--p 00000000 fd:01 3019                       /usr/lib/x86_64-linux-gnu/libm.so.6\n78b393dc5000-78b393e44000 r-xp 00010000 fd:01 3019                       /usr/lib/x86_64-linux-gnu/libm.so.6\n78b393e44000-78b393e9c000 r--p 0008f000 fd:01 3019                       /usr/lib/x86_64-linux-gnu/libm.so.6\n78b393e9c000-78b393e9d000 r--p 000e7000 fd:01 3019                       /usr/lib/x86_64-linux-gnu/libm.so.6\n78b393e9d000-78b393e9e000 rw-p 000e8000 fd:01 3019                       /usr/lib/x86_64-linux-gnu/libm.so.6\n78b393ea4000-78b393eb0000 r--p 00000000 fd:01 3147147                    /home/reshke/wpgpg/ios14-199-1111/build/stage-B/home/reshke/wpgpg/ios14-199-1111/build/prefix/lib/libpq.so.5.20\n78b393eb0000-78b393eda000 r-xp 0000c000 fd:01 3147147                    /home/reshke/wpgpg/ios14-199-1111/build/stage-B/home/reshke/wpgpg/ios14-199-1111/build/prefix/lib/libpq.so.5.20\n78b393eda000-78b393efe000 r--p 00036000 fd:01 3147147                    /home/reshke/wpgpg/ios14-199-1111/build/stage-B/home/reshke/wpgpg/ios14-199-1111/build/prefix/lib/libpq.so.5.20\n78b393efe000-78b393f01000 r--p 0005a000 fd:01 3147147                    /home/reshke/wpgpg/ios14-199-1111/build/stage-B/home/reshke/wpgpg/ios14-199-1111/build/prefix/lib/libpq.so.5.20\n78b393f01000-78b393f02000 rw-p 0005d000 fd:01 3147147                    /home/reshke/wpgpg/ios14-199-1111/build/stage-B/home/reshke/wpgpg/ios14-199-1111/build/prefix/lib/libpq.so.5.20\n78b393f02000-78b393f04000 rw-p 00000000 00:00 0 \n78b393f04000-78b393f05000 r--p 00000000 fd:01 3013                       /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2\n78b393f05000-78b393f30000 r-xp 00001000 fd:01 3013                       /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2\n78b393f30000-78b393f3a000 r--p 0002c000 fd:01 3013                       /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2\n78b393f3a000-78b393f3c000 r--p 00036000 fd:01 3013                       /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2\n78b393f3c000-78b393f3e000 rw-p 00038000 fd:01 3013                       /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2\n7ffcb3076000-7ffcb3097000 rw-p 00000000 00:00 0                          [stack]\n7ffcb30a3000-7ffcb30a7000 r--p 00000000 00:00 0                          [vvar]\n7ffcb30a7000-7ffcb30a9000 r-xp 00000000 00:00 0                          [vdso]\nffffffffff600000-ffffffffff601000 --xp 00000000 00:00 0                  [vsyscall]\n",
+        "status": "Name:\tpsql\nUmask:\t0002\nState:\tS (sleeping)\nTgid:\t191112\nNgid:\t0\nPid:\t191112\nPPid:\t190987\nTracerPid:\t0\nUid:\t1000\t1000\t1000\t1000\nGid:\t1000\t1000\t1000\t1000\nFDSize:\t64\nGroups:\t1000 1001 \nNStgid:\t191112\nNSpid:\t191112\nNSpgid:\t190987\nNSsid:\t190987\nKthread:\t0\nVmPeak:\t   10436 kB\nVmSize:\t   10436 kB\nVmLck:\t       0 kB\nVmPin:\t       0 kB\nVmHWM:\t    4688 kB\nVmRSS:\t    4688 kB\nRssAnon:\t     624 kB\nRssFile:\t    4064 kB\nRssShmem:\t       0 kB\nVmData:\t     280 kB\nVmStk:\t     132 kB\nVmExe:\t     260 kB\nVmLib:\t    6100 kB\nVmPTE:\t      60 kB\nVmSwap:\t       0 kB\nHugetlbPages:\t       0 kB\nCoreDumping:\t0\nTHP_enabled:\t1\nuntag_mask:\t0xffffffffffffffff\nThreads:\t1\nSigQ:\t0/257057\nSigPnd:\t0000000000000000\nShdPnd:\t0000000000000000\nSigBlk:\t0000000000000000\nSigIgn:\t0000000000000000\nSigCgt:\t0000000000012002\nCapInh:\t0000000000000000\nCapPrm:\t0000000000000000\nCapEff:\t0000000000000000\nCapBnd:\t000001ffffffffff\nCapAmb:\t0000000000000000\nNoNewPrivs:\t0\nSeccomp:\t0\nSeccomp_filters:\t0\nSpeculation_Store_Bypass:\tthread vulnerable\nSpeculationIndirectBranch:\tconditional enabled\nCpus_allowed:\t10\nCpus_allowed_list:\t4\nMems_allowed:\t00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000001\nMems_allowed_list:\t0\nvoluntary_ctxt_switches:\t12\nnonvoluntary_ctxt_switches:\t3\nx86_Thread_features:\t\nx86_Thread_features_locked:\t\n",
+        "stat": "191112 (psql) S 190987 190987 190987 0 -1 4194304 298 0 0 0 0 0 0 0 30 10 1 0 547254 10686464 1120 18446744073709551615 103387709206528 103387709469169 140723312217856 0 0 0 0 0 73730 1 0 0 17 4 0 0 0 0 0 103387709733552 103387709748620 103387915948032 140723312225193 140723312225389 140723312225389 140723312226193 0\n",
+        "schedstat": "3114058 3289715 15\n",
+        "smaps_rollup": "5e07d3adc000-7ffcb30a9000 ---p 00000000 00:00 0                          [rollup]\nRss:                4688 kB\nPss:                1007 kB\nPss_Dirty:           624 kB\nPss_Anon:            624 kB\nPss_File:            383 kB\nPss_Shmem:             0 kB\nShared_Clean:       4056 kB\nShared_Dirty:          0 kB\nPrivate_Clean:         8 kB\nPrivate_Dirty:       624 kB\nReferenced:         4688 kB\nAnonymous:           624 kB\nKSM:                   0 kB\nLazyFree:              0 kB\nAnonHugePages:         0 kB\nShmemPmdMapped:        0 kB\nFilePmdMapped:         0 kB\nShared_Hugetlb:        0 kB\nPrivate_Hugetlb:       0 kB\nSwap:                  0 kB\nSwapPss:               0 kB\nLocked:                0 kB\n",
+        "cgroup": "0::/user.slice/user-1000.slice/session-33.scope\n"
+      },
+      "settings": {
+        "clock": "system",
+        "buffers": "1GB",
+        "assertions": "off",
+        "parallel": "0",
+        "autovacuum": "off",
+        "jit": "off",
+        "fsync": "on"
+      }
+    },
+    "v14": {
+      "backend": {
+        "pid": 191115,
+        "exe": "/home/reshke/wpgpg/ios14-199-1111/build/stage-V14/home/reshke/wpgpg/ios14-199-1111/build/prefix/bin/postgres",
+        "elf_sha256": "c06dee1788a4ec7ae03f665b57fd1dfa4184825d1776aa5c4dd11f6133763eb2",
+        "affinity": [
+          6
+        ],
+        "nice": 10,
+        "maps": "55d128753000-55d12883b000 r--p 00000000 fd:01 3151941                    /home/reshke/wpgpg/ios14-199-1111/build/stage-V14/home/reshke/wpgpg/ios14-199-1111/build/prefix/bin/postgres\n55d12883b000-55d128e32000 r-xp 000e8000 fd:01 3151941                    /home/reshke/wpgpg/ios14-199-1111/build/stage-V14/home/reshke/wpgpg/ios14-199-1111/build/prefix/bin/postgres\n55d128e32000-55d12916c000 r--p 006df000 fd:01 3151941                    /home/reshke/wpgpg/ios14-199-1111/build/stage-V14/home/reshke/wpgpg/ios14-199-1111/build/prefix/bin/postgres\n55d12916c000-55d129193000 r--p 00a19000 fd:01 3151941                    /home/reshke/wpgpg/ios14-199-1111/build/stage-V14/home/reshke/wpgpg/ios14-199-1111/build/prefix/bin/postgres\n55d129193000-55d1291b0000 rw-p 00a40000 fd:01 3151941                    /home/reshke/wpgpg/ios14-199-1111/build/stage-V14/home/reshke/wpgpg/ios14-199-1111/build/prefix/bin/postgres\n55d1291b0000-55d1291f3000 rw-p 00000000 00:00 0 \n55d160219000-55d1602a9000 rw-p 00000000 00:00 0                          [heap]\n55d1602a9000-55d16035d000 rw-p 00000000 00:00 0                          [heap]\n75ea649de000-75eaa8a00000 rw-s 00000000 00:01 1081                       /dev/zero (deleted)\n75eaa8a00000-75eaa8a28000 r--p 00000000 fd:01 3016                       /usr/lib/x86_64-linux-gnu/libc.so.6\n75eaa8a28000-75eaa8bb1000 r-xp 00028000 fd:01 3016                       /usr/lib/x86_64-linux-gnu/libc.so.6\n75eaa8bb1000-75eaa8c00000 r--p 001b1000 fd:01 3016                       /usr/lib/x86_64-linux-gnu/libc.so.6\n75eaa8c00000-75eaa8c04000 r--p 001ff000 fd:01 3016                       /usr/lib/x86_64-linux-gnu/libc.so.6\n75eaa8c04000-75eaa8c06000 rw-p 00203000 fd:01 3016                       /usr/lib/x86_64-linux-gnu/libc.so.6\n75eaa8c06000-75eaa8c13000 rw-p 00000000 00:00 0 \n75eaa8c3e000-75eaa8d00000 rw-p 00000000 00:00 0 \n75eaa8d00000-75eaa8e00000 rw-s 00000000 00:1a 5009                       /dev/shm/PostgreSQL.809029398\n75eaa8e00000-75eaa8eb3000 r--p 00000000 fd:01 1977                       /usr/lib/x86_64-linux-gnu/libcrypto.so.3\n75eaa8eb3000-75eaa91e7000 r-xp 000b3000 fd:01 1977                       /usr/lib/x86_64-linux-gnu/libcrypto.so.3\n75eaa91e7000-75eaa92b2000 r--p 003e7000 fd:01 1977                       /usr/lib/x86_64-linux-gnu/libcrypto.so.3\n75eaa92b2000-75eaa930e000 r--p 004b1000 fd:01 1977                       /usr/lib/x86_64-linux-gnu/libcrypto.so.3\n75eaa930e000-75eaa9311000 rw-p 0050d000 fd:01 1977                       /usr/lib/x86_64-linux-gnu/libcrypto.so.3\n75eaa9311000-75eaa9314000 rw-p 00000000 00:00 0 \n75eaa9318000-75eaa9339000 rw-p 00000000 00:00 0 \n75eaa9339000-75eaa9341000 rw-s 00000000 00:1a 5008                       /dev/shm/PostgreSQL.3108219154\n75eaa9341000-75eaa9346000 rw-p 00000000 00:00 0 \n75eaa9346000-75eaa9356000 r--p 00000000 fd:01 3019                       /usr/lib/x86_64-linux-gnu/libm.so.6\n75eaa9356000-75eaa93d5000 r-xp 00010000 fd:01 3019                       /usr/lib/x86_64-linux-gnu/libm.so.6\n75eaa93d5000-75eaa942d000 r--p 0008f000 fd:01 3019                       /usr/lib/x86_64-linux-gnu/libm.so.6\n75eaa942d000-75eaa942e000 r--p 000e7000 fd:01 3019                       /usr/lib/x86_64-linux-gnu/libm.so.6\n75eaa942e000-75eaa942f000 rw-p 000e8000 fd:01 3019                       /usr/lib/x86_64-linux-gnu/libm.so.6\n75eaa942f000-75eaa9431000 r--p 00000000 fd:01 4802                       /usr/lib/x86_64-linux-gnu/libz.so.1.3\n75eaa9431000-75eaa9443000 r-xp 00002000 fd:01 4802                       /usr/lib/x86_64-linux-gnu/libz.so.1.3\n75eaa9443000-75eaa9449000 r--p 00014000 fd:01 4802                       /usr/lib/x86_64-linux-gnu/libz.so.1.3\n75eaa9449000-75eaa944a000 r--p 0001a000 fd:01 4802                       /usr/lib/x86_64-linux-gnu/libz.so.1.3\n75eaa944a000-75eaa944b000 rw-p 0001b000 fd:01 4802                       /usr/lib/x86_64-linux-gnu/libz.so.1.3\n75eaa944b000-75eaa9469000 r--p 00000000 fd:01 1978                       /usr/lib/x86_64-linux-gnu/libssl.so.3\n75eaa9469000-75eaa94cb000 r-xp 0001e000 fd:01 1978                       /usr/lib/x86_64-linux-gnu/libssl.so.3\n75eaa94cb000-75eaa94e7000 r--p 00080000 fd:01 1978                       /usr/lib/x86_64-linux-gnu/libssl.so.3\n75eaa94e7000-75eaa94f1000 r--p 0009c000 fd:01 1978                       /usr/lib/x86_64-linux-gnu/libssl.so.3\n75eaa94f1000-75eaa94f5000 rw-p 000a6000 fd:01 1978                       /usr/lib/x86_64-linux-gnu/libssl.so.3\n75eaa94fa000-75eaa94fb000 rw-s 00000000 00:01 65580                      /SYSV00600001 (deleted)\n75eaa94fb000-75eaa94fd000 rw-p 00000000 00:00 0 \n75eaa94fd000-75eaa94fe000 r--p 00000000 fd:01 3013                       /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2\n75eaa94fe000-75eaa9529000 r-xp 00001000 fd:01 3013                       /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2\n75eaa9529000-75eaa9533000 r--p 0002c000 fd:01 3013                       /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2\n75eaa9533000-75eaa9535000 r--p 00036000 fd:01 3013                       /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2\n75eaa9535000-75eaa9537000 rw-p 00038000 fd:01 3013                       /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2\n7ffcbe747000-7ffcbe768000 rw-p 00000000 00:00 0                          [stack]\n7ffcbe7ab000-7ffcbe7af000 r--p 00000000 00:00 0                          [vvar]\n7ffcbe7af000-7ffcbe7b1000 r-xp 00000000 00:00 0                          [vdso]\nffffffffff600000-ffffffffff601000 --xp 00000000 00:00 0                  [vsyscall]\n",
+        "status": "Name:\tpostgres\nUmask:\t0077\nState:\tS (sleeping)\nTgid:\t191115\nNgid:\t0\nPid:\t191115\nPPid:\t191100\nTracerPid:\t0\nUid:\t1000\t1000\t1000\t1000\nGid:\t1000\t1000\t1000\t1000\nFDSize:\t64\nGroups:\t1000 1001 \nNStgid:\t191115\nNSpid:\t191115\nNSpgid:\t191115\nNSsid:\t191115\nKthread:\t0\nVmPeak:\t 1137856 kB\nVmSize:\t 1137856 kB\nVmLck:\t       0 kB\nVmPin:\t       0 kB\nVmHWM:\t   19780 kB\nVmRSS:\t   19780 kB\nRssAnon:\t    2444 kB\nRssFile:\t    8492 kB\nRssShmem:\t    8844 kB\nVmData:\t    2732 kB\nVmStk:\t     132 kB\nVmExe:\t    6108 kB\nVmLib:\t    6004 kB\nVmPTE:\t     148 kB\nVmSwap:\t       0 kB\nHugetlbPages:\t       0 kB\nCoreDumping:\t0\nTHP_enabled:\t1\nuntag_mask:\t0xffffffffffffffff\nThreads:\t1\nSigQ:\t0/257057\nSigPnd:\t0000000000000000\nShdPnd:\t0000000000000000\nSigBlk:\t0000000000400000\nSigIgn:\t0000000001301800\nSigCgt:\t0000000020006287\nCapInh:\t0000000000000000\nCapPrm:\t0000000000000000\nCapEff:\t0000000000000000\nCapBnd:\t000001ffffffffff\nCapAmb:\t0000000000000000\nNoNewPrivs:\t0\nSeccomp:\t0\nSeccomp_filters:\t0\nSpeculation_Store_Bypass:\tthread vulnerable\nSpeculationIndirectBranch:\tconditional enabled\nCpus_allowed:\t40\nCpus_allowed_list:\t6\nMems_allowed:\t00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000001\nMems_allowed_list:\t0\nvoluntary_ctxt_switches:\t8\nnonvoluntary_ctxt_switches:\t20\nx86_Thread_features:\t\nx86_Thread_features_locked:\t\n",
+        "stat": "191115 (postgres) S 191100 191115 191115 0 -1 4194368 735 0 0 0 0 0 0 0 30 10 1 0 547269 1165164544 4919 18446744073709551615 94356816244736 94356822497809 140723503916592 0 0 0 4194304 19929088 536896135 1 0 0 17 6 0 0 0 0 0 94356825884080 94356826157528 94357749338112 140723503921881 140723503922044 140723503922044 140723503923083 0\n",
+        "schedstat": "9817296 1669124 28\n",
+        "smaps_rollup": "55d128753000-7ffcbe7b1000 ---p 00000000 00:00 0                          [rollup]\nRss:               19780 kB\nPss:                9551 kB\nPss_Dirty:          5941 kB\nPss_Anon:           1520 kB\nPss_File:           3609 kB\nPss_Shmem:          4420 kB\nShared_Clean:       6060 kB\nShared_Dirty:       9484 kB\nPrivate_Clean:      2432 kB\nPrivate_Dirty:      1804 kB\nReferenced:        18924 kB\nAnonymous:          2444 kB\nKSM:                   0 kB\nLazyFree:              0 kB\nAnonHugePages:         0 kB\nShmemPmdMapped:        0 kB\nFilePmdMapped:         0 kB\nShared_Hugetlb:        0 kB\nPrivate_Hugetlb:       0 kB\nSwap:                  0 kB\nSwapPss:               0 kB\nLocked:                0 kB\n",
+        "cgroup": "0::/user.slice/user-1000.slice/session-33.scope\n"
+      },
+      "psql": {
+        "pid": 191114,
+        "exe": "/home/reshke/wpgpg/ios14-199-1111/build/stage-B/home/reshke/wpgpg/ios14-199-1111/build/prefix/bin/psql",
+        "elf_sha256": "711060db1c984333ad53d5d00cee9d1c7461c74042306cec055291cae2279305",
+        "affinity": [
+          4
+        ],
+        "nice": 10,
+        "maps": "619bb1d8d000-619bb1d98000 r--p 00000000 fd:01 3147223                    /home/reshke/wpgpg/ios14-199-1111/build/stage-B/home/reshke/wpgpg/ios14-199-1111/build/prefix/bin/psql\n619bb1d98000-619bb1dd9000 r-xp 0000b000 fd:01 3147223                    /home/reshke/wpgpg/ios14-199-1111/build/stage-B/home/reshke/wpgpg/ios14-199-1111/build/prefix/bin/psql\n619bb1dd9000-619bb1e18000 r--p 0004c000 fd:01 3147223                    /home/reshke/wpgpg/ios14-199-1111/build/stage-B/home/reshke/wpgpg/ios14-199-1111/build/prefix/bin/psql\n619bb1e18000-619bb1e1c000 r--p 0008a000 fd:01 3147223                    /home/reshke/wpgpg/ios14-199-1111/build/stage-B/home/reshke/wpgpg/ios14-199-1111/build/prefix/bin/psql\n619bb1e1c000-619bb1e1d000 rw-p 0008e000 fd:01 3147223                    /home/reshke/wpgpg/ios14-199-1111/build/stage-B/home/reshke/wpgpg/ios14-199-1111/build/prefix/bin/psql\n619bc711d000-619bc713e000 rw-p 00000000 00:00 0                          [heap]\n72d9abe00000-72d9abeb3000 r--p 00000000 fd:01 1977                       /usr/lib/x86_64-linux-gnu/libcrypto.so.3\n72d9abeb3000-72d9ac1e7000 r-xp 000b3000 fd:01 1977                       /usr/lib/x86_64-linux-gnu/libcrypto.so.3\n72d9ac1e7000-72d9ac2b2000 r--p 003e7000 fd:01 1977                       /usr/lib/x86_64-linux-gnu/libcrypto.so.3\n72d9ac2b2000-72d9ac30e000 r--p 004b1000 fd:01 1977                       /usr/lib/x86_64-linux-gnu/libcrypto.so.3\n72d9ac30e000-72d9ac311000 rw-p 0050d000 fd:01 1977                       /usr/lib/x86_64-linux-gnu/libcrypto.so.3\n72d9ac311000-72d9ac314000 rw-p 00000000 00:00 0 \n72d9ac356000-72d9ac374000 r--p 00000000 fd:01 1978                       /usr/lib/x86_64-linux-gnu/libssl.so.3\n72d9ac374000-72d9ac3d6000 r-xp 0001e000 fd:01 1978                       /usr/lib/x86_64-linux-gnu/libssl.so.3\n72d9ac3d6000-72d9ac3f2000 r--p 00080000 fd:01 1978                       /usr/lib/x86_64-linux-gnu/libssl.so.3\n72d9ac3f2000-72d9ac3fc000 r--p 0009c000 fd:01 1978                       /usr/lib/x86_64-linux-gnu/libssl.so.3\n72d9ac3fc000-72d9ac400000 rw-p 000a6000 fd:01 1978                       /usr/lib/x86_64-linux-gnu/libssl.so.3\n72d9ac400000-72d9ac428000 r--p 00000000 fd:01 3016                       /usr/lib/x86_64-linux-gnu/libc.so.6\n72d9ac428000-72d9ac5b1000 r-xp 00028000 fd:01 3016                       /usr/lib/x86_64-linux-gnu/libc.so.6\n72d9ac5b1000-72d9ac600000 r--p 001b1000 fd:01 3016                       /usr/lib/x86_64-linux-gnu/libc.so.6\n72d9ac600000-72d9ac604000 r--p 001ff000 fd:01 3016                       /usr/lib/x86_64-linux-gnu/libc.so.6\n72d9ac604000-72d9ac606000 rw-p 00203000 fd:01 3016                       /usr/lib/x86_64-linux-gnu/libc.so.6\n72d9ac606000-72d9ac613000 rw-p 00000000 00:00 0 \n72d9ac62b000-72d9ac630000 rw-p 00000000 00:00 0 \n72d9ac630000-72d9ac640000 r--p 00000000 fd:01 3019                       /usr/lib/x86_64-linux-gnu/libm.so.6\n72d9ac640000-72d9ac6bf000 r-xp 00010000 fd:01 3019                       /usr/lib/x86_64-linux-gnu/libm.so.6\n72d9ac6bf000-72d9ac717000 r--p 0008f000 fd:01 3019                       /usr/lib/x86_64-linux-gnu/libm.so.6\n72d9ac717000-72d9ac718000 r--p 000e7000 fd:01 3019                       /usr/lib/x86_64-linux-gnu/libm.so.6\n72d9ac718000-72d9ac719000 rw-p 000e8000 fd:01 3019                       /usr/lib/x86_64-linux-gnu/libm.so.6\n72d9ac71f000-72d9ac72b000 r--p 00000000 fd:01 3147147                    /home/reshke/wpgpg/ios14-199-1111/build/stage-B/home/reshke/wpgpg/ios14-199-1111/build/prefix/lib/libpq.so.5.20\n72d9ac72b000-72d9ac755000 r-xp 0000c000 fd:01 3147147                    /home/reshke/wpgpg/ios14-199-1111/build/stage-B/home/reshke/wpgpg/ios14-199-1111/build/prefix/lib/libpq.so.5.20\n72d9ac755000-72d9ac779000 r--p 00036000 fd:01 3147147                    /home/reshke/wpgpg/ios14-199-1111/build/stage-B/home/reshke/wpgpg/ios14-199-1111/build/prefix/lib/libpq.so.5.20\n72d9ac779000-72d9ac77c000 r--p 0005a000 fd:01 3147147                    /home/reshke/wpgpg/ios14-199-1111/build/stage-B/home/reshke/wpgpg/ios14-199-1111/build/prefix/lib/libpq.so.5.20\n72d9ac77c000-72d9ac77d000 rw-p 0005d000 fd:01 3147147                    /home/reshke/wpgpg/ios14-199-1111/build/stage-B/home/reshke/wpgpg/ios14-199-1111/build/prefix/lib/libpq.so.5.20\n72d9ac77d000-72d9ac77f000 rw-p 00000000 00:00 0 \n72d9ac77f000-72d9ac780000 r--p 00000000 fd:01 3013                       /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2\n72d9ac780000-72d9ac7ab000 r-xp 00001000 fd:01 3013                       /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2\n72d9ac7ab000-72d9ac7b5000 r--p 0002c000 fd:01 3013                       /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2\n72d9ac7b5000-72d9ac7b7000 r--p 00036000 fd:01 3013                       /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2\n72d9ac7b7000-72d9ac7b9000 rw-p 00038000 fd:01 3013                       /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2\n7ffebd3d1000-7ffebd3f2000 rw-p 00000000 00:00 0                          [stack]\n7ffebd3f5000-7ffebd3f9000 r--p 00000000 00:00 0                          [vvar]\n7ffebd3f9000-7ffebd3fb000 r-xp 00000000 00:00 0                          [vdso]\nffffffffff600000-ffffffffff601000 --xp 00000000 00:00 0                  [vsyscall]\n",
+        "status": "Name:\tpsql\nUmask:\t0002\nState:\tS (sleeping)\nTgid:\t191114\nNgid:\t0\nPid:\t191114\nPPid:\t190987\nTracerPid:\t0\nUid:\t1000\t1000\t1000\t1000\nGid:\t1000\t1000\t1000\t1000\nFDSize:\t64\nGroups:\t1000 1001 \nNStgid:\t191114\nNSpid:\t191114\nNSpgid:\t190987\nNSsid:\t190987\nKthread:\t0\nVmPeak:\t   10436 kB\nVmSize:\t   10436 kB\nVmLck:\t       0 kB\nVmPin:\t       0 kB\nVmHWM:\t    4692 kB\nVmRSS:\t    4692 kB\nRssAnon:\t     624 kB\nRssFile:\t    4068 kB\nRssShmem:\t       0 kB\nVmData:\t     280 kB\nVmStk:\t     132 kB\nVmExe:\t     260 kB\nVmLib:\t    6100 kB\nVmPTE:\t      64 kB\nVmSwap:\t       0 kB\nHugetlbPages:\t       0 kB\nCoreDumping:\t0\nTHP_enabled:\t1\nuntag_mask:\t0xffffffffffffffff\nThreads:\t1\nSigQ:\t0/257057\nSigPnd:\t0000000000000000\nShdPnd:\t0000000000000000\nSigBlk:\t0000000000000000\nSigIgn:\t0000000000000000\nSigCgt:\t0000000000012002\nCapInh:\t0000000000000000\nCapPrm:\t0000000000000000\nCapEff:\t0000000000000000\nCapBnd:\t000001ffffffffff\nCapAmb:\t0000000000000000\nNoNewPrivs:\t0\nSeccomp:\t0\nSeccomp_filters:\t0\nSpeculation_Store_Bypass:\tthread vulnerable\nSpeculationIndirectBranch:\tconditional enabled\nCpus_allowed:\t10\nCpus_allowed_list:\t4\nMems_allowed:\t00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000000,00000001\nMems_allowed_list:\t0\nvoluntary_ctxt_switches:\t12\nnonvoluntary_ctxt_switches:\t3\nx86_Thread_features:\t\nx86_Thread_features_locked:\t\n",
+        "stat": "191114 (psql) S 190987 190987 190987 0 -1 4194304 301 0 0 0 0 0 0 0 30 10 1 0 547269 10686464 1120 18446744073709551615 107321331646464 107321331909105 140732073441696 0 0 0 0 0 73730 1 0 0 17 4 0 0 0 0 0 107321332173488 107321332188556 107321687658496 140732073450409 140732073450605 140732073450605 140732073451409 0\n",
+        "schedstat": "3108393 2982333 15\n",
+        "smaps_rollup": "619bb1d8d000-7ffebd3fb000 ---p 00000000 00:00 0                          [rollup]\nRss:                4692 kB\nPss:                 931 kB\nPss_Dirty:           624 kB\nPss_Anon:            624 kB\nPss_File:            307 kB\nPss_Shmem:             0 kB\nShared_Clean:       4068 kB\nShared_Dirty:          0 kB\nPrivate_Clean:         0 kB\nPrivate_Dirty:       624 kB\nReferenced:         4692 kB\nAnonymous:           624 kB\nKSM:                   0 kB\nLazyFree:              0 kB\nAnonHugePages:         0 kB\nShmemPmdMapped:        0 kB\nFilePmdMapped:         0 kB\nShared_Hugetlb:        0 kB\nPrivate_Hugetlb:       0 kB\nSwap:                  0 kB\nSwapPss:               0 kB\nLocked:                0 kB\n",
+        "cgroup": "0::/user.slice/user-1000.slice/session-33.scope\n"
+      },
+      "settings": {
+        "clock": "system",
+        "buffers": "1GB",
+        "assertions": "off",
+        "parallel": "0",
+        "autovacuum": "off",
+        "jit": "off",
+        "fsync": "on"
+      }
+    }
+  },
+  "client_cleanup_errors": [],
+  "stops": [
+    {
+      "data": "/home/reshke/wpgpg/ios14-199-1111/sql/smoke/slot-0",
+      "proc_absent": true,
+      "pid": 191064,
+      "status": 3,
+      "pid_absent": true,
+      "fsync": {
+        "files": 1109,
+        "bytes": 2375917877
+      }
+    },
+    {
+      "data": "/home/reshke/wpgpg/ios14-199-1111/sql/smoke/slot-1",
+      "proc_absent": true,
+      "pid": 191076,
+      "status": 3,
+      "pid_absent": true,
+      "fsync": {
+        "files": 1109,
+        "bytes": 2375917877
+      }
+    },
+    {
+      "data": "/home/reshke/wpgpg/ios14-199-1111/sql/smoke/slot-2",
+      "proc_absent": true,
+      "pid": 191088,
+      "status": 3,
+      "pid_absent": true,
+      "fsync": {
+        "files": 1109,
+        "bytes": 2375917879
+      }
+    },
+    {
+      "data": "/home/reshke/wpgpg/ios14-199-1111/sql/smoke/slot-3",
+      "proc_absent": true,
+      "pid": 191100,
+      "status": 3,
+      "pid_absent": true,
+      "fsync": {
+        "files": 1109,
+        "bytes": 2375917879
+      }
+    }
+  ],
+  "stop_errors": [],
+  "measurement_copies_unchanged": true,
+  "seed_unchanged": true,
+  "records": 76,
+  "finished_ns": 5547565087298,
+  "commands": [
+    {
+      "argv": [
+        "taskset",
+        "-c",
+        "6",
+        "/home/reshke/wpgpg/ios14-199-1111/build/stage-B/home/reshke/wpgpg/ios14-199-1111/build/prefix/bin/pg_ctl",
+        "-D",
+        "/home/reshke/wpgpg/ios14-199-1111/sql/smoke/slot-0",
+        "-l",
+        "/home/reshke/wpgpg/ios14-199-1111/sql/logs/smoke-slot0-private.log",
+        "-w",
+        "start"
+      ],
+      "rc": 0,
+      "start_ns": 5471415350836,
+      "end_ns": 5471621693277,
+      "log": "start-smoke-slot0-private.log"
+    },
+    {
+      "argv": [
+        "taskset",
+        "-c",
+        "6",
+        "/home/reshke/wpgpg/ios14-199-1111/build/stage-B/home/reshke/wpgpg/ios14-199-1111/build/prefix/bin/pg_ctl",
+        "-D",
+        "/home/reshke/wpgpg/ios14-199-1111/sql/smoke/slot-1",
+        "-l",
+        "/home/reshke/wpgpg/ios14-199-1111/sql/logs/smoke-slot1-private.log",
+        "-w",
+        "start"
+      ],
+      "rc": 0,
+      "start_ns": 5471623037326,
+      "end_ns": 5471831685879,
+      "log": "start-smoke-slot1-private.log"
+    },
+    {
+      "argv": [
+        "taskset",
+        "-c",
+        "6",
+        "/home/reshke/wpgpg/ios14-199-1111/build/stage-V13/home/reshke/wpgpg/ios14-199-1111/build/prefix/bin/pg_ctl",
+        "-D",
+        "/home/reshke/wpgpg/ios14-199-1111/sql/smoke/slot-2",
+        "-l",
+        "/home/reshke/wpgpg/ios14-199-1111/sql/logs/smoke-slot2-private.log",
+        "-w",
+        "start"
+      ],
+      "rc": 0,
+      "start_ns": 5471833026663,
+      "end_ns": 5472042718505,
+      "log": "start-smoke-slot2-private.log"
+    },
+    {
+      "argv": [
+        "taskset",
+        "-c",
+        "6",
+        "/home/reshke/wpgpg/ios14-199-1111/build/stage-V14/home/reshke/wpgpg/ios14-199-1111/build/prefix/bin/pg_ctl",
+        "-D",
+        "/home/reshke/wpgpg/ios14-199-1111/sql/smoke/slot-3",
+        "-l",
+        "/home/reshke/wpgpg/ios14-199-1111/sql/logs/smoke-slot3-private.log",
+        "-w",
+        "start"
+      ],
+      "rc": 0,
+      "start_ns": 5472044047011,
+      "end_ns": 5472252671908,
+      "log": "start-smoke-slot3-private.log"
+    },
+    {
+      "argv": [
+        "/home/reshke/wpgpg/ios14-199-1111/build/stage-B/home/reshke/wpgpg/ios14-199-1111/build/prefix/bin/pg_ctl",
+        "-D",
+        "/home/reshke/wpgpg/ios14-199-1111/sql/smoke/slot-0",
+        "-m",
+        "fast",
+        "-w",
+        "stop"
+      ],
+      "rc": 0,
+      "start_ns": 5531400354304,
+      "end_ns": 5531702373496,
+      "log": "stop-smoke-slot-0.txt"
+    },
+    {
+      "argv": [
+        "/home/reshke/wpgpg/ios14-199-1111/build/stage-B/home/reshke/wpgpg/ios14-199-1111/build/prefix/bin/pg_ctl",
+        "-D",
+        "/home/reshke/wpgpg/ios14-199-1111/sql/smoke/slot-1",
+        "-m",
+        "fast",
+        "-w",
+        "stop"
+      ],
+      "rc": 0,
+      "start_ns": 5531738116777,
+      "end_ns": 5531939823488,
+      "log": "stop-smoke-slot-1.txt"
+    },
+    {
+      "argv": [
+        "/home/reshke/wpgpg/ios14-199-1111/build/stage-B/home/reshke/wpgpg/ios14-199-1111/build/prefix/bin/pg_ctl",
+        "-D",
+        "/home/reshke/wpgpg/ios14-199-1111/sql/smoke/slot-2",
+        "-m",
+        "fast",
+        "-w",
+        "stop"
+      ],
+      "rc": 0,
+      "start_ns": 5531974580277,
+      "end_ns": 5532176299366,
+      "log": "stop-smoke-slot-2.txt"
+    },
+    {
+      "argv": [
+        "/home/reshke/wpgpg/ios14-199-1111/build/stage-B/home/reshke/wpgpg/ios14-199-1111/build/prefix/bin/pg_ctl",
+        "-D",
+        "/home/reshke/wpgpg/ios14-199-1111/sql/smoke/slot-3",
+        "-m",
+        "fast",
+        "-w",
+        "stop"
+      ],
+      "rc": 0,
+      "start_ns": 5532211200797,
+      "end_ns": 5532412879006,
+      "log": "stop-smoke-slot-3.txt"
+    }
+  ]
+}
