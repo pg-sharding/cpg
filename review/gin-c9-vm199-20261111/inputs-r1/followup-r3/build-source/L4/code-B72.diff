@@ -1,0 +1,411 @@
+diff --git a/src/backend/access/gin/ginget.c b/src/backend/access/gin/ginget.c
+index 2bcb32ca3d0..a209bdd07a6 100644
+--- a/src/backend/access/gin/ginget.c
++++ b/src/backend/access/gin/ginget.c
+@@ -35,6 +35,37 @@ typedef struct pendingPosition
+ 	bool	   *hasMatchKey;
+ } pendingPosition;
+ 
++#define GP_SEEN_INITIAL		1024
++#define GP_SEEN_MAX			(16 * 1024 * 1024)
++
++typedef struct
++{
++	ItemPointerData *tids;		/* sorted, de-duplicated */
++	Size		n;				/* number of used slots */
++	Size		capacity;		/* allocated slots */
++	bool		recheckAll;		/* true if the tracker overflowed */
++} GinPendingSeen;
++
++static int
++ginItemPointerCmp(const void *a, const void *b)
++{
++	return ginCompareItemPointers((const ItemPointer) a, (const ItemPointer) b);
++}
++
++static bool
++ginPendingSeenCheck(GinPendingSeen *seen, ItemPointer tid)
++{
++	ItemPointerData *found;
++
++	if (seen->recheckAll)
++		return true;
++	if (seen->n == 0)
++		return false;
++	found = (ItemPointerData *) bsearch(tid, seen->tids, seen->n,
++										sizeof(ItemPointerData),
++										ginItemPointerCmp);
++	return found != NULL;
++}
+ 
+ /*
+  * Goes to the next page if current offset is outside of bounds
+@@ -330,6 +361,11 @@ restartScanEntry:
+ 	if (entry->list)
+ 		pfree(entry->list);
+ 	entry->list = NULL;
++	if (entry->postingData)
++		pfree(entry->postingData);
++	entry->postingData = NULL;
++	entry->nextSegment = NULL;
++	entry->postingEnd = NULL;
+ 	entry->nlist = 0;
+ 	entry->matchBitmap = NULL;
+ 	entry->matchNtuples = -1;
+@@ -648,11 +684,85 @@ startScan(IndexScanDesc scan)
+ 		startScanKey(ginstate, so, so->keys + i);
+ }
+ 
++/*
++ * Decode the next needed segment of a private posting-page snapshot.  Like
++ * GinDataLeafPageGetItems, skip only segments whose successor starts at or
++ * before advancePast.  In particular, decode the last segment even when no
++ * item survives: its last item is needed by the page-transition protocol.
++ */
++static bool
++entryLoadNextSegment(GinScanEntry entry, ItemPointerData advancePast)
++{
++	GinPostingList *segment = entry->nextSegment;
++	GinPostingList *next;
++
++	if ((char *) segment >= entry->postingEnd)
++		return false;
++
++	next = GinNextPostingListSegment(segment);
++	while ((char *) next < entry->postingEnd &&
++		   ginCompareItemPointers(&next->first, &advancePast) <= 0)
++	{
++		segment = next;
++		next = GinNextPostingListSegment(segment);
++	}
++
++	for (;;)
++	{
++		if (entry->list)
++			pfree(entry->list);
++		entry->list = ginPostingListDecode(segment, &entry->nlist);
++		entry->nextSegment = next;
++		entry->offset = 0;
++		while (entry->offset < entry->nlist &&
++			   ginCompareItemPointers(&entry->list[entry->offset], &advancePast) <= 0)
++			entry->offset++;
++
++		if (entry->offset < entry->nlist)
++			return true;
++		if ((char *) next >= entry->postingEnd)
++			return false;
++
++		/* advancePast can lie in a gap between two segments. */
++		segment = next;
++		next = GinNextPostingListSegment(segment);
++	}
++}
++
++/* Copy a compressed suffix while holding the existing page lock. */
++static bool
++entryCopyPostingPage(Page page, GinScanEntry entry, ItemPointerData advancePast)
++{
++	GinPostingList *segment = GinDataLeafPageGetPostingList(page);
++	char	   *end = (char *) segment + GinDataLeafPageGetPostingListSize(page);
++	GinPostingList *next;
++	Size		len;
++
++	if ((char *) segment == end)
++		return false;
++
++	next = GinNextPostingListSegment(segment);
++	while ((char *) next < end &&
++		   ginCompareItemPointers(&next->first, &advancePast) <= 0)
++	{
++		segment = next;
++		next = GinNextPostingListSegment(segment);
++	}
++
++	len = end - (char *) segment;
++	entry->postingData = palloc(len);
++	memcpy(entry->postingData, segment, len);
++	entry->nextSegment = (GinPostingList *) entry->postingData;
++	entry->postingEnd = entry->postingData + len;
++	return entryLoadNextSegment(entry, advancePast);
++}
++
+ /*
+  * Load the next batch of item pointers from a posting tree.
+  *
+- * Note that we copy the page into GinScanEntry->list array and unlock it, but
+- * keep it pinned to prevent interference with vacuum.
++ * Copy compressed pages for jumping consumers; keep sequential loads eager.
++ * The first posting-tree page remains eager to preserve the frequency estimate.
++ * As before, unlock the page but keep it pinned to prevent vacuum interference.
+  */
+ static void
+ entryLoadMoreItems(GinState *ginstate, GinScanEntry entry,
+@@ -661,6 +771,36 @@ entryLoadMoreItems(GinState *ginstate, GinScanEntry entry,
+ 	Page		page;
+ 	int			i;
+ 	bool		stepright;
++	bool		sequential = ginCompareItemPointers(&entry->curItem, &advancePast) == 0;
++
++	if (entry->postingData)
++	{
++		/* Amortize decoding when a previously jumping stream becomes sequential. */
++		if (sequential && (char *) entry->nextSegment < entry->postingEnd)
++		{
++			if (entry->list)
++				pfree(entry->list);
++			entry->list = ginPostingListDecodeAllSegments(entry->nextSegment,
++												   entry->postingEnd - (char *) entry->nextSegment,
++												   &entry->nlist);
++			entry->offset = 0;
++			pfree(entry->postingData);
++			entry->postingData = NULL;
++			entry->nextSegment = NULL;
++			entry->postingEnd = NULL;
++			return;
++		}
++		if (entryLoadNextSegment(entry, advancePast))
++			return;
++
++		/* Preserve the old last-consumed TID before choosing a page strategy. */
++		if (entry->nlist > 0)
++			entry->curItem = entry->list[entry->nlist - 1];
++		pfree(entry->postingData);
++		entry->postingData = NULL;
++		entry->nextSegment = NULL;
++		entry->postingEnd = NULL;
++	}
+ 
+ 	if (!BufferIsValid(entry->buffer))
+ 	{
+@@ -725,6 +865,13 @@ entryLoadMoreItems(GinState *ginstate, GinScanEntry entry,
+ 			entry->list = NULL;
+ 			entry->nlist = 0;
+ 		}
++		if (entry->postingData)
++		{
++			pfree(entry->postingData);
++			entry->postingData = NULL;
++			entry->nextSegment = NULL;
++			entry->postingEnd = NULL;
++		}
+ 
+ 		if (stepright)
+ 		{
+@@ -771,9 +918,20 @@ entryLoadMoreItems(GinState *ginstate, GinScanEntry entry,
+ 			continue;
+ 		}
+ 
+-		entry->list = GinDataLeafPageGetItems(page, &entry->nlist, advancePast);
++		if (GinPageIsCompressed(page) && !sequential)
++		{
++			if (!entryCopyPostingPage(page, entry, advancePast))
++				continue;
++			i = entry->offset;
++		}
++		else
++		{
++			/* Sequential streams and pre-9.4 pages retain eager decoding. */
++			entry->list = GinDataLeafPageGetItems(page, &entry->nlist, advancePast);
++			i = 0;
++		}
+ 
+-		for (i = 0; i < entry->nlist; i++)
++		for (; i < entry->nlist; i++)
+ 		{
+ 			if (ginCompareItemPointers(&advancePast, &entry->list[i]) < 0)
+ 			{
+@@ -929,6 +1087,12 @@ entryGetItem(GinState *ginstate, GinScanEntry entry,
+ 		{
+ 			if (entry->offset >= entry->nlist)
+ 			{
++				if (entry->postingData)
++				{
++					entryLoadMoreItems(ginstate, entry, advancePast);
++					if (!entry->isFinished)
++						continue;
++				}
+ 				ItemPointerSetInvalid(&entry->curItem);
+ 				entry->isFinished = true;
+ 				break;
+@@ -943,6 +1107,9 @@ entryGetItem(GinState *ginstate, GinScanEntry entry,
+ 			/* Done unless we need to reduce the result */
+ 			if (!entry->reduceResult || !dropItem(entry))
+ 				break;
++
++			/* A private final-page refill needs the last consumed item. */
++			advancePast = entry->curItem;
+ 		}
+ 	}
+ 	else
+@@ -1447,12 +1614,10 @@ scanGetItem(IndexScanDesc scan, ItemPointerData advancePast,
+ 	return true;
+ }
+ 
+-
+ /*
+  * Functions for scanning the pending list
+  */
+ 
+-
+ /*
+  * Get ItemPointer of next heap row to be checked from pending list.
+  * Returns false if there are no more. On pages with several heap rows
+@@ -1832,7 +1997,8 @@ collectMatchesForHeapRow(IndexScanDesc scan, pendingPosition *pos)
+  * Collect all matched rows from pending list into bitmap.
+  */
+ static void
+-scanPendingInsert(IndexScanDesc scan, TIDBitmap *tbm, int64 *ntids)
++scanPendingInsert(IndexScanDesc scan, TIDBitmap *tbm, int64 *ntids,
++				  GinPendingSeen *seen)
+ {
+ 	GinScanOpaque so = (GinScanOpaque) scan->opaque;
+ 	MemoryContext oldCtx;
+@@ -1878,6 +2044,40 @@ scanPendingInsert(IndexScanDesc scan, TIDBitmap *tbm, int64 *ntids)
+ 	 */
+ 	while (scanGetCandidate(scan, &pos))
+ 	{
++		if (!seen->recheckAll)
++		{
++			if (seen->n == seen->capacity)
++			{
++				Size		newcap = seen->capacity ? seen->capacity * 2 : GP_SEEN_INITIAL;
++
++				if (newcap > GP_SEEN_MAX ||
++					newcap * sizeof(ItemPointerData) > MaxAllocSize)
++				{
++					seen->recheckAll = true;
++					if (seen->tids)
++						pfree(seen->tids);
++					seen->tids = NULL;
++					seen->n = seen->capacity = 0;
++				}
++				else
++				{
++					ItemPointerData *newtids = (ItemPointerData *)
++						palloc(newcap * sizeof(ItemPointerData));
++
++					if (seen->tids)
++					{
++						memcpy(newtids, seen->tids,
++							   seen->n * sizeof(ItemPointerData));
++						pfree(seen->tids);
++					}
++					seen->tids = newtids;
++					seen->capacity = newcap;
++				}
++			}
++			if (!seen->recheckAll)
++				seen->tids[seen->n++] = pos.item;
++		}
++
+ 		/*
+ 		 * Check entries in tuple and set up entryRes array.
+ 		 *
+@@ -1921,7 +2121,6 @@ scanPendingInsert(IndexScanDesc scan, TIDBitmap *tbm, int64 *ntids)
+ 	pfree(pos.hasMatchKey);
+ }
+ 
+-
+ #define GinIsVoidRes(s)		( ((GinScanOpaque) scan->opaque)->isVoidRes )
+ 
+ int64
+@@ -1931,6 +2130,7 @@ gingetbitmap(IndexScanDesc scan, TIDBitmap *tbm)
+ 	int64		ntids;
+ 	ItemPointerData iptr;
+ 	bool		recheck;
++	GinPendingSeen seen;
+ 
+ 	/*
+ 	 * Set up the scan keys, and check for unsatisfiable query.
+@@ -1943,6 +2143,10 @@ gingetbitmap(IndexScanDesc scan, TIDBitmap *tbm)
+ 		return 0;
+ 
+ 	ntids = 0;
++	seen.tids = NULL;
++	seen.n = 0;
++	seen.capacity = 0;
++	seen.recheckAll = false;
+ 
+ 	/*
+ 	 * First, scan the pending list and collect any matching entries into the
+@@ -1954,7 +2158,23 @@ gingetbitmap(IndexScanDesc scan, TIDBitmap *tbm)
+ 	 * to scan the main index before the pending list, since concurrent
+ 	 * cleanup could then make us miss entries entirely.
+ 	 */
+-	scanPendingInsert(scan, tbm, &ntids);
++	scanPendingInsert(scan, tbm, &ntids, &seen);
++
++	if (seen.n > 1)
++	{
++		Size		out;
++
++		qsort(seen.tids, seen.n, sizeof(ItemPointerData), ginItemPointerCmp);
++		out = 1;
++		for (Size i = 1; i < seen.n; i++)
++		{
++			if (!ItemPointerEquals(&seen.tids[out - 1], &seen.tids[i]))
++			{
++				seen.tids[out++] = seen.tids[i];
++			}
++		}
++		seen.n = out;
++	}
+ 
+ 	/*
+ 	 * Now scan the main index.
+@@ -1971,9 +2191,16 @@ gingetbitmap(IndexScanDesc scan, TIDBitmap *tbm)
+ 		if (ItemPointerIsLossyPage(&iptr))
+ 			tbm_add_page(tbm, ItemPointerGetBlockNumber(&iptr));
+ 		else
++		{
++			if (seen.recheckAll || ginPendingSeenCheck(&seen, &iptr))
++				recheck = true;
+ 			tbm_add_tuples(tbm, &iptr, 1, recheck);
++		}
+ 		ntids++;
+ 	}
+ 
++	if (seen.tids)
++		pfree(seen.tids);
++
+ 	return ntids;
+ }
+diff --git a/src/backend/access/gin/ginscan.c b/src/backend/access/gin/ginscan.c
+index 1564b409bdb..5fc0808f37e 100644
+--- a/src/backend/access/gin/ginscan.c
++++ b/src/backend/access/gin/ginscan.c
+@@ -115,6 +115,9 @@ ginFillScanEntry(GinScanOpaque so, OffsetNumber attnum,
+ 	scanEntry->matchResult.blockno = InvalidBlockNumber;
+ 	scanEntry->matchNtuples = -1;
+ 	scanEntry->list = NULL;
++	scanEntry->postingData = NULL;
++	scanEntry->nextSegment = NULL;
++	scanEntry->postingEnd = NULL;
+ 	scanEntry->nlist = 0;
+ 	scanEntry->offset = InvalidOffsetNumber;
+ 	scanEntry->isFinished = false;
+@@ -249,6 +252,8 @@ ginFreeScanKeys(GinScanOpaque so)
+ 			ReleaseBuffer(entry->buffer);
+ 		if (entry->list)
+ 			pfree(entry->list);
++		if (entry->postingData)
++			pfree(entry->postingData);
+ 		if (entry->matchIterator)
+ 			tbm_end_private_iterate(entry->matchIterator);
+ 		if (entry->matchBitmap)
+diff --git a/src/include/access/gin_private.h b/src/include/access/gin_private.h
+index 3c5fd6ba817..49d36fe4117 100644
+--- a/src/include/access/gin_private.h
++++ b/src/include/access/gin_private.h
+@@ -368,6 +368,11 @@ typedef struct GinScanEntryData
+ 	bool		reduceResult;
+ 	uint32		predictNumberResult;
+ 	GinBtreeData btree;
++
++	/* Private compressed suffix of a posting-tree page, if loaded lazily. */
++	char	   *postingData;
++	GinPostingList *nextSegment;
++	char	   *postingEnd;
+ } GinScanEntryData;
+ 
+ typedef struct GinScanOpaqueData

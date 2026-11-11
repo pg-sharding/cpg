@@ -1,0 +1,68 @@
+To: pgsql-hackers@lists.postgresql.org
+Subject: [benchmark] GIN adaptive/lazy scan C9 on a second machine
+Status: UNSENT DRAFT
+
+Hi,
+
+I repeated the unchanged C9 prototype on a new AMD EPYC Genoa VM (8 vCPUs,
+64 GB RAM), using the same B72 source, fixture, queries and fixed balanced
+schedule. The contribution of this follow-up is an independent machine
+measurement, not a new algorithm or patch revision.
+
+The prototype combines adaptive advancement of decoded TIDs, boolean TID
+ordering, and deferred first-page materialization with exact cardinality.
+Earlier GIN fast-scan work already discussed advancePast and compressed
+segment skipping [1,2]. Galloping and lazy consumption are established
+techniques. The previous bounded discussion review is included in the packet;
+no new exhaustive novelty search is claimed here.
+
+Full SQL: 25 cases, baseline/exact baseline twin/Lazy V4/C9, two warm and 12
+retained rounds in each of two CPU/slot/order placements. Numbers below
+are cohort 0 / cohort 1. Executor medians are milliseconds per complete
+benchmark SQL statement (several selective cases contain 100 rescans),
+while CPU percentages are medians of direct same-round ratios.
+
+case | B executor ms | C9 executor ms | C9/B CPU % | C9/twin CPU %
+skew1000 | 76.4580 / 78.8500 | 19.2960 / 19.8125 | -74.54 / -74.64 | -74.53 / -74.64
+jsonb | 153.4335 / 149.5210 | 35.6850 / 35.4315 | -76.59 / -76.18 | -76.60 / -76.18
+skew_group4096 | 57.6345 / 57.1160 | 6.3540 / 6.4060 | -88.65 / -88.46 | -88.64 / -88.47
+inline | 0.4610 / 0.4435 | 0.4100 / 0.4040 | -6.02 / -3.06 | -6.54 / -5.63
+absent | 1.2655 / 1.1960 | 0.2980 / 0.3230 | -66.17 / -63.24 | -66.17 / -63.35
+or_forced | 134.2855 / 135.3925 | 166.6490 / 133.0470 | +23.23 / -1.85 | +19.08 / -2.75
+dense_and | 78.0975 / 79.2310 | 76.1065 / 77.1330 | -2.53 / -2.64 | -3.72 / -2.81
+seq_control | 55.3985 / 38.0925 | 55.6480 / 38.3245 | +6.87 / +0.55 | -3.32 / -4.72
+
+The complete table retains every case, metric, negative result and control.
+Cases with positive CPU medians against B or its twin in at least one
+cohort: or_forced, single_forced, single_rare, prefix, lossy_and, seq_control, not_only.
+SeqScan and exact-twin movements remain part of the evidence; they are
+not subtracted from candidate effects or dismissed as harmless noise.
+
+The separate actual-AM screen again measures the production rescan/getbitmap/
+free path; its internal CPU changes versus B are:
+  am_inline: -18.16 / -18.40%
+  am_absent: -87.22 / -87.26%
+  am_skew1000: -81.54 / -81.85%
+  am_full: -3.41 / -3.73%
+These native batch times are separate from SQL. No observations were
+trimmed, pooled or repeated based on outcomes. All 5488 raw observations,
+absolute spreads, paired changes and negative controls are provided.
+
+GCC 13.3, -O2 -g -fno-lto, OpenSSL, no ICU/readline; release builds with
+JIT/parallel/memoize/autovacuum off, 512MB shared_buffers, warm synthetic
+data. All six builds passed core239; original finite result/plan/native
+checks passed. An independent arithmetic recount matched every group and
+pair, and all owned clusters stopped. CREATE INDEX is setup only; this
+does not establish current-master performance or general merge readiness.
+
+The packet includes the unchanged candidate diff, complete pinned source
+plans, an English note, all-case tables/raw data and REPRODUCE.md with exact
+dependencies, build/data/SQL/native commands and timing boundaries.
+C9 is 0ab3bd65c8957ea5e25f9ef8981401f0616d99de, over common baseline
+8a8c475037bfde101da23cc9b0364c9c020eca93 on B72. Alternative source forms
+are labeled and must not be applied twice.
+
+[1] https://www.postgresql.org/message-id/52E42AD0.5060600%40vmware.com
+[2] https://www.postgresql.org/message-id/52F36245.6070006%40vmware.com
+
+This draft has not been sent.

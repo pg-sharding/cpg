@@ -1,0 +1,3054 @@
+
+/home/reshke/wpgpg/c9-199-1111/build-r2/common-build/src/backend/access/gin/ginget.o:     file format elf64-x86-64
+
+
+Disassembly of section .text:
+
+0000000000000000 <entryIndexByFrequencyCmp>:
+       0:	f3 0f 1e fa          	endbr64
+       4:	48 8b 42 08          	mov    0x8(%rdx),%rax
+       8:	48 63 17             	movslq (%rdi),%rdx
+       b:	48 8b 0c d0          	mov    (%rax,%rdx,8),%rcx
+       f:	48 63 16             	movslq (%rsi),%rdx
+      12:	48 8b 14 d0          	mov    (%rax,%rdx,8),%rdx
+      16:	b8 ff ff ff ff       	mov    $0xffffffff,%eax
+      1b:	8b b2 b0 02 00 00    	mov    0x2b0(%rdx),%esi
+      21:	39 b1 b0 02 00 00    	cmp    %esi,0x2b0(%rcx)
+      27:	72 06                	jb     2f <entryIndexByFrequencyCmp+0x2f>
+      29:	0f 95 c0             	setne  %al
+      2c:	0f b6 c0             	movzbl %al,%eax
+      2f:	c3                   	ret
+
+0000000000000030 <matchPartialInPendingList>:
+      30:	41 57                	push   %r15
+      32:	41 56                	push   %r14
+      34:	41 55                	push   %r13
+      36:	41 54                	push   %r12
+      38:	55                   	push   %rbp
+      39:	53                   	push   %rbx
+      3a:	48 83 ec 28          	sub    $0x28,%rsp
+      3e:	41 80 78 08 00       	cmpb   $0x0,0x8(%r8)
+      43:	48 89 74 24 10       	mov    %rsi,0x10(%rsp)
+      48:	0f 85 fd 00 00 00    	jne    14b <matchPartialInPendingList+0x11b>
+      4e:	89 c8                	mov    %ecx,%eax
+      50:	66 39 ca             	cmp    %cx,%dx
+      53:	0f 83 f2 00 00 00    	jae    14b <matchPartialInPendingList+0x11b>
+      59:	83 e8 01             	sub    $0x1,%eax
+      5c:	0f b7 ca             	movzwl %dx,%ecx
+      5f:	4c 8b 6c 24 60       	mov    0x60(%rsp),%r13
+      64:	48 89 fd             	mov    %rdi,%rbp
+      67:	29 d0                	sub    %edx,%eax
+      69:	8d 59 ff             	lea    -0x1(%rcx),%ebx
+      6c:	4d 89 c7             	mov    %r8,%r15
+      6f:	0f b7 c0             	movzwl %ax,%eax
+      72:	4c 63 e3             	movslq %ebx,%r12
+      75:	01 c8                	add    %ecx,%eax
+      77:	4f 8d 34 e1          	lea    (%r9,%r12,8),%r14
+      7b:	4d 01 e5             	add    %r12,%r13
+      7e:	4c 03 64 24 68       	add    0x68(%rsp),%r12
+      83:	89 44 24 1c          	mov    %eax,0x1c(%rsp)
+      87:	eb 68                	jmp    f1 <matchPartialInPendingList+0xc1>
+      89:	0f 1f 80 00 00 00 00 	nopl   0x0(%rax)
+      90:	41 80 7d 00 00       	cmpb   $0x0,0x0(%r13)
+      95:	0f 85 b0 00 00 00    	jne    14b <matchPartialInPendingList+0x11b>
+      9b:	41 0f b7 47 20       	movzwl 0x20(%r15),%eax
+      a0:	49 8b 0e             	mov    (%r14),%rcx
+      a3:	49 8b 17             	mov    (%r15),%rdx
+      a6:	4d 8b 4f 10          	mov    0x10(%r15),%r9
+      aa:	83 e8 01             	sub    $0x1,%eax
+      ad:	45 0f b7 47 18       	movzwl 0x18(%r15),%r8d
+      b2:	48 98                	cltq
+      b4:	8b b4 85 38 25 00 00 	mov    0x2538(%rbp,%rax,4),%esi
+      bb:	48 8d 04 40          	lea    (%rax,%rax,2),%rax
+      bf:	48 c1 e0 04          	shl    $0x4,%rax
+      c3:	48 8d bc 05 18 1f 00 00 	lea    0x1f18(%rbp,%rax,1),%rdi
+      cb:	e8 00 00 00 00       	call   d0 <matchPartialInPendingList+0xa0>	cc: R_X86_64_PLT32	FunctionCall4Coll-0x4
+      d0:	85 c0                	test   %eax,%eax
+      d2:	0f 84 88 00 00 00    	je     160 <matchPartialInPendingList+0x130>
+      d8:	7f 71                	jg     14b <matchPartialInPendingList+0x11b>
+      da:	8b 44 24 1c          	mov    0x1c(%rsp),%eax
+      de:	83 c3 01             	add    $0x1,%ebx
+      e1:	49 83 c6 08          	add    $0x8,%r14
+      e5:	49 83 c5 01          	add    $0x1,%r13
+      e9:	49 83 c4 01          	add    $0x1,%r12
+      ed:	39 c3                	cmp    %eax,%ebx
+      ef:	74 5a                	je     14b <matchPartialInPendingList+0x11b>
+      f1:	48 8b 4c 24 10       	mov    0x10(%rsp),%rcx
+      f6:	48 63 c3             	movslq %ebx,%rax
+      f9:	48 89 ef             	mov    %rbp,%rdi
+      fc:	0f b7 44 81 18       	movzwl 0x18(%rcx,%rax,4),%eax
+     101:	25 ff 7f 00 00       	and    $0x7fff,%eax
+     106:	48 01 c8             	add    %rcx,%rax
+     109:	48 89 c6             	mov    %rax,%rsi
+     10c:	48 89 44 24 08       	mov    %rax,0x8(%rsp)
+     111:	e8 00 00 00 00       	call   116 <matchPartialInPendingList+0xe6>	112: R_X86_64_PLT32	gintuple_get_attrnum-0x4
+     116:	66 41 3b 47 20       	cmp    0x20(%r15),%ax
+     11b:	75 2e                	jne    14b <matchPartialInPendingList+0x11b>
+     11d:	41 80 3c 24 00       	cmpb   $0x0,(%r12)
+     122:	0f 85 68 ff ff ff    	jne    90 <matchPartialInPendingList+0x60>
+     128:	48 8b 74 24 08       	mov    0x8(%rsp),%rsi
+     12d:	4c 89 ea             	mov    %r13,%rdx
+     130:	48 89 ef             	mov    %rbp,%rdi
+     133:	e8 00 00 00 00       	call   138 <matchPartialInPendingList+0x108>	134: R_X86_64_PLT32	gintuple_get_key-0x4
+     138:	49 89 06             	mov    %rax,(%r14)
+     13b:	41 c6 04 24 01       	movb   $0x1,(%r12)
+     140:	41 80 7d 00 00       	cmpb   $0x0,0x0(%r13)
+     145:	0f 84 50 ff ff ff    	je     9b <matchPartialInPendingList+0x6b>
+     14b:	48 83 c4 28          	add    $0x28,%rsp
+     14f:	31 c0                	xor    %eax,%eax
+     151:	5b                   	pop    %rbx
+     152:	5d                   	pop    %rbp
+     153:	41 5c                	pop    %r12
+     155:	41 5d                	pop    %r13
+     157:	41 5e                	pop    %r14
+     159:	41 5f                	pop    %r15
+     15b:	c3                   	ret
+     15c:	0f 1f 40 00          	nopl   0x0(%rax)
+     160:	48 83 c4 28          	add    $0x28,%rsp
+     164:	b8 01 00 00 00       	mov    $0x1,%eax
+     169:	5b                   	pop    %rbx
+     16a:	5d                   	pop    %rbp
+     16b:	41 5c                	pop    %r12
+     16d:	41 5d                	pop    %r13
+     16f:	41 5e                	pop    %r14
+     171:	41 5f                	pop    %r15
+     173:	c3                   	ret
+     174:	66 66 2e 0f 1f 84 00 00 00 00 00 	data16 cs nopw 0x0(%rax,%rax,1)
+     17f:	90                   	nop
+
+0000000000000180 <scanGetCandidate>:
+     180:	31 d2                	xor    %edx,%edx
+     182:	41 56                	push   %r14
+     184:	41 55                	push   %r13
+     186:	49 89 fd             	mov    %rdi,%r13
+     189:	41 54                	push   %r12
+     18b:	49 89 f4             	mov    %rsi,%r12
+     18e:	55                   	push   %rbp
+     18f:	53                   	push   %rbx
+     190:	8b 2e                	mov    (%rsi),%ebp
+     192:	66 89 56 0c          	mov    %dx,0xc(%rsi)
+     196:	0f b7 56 04          	movzwl 0x4(%rsi),%edx
+     19a:	c7 46 08 ff ff ff ff 	movl   $0xffffffff,0x8(%rsi)
+     1a1:	eb 78                	jmp    21b <scanGetCandidate+0x9b>
+     1a3:	0f 1f 44 00 00       	nopl   0x0(%rax,%rax,1)
+     1a8:	8d 5d ff             	lea    -0x1(%rbp),%ebx
+     1ab:	48 63 db             	movslq %ebx,%rbx
+     1ae:	48 c1 e3 0d          	shl    $0xd,%rbx
+     1b2:	48 03 1d 00 00 00 00 	add    0x0(%rip),%rbx        # 1b9 <scanGetCandidate+0x39>	1b5: R_X86_64_PC32	BufferBlocks-0x4
+     1b9:	0f b7 43 0c          	movzwl 0xc(%rbx),%eax
+     1bd:	45 31 f6             	xor    %r14d,%r14d
+     1c0:	66 83 f8 18          	cmp    $0x18,%ax
+     1c4:	76 0b                	jbe    1d1 <scanGetCandidate+0x51>
+     1c6:	48 83 e8 18          	sub    $0x18,%rax
+     1ca:	48 c1 e8 02          	shr    $0x2,%rax
+     1ce:	41 89 c6             	mov    %eax,%r14d
+     1d1:	66 41 39 d6          	cmp    %dx,%r14w
+     1d5:	73 61                	jae    238 <scanGetCandidate+0xb8>
+     1d7:	0f b7 43 10          	movzwl 0x10(%rbx),%eax
+     1db:	8b 34 03             	mov    (%rbx,%rax,1),%esi
+     1de:	83 fe ff             	cmp    $0xffffffff,%esi
+     1e1:	0f 84 f9 00 00 00    	je     2e0 <scanGetCandidate+0x160>
+     1e7:	49 8b 7d 08          	mov    0x8(%r13),%rdi
+     1eb:	e8 00 00 00 00       	call   1f0 <scanGetCandidate+0x70>	1ec: R_X86_64_PLT32	ReadBuffer-0x4
+     1f0:	be 01 00 00 00       	mov    $0x1,%esi
+     1f5:	89 c7                	mov    %eax,%edi
+     1f7:	89 c5                	mov    %eax,%ebp
+     1f9:	e8 00 00 00 00       	call   1fe <scanGetCandidate+0x7e>	1fa: R_X86_64_PLT32	LockBufferInternal-0x4
+     1fe:	41 8b 3c 24          	mov    (%r12),%edi
+     202:	e8 00 00 00 00       	call   207 <scanGetCandidate+0x87>	203: R_X86_64_PLT32	UnlockReleaseBuffer-0x4
+     207:	b8 01 00 00 00       	mov    $0x1,%eax
+     20c:	41 89 2c 24          	mov    %ebp,(%r12)
+     210:	ba 01 00 00 00       	mov    $0x1,%edx
+     215:	66 41 89 44 24 04    	mov    %ax,0x4(%r12)
+     21b:	85 ed                	test   %ebp,%ebp
+     21d:	79 89                	jns    1a8 <scanGetCandidate+0x28>
+     21f:	89 e8                	mov    %ebp,%eax
+     221:	48 8b 0d 00 00 00 00 	mov    0x0(%rip),%rcx        # 228 <scanGetCandidate+0xa8>	224: R_X86_64_PC32	LocalBufferBlockPointers-0x4
+     228:	f7 d0                	not    %eax
+     22a:	48 98                	cltq
+     22c:	48 8b 1c c1          	mov    (%rcx,%rax,8),%rbx
+     230:	eb 87                	jmp    1b9 <scanGetCandidate+0x39>
+     232:	66 0f 1f 44 00 00    	nopw   0x0(%rax,%rax,1)
+     238:	0f b7 c2             	movzwl %dx,%eax
+     23b:	83 e8 01             	sub    $0x1,%eax
+     23e:	48 98                	cltq
+     240:	0f b7 44 83 18       	movzwl 0x18(%rbx,%rax,4),%eax
+     245:	25 ff 7f 00 00       	and    $0x7fff,%eax
+     24a:	8b 0c 03             	mov    (%rbx,%rax,1),%ecx
+     24d:	41 89 4c 24 08       	mov    %ecx,0x8(%r12)
+     252:	0f b7 44 03 04       	movzwl 0x4(%rbx,%rax,1),%eax
+     257:	66 41 89 44 24 0c    	mov    %ax,0xc(%r12)
+     25d:	0f b7 43 10          	movzwl 0x10(%rbx),%eax
+     261:	f6 44 03 06 20       	testb  $0x20,0x6(%rbx,%rax,1)
+     266:	74 58                	je     2c0 <scanGetCandidate+0x140>
+     268:	83 c2 01             	add    $0x1,%edx
+     26b:	49 8d 6c 24 08       	lea    0x8(%r12),%rbp
+     270:	66 41 89 54 24 06    	mov    %dx,0x6(%r12)
+     276:	66 41 39 d6          	cmp    %dx,%r14w
+     27a:	73 19                	jae    295 <scanGetCandidate+0x115>
+     27c:	eb 4c                	jmp    2ca <scanGetCandidate+0x14a>
+     27e:	66 90                	xchg   %ax,%ax
+     280:	41 0f b7 44 24 06    	movzwl 0x6(%r12),%eax
+     286:	8d 50 01             	lea    0x1(%rax),%edx
+     289:	66 41 89 54 24 06    	mov    %dx,0x6(%r12)
+     28f:	66 41 39 d6          	cmp    %dx,%r14w
+     293:	72 35                	jb     2ca <scanGetCandidate+0x14a>
+     295:	0f b7 d2             	movzwl %dx,%edx
+     298:	48 89 ef             	mov    %rbp,%rdi
+     29b:	83 ea 01             	sub    $0x1,%edx
+     29e:	48 63 d2             	movslq %edx,%rdx
+     2a1:	0f b7 74 93 18       	movzwl 0x18(%rbx,%rdx,4),%esi
+     2a6:	81 e6 ff 7f 00 00    	and    $0x7fff,%esi
+     2ac:	48 01 de             	add    %rbx,%rsi
+     2af:	e8 00 00 00 00       	call   2b4 <scanGetCandidate+0x134>	2b0: R_X86_64_PLT32	ItemPointerEquals-0x4
+     2b4:	84 c0                	test   %al,%al
+     2b6:	75 c8                	jne    280 <scanGetCandidate+0x100>
+     2b8:	eb 10                	jmp    2ca <scanGetCandidate+0x14a>
+     2ba:	66 0f 1f 44 00 00    	nopw   0x0(%rax,%rax,1)
+     2c0:	41 83 c6 01          	add    $0x1,%r14d
+     2c4:	66 45 89 74 24 06    	mov    %r14w,0x6(%r12)
+     2ca:	5b                   	pop    %rbx
+     2cb:	b8 01 00 00 00       	mov    $0x1,%eax
+     2d0:	5d                   	pop    %rbp
+     2d1:	41 5c                	pop    %r12
+     2d3:	41 5d                	pop    %r13
+     2d5:	41 5e                	pop    %r14
+     2d7:	c3                   	ret
+     2d8:	0f 1f 84 00 00 00 00 00 	nopl   0x0(%rax,%rax,1)
+     2e0:	89 ef                	mov    %ebp,%edi
+     2e2:	e8 00 00 00 00       	call   2e7 <scanGetCandidate+0x167>	2e3: R_X86_64_PLT32	UnlockReleaseBuffer-0x4
+     2e7:	41 c7 04 24 00 00 00 00 	movl   $0x0,(%r12)
+     2ef:	31 c0                	xor    %eax,%eax
+     2f1:	5b                   	pop    %rbx
+     2f2:	5d                   	pop    %rbp
+     2f3:	41 5c                	pop    %r12
+     2f5:	41 5d                	pop    %r13
+     2f7:	41 5e                	pop    %r14
+     2f9:	c3                   	ret
+     2fa:	66 0f 1f 44 00 00    	nopw   0x0(%rax,%rax,1)
+
+0000000000000300 <collectMatchesForHeapRow>:
+     300:	41 57                	push   %r15
+     302:	41 56                	push   %r14
+     304:	41 55                	push   %r13
+     306:	41 54                	push   %r12
+     308:	55                   	push   %rbp
+     309:	53                   	push   %rbx
+     30a:	48 81 ec 00 10 00 00 	sub    $0x1000,%rsp
+     311:	48 83 0c 24 00       	orq    $0x0,(%rsp)
+     316:	48 81 ec 00 10 00 00 	sub    $0x1000,%rsp
+     31d:	48 83 0c 24 00       	orq    $0x0,(%rsp)
+     322:	48 81 ec 88 08 00 00 	sub    $0x888,%rsp
+     329:	48 8b 6f 38          	mov    0x38(%rdi),%rbp
+     32d:	44 8b 8d c8 25 00 00 	mov    0x25c8(%rbp),%r9d
+     334:	64 48 8b 04 25 28 00 00 00 	mov    %fs:0x28,%rax
+     33d:	48 89 84 24 78 28 00 00 	mov    %rax,0x2878(%rsp)
+     345:	31 c0                	xor    %eax,%eax
+     347:	49 89 fe             	mov    %rdi,%r14
+     34a:	48 89 6c 24 40       	mov    %rbp,0x40(%rsp)
+     34f:	49 89 f7             	mov    %rsi,%r15
+     352:	45 85 c9             	test   %r9d,%r9d
+     355:	0f 84 cb 04 00 00    	je     826 <collectMatchesForHeapRow+0x526>
+     35b:	31 db                	xor    %ebx,%ebx
+     35d:	48 8d 04 db          	lea    (%rbx,%rbx,8),%rax
+     361:	31 f6                	xor    %esi,%esi
+     363:	48 8d 14 43          	lea    (%rbx,%rax,2),%rdx
+     367:	48 8b 85 c0 25 00 00 	mov    0x25c0(%rbp),%rax
+     36e:	48 83 c3 01          	add    $0x1,%rbx
+     372:	48 8d 04 d0          	lea    (%rax,%rdx,8),%rax
+     376:	8b 10                	mov    (%rax),%edx
+     378:	48 8b 78 30          	mov    0x30(%rax),%rdi
+     37c:	e8 00 00 00 00       	call   381 <collectMatchesForHeapRow+0x81>	37d: R_X86_64_PLT32	memset-0x4
+     381:	8b 95 c8 25 00 00    	mov    0x25c8(%rbp),%edx
+     387:	39 d3                	cmp    %edx,%ebx
+     389:	72 d2                	jb     35d <collectMatchesForHeapRow+0x5d>
+     38b:	49 8b 7f 10          	mov    0x10(%r15),%rdi
+     38f:	31 f6                	xor    %esi,%esi
+     391:	e8 00 00 00 00       	call   396 <collectMatchesForHeapRow+0x96>	392: R_X86_64_PLT32	memset-0x4
+     396:	48 8d 44 24 70       	lea    0x70(%rsp),%rax
+     39b:	48 89 44 24 50       	mov    %rax,0x50(%rsp)
+     3a0:	48 8d 84 24 70 24 00 00 	lea    0x2470(%rsp),%rax
+     3a8:	48 89 44 24 28       	mov    %rax,0x28(%rsp)
+     3ad:	41 0f b7 47 04       	movzwl 0x4(%r15),%eax
+     3b2:	ba 00 04 00 00       	mov    $0x400,%edx
+     3b7:	45 0f b7 6f 06       	movzwl 0x6(%r15),%r13d
+     3bc:	48 8b 5c 24 50       	mov    0x50(%rsp),%rbx
+     3c1:	48 89 c6             	mov    %rax,%rsi
+     3c4:	48 83 e8 01          	sub    $0x1,%rax
+     3c8:	48 39 d0             	cmp    %rdx,%rax
+     3cb:	48 8d 3c 03          	lea    (%rbx,%rax,1),%rdi
+     3cf:	48 0f 43 d0          	cmovae %rax,%rdx
+     3d3:	48 89 d1             	mov    %rdx,%rcx
+     3d6:	41 0f b7 d5          	movzwl %r13w,%edx
+     3da:	29 f2                	sub    %esi,%edx
+     3dc:	48 29 c1             	sub    %rax,%rcx
+     3df:	31 f6                	xor    %esi,%esi
+     3e1:	48 63 d2             	movslq %edx,%rdx
+     3e4:	e8 00 00 00 00       	call   3e9 <collectMatchesForHeapRow+0xe9>	3e5: R_X86_64_PLT32	__memset_chk-0x4
+     3e9:	41 8b 07             	mov    (%r15),%eax
+     3ec:	85 c0                	test   %eax,%eax
+     3ee:	0f 88 b1 03 00 00    	js     7a5 <collectMatchesForHeapRow+0x4a5>
+     3f4:	83 e8 01             	sub    $0x1,%eax
+     3f7:	48 98                	cltq
+     3f9:	48 c1 e0 0d          	shl    $0xd,%rax
+     3fd:	48 03 05 00 00 00 00 	add    0x0(%rip),%rax        # 404 <collectMatchesForHeapRow+0x104>	400: R_X86_64_PC32	BufferBlocks-0x4
+     404:	48 89 c3             	mov    %rax,%rbx
+     407:	48 8b 44 24 40       	mov    0x40(%rsp),%rax
+     40c:	44 8b 80 c8 25 00 00 	mov    0x25c8(%rax),%r8d
+     413:	45 85 c0             	test   %r8d,%r8d
+     416:	0f 84 e3 02 00 00    	je     6ff <collectMatchesForHeapRow+0x3ff>
+     41c:	48 83 c0 08          	add    $0x8,%rax
+     420:	4c 89 74 24 58       	mov    %r14,0x58(%rsp)
+     425:	31 ed                	xor    %ebp,%ebp
+     427:	4d 89 fe             	mov    %r15,%r14
+     42a:	48 89 44 24 08       	mov    %rax,0x8(%rsp)
+     42f:	90                   	nop
+     430:	48 8d 44 ed 00       	lea    0x0(%rbp,%rbp,8),%rax
+     435:	48 8d 54 45 00       	lea    0x0(%rbp,%rax,2),%rdx
+     43a:	48 8b 44 24 40       	mov    0x40(%rsp),%rax
+     43f:	48 8b 80 c0 25 00 00 	mov    0x25c0(%rax),%rax
+     446:	4c 8d 1c d0          	lea    (%rax,%rdx,8),%r11
+     44a:	41 8b 3b             	mov    (%r11),%edi
+     44d:	85 ff                	test   %edi,%edi
+     44f:	0f 84 8d 02 00 00    	je     6e2 <collectMatchesForHeapRow+0x3e2>
+     455:	48 89 6c 24 48       	mov    %rbp,0x48(%rsp)
+     45a:	45 31 d2             	xor    %r10d,%r10d
+     45d:	4d 89 f7             	mov    %r14,%r15
+     460:	eb 13                	jmp    475 <collectMatchesForHeapRow+0x175>
+     462:	66 0f 1f 44 00 00    	nopw   0x0(%rax,%rax,1)
+     468:	49 83 c2 01          	add    $0x1,%r10
+     46c:	45 3b 13             	cmp    (%r11),%r10d
+     46f:	0f 83 65 02 00 00    	jae    6da <collectMatchesForHeapRow+0x3da>
+     475:	49 8b 43 30          	mov    0x30(%r11),%rax
+     479:	42 80 3c 10 00       	cmpb   $0x0,(%rax,%r10,1)
+     47e:	75 e8                	jne    468 <collectMatchesForHeapRow+0x168>
+     480:	49 8b 43 08          	mov    0x8(%r11),%rax
+     484:	41 0f b7 6f 04       	movzwl 0x4(%r15),%ebp
+     489:	4a 8b 04 d0          	mov    (%rax,%r10,8),%rax
+     48d:	48 89 44 24 20       	mov    %rax,0x20(%rsp)
+     492:	66 44 39 ed          	cmp    %r13w,%bp
+     496:	0f 83 c2 00 00 00    	jae    55e <collectMatchesForHeapRow+0x25e>
+     49c:	4c 89 5c 24 10       	mov    %r11,0x10(%rsp)
+     4a1:	4c 89 54 24 30       	mov    %r10,0x30(%rsp)
+     4a6:	4c 89 7c 24 38       	mov    %r15,0x38(%rsp)
+     4ab:	eb 42                	jmp    4ef <collectMatchesForHeapRow+0x1ef>
+     4ad:	0f 1f 00             	nopl   (%rax)
+     4b0:	42 80 7c 34 70 00    	cmpb   $0x0,0x70(%rsp,%r14,1)
+     4b6:	0f 84 34 01 00 00    	je     5f0 <collectMatchesForHeapRow+0x2f0>
+     4bc:	48 8b 74 24 20       	mov    0x20(%rsp),%rsi
+     4c1:	0f b6 46 08          	movzbl 0x8(%rsi),%eax
+     4c5:	3c ff                	cmp    $0xff,%al
+     4c7:	0f 85 f3 00 00 00    	jne    5c0 <collectMatchesForHeapRow+0x2c0>
+     4cd:	83 7e 1c 02          	cmpl   $0x2,0x1c(%rsi)
+     4d1:	0f 85 a1 01 00 00    	jne    678 <collectMatchesForHeapRow+0x378>
+     4d7:	42 80 bc 34 70 24 00 00 03 	cmpb   $0x3,0x2470(%rsp,%r14,1)
+     4e0:	0f 85 92 01 00 00    	jne    678 <collectMatchesForHeapRow+0x378>
+     4e6:	45 89 e5             	mov    %r12d,%r13d
+     4e9:	66 44 39 ed          	cmp    %r13w,%bp
+     4ed:	73 60                	jae    54f <collectMatchesForHeapRow+0x24f>
+     4ef:	0f b7 c5             	movzwl %bp,%eax
+     4f2:	45 0f b7 e5          	movzwl %r13w,%r12d
+     4f6:	48 8b 7c 24 08       	mov    0x8(%rsp),%rdi
+     4fb:	41 29 c4             	sub    %eax,%r12d
+     4fe:	41 d1 fc             	sar    $1,%r12d
+     501:	41 01 ec             	add    %ebp,%r12d
+     504:	41 0f b7 c4          	movzwl %r12w,%eax
+     508:	8d 48 ff             	lea    -0x1(%rax),%ecx
+     50b:	89 44 24 18          	mov    %eax,0x18(%rsp)
+     50f:	4c 63 f1             	movslq %ecx,%r14
+     512:	46 0f b7 7c b3 18    	movzwl 0x18(%rbx,%r14,4),%r15d
+     518:	41 81 e7 ff 7f 00 00 	and    $0x7fff,%r15d
+     51f:	49 01 df             	add    %rbx,%r15
+     522:	4c 89 fe             	mov    %r15,%rsi
+     525:	e8 00 00 00 00       	call   52a <collectMatchesForHeapRow+0x22a>	526: R_X86_64_PLT32	gintuple_get_attrnum-0x4
+     52a:	48 8b 7c 24 10       	mov    0x10(%rsp),%rdi
+     52f:	0f b7 97 88 00 00 00 	movzwl 0x88(%rdi),%edx
+     536:	66 39 c2             	cmp    %ax,%dx
+     539:	72 ab                	jb     4e6 <collectMatchesForHeapRow+0x1e6>
+     53b:	66 39 d0             	cmp    %dx,%ax
+     53e:	0f 83 6c ff ff ff    	jae    4b0 <collectMatchesForHeapRow+0x1b0>
+     544:	41 8d 6c 24 01       	lea    0x1(%r12),%ebp
+     549:	66 44 39 ed          	cmp    %r13w,%bp
+     54d:	72 a0                	jb     4ef <collectMatchesForHeapRow+0x1ef>
+     54f:	4c 8b 5c 24 10       	mov    0x10(%rsp),%r11
+     554:	4c 8b 54 24 30       	mov    0x30(%rsp),%r10
+     559:	4c 8b 7c 24 38       	mov    0x38(%rsp),%r15
+     55e:	48 8b 44 24 20       	mov    0x20(%rsp),%rax
+     563:	80 78 09 00          	cmpb   $0x0,0x9(%rax)
+     567:	0f 84 41 01 00 00    	je     6ae <collectMatchesForHeapRow+0x3ae>
+     56d:	4c 89 54 24 18       	mov    %r10,0x18(%rsp)
+     572:	41 0f b7 4f 06       	movzwl 0x6(%r15),%ecx
+     577:	41 0f b7 d5          	movzwl %r13w,%edx
+     57b:	48 89 de             	mov    %rbx,%rsi
+     57e:	4c 89 5c 24 10       	mov    %r11,0x10(%rsp)
+     583:	ff 74 24 50          	push   0x50(%rsp)
+     587:	ff 74 24 30          	push   0x30(%rsp)
+     58b:	4c 8b 44 24 30       	mov    0x30(%rsp),%r8
+     590:	48 8b 7c 24 18       	mov    0x18(%rsp),%rdi
+     595:	4c 8d 8c 24 80 04 00 00 	lea    0x480(%rsp),%r9
+     59d:	e8 8e fa ff ff       	call   30 <matchPartialInPendingList>
+     5a2:	4c 8b 5c 24 20       	mov    0x20(%rsp),%r11
+     5a7:	4c 8b 54 24 28       	mov    0x28(%rsp),%r10
+     5ac:	49 8b 53 30          	mov    0x30(%r11),%rdx
+     5b0:	42 88 04 12          	mov    %al,(%rdx,%r10,1)
+     5b4:	58                   	pop    %rax
+     5b5:	5a                   	pop    %rdx
+     5b6:	e9 f3 00 00 00       	jmp    6ae <collectMatchesForHeapRow+0x3ae>
+     5bb:	0f 1f 44 00 00       	nopl   0x0(%rax,%rax,1)
+     5c0:	48 8b 4c 24 20       	mov    0x20(%rsp),%rcx
+     5c5:	4a 8b bc f4 70 04 00 00 	mov    0x470(%rsp,%r14,8),%rdi
+     5cd:	48 8b 31             	mov    (%rcx),%rsi
+     5d0:	0f b7 51 20          	movzwl 0x20(%rcx),%edx
+     5d4:	42 3a 84 34 70 24 00 00 	cmp    0x2470(%rsp,%r14,1),%al
+     5dc:	74 42                	je     620 <collectMatchesForHeapRow+0x320>
+     5de:	0f 8c 02 ff ff ff    	jl     4e6 <collectMatchesForHeapRow+0x1e6>
+     5e4:	41 8d 6c 24 01       	lea    0x1(%r12),%ebp
+     5e9:	e9 5b ff ff ff       	jmp    549 <collectMatchesForHeapRow+0x249>
+     5ee:	66 90                	xchg   %ax,%ax
+     5f0:	48 8b 44 24 28       	mov    0x28(%rsp),%rax
+     5f5:	48 8b 7c 24 08       	mov    0x8(%rsp),%rdi
+     5fa:	4c 89 fe             	mov    %r15,%rsi
+     5fd:	4a 8d 14 30          	lea    (%rax,%r14,1),%rdx
+     601:	e8 00 00 00 00       	call   606 <collectMatchesForHeapRow+0x306>	602: R_X86_64_PLT32	gintuple_get_key-0x4
+     606:	42 c6 44 34 70 01    	movb   $0x1,0x70(%rsp,%r14,1)
+     60c:	4a 89 84 f4 70 04 00 00 	mov    %rax,0x470(%rsp,%r14,8)
+     614:	e9 a3 fe ff ff       	jmp    4bc <collectMatchesForHeapRow+0x1bc>
+     619:	0f 1f 80 00 00 00 00 	nopl   0x0(%rax)
+     620:	84 c0                	test   %al,%al
+     622:	75 54                	jne    678 <collectMatchesForHeapRow+0x378>
+     624:	0f b7 c2             	movzwl %dx,%eax
+     627:	48 8b 4c 24 40       	mov    0x40(%rsp),%rcx
+     62c:	48 8b 54 24 08       	mov    0x8(%rsp),%rdx
+     631:	83 e8 01             	sub    $0x1,%eax
+     634:	48 98                	cltq
+     636:	44 8b 8c 81 40 25 00 00 	mov    0x2540(%rcx,%rax,4),%r9d
+     63e:	48 8d 04 40          	lea    (%rax,%rax,2),%rax
+     642:	48 89 f9             	mov    %rdi,%rcx
+     645:	48 c1 e0 04          	shl    $0x4,%rax
+     649:	48 8d 84 02 18 01 00 00 	lea    0x118(%rdx,%rax,1),%rax
+     651:	48 89 f2             	mov    %rsi,%rdx
+     654:	44 89 ce             	mov    %r9d,%esi
+     657:	48 89 c7             	mov    %rax,%rdi
+     65a:	e8 00 00 00 00       	call   65f <collectMatchesForHeapRow+0x35f>	65b: R_X86_64_PLT32	FunctionCall2Coll-0x4
+     65f:	85 c0                	test   %eax,%eax
+     661:	74 15                	je     678 <collectMatchesForHeapRow+0x378>
+     663:	0f 88 7d fe ff ff    	js     4e6 <collectMatchesForHeapRow+0x1e6>
+     669:	41 8d 6c 24 01       	lea    0x1(%r12),%ebp
+     66e:	e9 d6 fe ff ff       	jmp    549 <collectMatchesForHeapRow+0x249>
+     673:	0f 1f 44 00 00       	nopl   0x0(%rax,%rax,1)
+     678:	48 8b 44 24 20       	mov    0x20(%rsp),%rax
+     67d:	4c 8b 5c 24 10       	mov    0x10(%rsp),%r11
+     682:	44 8b 74 24 18       	mov    0x18(%rsp),%r14d
+     687:	4c 8b 54 24 30       	mov    0x30(%rsp),%r10
+     68c:	80 78 09 00          	cmpb   $0x0,0x9(%rax)
+     690:	4c 8b 7c 24 38       	mov    0x38(%rsp),%r15
+     695:	0f 85 bd 00 00 00    	jne    758 <collectMatchesForHeapRow+0x458>
+     69b:	49 8b 43 30          	mov    0x30(%r11),%rax
+     69f:	42 c6 04 10 01       	movb   $0x1,(%rax,%r10,1)
+     6a4:	66 44 39 ed          	cmp    %r13w,%bp
+     6a8:	0f 83 b0 fe ff ff    	jae    55e <collectMatchesForHeapRow+0x25e>
+     6ae:	49 8b 53 30          	mov    0x30(%r11),%rdx
+     6b2:	48 8b 44 24 48       	mov    0x48(%rsp),%rax
+     6b7:	49 03 47 10          	add    0x10(%r15),%rax
+     6bb:	42 0f be 14 12       	movsbl (%rdx,%r10,1),%edx
+     6c0:	0f b6 08             	movzbl (%rax),%ecx
+     6c3:	09 ca                	or     %ecx,%edx
+     6c5:	0f 95 00             	setne  (%rax)
+     6c8:	49 83 c2 01          	add    $0x1,%r10
+     6cc:	45 0f b7 6f 06       	movzwl 0x6(%r15),%r13d
+     6d1:	45 3b 13             	cmp    (%r11),%r10d
+     6d4:	0f 82 9b fd ff ff    	jb     475 <collectMatchesForHeapRow+0x175>
+     6da:	48 8b 6c 24 48       	mov    0x48(%rsp),%rbp
+     6df:	4d 89 fe             	mov    %r15,%r14
+     6e2:	48 8b 44 24 40       	mov    0x40(%rsp),%rax
+     6e7:	48 83 c5 01          	add    $0x1,%rbp
+     6eb:	3b a8 c8 25 00 00    	cmp    0x25c8(%rax),%ebp
+     6f1:	0f 82 39 fd ff ff    	jb     430 <collectMatchesForHeapRow+0x130>
+     6f7:	4d 89 f7             	mov    %r14,%r15
+     6fa:	4c 8b 74 24 58       	mov    0x58(%rsp),%r14
+     6ff:	66 45 89 6f 04       	mov    %r13w,0x4(%r15)
+     704:	0f b7 43 10          	movzwl 0x10(%rbx),%eax
+     708:	f6 44 03 06 20       	testb  $0x20,0x6(%rbx,%rax,1)
+     70d:	0f 85 a6 00 00 00    	jne    7b9 <collectMatchesForHeapRow+0x4b9>
+     713:	41 8b 47 08          	mov    0x8(%r15),%eax
+     717:	4c 89 fe             	mov    %r15,%rsi
+     71a:	4c 89 f7             	mov    %r14,%rdi
+     71d:	89 44 24 6a          	mov    %eax,0x6a(%rsp)
+     721:	41 0f b7 47 0c       	movzwl 0xc(%r15),%eax
+     726:	66 89 44 24 6e       	mov    %ax,0x6e(%rsp)
+     72b:	e8 50 fa ff ff       	call   180 <scanGetCandidate>
+     730:	84 c0                	test   %al,%al
+     732:	0f 84 00 00 00 00    	je     738 <collectMatchesForHeapRow+0x438>	734: R_X86_64_PC32	.text.unlikely-0x4
+     738:	48 8d 74 24 6a       	lea    0x6a(%rsp),%rsi
+     73d:	49 8d 7f 08          	lea    0x8(%r15),%rdi
+     741:	e8 00 00 00 00       	call   746 <collectMatchesForHeapRow+0x446>	742: R_X86_64_PLT32	ItemPointerEquals-0x4
+     746:	84 c0                	test   %al,%al
+     748:	0f 85 5f fc ff ff    	jne    3ad <collectMatchesForHeapRow+0xad>
+     74e:	e9 00 00 00 00       	jmp    753 <collectMatchesForHeapRow+0x453>	74f: R_X86_64_PC32	.text.unlikely-0x4
+     753:	0f 1f 44 00 00       	nopl   0x0(%rax,%rax,1)
+     758:	4c 89 54 24 18       	mov    %r10,0x18(%rsp)
+     75d:	41 0f b7 4f 06       	movzwl 0x6(%r15),%ecx
+     762:	44 89 f2             	mov    %r14d,%edx
+     765:	48 89 de             	mov    %rbx,%rsi
+     768:	4c 89 5c 24 10       	mov    %r11,0x10(%rsp)
+     76d:	ff 74 24 50          	push   0x50(%rsp)
+     771:	ff 74 24 30          	push   0x30(%rsp)
+     775:	4c 8b 44 24 30       	mov    0x30(%rsp),%r8
+     77a:	48 8b 7c 24 18       	mov    0x18(%rsp),%rdi
+     77f:	4c 8d 8c 24 80 04 00 00 	lea    0x480(%rsp),%r9
+     787:	e8 a4 f8 ff ff       	call   30 <matchPartialInPendingList>
+     78c:	4c 8b 5c 24 20       	mov    0x20(%rsp),%r11
+     791:	4c 8b 54 24 28       	mov    0x28(%rsp),%r10
+     796:	49 8b 53 30          	mov    0x30(%r11),%rdx
+     79a:	42 88 04 12          	mov    %al,(%rdx,%r10,1)
+     79e:	59                   	pop    %rcx
+     79f:	5e                   	pop    %rsi
+     7a0:	e9 ff fe ff ff       	jmp    6a4 <collectMatchesForHeapRow+0x3a4>
+     7a5:	48 8b 15 00 00 00 00 	mov    0x0(%rip),%rdx        # 7ac <collectMatchesForHeapRow+0x4ac>	7a8: R_X86_64_PC32	LocalBufferBlockPointers-0x4
+     7ac:	f7 d0                	not    %eax
+     7ae:	48 98                	cltq
+     7b0:	48 8b 1c c2          	mov    (%rdx,%rax,8),%rbx
+     7b4:	e9 4e fc ff ff       	jmp    407 <collectMatchesForHeapRow+0x107>
+     7b9:	48 8b 7c 24 40       	mov    0x40(%rsp),%rdi
+     7be:	8b 97 c8 25 00 00    	mov    0x25c8(%rdi),%edx
+     7c4:	85 d2                	test   %edx,%edx
+     7c6:	74 32                	je     7fa <collectMatchesForHeapRow+0x4fa>
+     7c8:	49 8b 47 10          	mov    0x10(%r15),%rax
+     7cc:	31 c9                	xor    %ecx,%ecx
+     7ce:	48 01 c2             	add    %rax,%rdx
+     7d1:	80 38 00             	cmpb   $0x0,(%rax)
+     7d4:	75 14                	jne    7ea <collectMatchesForHeapRow+0x4ea>
+     7d6:	48 8b b7 c0 25 00 00 	mov    0x25c0(%rdi),%rsi
+     7dd:	0f b6 b4 0e 8a 00 00 00 	movzbl 0x8a(%rsi,%rcx,1),%esi
+     7e5:	40 84 f6             	test   %sil,%sil
+     7e8:	74 15                	je     7ff <collectMatchesForHeapRow+0x4ff>
+     7ea:	48 83 c0 01          	add    $0x1,%rax
+     7ee:	48 81 c1 98 00 00 00 	add    $0x98,%rcx
+     7f5:	48 39 d0             	cmp    %rdx,%rax
+     7f8:	75 d7                	jne    7d1 <collectMatchesForHeapRow+0x4d1>
+     7fa:	be 01 00 00 00       	mov    $0x1,%esi
+     7ff:	48 8b 84 24 78 28 00 00 	mov    0x2878(%rsp),%rax
+     807:	64 48 2b 04 25 28 00 00 00 	sub    %fs:0x28,%rax
+     810:	75 1b                	jne    82d <collectMatchesForHeapRow+0x52d>
+     812:	48 81 c4 88 28 00 00 	add    $0x2888,%rsp
+     819:	89 f0                	mov    %esi,%eax
+     81b:	5b                   	pop    %rbx
+     81c:	5d                   	pop    %rbp
+     81d:	41 5c                	pop    %r12
+     81f:	41 5d                	pop    %r13
+     821:	41 5e                	pop    %r14
+     823:	41 5f                	pop    %r15
+     825:	c3                   	ret
+     826:	31 d2                	xor    %edx,%edx
+     828:	e9 5e fb ff ff       	jmp    38b <collectMatchesForHeapRow+0x8b>
+     82d:	e8 00 00 00 00       	call   832 <collectMatchesForHeapRow+0x532>	82e: R_X86_64_PLT32	__stack_chk_fail-0x4
+     832:	66 66 2e 0f 1f 84 00 00 00 00 00 	data16 cs nopw 0x0(%rax,%rax,1)
+     83d:	0f 1f 00             	nopl   (%rax)
+
+0000000000000840 <moveRightIfItNeeded>:
+     840:	41 54                	push   %r12
+     842:	49 89 d4             	mov    %rdx,%r12
+     845:	55                   	push   %rbp
+     846:	48 89 fd             	mov    %rdi,%rbp
+     849:	53                   	push   %rbx
+     84a:	8b 7e 04             	mov    0x4(%rsi),%edi
+     84d:	48 89 f3             	mov    %rsi,%rbx
+     850:	85 ff                	test   %edi,%edi
+     852:	78 7c                	js     8d0 <moveRightIfItNeeded+0x90>
+     854:	8d 47 ff             	lea    -0x1(%rdi),%eax
+     857:	48 98                	cltq
+     859:	48 c1 e0 0d          	shl    $0xd,%rax
+     85d:	48 03 05 00 00 00 00 	add    0x0(%rip),%rax        # 864 <moveRightIfItNeeded+0x24>	860: R_X86_64_PC32	BufferBlocks-0x4
+     864:	0f b7 48 0c          	movzwl 0xc(%rax),%ecx
+     868:	0f b7 73 08          	movzwl 0x8(%rbx),%esi
+     86c:	31 d2                	xor    %edx,%edx
+     86e:	66 83 f9 18          	cmp    $0x18,%cx
+     872:	76 08                	jbe    87c <moveRightIfItNeeded+0x3c>
+     874:	48 8d 51 e8          	lea    -0x18(%rcx),%rdx
+     878:	48 c1 ea 02          	shr    $0x2,%rdx
+     87c:	66 39 f2             	cmp    %si,%dx
+     87f:	72 0f                	jb     890 <moveRightIfItNeeded+0x50>
+     881:	ba 01 00 00 00       	mov    $0x1,%edx
+     886:	5b                   	pop    %rbx
+     887:	89 d0                	mov    %edx,%eax
+     889:	5d                   	pop    %rbp
+     88a:	41 5c                	pop    %r12
+     88c:	c3                   	ret
+     88d:	0f 1f 00             	nopl   (%rax)
+     890:	0f b7 48 10          	movzwl 0x10(%rax),%ecx
+     894:	31 d2                	xor    %edx,%edx
+     896:	83 3c 08 ff          	cmpl   $0xffffffff,(%rax,%rcx,1)
+     89a:	74 ea                	je     886 <moveRightIfItNeeded+0x46>
+     89c:	48 8b 75 50          	mov    0x50(%rbp),%rsi
+     8a0:	ba 01 00 00 00       	mov    $0x1,%edx
+     8a5:	e8 00 00 00 00       	call   8aa <moveRightIfItNeeded+0x6a>	8a6: R_X86_64_PLT32	ginStepRight-0x4
+     8aa:	89 43 04             	mov    %eax,0x4(%rbx)
+     8ad:	89 c7                	mov    %eax,%edi
+     8af:	e8 00 00 00 00       	call   8b4 <moveRightIfItNeeded+0x74>	8b0: R_X86_64_PLT32	BufferGetBlockNumber-0x4
+     8b4:	4c 89 e2             	mov    %r12,%rdx
+     8b7:	89 03                	mov    %eax,(%rbx)
+     8b9:	89 c6                	mov    %eax,%esi
+     8bb:	b8 01 00 00 00       	mov    $0x1,%eax
+     8c0:	66 89 43 08          	mov    %ax,0x8(%rbx)
+     8c4:	48 8b 7d 50          	mov    0x50(%rbp),%rdi
+     8c8:	e8 00 00 00 00       	call   8cd <moveRightIfItNeeded+0x8d>	8c9: R_X86_64_PLT32	PredicateLockPage-0x4
+     8cd:	eb b2                	jmp    881 <moveRightIfItNeeded+0x41>
+     8cf:	90                   	nop
+     8d0:	89 f8                	mov    %edi,%eax
+     8d2:	48 8b 15 00 00 00 00 	mov    0x0(%rip),%rdx        # 8d9 <moveRightIfItNeeded+0x99>	8d5: R_X86_64_PC32	LocalBufferBlockPointers-0x4
+     8d9:	f7 d0                	not    %eax
+     8db:	48 98                	cltq
+     8dd:	48 8b 04 c2          	mov    (%rdx,%rax,8),%rax
+     8e1:	eb 81                	jmp    864 <moveRightIfItNeeded+0x24>
+     8e3:	66 66 2e 0f 1f 84 00 00 00 00 00 	data16 cs nopw 0x0(%rax,%rax,1)
+     8ee:	66 90                	xchg   %ax,%ax
+
+00000000000008f0 <entryLoadNextSegment>:
+     8f0:	41 56                	push   %r14
+     8f2:	89 f2                	mov    %esi,%edx
+     8f4:	41 55                	push   %r13
+     8f6:	c1 ea 10             	shr    $0x10,%edx
+     8f9:	41 54                	push   %r12
+     8fb:	49 89 fc             	mov    %rdi,%r12
+     8fe:	89 d7                	mov    %edx,%edi
+     900:	48 89 f2             	mov    %rsi,%rdx
+     903:	55                   	push   %rbp
+     904:	48 c1 ea 20          	shr    $0x20,%rdx
+     908:	53                   	push   %rbx
+     909:	48 83 ec 10          	sub    $0x10,%rsp
+     90d:	48 89 74 24 08       	mov    %rsi,0x8(%rsp)
+     912:	4d 8b b4 24 40 03 00 00 	mov    0x340(%r12),%r14
+     91a:	49 8b 8c 24 48 03 00 00 	mov    0x348(%r12),%rcx
+     922:	49 39 ce             	cmp    %rcx,%r14
+     925:	0f 83 65 01 00 00    	jae    a90 <entryLoadNextSegment+0x1a0>
+     92b:	89 f0                	mov    %esi,%eax
+     92d:	41 0f b7 76 06       	movzwl 0x6(%r14),%esi
+     932:	0f b7 ff             	movzwl %di,%edi
+     935:	0f b7 d2             	movzwl %dx,%edx
+     938:	c1 e0 10             	shl    $0x10,%eax
+     93b:	48 83 c6 01          	add    $0x1,%rsi
+     93f:	89 c5                	mov    %eax,%ebp
+     941:	48 83 e6 fe          	and    $0xfffffffffffffffe,%rsi
+     945:	09 fd                	or     %edi,%ebp
+     947:	48 c1 e5 20          	shl    $0x20,%rbp
+     94b:	4d 8d 6c 36 08       	lea    0x8(%r14,%rsi,1),%r13
+     950:	48 09 d5             	or     %rdx,%rbp
+     953:	49 39 cd             	cmp    %rcx,%r13
+     956:	72 25                	jb     97d <entryLoadNextSegment+0x8d>
+     958:	eb 53                	jmp    9ad <entryLoadNextSegment+0xbd>
+     95a:	66 0f 1f 44 00 00    	nopw   0x0(%rax,%rax,1)
+     960:	41 0f b7 45 06       	movzwl 0x6(%r13),%eax
+     965:	4d 89 ee             	mov    %r13,%r14
+     968:	48 83 c0 01          	add    $0x1,%rax
+     96c:	48 83 e0 fe          	and    $0xfffffffffffffffe,%rax
+     970:	49 8d 44 05 08       	lea    0x8(%r13,%rax,1),%rax
+     975:	49 89 c5             	mov    %rax,%r13
+     978:	48 39 c8             	cmp    %rcx,%rax
+     97b:	73 30                	jae    9ad <entryLoadNextSegment+0xbd>
+     97d:	41 0f b7 45 00       	movzwl 0x0(%r13),%eax
+     982:	41 0f b7 55 02       	movzwl 0x2(%r13),%edx
+     987:	c1 e0 10             	shl    $0x10,%eax
+     98a:	09 d0                	or     %edx,%eax
+     98c:	41 0f b7 55 04       	movzwl 0x4(%r13),%edx
+     991:	48 c1 e0 20          	shl    $0x20,%rax
+     995:	48 09 d0             	or     %rdx,%rax
+     998:	31 d2                	xor    %edx,%edx
+     99a:	48 39 c5             	cmp    %rax,%rbp
+     99d:	0f 92 c2             	setb   %dl
+     9a0:	48 39 e8             	cmp    %rbp,%rax
+     9a3:	89 d0                	mov    %edx,%eax
+     9a5:	83 d8 00             	sbb    $0x0,%eax
+     9a8:	83 f8 01             	cmp    $0x1,%eax
+     9ab:	75 b3                	jne    960 <entryLoadNextSegment+0x70>
+     9ad:	49 8b bc 24 a0 02 00 00 	mov    0x2a0(%r12),%rdi
+     9b5:	49 8d 9c 24 a8 02 00 00 	lea    0x2a8(%r12),%rbx
+     9bd:	0f 1f 00             	nopl   (%rax)
+     9c0:	48 85 ff             	test   %rdi,%rdi
+     9c3:	74 05                	je     9ca <entryLoadNextSegment+0xda>
+     9c5:	e8 00 00 00 00       	call   9ca <entryLoadNextSegment+0xda>	9c6: R_X86_64_PLT32	pfree-0x4
+     9ca:	48 89 de             	mov    %rbx,%rsi
+     9cd:	4c 89 f7             	mov    %r14,%rdi
+     9d0:	e8 00 00 00 00       	call   9d5 <entryLoadNextSegment+0xe5>	9d1: R_X86_64_PLT32	ginPostingListDecode-0x4
+     9d5:	45 8b 84 24 a8 02 00 00 	mov    0x2a8(%r12),%r8d
+     9dd:	31 f6                	xor    %esi,%esi
+     9df:	31 d2                	xor    %edx,%edx
+     9e1:	49 89 84 24 a0 02 00 00 	mov    %rax,0x2a0(%r12)
+     9e9:	48 89 c7             	mov    %rax,%rdi
+     9ec:	31 c0                	xor    %eax,%eax
+     9ee:	4d 89 ac 24 40 03 00 00 	mov    %r13,0x340(%r12)
+     9f6:	66 41 89 84 24 ac 02 00 00 	mov    %ax,0x2ac(%r12)
+     9ff:	45 85 c0             	test   %r8d,%r8d
+     a02:	7f 20                	jg     a24 <entryLoadNextSegment+0x134>
+     a04:	eb 5c                	jmp    a62 <entryLoadNextSegment+0x172>
+     a06:	66 2e 0f 1f 84 00 00 00 00 00 	cs nopw 0x0(%rax,%rax,1)
+     a10:	83 c2 01             	add    $0x1,%edx
+     a13:	66 41 89 94 24 ac 02 00 00 	mov    %dx,0x2ac(%r12)
+     a1c:	0f b7 f2             	movzwl %dx,%esi
+     a1f:	41 39 f0             	cmp    %esi,%r8d
+     a22:	7e 3e                	jle    a62 <entryLoadNextSegment+0x172>
+     a24:	0f b7 c2             	movzwl %dx,%eax
+     a27:	48 8d 04 40          	lea    (%rax,%rax,2),%rax
+     a2b:	48 8d 0c 47          	lea    (%rdi,%rax,2),%rcx
+     a2f:	0f b7 01             	movzwl (%rcx),%eax
+     a32:	44 0f b7 49 02       	movzwl 0x2(%rcx),%r9d
+     a37:	0f b7 49 04          	movzwl 0x4(%rcx),%ecx
+     a3b:	c1 e0 10             	shl    $0x10,%eax
+     a3e:	44 09 c8             	or     %r9d,%eax
+     a41:	48 c1 e0 20          	shl    $0x20,%rax
+     a45:	48 09 c8             	or     %rcx,%rax
+     a48:	31 c9                	xor    %ecx,%ecx
+     a4a:	48 39 c5             	cmp    %rax,%rbp
+     a4d:	0f 92 c1             	setb   %cl
+     a50:	48 39 e8             	cmp    %rbp,%rax
+     a53:	89 c8                	mov    %ecx,%eax
+     a55:	83 d8 00             	sbb    $0x0,%eax
+     a58:	83 f8 01             	cmp    $0x1,%eax
+     a5b:	75 b3                	jne    a10 <entryLoadNextSegment+0x120>
+     a5d:	41 39 f0             	cmp    %esi,%r8d
+     a60:	7f 3d                	jg     a9f <entryLoadNextSegment+0x1af>
+     a62:	4d 3b ac 24 48 03 00 00 	cmp    0x348(%r12),%r13
+     a6a:	73 24                	jae    a90 <entryLoadNextSegment+0x1a0>
+     a6c:	41 0f b7 45 06       	movzwl 0x6(%r13),%eax
+     a71:	4d 89 ee             	mov    %r13,%r14
+     a74:	48 83 c0 01          	add    $0x1,%rax
+     a78:	48 83 e0 fe          	and    $0xfffffffffffffffe,%rax
+     a7c:	4d 8d 6c 05 08       	lea    0x8(%r13,%rax,1),%r13
+     a81:	e9 3a ff ff ff       	jmp    9c0 <entryLoadNextSegment+0xd0>
+     a86:	66 2e 0f 1f 84 00 00 00 00 00 	cs nopw 0x0(%rax,%rax,1)
+     a90:	48 83 c4 10          	add    $0x10,%rsp
+     a94:	31 c0                	xor    %eax,%eax
+     a96:	5b                   	pop    %rbx
+     a97:	5d                   	pop    %rbp
+     a98:	41 5c                	pop    %r12
+     a9a:	41 5d                	pop    %r13
+     a9c:	41 5e                	pop    %r14
+     a9e:	c3                   	ret
+     a9f:	48 83 c4 10          	add    $0x10,%rsp
+     aa3:	b8 01 00 00 00       	mov    $0x1,%eax
+     aa8:	5b                   	pop    %rbx
+     aa9:	5d                   	pop    %rbp
+     aaa:	41 5c                	pop    %r12
+     aac:	41 5d                	pop    %r13
+     aae:	41 5e                	pop    %r14
+     ab0:	c3                   	ret
+     ab1:	66 66 2e 0f 1f 84 00 00 00 00 00 	data16 cs nopw 0x0(%rax,%rax,1)
+     abc:	0f 1f 40 00          	nopl   0x0(%rax)
+
+0000000000000ac0 <ginItemPointerCmp>:
+     ac0:	f3 0f 1e fa          	endbr64
+     ac4:	0f b7 0f             	movzwl (%rdi),%ecx
+     ac7:	0f b7 47 02          	movzwl 0x2(%rdi),%eax
+     acb:	0f b7 16             	movzwl (%rsi),%edx
+     ace:	c1 e1 10             	shl    $0x10,%ecx
+     ad1:	09 c1                	or     %eax,%ecx
+     ad3:	0f b7 47 04          	movzwl 0x4(%rdi),%eax
+     ad7:	c1 e2 10             	shl    $0x10,%edx
+     ada:	48 c1 e1 20          	shl    $0x20,%rcx
+     ade:	48 09 c1             	or     %rax,%rcx
+     ae1:	0f b7 46 02          	movzwl 0x2(%rsi),%eax
+     ae5:	09 c2                	or     %eax,%edx
+     ae7:	0f b7 46 04          	movzwl 0x4(%rsi),%eax
+     aeb:	48 c1 e2 20          	shl    $0x20,%rdx
+     aef:	48 09 c2             	or     %rax,%rdx
+     af2:	31 c0                	xor    %eax,%eax
+     af4:	48 39 ca             	cmp    %rcx,%rdx
+     af7:	0f 92 c0             	setb   %al
+     afa:	48 39 d1             	cmp    %rdx,%rcx
+     afd:	83 d8 00             	sbb    $0x0,%eax
+     b00:	c3                   	ret
+     b01:	66 66 2e 0f 1f 84 00 00 00 00 00 	data16 cs nopw 0x0(%rax,%rax,1)
+     b0c:	0f 1f 40 00          	nopl   0x0(%rax)
+
+0000000000000b10 <entryLoadMoreItems>:
+     b10:	41 57                	push   %r15
+     b12:	49 89 f7             	mov    %rsi,%r15
+     b15:	41 56                	push   %r14
+     b17:	41 55                	push   %r13
+     b19:	41 54                	push   %r12
+     b1b:	55                   	push   %rbp
+     b1c:	53                   	push   %rbx
+     b1d:	31 db                	xor    %ebx,%ebx
+     b1f:	48 83 ec 38          	sub    $0x38,%rsp
+     b23:	48 89 54 24 18       	mov    %rdx,0x18(%rsp)
+     b28:	0f b7 46 28          	movzwl 0x28(%rsi),%eax
+     b2c:	8b 4c 24 18          	mov    0x18(%rsp),%ecx
+     b30:	0f b7 56 2a          	movzwl 0x2a(%rsi),%edx
+     b34:	48 89 7c 24 08       	mov    %rdi,0x8(%rsp)
+     b39:	c1 e0 10             	shl    $0x10,%eax
+     b3c:	44 0f b7 64 24 1c    	movzwl 0x1c(%rsp),%r12d
+     b42:	09 d0                	or     %edx,%eax
+     b44:	66 0f 6e c9          	movd   %ecx,%xmm1
+     b48:	0f b7 56 2c          	movzwl 0x2c(%rsi),%edx
+     b4c:	89 4c 24 10          	mov    %ecx,0x10(%rsp)
+     b50:	48 c1 e0 20          	shl    $0x20,%rax
+     b54:	66 44 0f c5 e9 00    	pextrw $0x0,%xmm1,%r13d
+     b5a:	48 09 d0             	or     %rdx,%rax
+     b5d:	41 c1 e5 10          	shl    $0x10,%r13d
+     b61:	66 0f c5 d1 01       	pextrw $0x1,%xmm1,%edx
+     b66:	41 09 d5             	or     %edx,%r13d
+     b69:	41 0f b7 d4          	movzwl %r12w,%edx
+     b6d:	4d 89 e8             	mov    %r13,%r8
+     b70:	49 c1 e0 20          	shl    $0x20,%r8
+     b74:	49 09 d0             	or     %rdx,%r8
+     b77:	49 39 c0             	cmp    %rax,%r8
+     b7a:	4c 89 c5             	mov    %r8,%rbp
+     b7d:	0f 92 c3             	setb   %bl
+     b80:	4c 39 c0             	cmp    %r8,%rax
+     b83:	83 db 00             	sbb    $0x0,%ebx
+     b86:	48 83 be 38 03 00 00 00 	cmpq   $0x0,0x338(%rsi)
+     b8e:	89 5c 24 14          	mov    %ebx,0x14(%rsp)
+     b92:	0f 84 99 00 00 00    	je     c31 <entryLoadMoreItems+0x121>
+     b98:	85 db                	test   %ebx,%ebx
+     b9a:	75 17                	jne    bb3 <entryLoadMoreItems+0xa3>
+     b9c:	48 8b be 40 03 00 00 	mov    0x340(%rsi),%rdi
+     ba3:	48 8b b6 48 03 00 00 	mov    0x348(%rsi),%rsi
+     baa:	48 39 f7             	cmp    %rsi,%rdi
+     bad:	0f 82 15 05 00 00    	jb     10c8 <entryLoadMoreItems+0x5b8>
+     bb3:	0f b7 44 24 1a       	movzwl 0x1a(%rsp),%eax
+     bb8:	0f b7 54 24 18       	movzwl 0x18(%rsp),%edx
+     bbd:	4c 89 ff             	mov    %r15,%rdi
+     bc0:	0f b7 74 24 1c       	movzwl 0x1c(%rsp),%esi
+     bc5:	48 c1 e0 10          	shl    $0x10,%rax
+     bc9:	48 09 d0             	or     %rdx,%rax
+     bcc:	48 c1 e6 20          	shl    $0x20,%rsi
+     bd0:	48 09 c6             	or     %rax,%rsi
+     bd3:	e8 18 fd ff ff       	call   8f0 <entryLoadNextSegment>
+     bd8:	84 c0                	test   %al,%al
+     bda:	0f 85 74 03 00 00    	jne    f54 <entryLoadMoreItems+0x444>
+     be0:	41 8b 87 a8 02 00 00 	mov    0x2a8(%r15),%eax
+     be7:	85 c0                	test   %eax,%eax
+     be9:	7e 23                	jle    c0e <entryLoadMoreItems+0xfe>
+     beb:	83 e8 01             	sub    $0x1,%eax
+     bee:	49 8b 8f a0 02 00 00 	mov    0x2a0(%r15),%rcx
+     bf5:	48 98                	cltq
+     bf7:	48 8d 04 40          	lea    (%rax,%rax,2),%rax
+     bfb:	48 8d 04 41          	lea    (%rcx,%rax,2),%rax
+     bff:	8b 10                	mov    (%rax),%edx
+     c01:	41 89 57 28          	mov    %edx,0x28(%r15)
+     c05:	0f b7 40 04          	movzwl 0x4(%rax),%eax
+     c09:	66 41 89 47 2c       	mov    %ax,0x2c(%r15)
+     c0e:	49 8b bf 38 03 00 00 	mov    0x338(%r15),%rdi
+     c15:	e8 00 00 00 00       	call   c1a <entryLoadMoreItems+0x10a>	c16: R_X86_64_PLT32	pfree-0x4
+     c1a:	66 0f ef c0          	pxor   %xmm0,%xmm0
+     c1e:	49 c7 87 48 03 00 00 00 00 00 00 	movq   $0x0,0x348(%r15)
+     c29:	41 0f 11 87 38 03 00 00 	movups %xmm0,0x338(%r15)
+     c31:	41 8b 7f 24          	mov    0x24(%r15),%edi
+     c35:	85 ff                	test   %edi,%edi
+     c37:	0f 84 0f 03 00 00    	je     f4c <entryLoadMoreItems+0x43c>
+     c3d:	41 0f b7 47 28       	movzwl 0x28(%r15),%eax
+     c42:	41 0f b7 57 2a       	movzwl 0x2a(%r15),%edx
+     c47:	c1 e0 10             	shl    $0x10,%eax
+     c4a:	09 d0                	or     %edx,%eax
+     c4c:	41 0f b7 57 2c       	movzwl 0x2c(%r15),%edx
+     c51:	48 c1 e0 20          	shl    $0x20,%rax
+     c55:	48 09 d0             	or     %rdx,%rax
+     c58:	48 39 c5             	cmp    %rax,%rbp
+     c5b:	0f 92 c2             	setb   %dl
+     c5e:	48 39 e8             	cmp    %rbp,%rax
+     c61:	0f 92 c0             	setb   %al
+     c64:	38 c2                	cmp    %al,%dl
+     c66:	0f 85 7c 03 00 00    	jne    fe8 <entryLoadMoreItems+0x4d8>
+     c6c:	be 01 00 00 00       	mov    $0x1,%esi
+     c71:	41 be 01 00 00 00    	mov    $0x1,%r14d
+     c77:	e8 00 00 00 00       	call   c7c <entryLoadMoreItems+0x16c>	c78: R_X86_64_PLT32	LockBufferInternal-0x4
+     c7c:	31 f6                	xor    %esi,%esi
+     c7e:	bf 0d 00 00 00       	mov    $0xd,%edi
+     c83:	e8 00 00 00 00       	call   c88 <entryLoadMoreItems+0x178>	c84: R_X86_64_PLT32	errstart-0x4
+     c88:	84 c0                	test   %al,%al
+     c8a:	0f 85 df 03 00 00    	jne    106f <entryLoadMoreItems+0x55f>
+     c90:	41 8b 47 24          	mov    0x24(%r15),%eax
+     c94:	85 c0                	test   %eax,%eax
+     c96:	0f 88 15 04 00 00    	js     10b1 <entryLoadMoreItems+0x5a1>
+     c9c:	8d 48 ff             	lea    -0x1(%rax),%ecx
+     c9f:	48 63 c9             	movslq %ecx,%rcx
+     ca2:	48 c1 e1 0d          	shl    $0xd,%rcx
+     ca6:	48 03 0d 00 00 00 00 	add    0x0(%rip),%rcx        # cad <entryLoadMoreItems+0x19d>	ca9: R_X86_64_PC32	BufferBlocks-0x4
+     cad:	48 89 cb             	mov    %rcx,%rbx
+     cb0:	49 8b bf a0 02 00 00 	mov    0x2a0(%r15),%rdi
+     cb7:	66 0f 1f 84 00 00 00 00 00 	nopw   0x0(%rax,%rax,1)
+     cc0:	31 d2                	xor    %edx,%edx
+     cc2:	66 41 89 97 ac 02 00 00 	mov    %dx,0x2ac(%r15)
+     cca:	48 85 ff             	test   %rdi,%rdi
+     ccd:	74 1b                	je     cea <entryLoadMoreItems+0x1da>
+     ccf:	e8 00 00 00 00       	call   cd4 <entryLoadMoreItems+0x1c4>	cd0: R_X86_64_PLT32	pfree-0x4
+     cd4:	49 c7 87 a0 02 00 00 00 00 00 00 	movq   $0x0,0x2a0(%r15)
+     cdf:	41 c7 87 a8 02 00 00 00 00 00 00 	movl   $0x0,0x2a8(%r15)
+     cea:	49 8b bf 38 03 00 00 	mov    0x338(%r15),%rdi
+     cf1:	48 85 ff             	test   %rdi,%rdi
+     cf4:	74 1c                	je     d12 <entryLoadMoreItems+0x202>
+     cf6:	e8 00 00 00 00       	call   cfb <entryLoadMoreItems+0x1eb>	cf7: R_X86_64_PLT32	pfree-0x4
+     cfb:	66 0f ef d2          	pxor   %xmm2,%xmm2
+     cff:	49 c7 87 48 03 00 00 00 00 00 00 	movq   $0x0,0x348(%r15)
+     d0a:	41 0f 11 97 38 03 00 00 	movups %xmm2,0x338(%r15)
+     d12:	0f b7 43 10          	movzwl 0x10(%rbx),%eax
+     d16:	45 84 f6             	test   %r14b,%r14b
+     d19:	74 40                	je     d5b <entryLoadMoreItems+0x24b>
+     d1b:	83 3c 03 ff          	cmpl   $0xffffffff,(%rbx,%rax,1)
+     d1f:	41 8b 7f 24          	mov    0x24(%r15),%edi
+     d23:	0f 84 16 02 00 00    	je     f3f <entryLoadMoreItems+0x42f>
+     d29:	48 8b 44 24 08       	mov    0x8(%rsp),%rax
+     d2e:	ba 01 00 00 00       	mov    $0x1,%edx
+     d33:	48 8b 30             	mov    (%rax),%rsi
+     d36:	e8 00 00 00 00       	call   d3b <entryLoadMoreItems+0x22b>	d37: R_X86_64_PLT32	ginStepRight-0x4
+     d3b:	41 89 47 24          	mov    %eax,0x24(%r15)
+     d3f:	85 c0                	test   %eax,%eax
+     d41:	0f 88 89 02 00 00    	js     fd0 <entryLoadMoreItems+0x4c0>
+     d47:	8d 48 ff             	lea    -0x1(%rax),%ecx
+     d4a:	48 63 c9             	movslq %ecx,%rcx
+     d4d:	48 c1 e1 0d          	shl    $0xd,%rcx
+     d51:	48 03 0d 00 00 00 00 	add    0x0(%rip),%rcx        # d58 <entryLoadMoreItems+0x248>	d54: R_X86_64_PC32	BufferBlocks-0x4
+     d58:	48 89 cb             	mov    %rcx,%rbx
+     d5b:	0f b7 43 10          	movzwl 0x10(%rbx),%eax
+     d5f:	48 01 d8             	add    %rbx,%rax
+     d62:	0f b7 50 06          	movzwl 0x6(%rax),%edx
+     d66:	f6 c2 04             	test   $0x4,%dl
+     d69:	0f 85 f9 01 00 00    	jne    f68 <entryLoadMoreItems+0x458>
+     d6f:	83 38 ff             	cmpl   $0xffffffff,(%rax)
+     d72:	74 32                	je     da6 <entryLoadMoreItems+0x296>
+     d74:	0f b7 43 18          	movzwl 0x18(%rbx),%eax
+     d78:	0f b7 73 1a          	movzwl 0x1a(%rbx),%esi
+     d7c:	c1 e0 10             	shl    $0x10,%eax
+     d7f:	09 f0                	or     %esi,%eax
+     d81:	0f b7 73 1c          	movzwl 0x1c(%rbx),%esi
+     d85:	48 c1 e0 20          	shl    $0x20,%rax
+     d89:	48 09 f0             	or     %rsi,%rax
+     d8c:	31 f6                	xor    %esi,%esi
+     d8e:	48 39 e8             	cmp    %rbp,%rax
+     d91:	40 0f 92 c6          	setb   %sil
+     d95:	48 39 c5             	cmp    %rax,%rbp
+     d98:	89 f0                	mov    %esi,%eax
+     d9a:	83 d8 00             	sbb    $0x0,%eax
+     d9d:	83 f8 ff             	cmp    $0xffffffff,%eax
+     da0:	0f 85 c2 01 00 00    	jne    f68 <entryLoadMoreItems+0x458>
+     da6:	84 d2                	test   %dl,%dl
+     da8:	0f 89 d2 01 00 00    	jns    f80 <entryLoadMoreItems+0x470>
+     dae:	8b 44 24 14          	mov    0x14(%rsp),%eax
+     db2:	85 c0                	test   %eax,%eax
+     db4:	0f 84 c6 01 00 00    	je     f80 <entryLoadMoreItems+0x470>
+     dba:	44 0f b7 6b 0c       	movzwl 0xc(%rbx),%r13d
+     dbf:	4c 8d 73 20          	lea    0x20(%rbx),%r14
+     dc3:	49 01 dd             	add    %rbx,%r13
+     dc6:	4d 39 ee             	cmp    %r13,%r14
+     dc9:	0f 84 99 01 00 00    	je     f68 <entryLoadMoreItems+0x458>
+     dcf:	0f b7 43 26          	movzwl 0x26(%rbx),%eax
+     dd3:	48 83 c0 01          	add    $0x1,%rax
+     dd7:	48 83 e0 fe          	and    $0xfffffffffffffffe,%rax
+     ddb:	49 8d 54 06 08       	lea    0x8(%r14,%rax,1),%rdx
+     de0:	4c 39 ea             	cmp    %r13,%rdx
+     de3:	72 27                	jb     e0c <entryLoadMoreItems+0x2fc>
+     de5:	eb 52                	jmp    e39 <entryLoadMoreItems+0x329>
+     de7:	66 0f 1f 84 00 00 00 00 00 	nopw   0x0(%rax,%rax,1)
+     df0:	0f b7 42 06          	movzwl 0x6(%rdx),%eax
+     df4:	49 89 d6             	mov    %rdx,%r14
+     df7:	48 83 c0 01          	add    $0x1,%rax
+     dfb:	48 83 e0 fe          	and    $0xfffffffffffffffe,%rax
+     dff:	48 8d 44 02 08       	lea    0x8(%rdx,%rax,1),%rax
+     e04:	4c 39 e8             	cmp    %r13,%rax
+     e07:	73 30                	jae    e39 <entryLoadMoreItems+0x329>
+     e09:	48 89 c2             	mov    %rax,%rdx
+     e0c:	0f b7 02             	movzwl (%rdx),%eax
+     e0f:	0f b7 72 02          	movzwl 0x2(%rdx),%esi
+     e13:	c1 e0 10             	shl    $0x10,%eax
+     e16:	09 f0                	or     %esi,%eax
+     e18:	0f b7 72 04          	movzwl 0x4(%rdx),%esi
+     e1c:	48 c1 e0 20          	shl    $0x20,%rax
+     e20:	48 09 f0             	or     %rsi,%rax
+     e23:	31 f6                	xor    %esi,%esi
+     e25:	48 39 c5             	cmp    %rax,%rbp
+     e28:	40 0f 92 c6          	setb   %sil
+     e2c:	48 39 e8             	cmp    %rbp,%rax
+     e2f:	89 f0                	mov    %esi,%eax
+     e31:	83 d8 00             	sbb    $0x0,%eax
+     e34:	83 f8 01             	cmp    $0x1,%eax
+     e37:	75 b7                	jne    df0 <entryLoadMoreItems+0x2e0>
+     e39:	4d 29 f5             	sub    %r14,%r13
+     e3c:	4c 89 ef             	mov    %r13,%rdi
+     e3f:	e8 00 00 00 00       	call   e44 <entryLoadMoreItems+0x334>	e40: R_X86_64_PLT32	palloc-0x4
+     e44:	4c 89 ea             	mov    %r13,%rdx
+     e47:	4c 89 f6             	mov    %r14,%rsi
+     e4a:	49 89 87 38 03 00 00 	mov    %rax,0x338(%r15)
+     e51:	48 89 c7             	mov    %rax,%rdi
+     e54:	e8 00 00 00 00       	call   e59 <entryLoadMoreItems+0x349>	e55: R_X86_64_PLT32	memcpy-0x4
+     e59:	49 8b 87 38 03 00 00 	mov    0x338(%r15),%rax
+     e60:	66 44 89 64 24 2c    	mov    %r12w,0x2c(%rsp)
+     e66:	4c 89 ff             	mov    %r15,%rdi
+     e69:	49 01 c5             	add    %rax,%r13
+     e6c:	66 48 0f 6e c0       	movq   %rax,%xmm0
+     e71:	8b 44 24 10          	mov    0x10(%rsp),%eax
+     e75:	66 49 0f 6e dd       	movq   %r13,%xmm3
+     e7a:	66 0f 6c c3          	punpcklqdq %xmm3,%xmm0
+     e7e:	89 44 24 28          	mov    %eax,0x28(%rsp)
+     e82:	41 0f 11 87 40 03 00 00 	movups %xmm0,0x340(%r15)
+     e8a:	48 8b 74 24 28       	mov    0x28(%rsp),%rsi
+     e8f:	e8 5c fa ff ff       	call   8f0 <entryLoadNextSegment>
+     e94:	84 c0                	test   %al,%al
+     e96:	0f 84 cc 00 00 00    	je     f68 <entryLoadMoreItems+0x458>
+     e9c:	41 0f b7 b7 ac 02 00 00 	movzwl 0x2ac(%r15),%esi
+     ea4:	49 8b bf a0 02 00 00 	mov    0x2a0(%r15),%rdi
+     eab:	45 8b 8f a8 02 00 00 	mov    0x2a8(%r15),%r9d
+     eb2:	44 39 ce             	cmp    %r9d,%esi
+     eb5:	0f 8d b4 00 00 00    	jge    f6f <entryLoadMoreItems+0x45f>
+     ebb:	48 63 c6             	movslq %esi,%rax
+     ebe:	48 8d 04 40          	lea    (%rax,%rax,2),%rax
+     ec2:	48 8d 14 47          	lea    (%rdi,%rax,2),%rdx
+     ec6:	eb 18                	jmp    ee0 <entryLoadMoreItems+0x3d0>
+     ec8:	0f 1f 84 00 00 00 00 00 	nopl   0x0(%rax,%rax,1)
+     ed0:	83 c6 01             	add    $0x1,%esi
+     ed3:	48 83 c2 06          	add    $0x6,%rdx
+     ed7:	44 39 ce             	cmp    %r9d,%esi
+     eda:	0f 84 8f 00 00 00    	je     f6f <entryLoadMoreItems+0x45f>
+     ee0:	0f b7 02             	movzwl (%rdx),%eax
+     ee3:	44 0f b7 52 02       	movzwl 0x2(%rdx),%r10d
+     ee8:	c1 e0 10             	shl    $0x10,%eax
+     eeb:	44 09 d0             	or     %r10d,%eax
+     eee:	44 0f b7 52 04       	movzwl 0x4(%rdx),%r10d
+     ef3:	48 c1 e0 20          	shl    $0x20,%rax
+     ef7:	4c 09 d0             	or     %r10,%rax
+     efa:	45 31 d2             	xor    %r10d,%r10d
+     efd:	48 39 e8             	cmp    %rbp,%rax
+     f00:	41 0f 92 c2          	setb   %r10b
+     f04:	48 39 c5             	cmp    %rax,%rbp
+     f07:	44 89 d0             	mov    %r10d,%eax
+     f0a:	83 d8 00             	sbb    $0x0,%eax
+     f0d:	83 f8 ff             	cmp    $0xffffffff,%eax
+     f10:	75 be                	jne    ed0 <entryLoadMoreItems+0x3c0>
+     f12:	66 41 89 b7 ac 02 00 00 	mov    %si,0x2ac(%r15)
+     f1a:	0f b7 43 10          	movzwl 0x10(%rbx),%eax
+     f1e:	41 8b 7f 24          	mov    0x24(%r15),%edi
+     f22:	83 3c 03 ff          	cmpl   $0xffffffff,(%rbx,%rax,1)
+     f26:	0f 84 14 02 00 00    	je     1140 <entryLoadMoreItems+0x630>
+     f2c:	48 83 c4 38          	add    $0x38,%rsp
+     f30:	5b                   	pop    %rbx
+     f31:	5d                   	pop    %rbp
+     f32:	41 5c                	pop    %r12
+     f34:	41 5d                	pop    %r13
+     f36:	41 5e                	pop    %r14
+     f38:	41 5f                	pop    %r15
+     f3a:	e9 00 00 00 00       	jmp    f3f <entryLoadMoreItems+0x42f>	f3b: R_X86_64_PLT32	UnlockBuffer-0x4
+     f3f:	e8 00 00 00 00       	call   f44 <entryLoadMoreItems+0x434>	f40: R_X86_64_PLT32	UnlockReleaseBuffer-0x4
+     f44:	41 c7 47 24 00 00 00 00 	movl   $0x0,0x24(%r15)
+     f4c:	41 c6 87 ae 02 00 00 01 	movb   $0x1,0x2ae(%r15)
+     f54:	48 83 c4 38          	add    $0x38,%rsp
+     f58:	5b                   	pop    %rbx
+     f59:	5d                   	pop    %rbp
+     f5a:	41 5c                	pop    %r12
+     f5c:	41 5d                	pop    %r13
+     f5e:	41 5e                	pop    %r14
+     f60:	41 5f                	pop    %r15
+     f62:	c3                   	ret
+     f63:	0f 1f 44 00 00       	nopl   0x0(%rax,%rax,1)
+     f68:	49 8b bf a0 02 00 00 	mov    0x2a0(%r15),%rdi
+     f6f:	41 be 01 00 00 00    	mov    $0x1,%r14d
+     f75:	e9 46 fd ff ff       	jmp    cc0 <entryLoadMoreItems+0x1b0>
+     f7a:	66 0f 1f 44 00 00    	nopw   0x0(%rax,%rax,1)
+     f80:	8b 44 24 10          	mov    0x10(%rsp),%eax
+     f84:	49 8d b7 a8 02 00 00 	lea    0x2a8(%r15),%rsi
+     f8b:	48 89 df             	mov    %rbx,%rdi
+     f8e:	66 44 89 64 24 1c    	mov    %r12w,0x1c(%rsp)
+     f94:	89 44 24 18          	mov    %eax,0x18(%rsp)
+     f98:	0f b7 44 24 1a       	movzwl 0x1a(%rsp),%eax
+     f9d:	0f b7 54 24 18       	movzwl 0x18(%rsp),%edx
+     fa2:	48 c1 e0 10          	shl    $0x10,%rax
+     fa6:	48 09 d0             	or     %rdx,%rax
+     fa9:	41 0f b7 d4          	movzwl %r12w,%edx
+     fad:	48 c1 e2 20          	shl    $0x20,%rdx
+     fb1:	48 09 c2             	or     %rax,%rdx
+     fb4:	e8 00 00 00 00       	call   fb9 <entryLoadMoreItems+0x4a9>	fb5: R_X86_64_PLT32	GinDataLeafPageGetItems-0x4
+     fb9:	31 f6                	xor    %esi,%esi
+     fbb:	49 89 87 a0 02 00 00 	mov    %rax,0x2a0(%r15)
+     fc2:	48 89 c7             	mov    %rax,%rdi
+     fc5:	e9 e1 fe ff ff       	jmp    eab <entryLoadMoreItems+0x39b>
+     fca:	66 0f 1f 44 00 00    	nopw   0x0(%rax,%rax,1)
+     fd0:	48 8b 15 00 00 00 00 	mov    0x0(%rip),%rdx        # fd7 <entryLoadMoreItems+0x4c7>	fd3: R_X86_64_PC32	LocalBufferBlockPointers-0x4
+     fd7:	f7 d0                	not    %eax
+     fd9:	48 98                	cltq
+     fdb:	48 8b 1c c2          	mov    (%rdx,%rax,8),%rbx
+     fdf:	e9 77 fd ff ff       	jmp    d5b <entryLoadMoreItems+0x24b>
+     fe4:	0f 1f 40 00          	nopl   0x0(%rax)
+     fe8:	e8 00 00 00 00       	call   fed <entryLoadMoreItems+0x4dd>	fe9: R_X86_64_PLT32	ReleaseBuffer-0x4
+     fed:	41 83 fd ff          	cmp    $0xffffffff,%r13d
+     ff1:	74 0b                	je     ffe <entryLoadMoreItems+0x4ee>
+     ff3:	66 41 83 fc ff       	cmp    $0xffff,%r12w
+     ff8:	0f 84 5e 01 00 00    	je     115c <entryLoadMoreItems+0x64c>
+     ffe:	44 89 e8             	mov    %r13d,%eax
+    1001:	41 8d 54 24 01       	lea    0x1(%r12),%edx
+    1006:	c1 e8 10             	shr    $0x10,%eax
+    1009:	89 c1                	mov    %eax,%ecx
+    100b:	44 89 e8             	mov    %r13d,%eax
+    100e:	66 41 89 8f 32 03 00 00 	mov    %cx,0x332(%r15)
+    1016:	be 01 00 00 00       	mov    $0x1,%esi
+    101b:	49 8d bf b8 02 00 00 	lea    0x2b8(%r15),%rdi
+    1022:	66 41 89 97 36 03 00 00 	mov    %dx,0x336(%r15)
+    102a:	31 d2                	xor    %edx,%edx
+    102c:	66 41 89 87 34 03 00 00 	mov    %ax,0x334(%r15)
+    1034:	41 c6 87 20 03 00 00 00 	movb   $0x0,0x320(%r15)
+    103c:	e8 00 00 00 00       	call   1041 <entryLoadMoreItems+0x531>	103d: R_X86_64_PLT32	ginFindLeafPage-0x4
+    1041:	8b 78 04             	mov    0x4(%rax),%edi
+    1044:	49 89 c6             	mov    %rax,%r14
+    1047:	41 89 7f 24          	mov    %edi,0x24(%r15)
+    104b:	e8 00 00 00 00       	call   1050 <entryLoadMoreItems+0x540>	104c: R_X86_64_PLT32	IncrBufferRefCount-0x4
+    1050:	4c 89 f7             	mov    %r14,%rdi
+    1053:	45 31 f6             	xor    %r14d,%r14d
+    1056:	e8 00 00 00 00       	call   105b <entryLoadMoreItems+0x54b>	1057: R_X86_64_PLT32	freeGinBtreeStack-0x4
+    105b:	31 f6                	xor    %esi,%esi
+    105d:	bf 0d 00 00 00       	mov    $0xd,%edi
+    1062:	e8 00 00 00 00       	call   1067 <entryLoadMoreItems+0x557>	1063: R_X86_64_PLT32	errstart-0x4
+    1067:	84 c0                	test   %al,%al
+    1069:	0f 84 21 fc ff ff    	je     c90 <entryLoadMoreItems+0x180>
+    106f:	44 89 f1             	mov    %r14d,%ecx
+    1072:	41 0f b7 d4          	movzwl %r12w,%edx
+    1076:	44 89 ee             	mov    %r13d,%esi
+    1079:	31 c0                	xor    %eax,%eax
+    107b:	83 f1 01             	xor    $0x1,%ecx
+    107e:	48 8d 3d 00 00 00 00 	lea    0x0(%rip),%rdi        # 1085 <entryLoadMoreItems+0x575>	1081: R_X86_64_PC32	.LC4-0x4
+    1085:	0f b6 c9             	movzbl %cl,%ecx
+    1088:	e8 00 00 00 00       	call   108d <entryLoadMoreItems+0x57d>	1089: R_X86_64_PLT32	errmsg_internal-0x4
+    108d:	48 8d 15 00 00 00 00 	lea    0x0(%rip),%rdx        # 1094 <entryLoadMoreItems+0x584>	1090: R_X86_64_PC32	.rodata-0x4
+    1094:	be 55 03 00 00       	mov    $0x355,%esi
+    1099:	48 8d 3d 00 00 00 00 	lea    0x0(%rip),%rdi        # 10a0 <entryLoadMoreItems+0x590>	109c: R_X86_64_PC32	.LC2-0x4
+    10a0:	e8 00 00 00 00       	call   10a5 <entryLoadMoreItems+0x595>	10a1: R_X86_64_PLT32	errfinish-0x4
+    10a5:	41 8b 47 24          	mov    0x24(%r15),%eax
+    10a9:	85 c0                	test   %eax,%eax
+    10ab:	0f 89 eb fb ff ff    	jns    c9c <entryLoadMoreItems+0x18c>
+    10b1:	48 8b 15 00 00 00 00 	mov    0x0(%rip),%rdx        # 10b8 <entryLoadMoreItems+0x5a8>	10b4: R_X86_64_PC32	LocalBufferBlockPointers-0x4
+    10b8:	f7 d0                	not    %eax
+    10ba:	48 98                	cltq
+    10bc:	48 8b 1c c2          	mov    (%rdx,%rax,8),%rbx
+    10c0:	e9 eb fb ff ff       	jmp    cb0 <entryLoadMoreItems+0x1a0>
+    10c5:	0f 1f 00             	nopl   (%rax)
+    10c8:	49 8b 87 a0 02 00 00 	mov    0x2a0(%r15),%rax
+    10cf:	48 85 c0             	test   %rax,%rax
+    10d2:	74 16                	je     10ea <entryLoadMoreItems+0x5da>
+    10d4:	48 89 c7             	mov    %rax,%rdi
+    10d7:	e8 00 00 00 00       	call   10dc <entryLoadMoreItems+0x5cc>	10d8: R_X86_64_PLT32	pfree-0x4
+    10dc:	49 8b b7 48 03 00 00 	mov    0x348(%r15),%rsi
+    10e3:	49 8b bf 40 03 00 00 	mov    0x340(%r15),%rdi
+    10ea:	49 8d 97 a8 02 00 00 	lea    0x2a8(%r15),%rdx
+    10f1:	29 fe                	sub    %edi,%esi
+    10f3:	e8 00 00 00 00       	call   10f8 <entryLoadMoreItems+0x5e8>	10f4: R_X86_64_PLT32	ginPostingListDecodeAllSegments-0x4
+    10f8:	31 f6                	xor    %esi,%esi
+    10fa:	49 8b bf 38 03 00 00 	mov    0x338(%r15),%rdi
+    1101:	49 89 87 a0 02 00 00 	mov    %rax,0x2a0(%r15)
+    1108:	66 41 89 b7 ac 02 00 00 	mov    %si,0x2ac(%r15)
+    1110:	e8 00 00 00 00       	call   1115 <entryLoadMoreItems+0x605>	1111: R_X86_64_PLT32	pfree-0x4
+    1115:	66 0f ef c0          	pxor   %xmm0,%xmm0
+    1119:	49 c7 87 48 03 00 00 00 00 00 00 	movq   $0x0,0x348(%r15)
+    1124:	41 0f 11 87 38 03 00 00 	movups %xmm0,0x338(%r15)
+    112c:	48 83 c4 38          	add    $0x38,%rsp
+    1130:	5b                   	pop    %rbx
+    1131:	5d                   	pop    %rbp
+    1132:	41 5c                	pop    %r12
+    1134:	41 5d                	pop    %r13
+    1136:	41 5e                	pop    %r14
+    1138:	41 5f                	pop    %r15
+    113a:	c3                   	ret
+    113b:	0f 1f 44 00 00       	nopl   0x0(%rax,%rax,1)
+    1140:	e8 00 00 00 00       	call   1145 <entryLoadMoreItems+0x635>	1141: R_X86_64_PLT32	UnlockReleaseBuffer-0x4
+    1145:	41 c7 47 24 00 00 00 00 	movl   $0x0,0x24(%r15)
+    114d:	48 83 c4 38          	add    $0x38,%rsp
+    1151:	5b                   	pop    %rbx
+    1152:	5d                   	pop    %rbp
+    1153:	41 5c                	pop    %r12
+    1155:	41 5d                	pop    %r13
+    1157:	41 5e                	pop    %r14
+    1159:	41 5f                	pop    %r15
+    115b:	c3                   	ret
+    115c:	41 8d 45 01          	lea    0x1(%r13),%eax
+    1160:	ba 01 00 00 00       	mov    $0x1,%edx
+    1165:	89 c1                	mov    %eax,%ecx
+    1167:	c1 e9 10             	shr    $0x10,%ecx
+    116a:	e9 9f fe ff ff       	jmp    100e <entryLoadMoreItems+0x4fe>
+    116f:	90                   	nop
+
+0000000000001170 <entryGetItem>:
+    1170:	41 56                	push   %r14
+    1172:	41 55                	push   %r13
+    1174:	41 54                	push   %r12
+    1176:	55                   	push   %rbp
+    1177:	53                   	push   %rbx
+    1178:	48 89 f3             	mov    %rsi,%rbx
+    117b:	48 83 ec 10          	sub    $0x10,%rsp
+    117f:	48 89 54 24 08       	mov    %rdx,0x8(%rsp)
+    1184:	48 83 7e 30 00       	cmpq   $0x0,0x30(%rsi)
+    1189:	66 0f 6e 44 24 08    	movd   0x8(%rsp),%xmm0
+    118f:	0f b7 6c 24 0c       	movzwl 0xc(%rsp),%ebp
+    1194:	0f 84 c6 01 00 00    	je     1360 <entryGetItem+0x1f0>
+    119a:	66 44 0f c5 e0 00    	pextrw $0x0,%xmm0,%r12d
+    11a0:	66 0f c5 c0 01       	pextrw $0x1,%xmm0,%eax
+    11a5:	4c 8d 2d 00 00 00 00 	lea    0x0(%rip),%r13        # 11ac <entryGetItem+0x3c>	11a8: R_X86_64_PC32	pg_global_prng_state-0x4
+    11ac:	41 c1 e4 10          	shl    $0x10,%r12d
+    11b0:	41 09 c4             	or     %eax,%r12d
+    11b3:	8b 46 40             	mov    0x40(%rsi),%eax
+    11b6:	e9 9d 00 00 00       	jmp    1258 <entryGetItem+0xe8>
+    11bb:	0f 1f 44 00 00       	nopl   0x0(%rax,%rax,1)
+    11c0:	66 83 fd ff          	cmp    $0xffff,%bp
+    11c4:	75 09                	jne    11cf <entryGetItem+0x5f>
+    11c6:	44 39 e0             	cmp    %r12d,%eax
+    11c9:	0f 84 ae 00 00 00    	je     127d <entryGetItem+0x10d>
+    11cf:	80 bb ae 02 00 00 00 	cmpb   $0x0,0x2ae(%rbx)
+    11d6:	0f 85 f3 00 00 00    	jne    12cf <entryGetItem+0x15f>
+    11dc:	84 d2                	test   %dl,%dl
+    11de:	0f 85 2c 04 00 00    	jne    1610 <entryGetItem+0x4a0>
+    11e4:	44 39 e0             	cmp    %r12d,%eax
+    11e7:	0f 84 f3 00 00 00    	je     12e0 <entryGetItem+0x170>
+    11ed:	0f b7 8b ac 02 00 00 	movzwl 0x2ac(%rbx),%ecx
+    11f4:	0f b7 74 4b 50       	movzwl 0x50(%rbx,%rcx,2),%esi
+    11f9:	48 89 ca             	mov    %rcx,%rdx
+    11fc:	89 c1                	mov    %eax,%ecx
+    11fe:	83 c2 01             	add    $0x1,%edx
+    1201:	66 89 43 2a          	mov    %ax,0x2a(%rbx)
+    1205:	c1 e9 10             	shr    $0x10,%ecx
+    1208:	80 bb af 02 00 00 00 	cmpb   $0x0,0x2af(%rbx)
+    120f:	66 89 73 2c          	mov    %si,0x2c(%rbx)
+    1213:	66 89 4b 28          	mov    %cx,0x28(%rbx)
+    1217:	66 89 93 ac 02 00 00 	mov    %dx,0x2ac(%rbx)
+    121e:	0f 84 ab 00 00 00    	je     12cf <entryGetItem+0x15f>
+    1224:	4c 89 ef             	mov    %r13,%rdi
+    1227:	e8 00 00 00 00       	call   122c <entryGetItem+0xbc>	1228: R_X86_64_PLT32	pg_prng_double-0x4
+    122c:	8b 83 b0 02 00 00    	mov    0x2b0(%rbx),%eax
+    1232:	66 0f ef d2          	pxor   %xmm2,%xmm2
+    1236:	66 0f 28 c8          	movapd %xmm0,%xmm1
+    123a:	66 0f ef c0          	pxor   %xmm0,%xmm0
+    123e:	f2 0f 2a 05 00 00 00 00 	cvtsi2sdl 0x0(%rip),%xmm0        # 1246 <entryGetItem+0xd6>	1242: R_X86_64_PC32	GinFuzzySearchLimit-0x4
+    1246:	f2 48 0f 2a d0       	cvtsi2sd %rax,%xmm2
+    124b:	f2 0f 5e c2          	divsd  %xmm2,%xmm0
+    124f:	66 0f 2f c8          	comisd %xmm0,%xmm1
+    1253:	76 7a                	jbe    12cf <entryGetItem+0x15f>
+    1255:	8b 43 40             	mov    0x40(%rbx),%eax
+    1258:	83 f8 ff             	cmp    $0xffffffff,%eax
+    125b:	74 20                	je     127d <entryGetItem+0x10d>
+    125d:	0f b6 53 44          	movzbl 0x44(%rbx),%edx
+    1261:	84 d2                	test   %dl,%dl
+    1263:	75 0f                	jne    1274 <entryGetItem+0x104>
+    1265:	0f b7 8b ac 02 00 00 	movzwl 0x2ac(%rbx),%ecx
+    126c:	3b 8b 98 02 00 00    	cmp    0x298(%rbx),%ecx
+    1272:	7d 09                	jge    127d <entryGetItem+0x10d>
+    1274:	44 39 e0             	cmp    %r12d,%eax
+    1277:	0f 83 43 ff ff ff    	jae    11c0 <entryGetItem+0x50>
+    127d:	4c 8d 73 40          	lea    0x40(%rbx),%r14
+    1281:	48 8b 7b 38          	mov    0x38(%rbx),%rdi
+    1285:	4c 89 f6             	mov    %r14,%rsi
+    1288:	e8 00 00 00 00       	call   128d <entryGetItem+0x11d>	1289: R_X86_64_PLT32	tbm_private_iterate-0x4
+    128d:	84 c0                	test   %al,%al
+    128f:	74 17                	je     12a8 <entryGetItem+0x138>
+    1291:	80 7b 44 00          	cmpb   $0x0,0x44(%rbx)
+    1295:	74 69                	je     1300 <entryGetItem+0x190>
+    1297:	45 31 d2             	xor    %r10d,%r10d
+    129a:	66 44 89 93 ac 02 00 00 	mov    %r10w,0x2ac(%rbx)
+    12a2:	eb b1                	jmp    1255 <entryGetItem+0xe5>
+    12a4:	0f 1f 40 00          	nopl   0x0(%rax)
+    12a8:	45 31 db             	xor    %r11d,%r11d
+    12ab:	c7 43 28 ff ff ff ff 	movl   $0xffffffff,0x28(%rbx)
+    12b2:	48 8b 7b 38          	mov    0x38(%rbx),%rdi
+    12b6:	66 44 89 5b 2c       	mov    %r11w,0x2c(%rbx)
+    12bb:	e8 00 00 00 00       	call   12c0 <entryGetItem+0x150>	12bc: R_X86_64_PLT32	tbm_end_private_iterate-0x4
+    12c0:	48 c7 43 38 00 00 00 00 	movq   $0x0,0x38(%rbx)
+    12c8:	c6 83 ae 02 00 00 01 	movb   $0x1,0x2ae(%rbx)
+    12cf:	48 83 c4 10          	add    $0x10,%rsp
+    12d3:	5b                   	pop    %rbx
+    12d4:	5d                   	pop    %rbp
+    12d5:	41 5c                	pop    %r12
+    12d7:	41 5d                	pop    %r13
+    12d9:	41 5e                	pop    %r14
+    12db:	c3                   	ret
+    12dc:	0f 1f 40 00          	nopl   0x0(%rax)
+    12e0:	8b 8b 98 02 00 00    	mov    0x298(%rbx),%ecx
+    12e6:	8d 51 ff             	lea    -0x1(%rcx),%edx
+    12e9:	48 63 d2             	movslq %edx,%rdx
+    12ec:	66 3b 6c 53 50       	cmp    0x50(%rbx,%rdx,2),%bp
+    12f1:	72 2d                	jb     1320 <entryGetItem+0x1b0>
+    12f3:	66 89 8b ac 02 00 00 	mov    %cx,0x2ac(%rbx)
+    12fa:	e9 59 ff ff ff       	jmp    1258 <entryGetItem+0xe8>
+    12ff:	90                   	nop
+    1300:	48 8d 73 50          	lea    0x50(%rbx),%rsi
+    1304:	ba 23 01 00 00       	mov    $0x123,%edx
+    1309:	4c 89 f7             	mov    %r14,%rdi
+    130c:	e8 00 00 00 00       	call   1311 <entryGetItem+0x1a1>	130d: R_X86_64_PLT32	tbm_extract_page_tuple-0x4
+    1311:	89 83 98 02 00 00    	mov    %eax,0x298(%rbx)
+    1317:	e9 7b ff ff ff       	jmp    1297 <entryGetItem+0x127>
+    131c:	0f 1f 40 00          	nopl   0x0(%rax)
+    1320:	0f b7 8b ac 02 00 00 	movzwl 0x2ac(%rbx),%ecx
+    1327:	0f b7 74 4b 50       	movzwl 0x50(%rbx,%rcx,2),%esi
+    132c:	48 89 ca             	mov    %rcx,%rdx
+    132f:	8d 49 01             	lea    0x1(%rcx),%ecx
+    1332:	66 39 f5             	cmp    %si,%bp
+    1335:	0f 82 c1 fe ff ff    	jb     11fc <entryGetItem+0x8c>
+    133b:	0f 1f 44 00 00       	nopl   0x0(%rax,%rax,1)
+    1340:	0f b7 d1             	movzwl %cx,%edx
+    1343:	0f b7 74 53 50       	movzwl 0x50(%rbx,%rdx,2),%esi
+    1348:	89 ca                	mov    %ecx,%edx
+    134a:	83 c1 01             	add    $0x1,%ecx
+    134d:	66 39 f5             	cmp    %si,%bp
+    1350:	73 ee                	jae    1340 <entryGetItem+0x1d0>
+    1352:	e9 a5 fe ff ff       	jmp    11fc <entryGetItem+0x8c>
+    1357:	66 0f 1f 84 00 00 00 00 00 	nopw   0x0(%rax,%rax,1)
+    1360:	44 8b 46 24          	mov    0x24(%rsi),%r8d
+    1364:	49 89 fc             	mov    %rdi,%r12
+    1367:	4c 8d 2d 00 00 00 00 	lea    0x0(%rip),%r13        # 136e <entryGetItem+0x1fe>	136a: R_X86_64_PC32	pg_global_prng_state-0x4
+    136e:	45 85 c0             	test   %r8d,%r8d
+    1371:	0f 84 a8 01 00 00    	je     151f <entryGetItem+0x3af>
+    1377:	66 0f 1f 84 00 00 00 00 00 	nopw   0x0(%rax,%rax,1)
+    1380:	0f b7 93 ac 02 00 00 	movzwl 0x2ac(%rbx),%edx
+    1387:	48 89 d0             	mov    %rdx,%rax
+    138a:	3b 93 a8 02 00 00    	cmp    0x2a8(%rbx),%edx
+    1390:	0f 8d 1a 02 00 00    	jge    15b0 <entryGetItem+0x440>
+    1396:	8d 52 01             	lea    0x1(%rdx),%edx
+    1399:	48 8d 04 40          	lea    (%rax,%rax,2),%rax
+    139d:	66 89 93 ac 02 00 00 	mov    %dx,0x2ac(%rbx)
+    13a4:	48 8b 93 a0 02 00 00 	mov    0x2a0(%rbx),%rdx
+    13ab:	48 8d 04 42          	lea    (%rdx,%rax,2),%rax
+    13af:	8b 10                	mov    (%rax),%edx
+    13b1:	89 53 28             	mov    %edx,0x28(%rbx)
+    13b4:	0f b7 53 28          	movzwl 0x28(%rbx),%edx
+    13b8:	0f b7 4b 2a          	movzwl 0x2a(%rbx),%ecx
+    13bc:	0f b7 40 04          	movzwl 0x4(%rax),%eax
+    13c0:	c1 e2 10             	shl    $0x10,%edx
+    13c3:	09 ca                	or     %ecx,%edx
+    13c5:	66 89 43 2c          	mov    %ax,0x2c(%rbx)
+    13c9:	66 0f c5 c8 01       	pextrw $0x1,%xmm0,%ecx
+    13ce:	48 c1 e2 20          	shl    $0x20,%rdx
+    13d2:	48 09 c2             	or     %rax,%rdx
+    13d5:	66 0f c5 c0 00       	pextrw $0x0,%xmm0,%eax
+    13da:	c1 e0 10             	shl    $0x10,%eax
+    13dd:	09 c8                	or     %ecx,%eax
+    13df:	0f b7 cd             	movzwl %bp,%ecx
+    13e2:	48 c1 e0 20          	shl    $0x20,%rax
+    13e6:	48 09 c8             	or     %rcx,%rax
+    13e9:	31 c9                	xor    %ecx,%ecx
+    13eb:	48 39 d0             	cmp    %rdx,%rax
+    13ee:	0f 92 c1             	setb   %cl
+    13f1:	48 39 c2             	cmp    %rax,%rdx
+    13f4:	89 c8                	mov    %ecx,%eax
+    13f6:	83 d8 00             	sbb    $0x0,%eax
+    13f9:	83 f8 01             	cmp    $0x1,%eax
+    13fc:	75 82                	jne    1380 <entryGetItem+0x210>
+    13fe:	80 bb af 02 00 00 00 	cmpb   $0x0,0x2af(%rbx)
+    1405:	0f 84 c4 fe ff ff    	je     12cf <entryGetItem+0x15f>
+    140b:	4c 89 ef             	mov    %r13,%rdi
+    140e:	e8 00 00 00 00       	call   1413 <entryGetItem+0x2a3>	140f: R_X86_64_PLT32	pg_prng_double-0x4
+    1413:	8b 83 b0 02 00 00    	mov    0x2b0(%rbx),%eax
+    1419:	66 0f ef d2          	pxor   %xmm2,%xmm2
+    141d:	66 0f 28 c8          	movapd %xmm0,%xmm1
+    1421:	66 0f ef c0          	pxor   %xmm0,%xmm0
+    1425:	f2 0f 2a 05 00 00 00 00 	cvtsi2sdl 0x0(%rip),%xmm0        # 142d <entryGetItem+0x2bd>	1429: R_X86_64_PC32	GinFuzzySearchLimit-0x4
+    142d:	f2 48 0f 2a d0       	cvtsi2sd %rax,%xmm2
+    1432:	f2 0f 5e c2          	divsd  %xmm2,%xmm0
+    1436:	66 0f 2f c8          	comisd %xmm0,%xmm1
+    143a:	0f 86 8f fe ff ff    	jbe    12cf <entryGetItem+0x15f>
+    1440:	8b 43 28             	mov    0x28(%rbx),%eax
+    1443:	0f b7 6b 2c          	movzwl 0x2c(%rbx),%ebp
+    1447:	66 0f 6e 43 28       	movd   0x28(%rbx),%xmm0
+    144c:	89 44 24 08          	mov    %eax,0x8(%rsp)
+    1450:	66 89 6c 24 0c       	mov    %bp,0xc(%rsp)
+    1455:	e9 26 ff ff ff       	jmp    1380 <entryGetItem+0x210>
+    145a:	66 0f 1f 44 00 00    	nopw   0x0(%rax,%rax,1)
+    1460:	48 8b b3 a0 02 00 00 	mov    0x2a0(%rbx),%rsi
+    1467:	48 8d 04 40          	lea    (%rax,%rax,2),%rax
+    146b:	8d 52 01             	lea    0x1(%rdx),%edx
+    146e:	66 89 93 ac 02 00 00 	mov    %dx,0x2ac(%rbx)
+    1475:	48 8d 04 46          	lea    (%rsi,%rax,2),%rax
+    1479:	8b 10                	mov    (%rax),%edx
+    147b:	89 53 28             	mov    %edx,0x28(%rbx)
+    147e:	0f b7 53 28          	movzwl 0x28(%rbx),%edx
+    1482:	0f b7 4b 2a          	movzwl 0x2a(%rbx),%ecx
+    1486:	0f b7 40 04          	movzwl 0x4(%rax),%eax
+    148a:	c1 e2 10             	shl    $0x10,%edx
+    148d:	09 ca                	or     %ecx,%edx
+    148f:	66 89 43 2c          	mov    %ax,0x2c(%rbx)
+    1493:	66 0f c5 c8 01       	pextrw $0x1,%xmm0,%ecx
+    1498:	48 c1 e2 20          	shl    $0x20,%rdx
+    149c:	48 09 c2             	or     %rax,%rdx
+    149f:	66 0f c5 c0 00       	pextrw $0x0,%xmm0,%eax
+    14a4:	c1 e0 10             	shl    $0x10,%eax
+    14a7:	09 c8                	or     %ecx,%eax
+    14a9:	0f b7 cd             	movzwl %bp,%ecx
+    14ac:	48 c1 e0 20          	shl    $0x20,%rax
+    14b0:	48 09 c8             	or     %rcx,%rax
+    14b3:	31 c9                	xor    %ecx,%ecx
+    14b5:	48 39 d0             	cmp    %rdx,%rax
+    14b8:	0f 92 c1             	setb   %cl
+    14bb:	48 39 c2             	cmp    %rax,%rdx
+    14be:	89 c8                	mov    %ecx,%eax
+    14c0:	83 d8 00             	sbb    $0x0,%eax
+    14c3:	83 f8 01             	cmp    $0x1,%eax
+    14c6:	75 57                	jne    151f <entryGetItem+0x3af>
+    14c8:	80 bb af 02 00 00 00 	cmpb   $0x0,0x2af(%rbx)
+    14cf:	0f 84 fa fd ff ff    	je     12cf <entryGetItem+0x15f>
+    14d5:	4c 89 ef             	mov    %r13,%rdi
+    14d8:	e8 00 00 00 00       	call   14dd <entryGetItem+0x36d>	14d9: R_X86_64_PLT32	pg_prng_double-0x4
+    14dd:	8b 83 b0 02 00 00    	mov    0x2b0(%rbx),%eax
+    14e3:	66 0f ef d2          	pxor   %xmm2,%xmm2
+    14e7:	66 0f 28 c8          	movapd %xmm0,%xmm1
+    14eb:	66 0f ef c0          	pxor   %xmm0,%xmm0
+    14ef:	f2 0f 2a 05 00 00 00 00 	cvtsi2sdl 0x0(%rip),%xmm0        # 14f7 <entryGetItem+0x387>	14f3: R_X86_64_PC32	GinFuzzySearchLimit-0x4
+    14f7:	f2 48 0f 2a d0       	cvtsi2sd %rax,%xmm2
+    14fc:	f2 0f 5e c2          	divsd  %xmm2,%xmm0
+    1500:	66 0f 2f c8          	comisd %xmm0,%xmm1
+    1504:	0f 86 c5 fd ff ff    	jbe    12cf <entryGetItem+0x15f>
+    150a:	8b 43 28             	mov    0x28(%rbx),%eax
+    150d:	0f b7 6b 2c          	movzwl 0x2c(%rbx),%ebp
+    1511:	66 0f 6e 43 28       	movd   0x28(%rbx),%xmm0
+    1516:	89 44 24 08          	mov    %eax,0x8(%rsp)
+    151a:	66 89 6c 24 0c       	mov    %bp,0xc(%rsp)
+    151f:	0f b7 93 ac 02 00 00 	movzwl 0x2ac(%rbx),%edx
+    1526:	48 89 d0             	mov    %rdx,%rax
+    1529:	3b 93 a8 02 00 00    	cmp    0x2a8(%rbx),%edx
+    152f:	0f 8c 2b ff ff ff    	jl     1460 <entryGetItem+0x2f0>
+    1535:	48 83 bb 38 03 00 00 00 	cmpq   $0x0,0x338(%rbx)
+    153d:	74 46                	je     1585 <entryGetItem+0x415>
+    153f:	66 0f 7e 44 24 08    	movd   %xmm0,0x8(%rsp)
+    1545:	0f b7 44 24 0a       	movzwl 0xa(%rsp),%eax
+    154a:	48 89 de             	mov    %rbx,%rsi
+    154d:	4c 89 e7             	mov    %r12,%rdi
+    1550:	0f b7 54 24 08       	movzwl 0x8(%rsp),%edx
+    1555:	66 0f 7e 44 24 04    	movd   %xmm0,0x4(%rsp)
+    155b:	48 c1 e0 10          	shl    $0x10,%rax
+    155f:	66 89 6c 24 0c       	mov    %bp,0xc(%rsp)
+    1564:	48 09 d0             	or     %rdx,%rax
+    1567:	0f b7 d5             	movzwl %bp,%edx
+    156a:	48 c1 e2 20          	shl    $0x20,%rdx
+    156e:	48 09 c2             	or     %rax,%rdx
+    1571:	e8 9a f5 ff ff       	call   b10 <entryLoadMoreItems>
+    1576:	80 bb ae 02 00 00 00 	cmpb   $0x0,0x2ae(%rbx)
+    157d:	66 0f 6e 44 24 04    	movd   0x4(%rsp),%xmm0
+    1583:	74 9a                	je     151f <entryGetItem+0x3af>
+    1585:	31 ff                	xor    %edi,%edi
+    1587:	c7 43 28 ff ff ff ff 	movl   $0xffffffff,0x28(%rbx)
+    158e:	66 89 7b 2c          	mov    %di,0x2c(%rbx)
+    1592:	c6 83 ae 02 00 00 01 	movb   $0x1,0x2ae(%rbx)
+    1599:	48 83 c4 10          	add    $0x10,%rsp
+    159d:	5b                   	pop    %rbx
+    159e:	5d                   	pop    %rbp
+    159f:	41 5c                	pop    %r12
+    15a1:	41 5d                	pop    %r13
+    15a3:	41 5e                	pop    %r14
+    15a5:	c3                   	ret
+    15a6:	66 2e 0f 1f 84 00 00 00 00 00 	cs nopw 0x0(%rax,%rax,1)
+    15b0:	66 0f 7e 44 24 08    	movd   %xmm0,0x8(%rsp)
+    15b6:	0f b7 44 24 0a       	movzwl 0xa(%rsp),%eax
+    15bb:	48 89 de             	mov    %rbx,%rsi
+    15be:	4c 89 e7             	mov    %r12,%rdi
+    15c1:	0f b7 54 24 08       	movzwl 0x8(%rsp),%edx
+    15c6:	66 0f 7e 44 24 04    	movd   %xmm0,0x4(%rsp)
+    15cc:	48 c1 e0 10          	shl    $0x10,%rax
+    15d0:	66 89 6c 24 0c       	mov    %bp,0xc(%rsp)
+    15d5:	48 09 d0             	or     %rdx,%rax
+    15d8:	0f b7 d5             	movzwl %bp,%edx
+    15db:	48 c1 e2 20          	shl    $0x20,%rdx
+    15df:	48 09 c2             	or     %rax,%rdx
+    15e2:	e8 29 f5 ff ff       	call   b10 <entryLoadMoreItems>
+    15e7:	80 bb ae 02 00 00 00 	cmpb   $0x0,0x2ae(%rbx)
+    15ee:	66 0f 6e 44 24 04    	movd   0x4(%rsp),%xmm0
+    15f4:	0f 84 86 fd ff ff    	je     1380 <entryGetItem+0x210>
+    15fa:	31 c9                	xor    %ecx,%ecx
+    15fc:	c7 43 28 ff ff ff ff 	movl   $0xffffffff,0x28(%rbx)
+    1603:	66 89 4b 2c          	mov    %cx,0x2c(%rbx)
+    1607:	e9 c3 fc ff ff       	jmp    12cf <entryGetItem+0x15f>
+    160c:	0f 1f 40 00          	nopl   0x0(%rax)
+    1610:	89 c2                	mov    %eax,%edx
+    1612:	41 b9 ff ff ff ff    	mov    $0xffffffff,%r9d
+    1618:	66 89 43 2a          	mov    %ax,0x2a(%rbx)
+    161c:	c1 ea 10             	shr    $0x10,%edx
+    161f:	66 44 89 4b 2c       	mov    %r9w,0x2c(%rbx)
+    1624:	66 89 53 28          	mov    %dx,0x28(%rbx)
+    1628:	48 83 c4 10          	add    $0x10,%rsp
+    162c:	5b                   	pop    %rbx
+    162d:	5d                   	pop    %rbp
+    162e:	41 5c                	pop    %r12
+    1630:	41 5d                	pop    %r13
+    1632:	41 5e                	pop    %r14
+    1634:	c3                   	ret
+    1635:	66 66 2e 0f 1f 84 00 00 00 00 00 	data16 cs nopw 0x0(%rax,%rax,1)
+
+0000000000001640 <gingetbitmap>:
+    1640:	f3 0f 1e fa          	endbr64
+    1644:	41 57                	push   %r15
+    1646:	41 56                	push   %r14
+    1648:	49 89 fe             	mov    %rdi,%r14
+    164b:	41 55                	push   %r13
+    164d:	41 54                	push   %r12
+    164f:	55                   	push   %rbp
+    1650:	53                   	push   %rbx
+    1651:	48 81 ec c8 01 00 00 	sub    $0x1c8,%rsp
+    1658:	48 89 7c 24 70       	mov    %rdi,0x70(%rsp)
+    165d:	48 8b 7f 38          	mov    0x38(%rdi),%rdi
+    1661:	48 89 b4 24 98 00 00 00 	mov    %rsi,0x98(%rsp)
+    1669:	64 48 8b 04 25 28 00 00 00 	mov    %fs:0x28,%rax
+    1672:	48 89 84 24 b8 01 00 00 	mov    %rax,0x1b8(%rsp)
+    167a:	31 c0                	xor    %eax,%eax
+    167c:	e8 00 00 00 00       	call   1681 <gingetbitmap+0x41>	167d: R_X86_64_PLT32	ginFreeScanKeys-0x4
+    1681:	4c 89 f7             	mov    %r14,%rdi
+    1684:	e8 00 00 00 00       	call   1689 <gingetbitmap+0x49>	1685: R_X86_64_PLT32	ginNewScanKey-0x4
+    1689:	49 8b 6e 38          	mov    0x38(%r14),%rbp
+    168d:	48 c7 44 24 78 00 00 00 00 	movq   $0x0,0x78(%rsp)
+    1696:	80 bd e8 25 00 00 00 	cmpb   $0x0,0x25e8(%rbp)
+    169d:	74 2e                	je     16cd <gingetbitmap+0x8d>
+    169f:	48 8b 84 24 b8 01 00 00 	mov    0x1b8(%rsp),%rax
+    16a7:	64 48 2b 04 25 28 00 00 00 	sub    %fs:0x28,%rax
+    16b0:	0f 85 46 1a 00 00    	jne    30fc <gingetbitmap+0x1abc>
+    16b6:	48 8b 44 24 78       	mov    0x78(%rsp),%rax
+    16bb:	48 81 c4 c8 01 00 00 	add    $0x1c8,%rsp
+    16c2:	5b                   	pop    %rbx
+    16c3:	5d                   	pop    %rbp
+    16c4:	41 5c                	pop    %r12
+    16c6:	41 5d                	pop    %r13
+    16c8:	41 5e                	pop    %r14
+    16ca:	41 5f                	pop    %r15
+    16cc:	c3                   	ret
+    16cd:	49 8b 7e 08          	mov    0x8(%r14),%rdi
+    16d1:	31 f6                	xor    %esi,%esi
+    16d3:	e8 00 00 00 00       	call   16d8 <gingetbitmap+0x98>	16d4: R_X86_64_PLT32	ReadBuffer-0x4
+    16d8:	49 8b 7e 08          	mov    0x8(%r14),%rdi
+    16dc:	49 8b 56 10          	mov    0x10(%r14),%rdx
+    16e0:	31 f6                	xor    %esi,%esi
+    16e2:	89 c3                	mov    %eax,%ebx
+    16e4:	e8 00 00 00 00       	call   16e9 <gingetbitmap+0xa9>	16e5: R_X86_64_PLT32	PredicateLockPage-0x4
+    16e9:	be 01 00 00 00       	mov    $0x1,%esi
+    16ee:	89 df                	mov    %ebx,%edi
+    16f0:	e8 00 00 00 00       	call   16f5 <gingetbitmap+0xb5>	16f1: R_X86_64_PLT32	LockBufferInternal-0x4
+    16f5:	85 db                	test   %ebx,%ebx
+    16f7:	0f 88 ac 18 00 00    	js     2fa9 <gingetbitmap+0x1969>
+    16fd:	8d 43 ff             	lea    -0x1(%rbx),%eax
+    1700:	48 98                	cltq
+    1702:	48 c1 e0 0d          	shl    $0xd,%rax
+    1706:	48 03 05 00 00 00 00 	add    0x0(%rip),%rax        # 170d <gingetbitmap+0xcd>	1709: R_X86_64_PC32	BufferBlocks-0x4
+    170d:	8b 70 18             	mov    0x18(%rax),%esi
+    1710:	83 fe ff             	cmp    $0xffffffff,%esi
+    1713:	0f 84 ad 18 00 00    	je     2fc6 <gingetbitmap+0x1986>
+    1719:	48 8b 44 24 70       	mov    0x70(%rsp),%rax
+    171e:	45 31 ed             	xor    %r13d,%r13d
+    1721:	45 31 f6             	xor    %r14d,%r14d
+    1724:	48 8b 78 08          	mov    0x8(%rax),%rdi
+    1728:	e8 00 00 00 00       	call   172d <gingetbitmap+0xed>	1729: R_X86_64_PLT32	ReadBuffer-0x4
+    172d:	be 01 00 00 00       	mov    $0x1,%esi
+    1732:	89 c7                	mov    %eax,%edi
+    1734:	89 84 24 30 01 00 00 	mov    %eax,0x130(%rsp)
+    173b:	e8 00 00 00 00       	call   1740 <gingetbitmap+0x100>	173c: R_X86_64_PLT32	LockBufferInternal-0x4
+    1740:	b8 01 00 00 00       	mov    $0x1,%eax
+    1745:	89 df                	mov    %ebx,%edi
+    1747:	31 db                	xor    %ebx,%ebx
+    1749:	66 89 84 24 34 01 00 00 	mov    %ax,0x134(%rsp)
+    1751:	e8 00 00 00 00       	call   1756 <gingetbitmap+0x116>	1752: R_X86_64_PLT32	UnlockReleaseBuffer-0x4
+    1756:	8b b5 c8 25 00 00    	mov    0x25c8(%rbp),%esi
+    175c:	bf 01 00 00 00       	mov    $0x1,%edi
+    1761:	e8 00 00 00 00       	call   1766 <gingetbitmap+0x126>	1762: R_X86_64_PLT32	palloc_mul-0x4
+    1766:	c6 84 24 97 00 00 00 00 	movb   $0x0,0x97(%rsp)
+    176e:	48 89 84 24 40 01 00 00 	mov    %rax,0x140(%rsp)
+    1776:	48 8d 84 24 30 01 00 00 	lea    0x130(%rsp),%rax
+    177e:	48 89 44 24 10       	mov    %rax,0x10(%rsp)
+    1783:	48 8d 84 24 38 01 00 00 	lea    0x138(%rsp),%rax
+    178b:	48 c7 44 24 78 00 00 00 00 	movq   $0x0,0x78(%rsp)
+    1794:	48 89 44 24 18       	mov    %rax,0x18(%rsp)
+    1799:	48 8b 74 24 10       	mov    0x10(%rsp),%rsi
+    179e:	48 8b 7c 24 70       	mov    0x70(%rsp),%rdi
+    17a3:	e8 d8 e9 ff ff       	call   180 <scanGetCandidate>
+    17a8:	84 c0                	test   %al,%al
+    17aa:	0f 84 fe 00 00 00    	je     18ae <gingetbitmap+0x26e>
+    17b0:	80 bc 24 97 00 00 00 00 	cmpb   $0x0,0x97(%rsp)
+    17b8:	75 2d                	jne    17e7 <gingetbitmap+0x1a7>
+    17ba:	49 39 dd             	cmp    %rbx,%r13
+    17bd:	0f 84 20 16 00 00    	je     2de3 <gingetbitmap+0x17a3>
+    17c3:	4c 8d 24 5b          	lea    (%rbx,%rbx,2),%r12
+    17c7:	4d 01 e4             	add    %r12,%r12
+    17ca:	8b 84 24 38 01 00 00 	mov    0x138(%rsp),%eax
+    17d1:	48 83 c3 01          	add    $0x1,%rbx
+    17d5:	43 89 04 26          	mov    %eax,(%r14,%r12,1)
+    17d9:	0f b7 84 24 3c 01 00 00 	movzwl 0x13c(%rsp),%eax
+    17e1:	66 43 89 44 26 04    	mov    %ax,0x4(%r14,%r12,1)
+    17e7:	48 8b 74 24 10       	mov    0x10(%rsp),%rsi
+    17ec:	48 8b 7c 24 70       	mov    0x70(%rsp),%rdi
+    17f1:	e8 0a eb ff ff       	call   300 <collectMatchesForHeapRow>
+    17f6:	84 c0                	test   %al,%al
+    17f8:	74 9f                	je     1799 <gingetbitmap+0x159>
+    17fa:	48 8b 45 00          	mov    0x0(%rbp),%rax
+    17fe:	4c 8b 3d 00 00 00 00 	mov    0x0(%rip),%r15        # 1805 <gingetbitmap+0x1c5>	1801: R_X86_64_PC32	CurrentMemoryContext-0x4
+    1805:	48 89 05 00 00 00 00 	mov    %rax,0x0(%rip)        # 180c <gingetbitmap+0x1cc>	1808: R_X86_64_PC32	CurrentMemoryContext-0x4
+    180c:	8b 85 c8 25 00 00    	mov    0x25c8(%rbp),%eax
+    1812:	85 c0                	test   %eax,%eax
+    1814:	0f 84 cb 18 00 00    	je     30e5 <gingetbitmap+0x1aa5>
+    181a:	45 31 e4             	xor    %r12d,%r12d
+    181d:	31 d2                	xor    %edx,%edx
+    181f:	eb 1c                	jmp    183d <gingetbitmap+0x1fd>
+    1821:	48 8b 0c 24          	mov    (%rsp),%rcx
+    1825:	48 8b 54 24 08       	mov    0x8(%rsp),%rdx
+    182a:	44 0a a1 93 00 00 00 	or     0x93(%rcx),%r12b
+    1831:	48 83 c2 01          	add    $0x1,%rdx
+    1835:	3b 95 c8 25 00 00    	cmp    0x25c8(%rbp),%edx
+    183b:	73 3b                	jae    1878 <gingetbitmap+0x238>
+    183d:	48 8d 04 d2          	lea    (%rdx,%rdx,8),%rax
+    1841:	48 89 54 24 08       	mov    %rdx,0x8(%rsp)
+    1846:	48 8d 0c 42          	lea    (%rdx,%rax,2),%rcx
+    184a:	48 8b 85 c0 25 00 00 	mov    0x25c0(%rbp),%rax
+    1851:	48 8d 0c c8          	lea    (%rax,%rcx,8),%rcx
+    1855:	48 89 0c 24          	mov    %rcx,(%rsp)
+    1859:	48 89 cf             	mov    %rcx,%rdi
+    185c:	ff 51 38             	call   *0x38(%rcx)
+    185f:	84 c0                	test   %al,%al
+    1861:	75 be                	jne    1821 <gingetbitmap+0x1e1>
+    1863:	4c 89 3d 00 00 00 00 	mov    %r15,0x0(%rip)        # 186a <gingetbitmap+0x22a>	1866: R_X86_64_PC32	CurrentMemoryContext-0x4
+    186a:	48 8b 7d 00          	mov    0x0(%rbp),%rdi
+    186e:	e8 00 00 00 00       	call   1873 <gingetbitmap+0x233>	186f: R_X86_64_PLT32	MemoryContextReset-0x4
+    1873:	e9 21 ff ff ff       	jmp    1799 <gingetbitmap+0x159>
+    1878:	4c 89 3d 00 00 00 00 	mov    %r15,0x0(%rip)        # 187f <gingetbitmap+0x23f>	187b: R_X86_64_PC32	CurrentMemoryContext-0x4
+    187f:	48 8b 7d 00          	mov    0x0(%rbp),%rdi
+    1883:	e8 00 00 00 00       	call   1888 <gingetbitmap+0x248>	1884: R_X86_64_PLT32	MemoryContextReset-0x4
+    1888:	41 0f b6 cc          	movzbl %r12b,%ecx
+    188c:	48 8b 74 24 18       	mov    0x18(%rsp),%rsi
+    1891:	48 8b bc 24 98 00 00 00 	mov    0x98(%rsp),%rdi
+    1899:	ba 01 00 00 00       	mov    $0x1,%edx
+    189e:	e8 00 00 00 00       	call   18a3 <gingetbitmap+0x263>	189f: R_X86_64_PLT32	tbm_add_tuples-0x4
+    18a3:	48 83 44 24 78 01    	addq   $0x1,0x78(%rsp)
+    18a9:	e9 eb fe ff ff       	jmp    1799 <gingetbitmap+0x159>
+    18ae:	48 8b bc 24 40 01 00 00 	mov    0x140(%rsp),%rdi
+    18b6:	4c 89 74 24 68       	mov    %r14,0x68(%rsp)
+    18bb:	e8 00 00 00 00       	call   18c0 <gingetbitmap+0x280>	18bc: R_X86_64_PLT32	pfree-0x4
+    18c0:	48 89 9c 24 80 00 00 00 	mov    %rbx,0x80(%rsp)
+    18c8:	48 83 fb 01          	cmp    $0x1,%rbx
+    18cc:	76 77                	jbe    1945 <gingetbitmap+0x305>
+    18ce:	4c 89 f7             	mov    %r14,%rdi
+    18d1:	ba 06 00 00 00       	mov    $0x6,%edx
+    18d6:	49 8d 6e 06          	lea    0x6(%r14),%rbp
+    18da:	48 89 de             	mov    %rbx,%rsi
+    18dd:	48 8d 0d dc f1 ff ff 	lea    -0xe24(%rip),%rcx        # ac0 <ginItemPointerCmp>
+    18e4:	41 bc 01 00 00 00    	mov    $0x1,%r12d
+    18ea:	41 bd 01 00 00 00    	mov    $0x1,%r13d
+    18f0:	49 89 de             	mov    %rbx,%r14
+    18f3:	e8 00 00 00 00       	call   18f8 <gingetbitmap+0x2b8>	18f4: R_X86_64_PLT32	pg_qsort-0x4
+    18f8:	48 8b 4c 24 68       	mov    0x68(%rsp),%rcx
+    18fd:	4b 8d 5c 6d 00       	lea    0x0(%r13,%r13,2),%rbx
+    1902:	48 89 ee             	mov    %rbp,%rsi
+    1905:	4c 8d 3c 1b          	lea    (%rbx,%rbx,1),%r15
+    1909:	4a 8d 7c 39 fa       	lea    -0x6(%rcx,%r15,1),%rdi
+    190e:	e8 00 00 00 00       	call   1913 <gingetbitmap+0x2d3>	190f: R_X86_64_PLT32	ItemPointerEquals-0x4
+    1913:	84 c0                	test   %al,%al
+    1915:	75 19                	jne    1930 <gingetbitmap+0x2f0>
+    1917:	8b 45 00             	mov    0x0(%rbp),%eax
+    191a:	48 8b 4c 24 68       	mov    0x68(%rsp),%rcx
+    191f:	49 83 c5 01          	add    $0x1,%r13
+    1923:	89 04 59             	mov    %eax,(%rcx,%rbx,2)
+    1926:	0f b7 45 04          	movzwl 0x4(%rbp),%eax
+    192a:	66 42 89 44 39 04    	mov    %ax,0x4(%rcx,%r15,1)
+    1930:	49 83 c4 01          	add    $0x1,%r12
+    1934:	48 83 c5 06          	add    $0x6,%rbp
+    1938:	4d 39 f4             	cmp    %r14,%r12
+    193b:	75 bb                	jne    18f8 <gingetbitmap+0x2b8>
+    193d:	4c 89 ac 24 80 00 00 00 	mov    %r13,0x80(%rsp)
+    1945:	48 8b 44 24 70       	mov    0x70(%rsp),%rax
+    194a:	4c 8b 78 38          	mov    0x38(%rax),%r15
+    194e:	49 8d 47 08          	lea    0x8(%r15),%rax
+    1952:	48 89 44 24 50       	mov    %rax,0x50(%rsp)
+    1957:	41 8b 87 d8 25 00 00 	mov    0x25d8(%r15),%eax
+    195e:	85 c0                	test   %eax,%eax
+    1960:	0f 84 c9 03 00 00    	je     1d2f <gingetbitmap+0x6ef>
+    1966:	48 8d 84 24 b0 00 00 00 	lea    0xb0(%rsp),%rax
+    196e:	45 31 ed             	xor    %r13d,%r13d
+    1971:	4c 89 7c 24 58       	mov    %r15,0x58(%rsp)
+    1976:	48 89 44 24 08       	mov    %rax,0x8(%rsp)
+    197b:	48 8d 84 24 af 00 00 00 	lea    0xaf(%rsp),%rax
+    1983:	48 89 44 24 20       	mov    %rax,0x20(%rsp)
+    1988:	4c 89 6c 24 60       	mov    %r13,0x60(%rsp)
+    198d:	48 8b 44 24 70       	mov    0x70(%rsp),%rax
+    1992:	48 8b 5c 24 60       	mov    0x60(%rsp),%rbx
+    1997:	4c 8d a4 24 30 01 00 00 	lea    0x130(%rsp),%r12
+    199f:	48 8b 40 10          	mov    0x10(%rax),%rax
+    19a3:	48 89 04 24          	mov    %rax,(%rsp)
+    19a7:	48 8b 44 24 58       	mov    0x58(%rsp),%rax
+    19ac:	48 8b 80 d0 25 00 00 	mov    0x25d0(%rax),%rax
+    19b3:	4c 8b 3c d8          	mov    (%rax,%rbx,8),%r15
+    19b7:	4c 89 fd             	mov    %r15,%rbp
+    19ba:	48 8b bd a0 02 00 00 	mov    0x2a0(%rbp),%rdi
+    19c1:	45 31 ed             	xor    %r13d,%r13d
+    19c4:	45 31 f6             	xor    %r14d,%r14d
+    19c7:	48 c7 45 24 00 00 00 00 	movq   $0x0,0x24(%rbp)
+    19cf:	66 44 89 6d 2c       	mov    %r13w,0x2c(%rbp)
+    19d4:	66 44 89 b5 ac 02 00 00 	mov    %r14w,0x2ac(%rbp)
+    19dc:	48 85 ff             	test   %rdi,%rdi
+    19df:	74 05                	je     19e6 <gingetbitmap+0x3a6>
+    19e1:	e8 00 00 00 00       	call   19e6 <gingetbitmap+0x3a6>	19e2: R_X86_64_PLT32	pfree-0x4
+    19e6:	48 8b bd 38 03 00 00 	mov    0x338(%rbp),%rdi
+    19ed:	48 c7 85 a0 02 00 00 00 00 00 00 	movq   $0x0,0x2a0(%rbp)
+    19f8:	48 85 ff             	test   %rdi,%rdi
+    19fb:	74 05                	je     1a02 <gingetbitmap+0x3c2>
+    19fd:	e8 00 00 00 00       	call   1a02 <gingetbitmap+0x3c2>	19fe: R_X86_64_PLT32	pfree-0x4
+    1a02:	48 8b 5c 24 08       	mov    0x8(%rsp),%rbx
+    1a07:	66 0f ef c0          	pxor   %xmm0,%xmm0
+    1a0b:	0f be 4d 08          	movsbl 0x8(%rbp),%ecx
+    1a0f:	48 c7 85 48 03 00 00 00 00 00 00 	movq   $0x0,0x348(%rbp)
+    1a1a:	c7 85 a8 02 00 00 00 00 00 00 	movl   $0x0,0x2a8(%rbp)
+    1a24:	48 8b 55 00          	mov    0x0(%rbp),%rdx
+    1a28:	48 c7 45 30 00 00 00 00 	movq   $0x0,0x30(%rbp)
+    1a30:	0f b7 75 20          	movzwl 0x20(%rbp),%esi
+    1a34:	48 89 df             	mov    %rbx,%rdi
+    1a37:	c7 85 98 02 00 00 ff ff ff ff 	movl   $0xffffffff,0x298(%rbp)
+    1a41:	4c 8b 44 24 50       	mov    0x50(%rsp),%r8
+    1a46:	c7 45 40 ff ff ff ff 	movl   $0xffffffff,0x40(%rbp)
+    1a4d:	c6 85 af 02 00 00 00 	movb   $0x0,0x2af(%rbp)
+    1a54:	c7 85 b0 02 00 00 00 00 00 00 	movl   $0x0,0x2b0(%rbp)
+    1a5e:	0f 11 85 38 03 00 00 	movups %xmm0,0x338(%rbp)
+    1a65:	e8 00 00 00 00       	call   1a6a <gingetbitmap+0x42a>	1a66: R_X86_64_PLT32	ginPrepareEntryScan-0x4
+    1a6a:	31 d2                	xor    %edx,%edx
+    1a6c:	be 01 00 00 00       	mov    $0x1,%esi
+    1a71:	48 89 df             	mov    %rbx,%rdi
+    1a74:	e8 00 00 00 00       	call   1a79 <gingetbitmap+0x439>	1a75: R_X86_64_PLT32	ginFindLeafPage-0x4
+    1a79:	49 89 c6             	mov    %rax,%r14
+    1a7c:	8b 40 04             	mov    0x4(%rax),%eax
+    1a7f:	85 c0                	test   %eax,%eax
+    1a81:	0f 88 b8 06 00 00    	js     213f <gingetbitmap+0xaff>
+    1a87:	83 e8 01             	sub    $0x1,%eax
+    1a8a:	48 98                	cltq
+    1a8c:	48 c1 e0 0d          	shl    $0xd,%rax
+    1a90:	48 03 05 00 00 00 00 	add    0x0(%rip),%rax        # 1a97 <gingetbitmap+0x457>	1a93: R_X86_64_PC32	BufferBlocks-0x4
+    1a97:	80 7d 09 00          	cmpb   $0x0,0x9(%rbp)
+    1a9b:	c6 85 ae 02 00 00 01 	movb   $0x1,0x2ae(%rbp)
+    1aa2:	75 0a                	jne    1aae <gingetbitmap+0x46e>
+    1aa4:	80 7d 08 ff          	cmpb   $0xff,0x8(%rbp)
+    1aa8:	0f 85 ad 06 00 00    	jne    215b <gingetbitmap+0xb1b>
+    1aae:	48 8b 7c 24 08       	mov    0x8(%rsp),%rdi
+    1ab3:	4c 89 f6             	mov    %r14,%rsi
+    1ab6:	ff 94 24 c8 00 00 00 	call   *0xc8(%rsp)
+    1abd:	48 63 3d 00 00 00 00 	movslq 0x0(%rip),%rdi        # 1ac4 <gingetbitmap+0x484>	1ac0: R_X86_64_PC32	work_mem-0x4
+    1ac4:	31 f6                	xor    %esi,%esi
+    1ac6:	48 c1 e7 0a          	shl    $0xa,%rdi
+    1aca:	e8 00 00 00 00       	call   1acf <gingetbitmap+0x48f>	1acb: R_X86_64_PLT32	tbm_create-0x4
+    1acf:	80 7d 09 00          	cmpb   $0x0,0x9(%rbp)
+    1ad3:	48 89 45 30          	mov    %rax,0x30(%rbp)
+    1ad7:	74 0a                	je     1ae3 <gingetbitmap+0x4a3>
+    1ad9:	80 7d 08 00          	cmpb   $0x0,0x8(%rbp)
+    1add:	0f 85 70 06 00 00    	jne    2153 <gingetbitmap+0xb13>
+    1ae3:	48 8b 84 24 10 01 00 00 	mov    0x110(%rsp),%rax
+    1aeb:	41 8b 7e 04          	mov    0x4(%r14),%edi
+    1aef:	0f b7 5d 20          	movzwl 0x20(%rbp),%ebx
+    1af3:	48 8b 40 10          	mov    0x10(%rax),%rax
+    1af7:	41 89 df             	mov    %ebx,%r15d
+    1afa:	83 eb 01             	sub    $0x1,%ebx
+    1afd:	48 89 44 24 40       	mov    %rax,0x40(%rsp)
+    1b02:	e8 00 00 00 00       	call   1b07 <gingetbitmap+0x4c7>	1b03: R_X86_64_PLT32	BufferGetBlockNumber-0x4
+    1b07:	48 8b 14 24          	mov    (%rsp),%rdx
+    1b0b:	48 8b bc 24 00 01 00 00 	mov    0x100(%rsp),%rdi
+    1b13:	89 c6                	mov    %eax,%esi
+    1b15:	e8 00 00 00 00       	call   1b1a <gingetbitmap+0x4da>	1b16: R_X86_64_PLT32	PredicateLockPage-0x4
+    1b1a:	48 63 cb             	movslq %ebx,%rcx
+    1b1d:	66 44 89 7c 24 10    	mov    %r15w,0x10(%rsp)
+    1b23:	48 8d 04 49          	lea    (%rcx,%rcx,2),%rax
+    1b27:	48 89 4c 24 48       	mov    %rcx,0x48(%rsp)
+    1b2c:	48 c1 e0 04          	shl    $0x4,%rax
+    1b30:	48 8d 98 18 1f 00 00 	lea    0x1f18(%rax),%rbx
+    1b37:	48 05 18 01 00 00    	add    $0x118,%rax
+    1b3d:	48 89 44 24 30       	mov    %rax,0x30(%rsp)
+    1b42:	48 8d 81 4c 09 00 00 	lea    0x94c(%rcx),%rax
+    1b49:	48 89 5c 24 38       	mov    %rbx,0x38(%rsp)
+    1b4e:	48 89 44 24 18       	mov    %rax,0x18(%rsp)
+    1b53:	e9 a9 00 00 00       	jmp    1c01 <gingetbitmap+0x5c1>
+    1b58:	0f 1f 84 00 00 00 00 00 	nopl   0x0(%rax,%rax,1)
+    1b60:	80 bc 24 af 00 00 00 00 	cmpb   $0x0,0xaf(%rsp)
+    1b68:	0f 85 33 01 00 00    	jne    1ca1 <gingetbitmap+0x661>
+    1b6e:	48 8b bc 24 10 01 00 00 	mov    0x110(%rsp),%rdi
+    1b76:	48 8b 44 24 18       	mov    0x18(%rsp),%rax
+    1b7b:	48 89 d9             	mov    %rbx,%rcx
+    1b7e:	48 8b 55 00          	mov    0x0(%rbp),%rdx
+    1b82:	4c 8b 4d 10          	mov    0x10(%rbp),%r9
+    1b86:	8b 74 87 08          	mov    0x8(%rdi,%rax,4),%esi
+    1b8a:	48 8b 44 24 38       	mov    0x38(%rsp),%rax
+    1b8f:	44 0f b7 45 18       	movzwl 0x18(%rbp),%r8d
+    1b94:	48 01 c7             	add    %rax,%rdi
+    1b97:	e8 00 00 00 00       	call   1b9c <gingetbitmap+0x55c>	1b98: R_X86_64_PLT32	FunctionCall4Coll-0x4
+    1b9c:	85 c0                	test   %eax,%eax
+    1b9e:	0f 8f fd 00 00 00    	jg     1ca1 <gingetbitmap+0x661>
+    1ba4:	75 4e                	jne    1bf4 <gingetbitmap+0x5b4>
+    1ba6:	66 41 83 7f 04 ff    	cmpw   $0xffff,0x4(%r15)
+    1bac:	0f 84 b6 02 00 00    	je     1e68 <gingetbitmap+0x828>
+    1bb2:	0f b7 75 20          	movzwl 0x20(%rbp),%esi
+    1bb6:	48 8b bc 24 10 01 00 00 	mov    0x110(%rsp),%rdi
+    1bbe:	4c 89 e1             	mov    %r12,%rcx
+    1bc1:	4c 89 fa             	mov    %r15,%rdx
+    1bc4:	e8 00 00 00 00       	call   1bc9 <gingetbitmap+0x589>	1bc5: R_X86_64_PLT32	ginReadTuple-0x4
+    1bc9:	48 8b 7d 30          	mov    0x30(%rbp),%rdi
+    1bcd:	8b 94 24 30 01 00 00 	mov    0x130(%rsp),%edx
+    1bd4:	31 c9                	xor    %ecx,%ecx
+    1bd6:	48 89 c6             	mov    %rax,%rsi
+    1bd9:	48 89 c3             	mov    %rax,%rbx
+    1bdc:	e8 00 00 00 00       	call   1be1 <gingetbitmap+0x5a1>	1bdd: R_X86_64_PLT32	tbm_add_tuples-0x4
+    1be1:	41 0f b7 47 04       	movzwl 0x4(%r15),%eax
+    1be6:	01 85 b0 02 00 00    	add    %eax,0x2b0(%rbp)
+    1bec:	48 89 df             	mov    %rbx,%rdi
+    1bef:	e8 00 00 00 00       	call   1bf4 <gingetbitmap+0x5b4>	1bf0: R_X86_64_PLT32	pfree-0x4
+    1bf4:	41 0f b7 46 08       	movzwl 0x8(%r14),%eax
+    1bf9:	83 c0 01             	add    $0x1,%eax
+    1bfc:	66 41 89 46 08       	mov    %ax,0x8(%r14)
+    1c01:	48 8b 14 24          	mov    (%rsp),%rdx
+    1c05:	48 8b 7c 24 08       	mov    0x8(%rsp),%rdi
+    1c0a:	4c 89 f6             	mov    %r14,%rsi
+    1c0d:	e8 2e ec ff ff       	call   840 <moveRightIfItNeeded>
+    1c12:	84 c0                	test   %al,%al
+    1c14:	0f 84 87 00 00 00    	je     1ca1 <gingetbitmap+0x661>
+    1c1a:	41 8b 46 04          	mov    0x4(%r14),%eax
+    1c1e:	85 c0                	test   %eax,%eax
+    1c20:	0f 88 2a 02 00 00    	js     1e50 <gingetbitmap+0x810>
+    1c26:	44 8d 78 ff          	lea    -0x1(%rax),%r15d
+    1c2a:	4d 63 ff             	movslq %r15d,%r15
+    1c2d:	49 c1 e7 0d          	shl    $0xd,%r15
+    1c31:	4c 03 3d 00 00 00 00 	add    0x0(%rip),%r15        # 1c38 <gingetbitmap+0x5f8>	1c34: R_X86_64_PC32	BufferBlocks-0x4
+    1c38:	41 0f b7 46 08       	movzwl 0x8(%r14),%eax
+    1c3d:	48 8b bc 24 10 01 00 00 	mov    0x110(%rsp),%rdi
+    1c45:	83 e8 01             	sub    $0x1,%eax
+    1c48:	48 98                	cltq
+    1c4a:	41 0f b7 44 87 18    	movzwl 0x18(%r15,%rax,4),%eax
+    1c50:	25 ff 7f 00 00       	and    $0x7fff,%eax
+    1c55:	49 01 c7             	add    %rax,%r15
+    1c58:	4c 89 fe             	mov    %r15,%rsi
+    1c5b:	e8 00 00 00 00       	call   1c60 <gingetbitmap+0x620>	1c5c: R_X86_64_PLT32	gintuple_get_attrnum-0x4
+    1c60:	66 39 44 24 10       	cmp    %ax,0x10(%rsp)
+    1c65:	75 3a                	jne    1ca1 <gingetbitmap+0x661>
+    1c67:	48 8b 54 24 20       	mov    0x20(%rsp),%rdx
+    1c6c:	48 8b bc 24 10 01 00 00 	mov    0x110(%rsp),%rdi
+    1c74:	4c 89 fe             	mov    %r15,%rsi
+    1c77:	e8 00 00 00 00       	call   1c7c <gingetbitmap+0x63c>	1c78: R_X86_64_PLT32	gintuple_get_key-0x4
+    1c7c:	80 7d 09 00          	cmpb   $0x0,0x9(%rbp)
+    1c80:	48 89 c3             	mov    %rax,%rbx
+    1c83:	0f 85 d7 fe ff ff    	jne    1b60 <gingetbitmap+0x520>
+    1c89:	83 7d 1c 02          	cmpl   $0x2,0x1c(%rbp)
+    1c8d:	0f 85 13 ff ff ff    	jne    1ba6 <gingetbitmap+0x566>
+    1c93:	80 bc 24 af 00 00 00 03 	cmpb   $0x3,0xaf(%rsp)
+    1c9b:	0f 85 05 ff ff ff    	jne    1ba6 <gingetbitmap+0x566>
+    1ca1:	48 8b 45 30          	mov    0x30(%rbp),%rax
+    1ca5:	49 89 ef             	mov    %rbp,%r15
+    1ca8:	48 85 c0             	test   %rax,%rax
+    1cab:	74 10                	je     1cbd <gingetbitmap+0x67d>
+    1cad:	48 89 c7             	mov    %rax,%rdi
+    1cb0:	e8 00 00 00 00       	call   1cb5 <gingetbitmap+0x675>	1cb1: R_X86_64_PLT32	tbm_is_empty-0x4
+    1cb5:	84 c0                	test   %al,%al
+    1cb7:	0f 84 38 05 00 00    	je     21f5 <gingetbitmap+0xbb5>
+    1cbd:	41 8b 7e 04          	mov    0x4(%r14),%edi
+    1cc1:	e8 00 00 00 00       	call   1cc6 <gingetbitmap+0x686>	1cc2: R_X86_64_PLT32	UnlockBuffer-0x4
+    1cc6:	4c 89 f7             	mov    %r14,%rdi
+    1cc9:	e8 00 00 00 00       	call   1cce <gingetbitmap+0x68e>	1cca: R_X86_64_PLT32	freeGinBtreeStack-0x4
+    1cce:	48 8b 44 24 58       	mov    0x58(%rsp),%rax
+    1cd3:	48 83 44 24 60 01    	addq   $0x1,0x60(%rsp)
+    1cd9:	8b 88 d8 25 00 00    	mov    0x25d8(%rax),%ecx
+    1cdf:	48 8b 44 24 60       	mov    0x60(%rsp),%rax
+    1ce4:	39 c8                	cmp    %ecx,%eax
+    1ce6:	0f 82 a1 fc ff ff    	jb     198d <gingetbitmap+0x34d>
+    1cec:	8b 05 00 00 00 00    	mov    0x0(%rip),%eax        # 1cf2 <gingetbitmap+0x6b2>	1cee: R_X86_64_PC32	GinFuzzySearchLimit-0x4
+    1cf2:	4c 8b 7c 24 58       	mov    0x58(%rsp),%r15
+    1cf7:	85 c0                	test   %eax,%eax
+    1cf9:	7e 34                	jle    1d2f <gingetbitmap+0x6ef>
+    1cfb:	85 c9                	test   %ecx,%ecx
+    1cfd:	74 30                	je     1d2f <gingetbitmap+0x6ef>
+    1cff:	0f af c1             	imul   %ecx,%eax
+    1d02:	49 8b b7 d0 25 00 00 	mov    0x25d0(%r15),%rsi
+    1d09:	89 cf                	mov    %ecx,%edi
+    1d0b:	48 8d 3c fe          	lea    (%rsi,%rdi,8),%rdi
+    1d0f:	89 c2                	mov    %eax,%edx
+    1d11:	48 89 f0             	mov    %rsi,%rax
+    1d14:	eb 0d                	jmp    1d23 <gingetbitmap+0x6e3>
+    1d16:	48 83 c0 08          	add    $0x8,%rax
+    1d1a:	48 39 f8             	cmp    %rdi,%rax
+    1d1d:	0f 84 45 13 00 00    	je     3068 <gingetbitmap+0x1a28>
+    1d23:	4c 8b 00             	mov    (%rax),%r8
+    1d26:	41 3b 90 b0 02 00 00 	cmp    0x2b0(%r8),%edx
+    1d2d:	72 e7                	jb     1d16 <gingetbitmap+0x6d6>
+    1d2f:	41 8b 87 c8 25 00 00 	mov    0x25c8(%r15),%eax
+    1d36:	85 c0                	test   %eax,%eax
+    1d38:	0f 84 19 06 00 00    	je     2357 <gingetbitmap+0xd17>
+    1d3e:	48 8b 05 00 00 00 00 	mov    0x0(%rip),%rax        # 1d45 <gingetbitmap+0x705>	1d41: R_X86_64_PC32	CurrentMemoryContext-0x4
+    1d45:	48 c7 04 24 00 00 00 00 	movq   $0x0,(%rsp)
+    1d4d:	31 ed                	xor    %ebp,%ebp
+    1d4f:	48 89 44 24 08       	mov    %rax,0x8(%rsp)
+    1d54:	48 8b 1c 24          	mov    (%rsp),%rbx
+    1d58:	49 03 9f c0 25 00 00 	add    0x25c0(%r15),%rbx
+    1d5f:	80 bb 8a 00 00 00 00 	cmpb   $0x0,0x8a(%rbx)
+    1d66:	c6 83 94 00 00 00 00 	movb   $0x0,0x94(%rbx)
+    1d6d:	48 c7 83 8c 00 00 00 00 00 00 00 	movq   $0x0,0x8c(%rbx)
+    1d78:	0f 85 f8 0f 00 00    	jne    2d76 <gingetbitmap+0x1736>
+    1d7e:	83 3b 01             	cmpl   $0x1,(%rbx)
+    1d81:	0f 86 73 05 00 00    	jbe    22fa <gingetbitmap+0xcba>
+    1d87:	49 8b 07             	mov    (%r15),%rax
+    1d8a:	bf 04 00 00 00       	mov    $0x4,%edi
+    1d8f:	48 89 05 00 00 00 00 	mov    %rax,0x0(%rip)        # 1d96 <gingetbitmap+0x756>	1d92: R_X86_64_PC32	CurrentMemoryContext-0x4
+    1d96:	8b 33                	mov    (%rbx),%esi
+    1d98:	e8 00 00 00 00       	call   1d9d <gingetbitmap+0x75d>	1d99: R_X86_64_PLT32	palloc_mul-0x4
+    1d9d:	8b 33                	mov    (%rbx),%esi
+    1d9f:	49 89 c6             	mov    %rax,%r14
+    1da2:	85 f6                	test   %esi,%esi
+    1da4:	0f 84 a3 12 00 00    	je     304d <gingetbitmap+0x1a0d>
+    1daa:	31 c0                	xor    %eax,%eax
+    1dac:	41 89 04 86          	mov    %eax,(%r14,%rax,4)
+    1db0:	8b 13                	mov    (%rbx),%edx
+    1db2:	48 83 c0 01          	add    $0x1,%rax
+    1db6:	39 d0                	cmp    %edx,%eax
+    1db8:	72 f2                	jb     1dac <gingetbitmap+0x76c>
+    1dba:	89 d6                	mov    %edx,%esi
+    1dbc:	49 89 d8             	mov    %rbx,%r8
+    1dbf:	48 8d 0d 3a e2 ff ff 	lea    -0x1dc6(%rip),%rcx        # 0 <entryIndexByFrequencyCmp>
+    1dc6:	ba 04 00 00 00       	mov    $0x4,%edx
+    1dcb:	4c 89 f7             	mov    %r14,%rdi
+    1dce:	e8 00 00 00 00       	call   1dd3 <gingetbitmap+0x793>	1dcf: R_X86_64_PLT32	qsort_arg-0x4
+    1dd3:	8b 03                	mov    (%rbx),%eax
+    1dd5:	83 f8 01             	cmp    $0x1,%eax
+    1dd8:	76 21                	jbe    1dfb <gingetbitmap+0x7bb>
+    1dda:	49 8d 4e 04          	lea    0x4(%r14),%rcx
+    1dde:	ba 01 00 00 00       	mov    $0x1,%edx
+    1de3:	48 63 01             	movslq (%rcx),%rax
+    1de6:	48 8b 73 30          	mov    0x30(%rbx),%rsi
+    1dea:	83 c2 01             	add    $0x1,%edx
+    1ded:	48 83 c1 04          	add    $0x4,%rcx
+    1df1:	c6 04 06 02          	movb   $0x2,(%rsi,%rax,1)
+    1df5:	8b 03                	mov    (%rbx),%eax
+    1df7:	39 c2                	cmp    %eax,%edx
+    1df9:	72 e8                	jb     1de3 <gingetbitmap+0x7a3>
+    1dfb:	83 f8 01             	cmp    $0x1,%eax
+    1dfe:	0f 84 3a 12 00 00    	je     303e <gingetbitmap+0x19fe>
+    1e04:	4d 89 f5             	mov    %r14,%r13
+    1e07:	45 31 e4             	xor    %r12d,%r12d
+    1e0a:	eb 19                	jmp    1e25 <gingetbitmap+0x7e5>
+    1e0c:	8b 03                	mov    (%rbx),%eax
+    1e0e:	41 8d 54 24 01       	lea    0x1(%r12),%edx
+    1e13:	49 83 c5 04          	add    $0x4,%r13
+    1e17:	83 e8 01             	sub    $0x1,%eax
+    1e1a:	39 c2                	cmp    %eax,%edx
+    1e1c:	0f 83 78 11 00 00    	jae    2f9a <gingetbitmap+0x195a>
+    1e22:	41 89 d4             	mov    %edx,%r12d
+    1e25:	49 63 45 00          	movslq 0x0(%r13),%rax
+    1e29:	48 8b 53 30          	mov    0x30(%rbx),%rdx
+    1e2d:	48 89 df             	mov    %rbx,%rdi
+    1e30:	c6 04 02 00          	movb   $0x0,(%rdx,%rax,1)
+    1e34:	ff 53 40             	call   *0x40(%rbx)
+    1e37:	84 c0                	test   %al,%al
+    1e39:	0f 84 b0 10 00 00    	je     2eef <gingetbitmap+0x18af>
+    1e3f:	8b 05 00 00 00 00    	mov    0x0(%rip),%eax        # 1e45 <gingetbitmap+0x805>	1e41: R_X86_64_PC32	InterruptPending-0x4
+    1e45:	85 c0                	test   %eax,%eax
+    1e47:	74 c3                	je     1e0c <gingetbitmap+0x7cc>
+    1e49:	e8 00 00 00 00       	call   1e4e <gingetbitmap+0x80e>	1e4a: R_X86_64_PLT32	ProcessInterrupts-0x4
+    1e4e:	eb bc                	jmp    1e0c <gingetbitmap+0x7cc>
+    1e50:	48 8b 15 00 00 00 00 	mov    0x0(%rip),%rdx        # 1e57 <gingetbitmap+0x817>	1e53: R_X86_64_PC32	LocalBufferBlockPointers-0x4
+    1e57:	f7 d0                	not    %eax
+    1e59:	48 98                	cltq
+    1e5b:	4c 8b 3c c2          	mov    (%rdx,%rax,8),%r15
+    1e5f:	e9 d4 fd ff ff       	jmp    1c38 <gingetbitmap+0x5f8>
+    1e64:	0f 1f 40 00          	nopl   0x0(%rax)
+    1e68:	45 0f b7 2f          	movzwl (%r15),%r13d
+    1e6c:	41 0f b7 47 02       	movzwl 0x2(%r15),%eax
+    1e71:	41 c1 e5 10          	shl    $0x10,%r13d
+    1e75:	41 09 c5             	or     %eax,%r13d
+    1e78:	80 bc 24 af 00 00 00 00 	cmpb   $0x0,0xaf(%rsp)
+    1e80:	0f 84 95 02 00 00    	je     211b <gingetbitmap+0xadb>
+    1e86:	41 8b 7e 04          	mov    0x4(%r14),%edi
+    1e8a:	e8 00 00 00 00       	call   1e8f <gingetbitmap+0x84f>	1e8b: R_X86_64_PLT32	UnlockBuffer-0x4
+    1e8f:	48 8b 14 24          	mov    (%rsp),%rdx
+    1e93:	48 8b bc 24 00 01 00 00 	mov    0x100(%rsp),%rdi
+    1e9b:	44 89 ee             	mov    %r13d,%esi
+    1e9e:	e8 00 00 00 00       	call   1ea3 <gingetbitmap+0x863>	1e9f: R_X86_64_PLT32	PredicateLockPage-0x4
+    1ea3:	48 8b 84 24 00 01 00 00 	mov    0x100(%rsp),%rax
+    1eab:	44 89 ea             	mov    %r13d,%edx
+    1eae:	4c 89 e7             	mov    %r12,%rdi
+    1eb1:	48 89 c6             	mov    %rax,%rsi
+    1eb4:	48 89 44 24 28       	mov    %rax,0x28(%rsp)
+    1eb9:	e8 00 00 00 00       	call   1ebe <gingetbitmap+0x87e>	1eba: R_X86_64_PLT32	ginScanBeginPostingTree-0x4
+    1ebe:	44 8b 78 04          	mov    0x4(%rax),%r15d
+    1ec2:	49 89 c5             	mov    %rax,%r13
+    1ec5:	44 89 ff             	mov    %r15d,%edi
+    1ec8:	e8 00 00 00 00       	call   1ecd <gingetbitmap+0x88d>	1ec9: R_X86_64_PLT32	IncrBufferRefCount-0x4
+    1ecd:	4c 89 ef             	mov    %r13,%rdi
+    1ed0:	49 89 ed             	mov    %rbp,%r13
+    1ed3:	e8 00 00 00 00       	call   1ed8 <gingetbitmap+0x898>	1ed4: R_X86_64_PLT32	freeGinBtreeStack-0x4
+    1ed8:	eb 45                	jmp    1f1f <gingetbitmap+0x8df>
+    1eda:	66 0f 1f 44 00 00    	nopw   0x0(%rax,%rax,1)
+    1ee0:	41 8d 47 ff          	lea    -0x1(%r15),%eax
+    1ee4:	48 63 e8             	movslq %eax,%rbp
+    1ee7:	48 89 e8             	mov    %rbp,%rax
+    1eea:	48 c1 e0 0d          	shl    $0xd,%rax
+    1eee:	48 03 05 00 00 00 00 	add    0x0(%rip),%rax        # 1ef5 <gingetbitmap+0x8b5>	1ef1: R_X86_64_PC32	BufferBlocks-0x4
+    1ef5:	48 89 c5             	mov    %rax,%rbp
+    1ef8:	0f b7 45 10          	movzwl 0x10(%rbp),%eax
+    1efc:	48 01 e8             	add    %rbp,%rax
+    1eff:	f6 40 06 04          	testb  $0x4,0x6(%rax)
+    1f03:	74 3e                	je     1f43 <gingetbitmap+0x903>
+    1f05:	83 38 ff             	cmpl   $0xffffffff,(%rax)
+    1f08:	74 58                	je     1f62 <gingetbitmap+0x922>
+    1f0a:	48 8b 74 24 28       	mov    0x28(%rsp),%rsi
+    1f0f:	44 89 ff             	mov    %r15d,%edi
+    1f12:	ba 01 00 00 00       	mov    $0x1,%edx
+    1f17:	e8 00 00 00 00       	call   1f1c <gingetbitmap+0x8dc>	1f18: R_X86_64_PLT32	ginStepRight-0x4
+    1f1c:	41 89 c7             	mov    %eax,%r15d
+    1f1f:	45 85 ff             	test   %r15d,%r15d
+    1f22:	79 bc                	jns    1ee0 <gingetbitmap+0x8a0>
+    1f24:	44 89 f8             	mov    %r15d,%eax
+    1f27:	48 8b 15 00 00 00 00 	mov    0x0(%rip),%rdx        # 1f2e <gingetbitmap+0x8ee>	1f2a: R_X86_64_PC32	LocalBufferBlockPointers-0x4
+    1f2e:	f7 d0                	not    %eax
+    1f30:	48 98                	cltq
+    1f32:	48 8b 2c c2          	mov    (%rdx,%rax,8),%rbp
+    1f36:	0f b7 45 10          	movzwl 0x10(%rbp),%eax
+    1f3a:	48 01 e8             	add    %rbp,%rax
+    1f3d:	f6 40 06 04          	testb  $0x4,0x6(%rax)
+    1f41:	75 c2                	jne    1f05 <gingetbitmap+0x8c5>
+    1f43:	49 8b 75 30          	mov    0x30(%r13),%rsi
+    1f47:	48 89 ef             	mov    %rbp,%rdi
+    1f4a:	e8 00 00 00 00       	call   1f4f <gingetbitmap+0x90f>	1f4b: R_X86_64_PLT32	GinDataLeafPageGetItemsToTbm-0x4
+    1f4f:	41 01 85 b0 02 00 00 	add    %eax,0x2b0(%r13)
+    1f56:	0f b7 45 10          	movzwl 0x10(%rbp),%eax
+    1f5a:	48 01 e8             	add    %rbp,%rax
+    1f5d:	83 38 ff             	cmpl   $0xffffffff,(%rax)
+    1f60:	75 a8                	jne    1f0a <gingetbitmap+0x8ca>
+    1f62:	44 89 ff             	mov    %r15d,%edi
+    1f65:	4c 89 ed             	mov    %r13,%rbp
+    1f68:	e8 00 00 00 00       	call   1f6d <gingetbitmap+0x92d>	1f69: R_X86_64_PLT32	UnlockReleaseBuffer-0x4
+    1f6d:	41 8b 7e 04          	mov    0x4(%r14),%edi
+    1f71:	be 01 00 00 00       	mov    $0x1,%esi
+    1f76:	e8 00 00 00 00       	call   1f7b <gingetbitmap+0x93b>	1f77: R_X86_64_PLT32	LockBufferInternal-0x4
+    1f7b:	41 8b 7e 04          	mov    0x4(%r14),%edi
+    1f7f:	85 ff                	test   %edi,%edi
+    1f81:	0f 88 2b 01 00 00    	js     20b2 <gingetbitmap+0xa72>
+    1f87:	8d 47 ff             	lea    -0x1(%rdi),%eax
+    1f8a:	48 98                	cltq
+    1f8c:	48 c1 e0 0d          	shl    $0xd,%rax
+    1f90:	48 03 05 00 00 00 00 	add    0x0(%rip),%rax        # 1f97 <gingetbitmap+0x957>	1f93: R_X86_64_PC32	BufferBlocks-0x4
+    1f97:	0f b7 50 10          	movzwl 0x10(%rax),%edx
+    1f9b:	f6 44 10 06 02       	testb  $0x2,0x6(%rax,%rdx,1)
+    1fa0:	75 54                	jne    1ff6 <gingetbitmap+0x9b6>
+    1fa2:	e9 2b 01 00 00       	jmp    20d2 <gingetbitmap+0xa92>
+    1fa7:	66 0f 1f 84 00 00 00 00 00 	nopw   0x0(%rax,%rax,1)
+    1fb0:	8d 70 ff             	lea    -0x1(%rax),%esi
+    1fb3:	48 63 f6             	movslq %esi,%rsi
+    1fb6:	48 c1 e6 0d          	shl    $0xd,%rsi
+    1fba:	48 03 35 00 00 00 00 	add    0x0(%rip),%rsi        # 1fc1 <gingetbitmap+0x981>	1fbd: R_X86_64_PC32	BufferBlocks-0x4
+    1fc1:	41 0f b7 46 08       	movzwl 0x8(%r14),%eax
+    1fc6:	48 8b bc 24 10 01 00 00 	mov    0x110(%rsp),%rdi
+    1fce:	83 e8 01             	sub    $0x1,%eax
+    1fd1:	48 98                	cltq
+    1fd3:	0f b7 44 86 18       	movzwl 0x18(%rsi,%rax,4),%eax
+    1fd8:	25 ff 7f 00 00       	and    $0x7fff,%eax
+    1fdd:	4c 8d 2c 06          	lea    (%rsi,%rax,1),%r13
+    1fe1:	4c 89 ee             	mov    %r13,%rsi
+    1fe4:	e8 00 00 00 00       	call   1fe9 <gingetbitmap+0x9a9>	1fe5: R_X86_64_PLT32	gintuple_get_attrnum-0x4
+    1fe9:	66 39 44 24 10       	cmp    %ax,0x10(%rsp)
+    1fee:	74 40                	je     2030 <gingetbitmap+0x9f0>
+    1ff0:	66 41 83 46 08 01    	addw   $0x1,0x8(%r14)
+    1ff6:	48 8b 14 24          	mov    (%rsp),%rdx
+    1ffa:	48 8b 7c 24 08       	mov    0x8(%rsp),%rdi
+    1fff:	4c 89 f6             	mov    %r14,%rsi
+    2002:	e8 39 e8 ff ff       	call   840 <moveRightIfItNeeded>
+    2007:	84 c0                	test   %al,%al
+    2009:	0f 84 00 00 00 00    	je     200f <gingetbitmap+0x9cf>	200b: R_X86_64_PC32	.text.unlikely+0x2e
+    200f:	41 8b 46 04          	mov    0x4(%r14),%eax
+    2013:	85 c0                	test   %eax,%eax
+    2015:	79 99                	jns    1fb0 <gingetbitmap+0x970>
+    2017:	48 8b 15 00 00 00 00 	mov    0x0(%rip),%rdx        # 201e <gingetbitmap+0x9de>	201a: R_X86_64_PC32	LocalBufferBlockPointers-0x4
+    201e:	f7 d0                	not    %eax
+    2020:	48 98                	cltq
+    2022:	48 8b 34 c2          	mov    (%rdx,%rax,8),%rsi
+    2026:	eb 99                	jmp    1fc1 <gingetbitmap+0x981>
+    2028:	0f 1f 84 00 00 00 00 00 	nopl   0x0(%rax,%rax,1)
+    2030:	48 8b bc 24 10 01 00 00 	mov    0x110(%rsp),%rdi
+    2038:	4c 89 e2             	mov    %r12,%rdx
+    203b:	4c 89 ee             	mov    %r13,%rsi
+    203e:	e8 00 00 00 00       	call   2043 <gingetbitmap+0xa03>	203f: R_X86_64_PLT32	gintuple_get_key-0x4
+    2043:	0f b6 94 24 af 00 00 00 	movzbl 0xaf(%rsp),%edx
+    204b:	48 8b bc 24 10 01 00 00 	mov    0x110(%rsp),%rdi
+    2053:	3a 94 24 30 01 00 00 	cmp    0x130(%rsp),%dl
+    205a:	75 94                	jne    1ff0 <gingetbitmap+0x9b0>
+    205c:	84 d2                	test   %dl,%dl
+    205e:	0f 85 90 fb ff ff    	jne    1bf4 <gingetbitmap+0x5b4>
+    2064:	48 8b 4c 24 18       	mov    0x18(%rsp),%rcx
+    2069:	48 89 c2             	mov    %rax,%rdx
+    206c:	8b 74 8f 08          	mov    0x8(%rdi,%rcx,4),%esi
+    2070:	48 8b 4c 24 30       	mov    0x30(%rsp),%rcx
+    2075:	48 01 cf             	add    %rcx,%rdi
+    2078:	48 89 d9             	mov    %rbx,%rcx
+    207b:	e8 00 00 00 00       	call   2080 <gingetbitmap+0xa40>	207c: R_X86_64_PLT32	FunctionCall2Coll-0x4
+    2080:	85 c0                	test   %eax,%eax
+    2082:	0f 85 68 ff ff ff    	jne    1ff0 <gingetbitmap+0x9b0>
+    2088:	0f b6 84 24 af 00 00 00 	movzbl 0xaf(%rsp),%eax
+    2090:	84 c0                	test   %al,%al
+    2092:	0f 85 5c fb ff ff    	jne    1bf4 <gingetbitmap+0x5b4>
+    2098:	48 8b 44 24 40       	mov    0x40(%rsp),%rax
+    209d:	48 8b 4c 24 48       	mov    0x48(%rsp),%rcx
+    20a2:	80 7c c8 24 00       	cmpb   $0x0,0x24(%rax,%rcx,8)
+    20a7:	0f 85 47 fb ff ff    	jne    1bf4 <gingetbitmap+0x5b4>
+    20ad:	e9 3a fb ff ff       	jmp    1bec <gingetbitmap+0x5ac>
+    20b2:	89 f8                	mov    %edi,%eax
+    20b4:	48 8b 15 00 00 00 00 	mov    0x0(%rip),%rdx        # 20bb <gingetbitmap+0xa7b>	20b7: R_X86_64_PC32	LocalBufferBlockPointers-0x4
+    20bb:	f7 d0                	not    %eax
+    20bd:	48 98                	cltq
+    20bf:	48 8b 04 c2          	mov    (%rdx,%rax,8),%rax
+    20c3:	0f b7 50 10          	movzwl 0x10(%rax),%edx
+    20c7:	f6 44 10 06 02       	testb  $0x2,0x6(%rax,%rdx,1)
+    20cc:	0f 85 24 ff ff ff    	jne    1ff6 <gingetbitmap+0x9b6>
+    20d2:	48 8b 45 30          	mov    0x30(%rbp),%rax
+    20d6:	48 85 c0             	test   %rax,%rax
+    20d9:	74 2e                	je     2109 <gingetbitmap+0xac9>
+    20db:	48 8b 7d 38          	mov    0x38(%rbp),%rdi
+    20df:	48 85 ff             	test   %rdi,%rdi
+    20e2:	74 09                	je     20ed <gingetbitmap+0xaad>
+    20e4:	e8 00 00 00 00       	call   20e9 <gingetbitmap+0xaa9>	20e5: R_X86_64_PLT32	tbm_end_private_iterate-0x4
+    20e9:	48 8b 45 30          	mov    0x30(%rbp),%rax
+    20ed:	48 c7 45 38 00 00 00 00 	movq   $0x0,0x38(%rbp)
+    20f5:	48 89 c7             	mov    %rax,%rdi
+    20f8:	e8 00 00 00 00       	call   20fd <gingetbitmap+0xabd>	20f9: R_X86_64_PLT32	tbm_free-0x4
+    20fd:	48 c7 45 30 00 00 00 00 	movq   $0x0,0x30(%rbp)
+    2105:	41 8b 7e 04          	mov    0x4(%r14),%edi
+    2109:	e8 00 00 00 00       	call   210e <gingetbitmap+0xace>	210a: R_X86_64_PLT32	UnlockBuffer-0x4
+    210e:	4c 89 f7             	mov    %r14,%rdi
+    2111:	e8 00 00 00 00       	call   2116 <gingetbitmap+0xad6>	2112: R_X86_64_PLT32	freeGinBtreeStack-0x4
+    2116:	e9 9f f8 ff ff       	jmp    19ba <gingetbitmap+0x37a>
+    211b:	48 8b 44 24 40       	mov    0x40(%rsp),%rax
+    2120:	48 8b 4c 24 48       	mov    0x48(%rsp),%rcx
+    2125:	48 89 df             	mov    %rbx,%rdi
+    2128:	0f bf 54 c8 22       	movswl 0x22(%rax,%rcx,8),%edx
+    212d:	0f b6 74 c8 24       	movzbl 0x24(%rax,%rcx,8),%esi
+    2132:	e8 00 00 00 00       	call   2137 <gingetbitmap+0xaf7>	2133: R_X86_64_PLT32	datumCopy-0x4
+    2137:	48 89 c3             	mov    %rax,%rbx
+    213a:	e9 47 fd ff ff       	jmp    1e86 <gingetbitmap+0x846>
+    213f:	48 8b 15 00 00 00 00 	mov    0x0(%rip),%rdx        # 2146 <gingetbitmap+0xb06>	2142: R_X86_64_PC32	LocalBufferBlockPointers-0x4
+    2146:	f7 d0                	not    %eax
+    2148:	48 98                	cltq
+    214a:	48 8b 04 c2          	mov    (%rdx,%rax,8),%rax
+    214e:	e9 44 f9 ff ff       	jmp    1a97 <gingetbitmap+0x457>
+    2153:	49 89 ef             	mov    %rbp,%r15
+    2156:	e9 4d fb ff ff       	jmp    1ca8 <gingetbitmap+0x668>
+    215b:	48 8b 7c 24 08       	mov    0x8(%rsp),%rdi
+    2160:	49 89 ef             	mov    %rbp,%r15
+    2163:	48 89 c3             	mov    %rax,%rbx
+    2166:	4c 89 f6             	mov    %r14,%rsi
+    2169:	ff 94 24 c8 00 00 00 	call   *0xc8(%rsp)
+    2170:	84 c0                	test   %al,%al
+    2172:	0f 84 60 01 00 00    	je     22d8 <gingetbitmap+0xc98>
+    2178:	41 0f b7 46 08       	movzwl 0x8(%r14),%eax
+    217d:	83 e8 01             	sub    $0x1,%eax
+    2180:	48 98                	cltq
+    2182:	0f b7 44 83 18       	movzwl 0x18(%rbx,%rax,4),%eax
+    2187:	25 ff 7f 00 00       	and    $0x7fff,%eax
+    218c:	48 01 c3             	add    %rax,%rbx
+    218f:	66 83 7b 04 ff       	cmpw   $0xffff,0x4(%rbx)
+    2194:	74 79                	je     220f <gingetbitmap+0xbcf>
+    2196:	41 8b 7e 04          	mov    0x4(%r14),%edi
+    219a:	e8 00 00 00 00       	call   219f <gingetbitmap+0xb5f>	219b: R_X86_64_PLT32	BufferGetBlockNumber-0x4
+    219f:	48 8b 14 24          	mov    (%rsp),%rdx
+    21a3:	89 c6                	mov    %eax,%esi
+    21a5:	48 8b 44 24 58       	mov    0x58(%rsp),%rax
+    21aa:	48 8b 78 08          	mov    0x8(%rax),%rdi
+    21ae:	e8 00 00 00 00       	call   21b3 <gingetbitmap+0xb73>	21af: R_X86_64_PLT32	PredicateLockPage-0x4
+    21b3:	66 83 7b 04 00       	cmpw   $0x0,0x4(%rbx)
+    21b8:	0f 84 ff fa ff ff    	je     1cbd <gingetbitmap+0x67d>
+    21be:	0f b7 75 20          	movzwl 0x20(%rbp),%esi
+    21c2:	48 8b 7c 24 50       	mov    0x50(%rsp),%rdi
+    21c7:	48 8d 8d a8 02 00 00 	lea    0x2a8(%rbp),%rcx
+    21ce:	48 89 da             	mov    %rbx,%rdx
+    21d1:	e8 00 00 00 00       	call   21d6 <gingetbitmap+0xb96>	21d2: R_X86_64_PLT32	ginReadTuple-0x4
+    21d6:	c6 85 ae 02 00 00 00 	movb   $0x0,0x2ae(%rbp)
+    21dd:	48 89 85 a0 02 00 00 	mov    %rax,0x2a0(%rbp)
+    21e4:	8b 85 a8 02 00 00    	mov    0x2a8(%rbp),%eax
+    21ea:	89 85 b0 02 00 00    	mov    %eax,0x2b0(%rbp)
+    21f0:	e9 c8 fa ff ff       	jmp    1cbd <gingetbitmap+0x67d>
+    21f5:	49 8b 7f 30          	mov    0x30(%r15),%rdi
+    21f9:	e8 00 00 00 00       	call   21fe <gingetbitmap+0xbbe>	21fa: R_X86_64_PLT32	tbm_begin_private_iterate-0x4
+    21fe:	41 c6 87 ae 02 00 00 00 	movb   $0x0,0x2ae(%r15)
+    2206:	49 89 47 38          	mov    %rax,0x38(%r15)
+    220a:	e9 ae fa ff ff       	jmp    1cbd <gingetbitmap+0x67d>
+    220f:	0f b7 03             	movzwl (%rbx),%eax
+    2212:	0f b7 53 02          	movzwl 0x2(%rbx),%edx
+    2216:	48 8b 6c 24 58       	mov    0x58(%rsp),%rbp
+    221b:	c1 e0 10             	shl    $0x10,%eax
+    221e:	09 d0                	or     %edx,%eax
+    2220:	48 8b 7d 08          	mov    0x8(%rbp),%rdi
+    2224:	48 8b 14 24          	mov    (%rsp),%rdx
+    2228:	89 c6                	mov    %eax,%esi
+    222a:	89 c3                	mov    %eax,%ebx
+    222c:	e8 00 00 00 00       	call   2231 <gingetbitmap+0xbf1>	222d: R_X86_64_PLT32	PredicateLockPage-0x4
+    2231:	41 8b 7e 04          	mov    0x4(%r14),%edi
+    2235:	e8 00 00 00 00       	call   223a <gingetbitmap+0xbfa>	2236: R_X86_64_PLT32	UnlockBuffer-0x4
+    223a:	48 8b 75 08          	mov    0x8(%rbp),%rsi
+    223e:	89 da                	mov    %ebx,%edx
+    2240:	49 8d bf b8 02 00 00 	lea    0x2b8(%r15),%rdi
+    2247:	e8 00 00 00 00       	call   224c <gingetbitmap+0xc0c>	2248: R_X86_64_PLT32	ginScanBeginPostingTree-0x4
+    224c:	8b 78 04             	mov    0x4(%rax),%edi
+    224f:	48 89 c3             	mov    %rax,%rbx
+    2252:	41 89 7f 24          	mov    %edi,0x24(%r15)
+    2256:	e8 00 00 00 00       	call   225b <gingetbitmap+0xc1b>	2257: R_X86_64_PLT32	IncrBufferRefCount-0x4
+    225b:	41 8b 47 24          	mov    0x24(%r15),%eax
+    225f:	85 c0                	test   %eax,%eax
+    2261:	0f 88 ed 0d 00 00    	js     3054 <gingetbitmap+0x1a14>
+    2267:	8d 78 ff             	lea    -0x1(%rax),%edi
+    226a:	48 63 ff             	movslq %edi,%rdi
+    226d:	48 c1 e7 0d          	shl    $0xd,%rdi
+    2271:	48 03 3d 00 00 00 00 	add    0x0(%rip),%rdi        # 2278 <gingetbitmap+0xc38>	2274: R_X86_64_PC32	BufferBlocks-0x4
+    2278:	31 ed                	xor    %ebp,%ebp
+    227a:	49 8d b7 a8 02 00 00 	lea    0x2a8(%r15),%rsi
+    2281:	c7 84 24 30 01 00 00 00 00 00 00 	movl   $0x0,0x130(%rsp)
+    228c:	66 89 ac 24 34 01 00 00 	mov    %bp,0x134(%rsp)
+    2294:	48 8b 94 24 30 01 00 00 	mov    0x130(%rsp),%rdx
+    229c:	e8 00 00 00 00       	call   22a1 <gingetbitmap+0xc61>	229d: R_X86_64_PLT32	GinDataLeafPageGetItems-0x4
+    22a1:	41 8b 7f 24          	mov    0x24(%r15),%edi
+    22a5:	49 89 87 a0 02 00 00 	mov    %rax,0x2a0(%r15)
+    22ac:	8b 43 10             	mov    0x10(%rbx),%eax
+    22af:	41 0f af 87 a8 02 00 00 	imul   0x2a8(%r15),%eax
+    22b7:	41 89 87 b0 02 00 00 	mov    %eax,0x2b0(%r15)
+    22be:	e8 00 00 00 00       	call   22c3 <gingetbitmap+0xc83>	22bf: R_X86_64_PLT32	UnlockBuffer-0x4
+    22c3:	48 89 df             	mov    %rbx,%rdi
+    22c6:	e8 00 00 00 00       	call   22cb <gingetbitmap+0xc8b>	22c7: R_X86_64_PLT32	freeGinBtreeStack-0x4
+    22cb:	41 c6 87 ae 02 00 00 00 	movb   $0x0,0x2ae(%r15)
+    22d3:	e9 ee f9 ff ff       	jmp    1cc6 <gingetbitmap+0x686>
+    22d8:	41 8b 7e 04          	mov    0x4(%r14),%edi
+    22dc:	e8 00 00 00 00       	call   22e1 <gingetbitmap+0xca1>	22dd: R_X86_64_PLT32	BufferGetBlockNumber-0x4
+    22e1:	48 8b 14 24          	mov    (%rsp),%rdx
+    22e5:	89 c6                	mov    %eax,%esi
+    22e7:	48 8b 44 24 58       	mov    0x58(%rsp),%rax
+    22ec:	48 8b 78 08          	mov    0x8(%rax),%rdi
+    22f0:	e8 00 00 00 00       	call   22f5 <gingetbitmap+0xcb5>	22f1: R_X86_64_PLT32	PredicateLockPage-0x4
+    22f5:	e9 c3 f9 ff ff       	jmp    1cbd <gingetbitmap+0x67d>
+    22fa:	49 8b 87 e0 25 00 00 	mov    0x25e0(%r15),%rax
+    2301:	be 01 00 00 00       	mov    $0x1,%esi
+    2306:	bf 08 00 00 00       	mov    $0x8,%edi
+    230b:	c7 43 18 01 00 00 00 	movl   $0x1,0x18(%rbx)
+    2312:	c7 43 28 00 00 00 00 	movl   $0x0,0x28(%rbx)
+    2319:	48 89 05 00 00 00 00 	mov    %rax,0x0(%rip)        # 2320 <gingetbitmap+0xce0>	231c: R_X86_64_PC32	CurrentMemoryContext-0x4
+    2320:	e8 00 00 00 00       	call   2325 <gingetbitmap+0xce5>	2321: R_X86_64_PLT32	palloc_mul-0x4
+    2325:	48 8b 53 08          	mov    0x8(%rbx),%rdx
+    2329:	48 89 43 10          	mov    %rax,0x10(%rbx)
+    232d:	48 8b 12             	mov    (%rdx),%rdx
+    2330:	48 89 10             	mov    %rdx,(%rax)
+    2333:	48 8b 44 24 08       	mov    0x8(%rsp),%rax
+    2338:	48 81 04 24 98 00 00 00 	addq   $0x98,(%rsp)
+    2340:	83 c5 01             	add    $0x1,%ebp
+    2343:	48 89 05 00 00 00 00 	mov    %rax,0x0(%rip)        # 234a <gingetbitmap+0xd0a>	2346: R_X86_64_PC32	CurrentMemoryContext-0x4
+    234a:	41 3b af c8 25 00 00 	cmp    0x25c8(%r15),%ebp
+    2351:	0f 82 fd f9 ff ff    	jb     1d54 <gingetbitmap+0x714>
+    2357:	45 31 c0             	xor    %r8d,%r8d
+    235a:	45 31 c9             	xor    %r9d,%r9d
+    235d:	45 31 d2             	xor    %r10d,%r10d
+    2360:	45 31 db             	xor    %r11d,%r11d
+    2363:	c7 84 24 b0 00 00 00 00 00 00 00 	movl   $0x0,0xb0(%rsp)
+    236e:	66 44 89 84 24 b4 00 00 00 	mov    %r8w,0xb4(%rsp)
+    2377:	66 44 89 4c 24 08    	mov    %r9w,0x8(%rsp)
+    237d:	66 44 89 54 24 10    	mov    %r10w,0x10(%rsp)
+    2383:	66 44 89 1c 24       	mov    %r11w,(%rsp)
+    2388:	48 8b 44 24 70       	mov    0x70(%rsp),%rax
+    238d:	48 8b 40 38          	mov    0x38(%rax),%rax
+    2391:	48 89 84 24 88 00 00 00 	mov    %rax,0x88(%rsp)
+    2399:	8b 05 00 00 00 00    	mov    0x0(%rip),%eax        # 239f <gingetbitmap+0xd5f>	239b: R_X86_64_PC32	InterruptPending-0x4
+    239f:	85 c0                	test   %eax,%eax
+    23a1:	0f 85 6a 06 00 00    	jne    2a11 <gingetbitmap+0x13d1>
+    23a7:	4c 8b bc 24 88 00 00 00 	mov    0x88(%rsp),%r15
+    23af:	31 c0                	xor    %eax,%eax
+    23b1:	c7 84 24 b0 00 00 00 00 00 00 00 	movl   $0x0,0xb0(%rsp)
+    23bc:	66 89 84 24 b4 00 00 00 	mov    %ax,0xb4(%rsp)
+    23c4:	41 8b 87 c8 25 00 00 	mov    0x25c8(%r15),%eax
+    23cb:	85 c0                	test   %eax,%eax
+    23cd:	0f 84 66 0a 00 00    	je     2e39 <gingetbitmap+0x17f9>
+    23d3:	49 8d 4f 08          	lea    0x8(%r15),%rcx
+    23d7:	31 c0                	xor    %eax,%eax
+    23d9:	31 db                	xor    %ebx,%ebx
+    23db:	48 c7 44 24 18 00 00 00 00 	movq   $0x0,0x18(%rsp)
+    23e4:	48 89 4c 24 38       	mov    %rcx,0x38(%rsp)
+    23e9:	0f 1f 80 00 00 00 00 	nopl   0x0(%rax)
+    23f0:	4c 8b 74 24 18       	mov    0x18(%rsp),%r14
+    23f5:	4d 03 b7 c0 25 00 00 	add    0x25c0(%r15),%r14
+    23fc:	66 83 f8 ff          	cmp    $0xffff,%ax
+    2400:	75 28                	jne    242a <gingetbitmap+0xdea>
+    2402:	0f b7 84 24 b0 00 00 00 	movzwl 0xb0(%rsp),%eax
+    240a:	0f b7 94 24 b2 00 00 00 	movzwl 0xb2(%rsp),%edx
+    2412:	c1 e0 10             	shl    $0x10,%eax
+    2415:	09 d0                	or     %edx,%eax
+    2417:	83 f8 ff             	cmp    $0xffffffff,%eax
+    241a:	74 0e                	je     242a <gingetbitmap+0xdea>
+    241c:	41 80 be 8a 00 00 00 00 	cmpb   $0x0,0x8a(%r14)
+    2424:	0f 85 0c 02 00 00    	jne    2636 <gingetbitmap+0xff6>
+    242a:	49 8b 07             	mov    (%r15),%rax
+    242d:	41 0f b7 96 8e 00 00 00 	movzwl 0x8e(%r14),%edx
+    2435:	8b 4c 24 10          	mov    0x10(%rsp),%ecx
+    2439:	48 89 44 24 20       	mov    %rax,0x20(%rsp)
+    243e:	41 0f b7 86 8c 00 00 00 	movzwl 0x8c(%r14),%eax
+    2446:	c1 e1 10             	shl    $0x10,%ecx
+    2449:	c1 e0 10             	shl    $0x10,%eax
+    244c:	09 d0                	or     %edx,%eax
+    244e:	41 0f b7 96 90 00 00 00 	movzwl 0x90(%r14),%edx
+    2456:	48 c1 e0 20          	shl    $0x20,%rax
+    245a:	48 09 d0             	or     %rdx,%rax
+    245d:	0f b7 54 24 08       	movzwl 0x8(%rsp),%edx
+    2462:	09 d1                	or     %edx,%ecx
+    2464:	0f b7 14 24          	movzwl (%rsp),%edx
+    2468:	49 89 cd             	mov    %rcx,%r13
+    246b:	89 4c 24 40          	mov    %ecx,0x40(%rsp)
+    246f:	49 c1 e5 20          	shl    $0x20,%r13
+    2473:	49 09 d5             	or     %rdx,%r13
+    2476:	31 d2                	xor    %edx,%edx
+    2478:	49 39 c5             	cmp    %rax,%r13
+    247b:	0f 92 c2             	setb   %dl
+    247e:	4c 39 e8             	cmp    %r13,%rax
+    2481:	89 d0                	mov    %edx,%eax
+    2483:	83 d8 00             	sbb    $0x0,%eax
+    2486:	83 f8 01             	cmp    $0x1,%eax
+    2489:	0f 84 31 06 00 00    	je     2ac0 <gingetbitmap+0x1480>
+    248f:	41 8b 46 18          	mov    0x18(%r14),%eax
+    2493:	85 c0                	test   %eax,%eax
+    2495:	0f 8e 41 07 00 00    	jle    2bdc <gingetbitmap+0x159c>
+    249b:	b9 ff ff ff ff       	mov    $0xffffffff,%ecx
+    24a0:	4c 89 e8             	mov    %r13,%rax
+    24a3:	4c 89 7c 24 48       	mov    %r15,0x48(%rsp)
+    24a8:	45 31 d2             	xor    %r10d,%r10d
+    24ab:	41 b8 ff ff ff ff    	mov    $0xffffffff,%r8d
+    24b1:	41 b9 01 00 00 00    	mov    $0x1,%r9d
+    24b7:	89 5c 24 50          	mov    %ebx,0x50(%rsp)
+    24bb:	41 89 cd             	mov    %ecx,%r13d
+    24be:	4c 89 f3             	mov    %r14,%rbx
+    24c1:	41 bc ff ff ff ff    	mov    $0xffffffff,%r12d
+    24c7:	45 89 cf             	mov    %r9d,%r15d
+    24ca:	45 89 c6             	mov    %r8d,%r14d
+    24cd:	48 89 c1             	mov    %rax,%rcx
+    24d0:	eb 51                	jmp    2523 <gingetbitmap+0xee3>
+    24d2:	66 0f 1f 44 00 00    	nopw   0x0(%rax,%rax,1)
+    24d8:	44 89 f2             	mov    %r14d,%edx
+    24db:	45 0f b7 cd          	movzwl %r13w,%r9d
+    24df:	c1 e2 10             	shl    $0x10,%edx
+    24e2:	44 09 ca             	or     %r9d,%edx
+    24e5:	45 0f b7 cc          	movzwl %r12w,%r9d
+    24e9:	48 c1 e2 20          	shl    $0x20,%rdx
+    24ed:	4c 09 ca             	or     %r9,%rdx
+    24f0:	45 31 c9             	xor    %r9d,%r9d
+    24f3:	48 39 c2             	cmp    %rax,%rdx
+    24f6:	41 0f 92 c1          	setb   %r9b
+    24fa:	48 39 d0             	cmp    %rdx,%rax
+    24fd:	44 89 c8             	mov    %r9d,%eax
+    2500:	83 d8 00             	sbb    $0x0,%eax
+    2503:	83 f8 ff             	cmp    $0xffffffff,%eax
+    2506:	45 0f 44 e3          	cmove  %r11d,%r12d
+    250a:	44 0f 44 ef          	cmove  %edi,%r13d
+    250e:	44 0f 44 f6          	cmove  %esi,%r14d
+    2512:	45 31 ff             	xor    %r15d,%r15d
+    2515:	49 83 c2 01          	add    $0x1,%r10
+    2519:	44 39 53 18          	cmp    %r10d,0x18(%rbx)
+    251d:	0f 8e 3d 01 00 00    	jle    2660 <gingetbitmap+0x1020>
+    2523:	48 8b 43 10          	mov    0x10(%rbx),%rax
+    2527:	4a 8b 2c d0          	mov    (%rax,%r10,8),%rbp
+    252b:	80 bd ae 02 00 00 00 	cmpb   $0x0,0x2ae(%rbp)
+    2532:	75 e1                	jne    2515 <gingetbitmap+0xed5>
+    2534:	0f b7 75 28          	movzwl 0x28(%rbp),%esi
+    2538:	0f b7 55 2a          	movzwl 0x2a(%rbp),%edx
+    253c:	44 0f b7 5d 2c       	movzwl 0x2c(%rbp),%r11d
+    2541:	89 f0                	mov    %esi,%eax
+    2543:	89 d7                	mov    %edx,%edi
+    2545:	c1 e0 10             	shl    $0x10,%eax
+    2548:	09 d0                	or     %edx,%eax
+    254a:	41 0f b7 d3          	movzwl %r11w,%edx
+    254e:	48 c1 e0 20          	shl    $0x20,%rax
+    2552:	48 09 d0             	or     %rdx,%rax
+    2555:	31 d2                	xor    %edx,%edx
+    2557:	48 39 c1             	cmp    %rax,%rcx
+    255a:	0f 92 c2             	setb   %dl
+    255d:	48 39 c8             	cmp    %rcx,%rax
+    2560:	83 da 00             	sbb    $0x0,%edx
+    2563:	83 fa 01             	cmp    $0x1,%edx
+    2566:	0f 84 6c ff ff ff    	je     24d8 <gingetbitmap+0xe98>
+    256c:	0f b7 44 24 10       	movzwl 0x10(%rsp),%eax
+    2571:	48 8b 7c 24 38       	mov    0x38(%rsp),%rdi
+    2576:	48 89 ee             	mov    %rbp,%rsi
+    2579:	4c 89 54 24 30       	mov    %r10,0x30(%rsp)
+    257e:	48 89 4c 24 28       	mov    %rcx,0x28(%rsp)
+    2583:	66 89 84 24 30 01 00 00 	mov    %ax,0x130(%rsp)
+    258b:	0f b7 44 24 08       	movzwl 0x8(%rsp),%eax
+    2590:	66 89 84 24 32 01 00 00 	mov    %ax,0x132(%rsp)
+    2598:	0f b7 04 24          	movzwl (%rsp),%eax
+    259c:	66 89 84 24 34 01 00 00 	mov    %ax,0x134(%rsp)
+    25a4:	48 8b 94 24 30 01 00 00 	mov    0x130(%rsp),%rdx
+    25ac:	e8 bf eb ff ff       	call   1170 <entryGetItem>
+    25b1:	48 8b 4c 24 28       	mov    0x28(%rsp),%rcx
+    25b6:	4c 8b 54 24 30       	mov    0x30(%rsp),%r10
+    25bb:	80 bd ae 02 00 00 00 	cmpb   $0x0,0x2ae(%rbp)
+    25c2:	0f 85 4d ff ff ff    	jne    2515 <gingetbitmap+0xed5>
+    25c8:	0f b7 75 28          	movzwl 0x28(%rbp),%esi
+    25cc:	0f b7 55 2a          	movzwl 0x2a(%rbp),%edx
+    25d0:	44 0f b7 5d 2c       	movzwl 0x2c(%rbp),%r11d
+    25d5:	89 f0                	mov    %esi,%eax
+    25d7:	89 d7                	mov    %edx,%edi
+    25d9:	c1 e0 10             	shl    $0x10,%eax
+    25dc:	09 d0                	or     %edx,%eax
+    25de:	41 0f b7 d3          	movzwl %r11w,%edx
+    25e2:	48 c1 e0 20          	shl    $0x20,%rax
+    25e6:	48 09 d0             	or     %rdx,%rax
+    25e9:	e9 ea fe ff ff       	jmp    24d8 <gingetbitmap+0xe98>
+    25ee:	ba ff ff ff ff       	mov    $0xffffffff,%edx
+    25f3:	be ff ff ff ff       	mov    $0xffffffff,%esi
+    25f8:	bf fe ff ff ff       	mov    $0xfffffffe,%edi
+    25fd:	66 89 54 24 08       	mov    %dx,0x8(%rsp)
+    2602:	66 89 74 24 10       	mov    %si,0x10(%rsp)
+    2607:	66 89 3c 24          	mov    %di,(%rsp)
+    260b:	85 db                	test   %ebx,%ebx
+    260d:	0f 85 87 03 00 00    	jne    299a <gingetbitmap+0x135a>
+    2613:	0f 1f 44 00 00       	nopl   0x0(%rax,%rax,1)
+    2618:	41 8b 86 8c 00 00 00 	mov    0x8c(%r14),%eax
+    261f:	89 84 24 b0 00 00 00 	mov    %eax,0xb0(%rsp)
+    2626:	41 0f b7 86 90 00 00 00 	movzwl 0x90(%r14),%eax
+    262e:	66 89 84 24 b4 00 00 00 	mov    %ax,0xb4(%rsp)
+    2636:	41 8b 87 c8 25 00 00 	mov    0x25c8(%r15),%eax
+    263d:	83 c3 01             	add    $0x1,%ebx
+    2640:	39 c3                	cmp    %eax,%ebx
+    2642:	0f 83 e6 04 00 00    	jae    2b2e <gingetbitmap+0x14ee>
+    2648:	48 81 44 24 18 98 00 00 00 	addq   $0x98,0x18(%rsp)
+    2651:	0f b7 84 24 b4 00 00 00 	movzwl 0xb4(%rsp),%eax
+    2659:	e9 92 fd ff ff       	jmp    23f0 <gingetbitmap+0xdb0>
+    265e:	66 90                	xchg   %ax,%ax
+    2660:	45 89 f0             	mov    %r14d,%r8d
+    2663:	45 89 f9             	mov    %r15d,%r9d
+    2666:	49 89 de             	mov    %rbx,%r14
+    2669:	4c 8b 7c 24 48       	mov    0x48(%rsp),%r15
+    266e:	8b 5c 24 50          	mov    0x50(%rsp),%ebx
+    2672:	41 0f b6 86 8a 00 00 00 	movzbl 0x8a(%r14),%eax
+    267a:	44 89 e9             	mov    %r13d,%ecx
+    267d:	45 84 c9             	test   %r9b,%r9b
+    2680:	0f 85 56 05 00 00    	jne    2bdc <gingetbitmap+0x159c>
+    2686:	84 c0                	test   %al,%al
+    2688:	0f 85 58 05 00 00    	jne    2be6 <gingetbitmap+0x15a6>
+    268e:	44 89 c5             	mov    %r8d,%ebp
+    2691:	41 0f b7 c5          	movzwl %r13w,%eax
+    2695:	c1 e5 10             	shl    $0x10,%ebp
+    2698:	09 c5                	or     %eax,%ebp
+    269a:	66 41 83 fc ff       	cmp    $0xffff,%r12w
+    269f:	0f 84 db 05 00 00    	je     2c80 <gingetbitmap+0x1640>
+    26a5:	41 8d 44 24 ff       	lea    -0x1(%r12),%eax
+    26aa:	41 89 eb             	mov    %ebp,%r11d
+    26ad:	66 89 44 24 28       	mov    %ax,0x28(%rsp)
+    26b2:	89 e8                	mov    %ebp,%eax
+    26b4:	c1 e8 10             	shr    $0x10,%eax
+    26b7:	89 44 24 30          	mov    %eax,0x30(%rsp)
+    26bb:	45 8b 6e 28          	mov    0x28(%r14),%r13d
+    26bf:	45 85 ed             	test   %r13d,%r13d
+    26c2:	0f 8e dc 00 00 00    	jle    27a4 <gingetbitmap+0x1164>
+    26c8:	44 8b 4c 24 30       	mov    0x30(%rsp),%r9d
+    26cd:	41 0f b7 c3          	movzwl %r11w,%eax
+    26d1:	45 31 ed             	xor    %r13d,%r13d
+    26d4:	4c 89 7c 24 60       	mov    %r15,0x60(%rsp)
+    26d9:	66 44 89 5c 24 58    	mov    %r11w,0x58(%rsp)
+    26df:	41 c1 e1 10          	shl    $0x10,%r9d
+    26e3:	89 9c 24 90 00 00 00 	mov    %ebx,0x90(%rsp)
+    26ea:	44 89 e3             	mov    %r12d,%ebx
+    26ed:	41 09 c1             	or     %eax,%r9d
+    26f0:	0f b7 44 24 28       	movzwl 0x28(%rsp),%eax
+    26f5:	49 c1 e1 20          	shl    $0x20,%r9
+    26f9:	49 09 c1             	or     %rax,%r9
+    26fc:	4d 89 cc             	mov    %r9,%r12
+    26ff:	90                   	nop
+    2700:	49 8b 46 20          	mov    0x20(%r14),%rax
+    2704:	44 89 c5             	mov    %r8d,%ebp
+    2707:	c1 e5 10             	shl    $0x10,%ebp
+    270a:	4e 8b 3c e8          	mov    (%rax,%r13,8),%r15
+    270e:	0f b7 c1             	movzwl %cx,%eax
+    2711:	09 c5                	or     %eax,%ebp
+    2713:	41 80 bf ae 02 00 00 00 	cmpb   $0x0,0x2ae(%r15)
+    271b:	75 66                	jne    2783 <gingetbitmap+0x1143>
+    271d:	41 0f b7 7f 28       	movzwl 0x28(%r15),%edi
+    2722:	41 0f b7 47 2a       	movzwl 0x2a(%r15),%eax
+    2727:	41 0f b7 77 2c       	movzwl 0x2c(%r15),%esi
+    272c:	89 fa                	mov    %edi,%edx
+    272e:	41 89 c2             	mov    %eax,%r10d
+    2731:	c1 e2 10             	shl    $0x10,%edx
+    2734:	49 89 f3             	mov    %rsi,%r11
+    2737:	09 c2                	or     %eax,%edx
+    2739:	48 89 d0             	mov    %rdx,%rax
+    273c:	48 c1 e0 20          	shl    $0x20,%rax
+    2740:	48 09 f0             	or     %rsi,%rax
+    2743:	31 f6                	xor    %esi,%esi
+    2745:	49 39 c4             	cmp    %rax,%r12
+    2748:	40 0f 92 c6          	setb   %sil
+    274c:	4c 39 e0             	cmp    %r12,%rax
+    274f:	83 de 00             	sbb    $0x0,%esi
+    2752:	83 fe 01             	cmp    $0x1,%esi
+    2755:	0f 85 d5 02 00 00    	jne    2a30 <gingetbitmap+0x13f0>
+    275b:	49 89 ef             	mov    %rbp,%r15
+    275e:	0f b7 f3             	movzwl %bx,%esi
+    2761:	49 c1 e7 20          	shl    $0x20,%r15
+    2765:	4c 09 fe             	or     %r15,%rsi
+    2768:	45 31 ff             	xor    %r15d,%r15d
+    276b:	48 39 c6             	cmp    %rax,%rsi
+    276e:	41 0f 92 c7          	setb   %r15b
+    2772:	48 39 f0             	cmp    %rsi,%rax
+    2775:	41 83 df 00          	sbb    $0x0,%r15d
+    2779:	41 83 ff ff          	cmp    $0xffffffff,%r15d
+    277d:	0f 84 9d 02 00 00    	je     2a20 <gingetbitmap+0x13e0>
+    2783:	89 ea                	mov    %ebp,%edx
+    2785:	49 83 c5 01          	add    $0x1,%r13
+    2789:	45 39 6e 28          	cmp    %r13d,0x28(%r14)
+    278d:	0f 8f 6d ff ff ff    	jg     2700 <gingetbitmap+0x10c0>
+    2793:	41 89 dc             	mov    %ebx,%r12d
+    2796:	4c 8b 7c 24 60       	mov    0x60(%rsp),%r15
+    279b:	8b 9c 24 90 00 00 00 	mov    0x90(%rsp),%ebx
+    27a2:	89 d5                	mov    %edx,%ebp
+    27a4:	45 8b 1e             	mov    (%r14),%r11d
+    27a7:	66 45 89 86 8c 00 00 00 	mov    %r8w,0x8c(%r14)
+    27af:	66 41 89 8e 8e 00 00 00 	mov    %cx,0x8e(%r14)
+    27b7:	66 45 89 a6 90 00 00 00 	mov    %r12w,0x90(%r14)
+    27bf:	45 85 db             	test   %r11d,%r11d
+    27c2:	0f 84 df 04 00 00    	je     2ca7 <gingetbitmap+0x1667>
+    27c8:	49 89 e8             	mov    %rbp,%r8
+    27cb:	45 31 d2             	xor    %r10d,%r10d
+    27ce:	31 c0                	xor    %eax,%eax
+    27d0:	49 c1 e0 20          	shl    $0x20,%r8
+    27d4:	49 81 c8 ff ff 00 00 	or     $0xffff,%r8
+    27db:	0f 1f 44 00 00       	nopl   0x0(%rax,%rax,1)
+    27e0:	49 8b 56 08          	mov    0x8(%r14),%rdx
+    27e4:	49 8b 76 30          	mov    0x30(%r14),%rsi
+    27e8:	31 c9                	xor    %ecx,%ecx
+    27ea:	48 8b 3c c2          	mov    (%rdx,%rax,8),%rdi
+    27ee:	48 01 c6             	add    %rax,%rsi
+    27f1:	80 bf ae 02 00 00 00 	cmpb   $0x0,0x2ae(%rdi)
+    27f8:	75 3d                	jne    2837 <gingetbitmap+0x11f7>
+    27fa:	0f b7 57 28          	movzwl 0x28(%rdi),%edx
+    27fe:	44 0f b7 4f 2a       	movzwl 0x2a(%rdi),%r9d
+    2803:	0f b7 7f 2c          	movzwl 0x2c(%rdi),%edi
+    2807:	c1 e2 10             	shl    $0x10,%edx
+    280a:	44 09 ca             	or     %r9d,%edx
+    280d:	48 c1 e2 20          	shl    $0x20,%rdx
+    2811:	48 09 fa             	or     %rdi,%rdx
+    2814:	49 39 d0             	cmp    %rdx,%r8
+    2817:	40 0f 92 c7          	setb   %dil
+    281b:	4c 39 c2             	cmp    %r8,%rdx
+    281e:	0f 92 c2             	setb   %dl
+    2821:	40 38 d7             	cmp    %dl,%dil
+    2824:	75 11                	jne    2837 <gingetbitmap+0x11f7>
+    2826:	41 3b 46 04          	cmp    0x4(%r14),%eax
+    282a:	41 ba 01 00 00 00    	mov    $0x1,%r10d
+    2830:	19 c9                	sbb    %ecx,%ecx
+    2832:	f7 d1                	not    %ecx
+    2834:	83 c1 02             	add    $0x2,%ecx
+    2837:	88 0e                	mov    %cl,(%rsi)
+    2839:	48 83 c0 01          	add    $0x1,%rax
+    283d:	41 3b 06             	cmp    (%r14),%eax
+    2840:	72 9e                	jb     27e0 <gingetbitmap+0x11a0>
+    2842:	48 8b 44 24 20       	mov    0x20(%rsp),%rax
+    2847:	4c 8b 2d 00 00 00 00 	mov    0x0(%rip),%r13        # 284e <gingetbitmap+0x120e>	284a: R_X86_64_PC32	CurrentMemoryContext-0x4
+    284e:	48 89 05 00 00 00 00 	mov    %rax,0x0(%rip)        # 2855 <gingetbitmap+0x1215>	2851: R_X86_64_PC32	CurrentMemoryContext-0x4
+    2855:	45 84 d2             	test   %r10b,%r10b
+    2858:	74 12                	je     286c <gingetbitmap+0x122c>
+    285a:	4c 89 f7             	mov    %r14,%rdi
+    285d:	41 ff 56 40          	call   *0x40(%r14)
+    2861:	83 e8 01             	sub    $0x1,%eax
+    2864:	3c 01                	cmp    $0x1,%al
+    2866:	0f 86 53 04 00 00    	jbe    2cbf <gingetbitmap+0x167f>
+    286c:	45 8b 16             	mov    (%r14),%r10d
+    286f:	45 85 d2             	test   %r10d,%r10d
+    2872:	0f 84 82 00 00 00    	je     28fa <gingetbitmap+0x12ba>
+    2878:	48 c1 e5 20          	shl    $0x20,%rbp
+    287c:	45 0f b7 e4          	movzwl %r12w,%r12d
+    2880:	31 d2                	xor    %edx,%edx
+    2882:	48 89 e9             	mov    %rbp,%rcx
+    2885:	49 09 ec             	or     %rbp,%r12
+    2888:	48 81 c9 ff ff 00 00 	or     $0xffff,%rcx
+    288f:	90                   	nop
+    2890:	49 8b 46 08          	mov    0x8(%r14),%rax
+    2894:	4d 8b 46 30          	mov    0x30(%r14),%r8
+    2898:	31 ff                	xor    %edi,%edi
+    289a:	48 8b 34 d0          	mov    (%rax,%rdx,8),%rsi
+    289e:	49 01 d0             	add    %rdx,%r8
+    28a1:	80 be ae 02 00 00 00 	cmpb   $0x0,0x2ae(%rsi)
+    28a8:	75 44                	jne    28ee <gingetbitmap+0x12ae>
+    28aa:	0f b7 46 28          	movzwl 0x28(%rsi),%eax
+    28ae:	0f b7 7e 2a          	movzwl 0x2a(%rsi),%edi
+    28b2:	0f b7 76 2c          	movzwl 0x2c(%rsi),%esi
+    28b6:	c1 e0 10             	shl    $0x10,%eax
+    28b9:	09 f8                	or     %edi,%eax
+    28bb:	bf 02 00 00 00       	mov    $0x2,%edi
+    28c0:	48 c1 e0 20          	shl    $0x20,%rax
+    28c4:	48 09 f0             	or     %rsi,%rax
+    28c7:	48 39 c1             	cmp    %rax,%rcx
+    28ca:	41 0f 92 c1          	setb   %r9b
+    28ce:	48 39 c8             	cmp    %rcx,%rax
+    28d1:	40 0f 92 c6          	setb   %sil
+    28d5:	41 38 f1             	cmp    %sil,%r9b
+    28d8:	74 14                	je     28ee <gingetbitmap+0x12ae>
+    28da:	49 39 c4             	cmp    %rax,%r12
+    28dd:	40 0f 92 c6          	setb   %sil
+    28e1:	4c 39 e0             	cmp    %r12,%rax
+    28e4:	0f 92 c0             	setb   %al
+    28e7:	40 38 c6             	cmp    %al,%sil
+    28ea:	40 0f 94 c7          	sete   %dil
+    28ee:	41 88 38             	mov    %dil,(%r8)
+    28f1:	48 83 c2 01          	add    $0x1,%rdx
+    28f5:	41 3b 16             	cmp    (%r14),%edx
+    28f8:	72 96                	jb     2890 <gingetbitmap+0x1250>
+    28fa:	4c 89 f7             	mov    %r14,%rdi
+    28fd:	41 ff 56 40          	call   *0x40(%r14)
+    2901:	3c 01                	cmp    $0x1,%al
+    2903:	0f 84 3e 03 00 00    	je     2c47 <gingetbitmap+0x1607>
+    2909:	3c 02                	cmp    $0x2,%al
+    290b:	0f 84 22 03 00 00    	je     2c33 <gingetbitmap+0x15f3>
+    2911:	84 c0                	test   %al,%al
+    2913:	0f 84 0d 03 00 00    	je     2c26 <gingetbitmap+0x15e6>
+    2919:	41 b9 01 01 00 00    	mov    $0x101,%r9d
+    291f:	66 45 89 8e 92 00 00 00 	mov    %r9w,0x92(%r14)
+    2927:	48 8b 7c 24 20       	mov    0x20(%rsp),%rdi
+    292c:	4c 89 2d 00 00 00 00 	mov    %r13,0x0(%rip)        # 2933 <gingetbitmap+0x12f3>	292f: R_X86_64_PC32	CurrentMemoryContext-0x4
+    2933:	e8 00 00 00 00       	call   2938 <gingetbitmap+0x12f8>	2934: R_X86_64_PLT32	MemoryContextReset-0x4
+    2938:	41 0f b6 86 94 00 00 00 	movzbl 0x94(%r14),%eax
+    2940:	84 c0                	test   %al,%al
+    2942:	0f 85 14 03 00 00    	jne    2c5c <gingetbitmap+0x161c>
+    2948:	41 80 be 92 00 00 00 00 	cmpb   $0x0,0x92(%r14)
+    2950:	0f 84 c5 03 00 00    	je     2d1b <gingetbitmap+0x16db>
+    2956:	41 0f b7 86 8c 00 00 00 	movzwl 0x8c(%r14),%eax
+    295e:	41 0f b7 96 8e 00 00 00 	movzwl 0x8e(%r14),%edx
+    2966:	41 0f b7 8e 90 00 00 00 	movzwl 0x90(%r14),%ecx
+    296e:	c1 e0 10             	shl    $0x10,%eax
+    2971:	09 d0                	or     %edx,%eax
+    2973:	66 83 f9 ff          	cmp    $0xffff,%cx
+    2977:	0f 84 50 01 00 00    	je     2acd <gingetbitmap+0x148d>
+    297d:	8d 79 ff             	lea    -0x1(%rcx),%edi
+    2980:	66 89 44 24 08       	mov    %ax,0x8(%rsp)
+    2985:	66 89 3c 24          	mov    %di,(%rsp)
+    2989:	89 c7                	mov    %eax,%edi
+    298b:	c1 ef 10             	shr    $0x10,%edi
+    298e:	89 7c 24 10          	mov    %edi,0x10(%rsp)
+    2992:	85 db                	test   %ebx,%ebx
+    2994:	0f 84 7e fc ff ff    	je     2618 <gingetbitmap+0xfd8>
+    299a:	0f b7 94 24 b0 00 00 00 	movzwl 0xb0(%rsp),%edx
+    29a2:	0f b7 bc 24 b2 00 00 00 	movzwl 0xb2(%rsp),%edi
+    29aa:	0f b7 b4 24 b4 00 00 00 	movzwl 0xb4(%rsp),%esi
+    29b2:	c1 e2 10             	shl    $0x10,%edx
+    29b5:	09 fa                	or     %edi,%edx
+    29b7:	66 83 fe ff          	cmp    $0xffff,%si
+    29bb:	0f 84 57 02 00 00    	je     2c18 <gingetbitmap+0x15d8>
+    29c1:	48 c1 e0 20          	shl    $0x20,%rax
+    29c5:	48 c1 e2 20          	shl    $0x20,%rdx
+    29c9:	48 09 c8             	or     %rcx,%rax
+    29cc:	48 09 f2             	or     %rsi,%rdx
+    29cf:	48 39 c2             	cmp    %rax,%rdx
+    29d2:	0f 92 c1             	setb   %cl
+    29d5:	48 39 d0             	cmp    %rdx,%rax
+    29d8:	0f 92 c0             	setb   %al
+    29db:	38 c1                	cmp    %al,%cl
+    29dd:	41 8b 87 c8 25 00 00 	mov    0x25c8(%r15),%eax
+    29e4:	0f 94 c2             	sete   %dl
+    29e7:	83 c3 01             	add    $0x1,%ebx
+    29ea:	39 c3                	cmp    %eax,%ebx
+    29ec:	0f 83 34 01 00 00    	jae    2b26 <gingetbitmap+0x14e6>
+    29f2:	48 81 44 24 18 98 00 00 00 	addq   $0x98,0x18(%rsp)
+    29fb:	84 d2                	test   %dl,%dl
+    29fd:	0f 85 4e fc ff ff    	jne    2651 <gingetbitmap+0x1011>
+    2a03:	8b 05 00 00 00 00    	mov    0x0(%rip),%eax        # 2a09 <gingetbitmap+0x13c9>	2a05: R_X86_64_PC32	InterruptPending-0x4
+    2a09:	85 c0                	test   %eax,%eax
+    2a0b:	0f 84 96 f9 ff ff    	je     23a7 <gingetbitmap+0xd67>
+    2a11:	e8 00 00 00 00       	call   2a16 <gingetbitmap+0x13d6>	2a12: R_X86_64_PLT32	ProcessInterrupts-0x4
+    2a16:	e9 8c f9 ff ff       	jmp    23a7 <gingetbitmap+0xd67>
+    2a1b:	0f 1f 44 00 00       	nopl   0x0(%rax,%rax,1)
+    2a20:	44 89 db             	mov    %r11d,%ebx
+    2a23:	44 89 d1             	mov    %r10d,%ecx
+    2a26:	41 89 f8             	mov    %edi,%r8d
+    2a29:	e9 57 fd ff ff       	jmp    2785 <gingetbitmap+0x1145>
+    2a2e:	66 90                	xchg   %ax,%ax
+    2a30:	0f b7 44 24 30       	movzwl 0x30(%rsp),%eax
+    2a35:	48 8b 7c 24 38       	mov    0x38(%rsp),%rdi
+    2a3a:	4c 89 fe             	mov    %r15,%rsi
+    2a3d:	89 4c 24 48          	mov    %ecx,0x48(%rsp)
+    2a41:	44 89 44 24 50       	mov    %r8d,0x50(%rsp)
+    2a46:	66 89 84 24 30 01 00 00 	mov    %ax,0x130(%rsp)
+    2a4e:	0f b7 44 24 58       	movzwl 0x58(%rsp),%eax
+    2a53:	66 89 84 24 32 01 00 00 	mov    %ax,0x132(%rsp)
+    2a5b:	0f b7 44 24 28       	movzwl 0x28(%rsp),%eax
+    2a60:	66 89 84 24 34 01 00 00 	mov    %ax,0x134(%rsp)
+    2a68:	48 8b 94 24 30 01 00 00 	mov    0x130(%rsp),%rdx
+    2a70:	e8 fb e6 ff ff       	call   1170 <entryGetItem>
+    2a75:	8b 4c 24 48          	mov    0x48(%rsp),%ecx
+    2a79:	44 8b 44 24 50       	mov    0x50(%rsp),%r8d
+    2a7e:	41 80 bf ae 02 00 00 00 	cmpb   $0x0,0x2ae(%r15)
+    2a86:	0f 85 f7 fc ff ff    	jne    2783 <gingetbitmap+0x1143>
+    2a8c:	41 0f b7 7f 28       	movzwl 0x28(%r15),%edi
+    2a91:	41 0f b7 47 2a       	movzwl 0x2a(%r15),%eax
+    2a96:	41 0f b7 77 2c       	movzwl 0x2c(%r15),%esi
+    2a9b:	89 fa                	mov    %edi,%edx
+    2a9d:	41 89 c2             	mov    %eax,%r10d
+    2aa0:	c1 e2 10             	shl    $0x10,%edx
+    2aa3:	49 89 f3             	mov    %rsi,%r11
+    2aa6:	09 c2                	or     %eax,%edx
+    2aa8:	48 89 d0             	mov    %rdx,%rax
+    2aab:	48 c1 e0 20          	shl    $0x20,%rax
+    2aaf:	48 09 f0             	or     %rsi,%rax
+    2ab2:	e9 a4 fc ff ff       	jmp    275b <gingetbitmap+0x111b>
+    2ab7:	66 0f 1f 84 00 00 00 00 00 	nopw   0x0(%rax,%rax,1)
+    2ac0:	41 0f b6 86 94 00 00 00 	movzbl 0x94(%r14),%eax
+    2ac8:	e9 73 fe ff ff       	jmp    2940 <gingetbitmap+0x1300>
+    2acd:	83 f8 ff             	cmp    $0xffffffff,%eax
+    2ad0:	0f 84 18 fb ff ff    	je     25ee <gingetbitmap+0xfae>
+    2ad6:	39 44 24 40          	cmp    %eax,0x40(%rsp)
+    2ada:	73 16                	jae    2af2 <gingetbitmap+0x14b2>
+    2adc:	89 c1                	mov    %eax,%ecx
+    2ade:	45 31 c0             	xor    %r8d,%r8d
+    2ae1:	66 89 44 24 08       	mov    %ax,0x8(%rsp)
+    2ae6:	c1 e9 10             	shr    $0x10,%ecx
+    2ae9:	66 44 89 04 24       	mov    %r8w,(%rsp)
+    2aee:	89 4c 24 10          	mov    %ecx,0x10(%rsp)
+    2af2:	85 db                	test   %ebx,%ebx
+    2af4:	0f 84 1e fb ff ff    	je     2618 <gingetbitmap+0xfd8>
+    2afa:	0f b7 94 24 b0 00 00 00 	movzwl 0xb0(%rsp),%edx
+    2b02:	0f b7 8c 24 b2 00 00 00 	movzwl 0xb2(%rsp),%ecx
+    2b0a:	c1 e2 10             	shl    $0x10,%edx
+    2b0d:	09 ca                	or     %ecx,%edx
+    2b0f:	39 c2                	cmp    %eax,%edx
+    2b11:	41 8b 87 c8 25 00 00 	mov    0x25c8(%r15),%eax
+    2b18:	0f 94 c2             	sete   %dl
+    2b1b:	83 c3 01             	add    $0x1,%ebx
+    2b1e:	39 c3                	cmp    %eax,%ebx
+    2b20:	0f 82 cc fe ff ff    	jb     29f2 <gingetbitmap+0x13b2>
+    2b26:	84 d2                	test   %dl,%dl
+    2b28:	0f 84 6b f8 ff ff    	je     2399 <gingetbitmap+0xd59>
+    2b2e:	0f b7 94 24 b4 00 00 00 	movzwl 0xb4(%rsp),%edx
+    2b36:	85 c0                	test   %eax,%eax
+    2b38:	0f 84 c3 05 00 00    	je     3101 <gingetbitmap+0x1ac1>
+    2b3e:	48 8b 9c 24 88 00 00 00 	mov    0x88(%rsp),%rbx
+    2b46:	48 8d 0c c0          	lea    (%rax,%rax,8),%rcx
+    2b4a:	48 8d 04 48          	lea    (%rax,%rcx,2),%rax
+    2b4e:	48 8b b3 c0 25 00 00 	mov    0x25c0(%rbx),%rsi
+    2b55:	48 8d 04 c6          	lea    (%rsi,%rax,8),%rax
+    2b59:	eb 0c                	jmp    2b67 <gingetbitmap+0x1527>
+    2b5b:	48 81 c6 98 00 00 00 	add    $0x98,%rsi
+    2b62:	48 39 c6             	cmp    %rax,%rsi
+    2b65:	74 0b                	je     2b72 <gingetbitmap+0x1532>
+    2b67:	0f b6 8e 93 00 00 00 	movzbl 0x93(%rsi),%ecx
+    2b6e:	84 c9                	test   %cl,%cl
+    2b70:	74 e9                	je     2b5b <gingetbitmap+0x151b>
+    2b72:	66 83 fa ff          	cmp    $0xffff,%dx
+    2b76:	0f 84 ca 01 00 00    	je     2d46 <gingetbitmap+0x1706>
+    2b7c:	80 bc 24 97 00 00 00 00 	cmpb   $0x0,0x97(%rsp)
+    2b84:	b8 01 00 00 00       	mov    $0x1,%eax
+    2b89:	0f 84 c1 02 00 00    	je     2e50 <gingetbitmap+0x1810>
+    2b8f:	48 8b bc 24 98 00 00 00 	mov    0x98(%rsp),%rdi
+    2b97:	48 8d b4 24 b0 00 00 00 	lea    0xb0(%rsp),%rsi
+    2b9f:	89 c1                	mov    %eax,%ecx
+    2ba1:	ba 01 00 00 00       	mov    $0x1,%edx
+    2ba6:	e8 00 00 00 00       	call   2bab <gingetbitmap+0x156b>	2ba7: R_X86_64_PLT32	tbm_add_tuples-0x4
+    2bab:	0f b7 84 24 b4 00 00 00 	movzwl 0xb4(%rsp),%eax
+    2bb3:	48 83 44 24 78 01    	addq   $0x1,0x78(%rsp)
+    2bb9:	66 89 04 24          	mov    %ax,(%rsp)
+    2bbd:	0f b7 84 24 b0 00 00 00 	movzwl 0xb0(%rsp),%eax
+    2bc5:	66 89 44 24 10       	mov    %ax,0x10(%rsp)
+    2bca:	0f b7 84 24 b2 00 00 00 	movzwl 0xb2(%rsp),%eax
+    2bd2:	66 89 44 24 08       	mov    %ax,0x8(%rsp)
+    2bd7:	e9 ac f7 ff ff       	jmp    2388 <gingetbitmap+0xd48>
+    2bdc:	41 80 be 8a 00 00 00 00 	cmpb   $0x0,0x8a(%r14)
+    2be4:	74 6e                	je     2c54 <gingetbitmap+0x1614>
+    2be6:	8b 44 24 40          	mov    0x40(%rsp),%eax
+    2bea:	0f b7 3c 24          	movzwl (%rsp),%edi
+    2bee:	44 0f b7 5c 24 08    	movzwl 0x8(%rsp),%r11d
+    2bf4:	89 c1                	mov    %eax,%ecx
+    2bf6:	89 c5                	mov    %eax,%ebp
+    2bf8:	66 89 7c 24 28       	mov    %di,0x28(%rsp)
+    2bfd:	44 8d 67 01          	lea    0x1(%rdi),%r12d
+    2c01:	c1 e9 10             	shr    $0x10,%ecx
+    2c04:	41 89 c8             	mov    %ecx,%r8d
+    2c07:	89 c1                	mov    %eax,%ecx
+    2c09:	0f b7 44 24 10       	movzwl 0x10(%rsp),%eax
+    2c0e:	66 89 44 24 30       	mov    %ax,0x30(%rsp)
+    2c13:	e9 a3 fa ff ff       	jmp    26bb <gingetbitmap+0x107b>
+    2c18:	83 fa ff             	cmp    $0xffffffff,%edx
+    2c1b:	0f 85 ee fe ff ff    	jne    2b0f <gingetbitmap+0x14cf>
+    2c21:	e9 9b fd ff ff       	jmp    29c1 <gingetbitmap+0x1381>
+    2c26:	41 c6 86 92 00 00 00 00 	movb   $0x0,0x92(%r14)
+    2c2e:	e9 f4 fc ff ff       	jmp    2927 <gingetbitmap+0x12e7>
+    2c33:	0f b7 05 00 00 00 00 	movzwl 0x0(%rip),%eax        # 2c3a <gingetbitmap+0x15fa>	2c36: R_X86_64_PC32	.LC6-0x4
+    2c3a:	66 41 89 86 92 00 00 00 	mov    %ax,0x92(%r14)
+    2c42:	e9 e0 fc ff ff       	jmp    2927 <gingetbitmap+0x12e7>
+    2c47:	41 c6 86 92 00 00 00 01 	movb   $0x1,0x92(%r14)
+    2c4f:	e9 d3 fc ff ff       	jmp    2927 <gingetbitmap+0x12e7>
+    2c54:	41 c6 86 94 00 00 00 01 	movb   $0x1,0x94(%r14)
+    2c5c:	48 83 7c 24 68 00    	cmpq   $0x0,0x68(%rsp)
+    2c62:	0f 84 37 ea ff ff    	je     169f <gingetbitmap+0x5f>
+    2c68:	48 8b 7c 24 68       	mov    0x68(%rsp),%rdi
+    2c6d:	e8 00 00 00 00       	call   2c72 <gingetbitmap+0x1632>	2c6e: R_X86_64_PLT32	pfree-0x4
+    2c72:	e9 28 ea ff ff       	jmp    169f <gingetbitmap+0x5f>
+    2c77:	66 0f 1f 84 00 00 00 00 00 	nopw   0x0(%rax,%rax,1)
+    2c80:	83 fd ff             	cmp    $0xffffffff,%ebp
+    2c83:	0f 84 1c fa ff ff    	je     26a5 <gingetbitmap+0x1065>
+    2c89:	39 6c 24 40          	cmp    %ebp,0x40(%rsp)
+    2c8d:	73 6e                	jae    2cfd <gingetbitmap+0x16bd>
+    2c8f:	89 e8                	mov    %ebp,%eax
+    2c91:	41 89 eb             	mov    %ebp,%r11d
+    2c94:	c1 e8 10             	shr    $0x10,%eax
+    2c97:	89 44 24 30          	mov    %eax,0x30(%rsp)
+    2c9b:	31 c0                	xor    %eax,%eax
+    2c9d:	66 89 44 24 28       	mov    %ax,0x28(%rsp)
+    2ca2:	e9 14 fa ff ff       	jmp    26bb <gingetbitmap+0x107b>
+    2ca7:	48 8b 44 24 20       	mov    0x20(%rsp),%rax
+    2cac:	4c 8b 2d 00 00 00 00 	mov    0x0(%rip),%r13        # 2cb3 <gingetbitmap+0x1673>	2caf: R_X86_64_PC32	CurrentMemoryContext-0x4
+    2cb3:	48 89 05 00 00 00 00 	mov    %rax,0x0(%rip)        # 2cba <gingetbitmap+0x167a>	2cb6: R_X86_64_PC32	CurrentMemoryContext-0x4
+    2cba:	e9 ad fb ff ff       	jmp    286c <gingetbitmap+0x122c>
+    2cbf:	48 8b 7c 24 20       	mov    0x20(%rsp),%rdi
+    2cc4:	4c 89 2d 00 00 00 00 	mov    %r13,0x0(%rip)        # 2ccb <gingetbitmap+0x168b>	2cc7: R_X86_64_PC32	CurrentMemoryContext-0x4
+    2ccb:	e8 00 00 00 00       	call   2cd0 <gingetbitmap+0x1690>	2ccc: R_X86_64_PLT32	MemoryContextReset-0x4
+    2cd0:	89 e8                	mov    %ebp,%eax
+    2cd2:	66 41 89 ae 8e 00 00 00 	mov    %bp,0x8e(%r14)
+    2cda:	41 c7 86 90 00 00 00 ff ff 01 01 	movl   $0x101ffff,0x90(%r14)
+    2ce5:	c1 e8 10             	shr    $0x10,%eax
+    2ce8:	66 41 89 86 8c 00 00 00 	mov    %ax,0x8c(%r14)
+    2cf0:	41 0f b6 86 94 00 00 00 	movzbl 0x94(%r14),%eax
+    2cf8:	e9 43 fc ff ff       	jmp    2940 <gingetbitmap+0x1300>
+    2cfd:	0f b7 04 24          	movzwl (%rsp),%eax
+    2d01:	44 0f b7 5c 24 08    	movzwl 0x8(%rsp),%r11d
+    2d07:	66 89 44 24 28       	mov    %ax,0x28(%rsp)
+    2d0c:	0f b7 44 24 10       	movzwl 0x10(%rsp),%eax
+    2d11:	66 89 44 24 30       	mov    %ax,0x30(%rsp)
+    2d16:	e9 a0 f9 ff ff       	jmp    26bb <gingetbitmap+0x107b>
+    2d1b:	41 0f b7 86 8c 00 00 00 	movzwl 0x8c(%r14),%eax
+    2d23:	66 89 44 24 10       	mov    %ax,0x10(%rsp)
+    2d28:	41 0f b7 86 8e 00 00 00 	movzwl 0x8e(%r14),%eax
+    2d30:	66 89 44 24 08       	mov    %ax,0x8(%rsp)
+    2d35:	41 0f b7 86 90 00 00 00 	movzwl 0x90(%r14),%eax
+    2d3d:	66 89 04 24          	mov    %ax,(%rsp)
+    2d41:	e9 53 f6 ff ff       	jmp    2399 <gingetbitmap+0xd59>
+    2d46:	0f b7 b4 24 b0 00 00 00 	movzwl 0xb0(%rsp),%esi
+    2d4e:	0f b7 84 24 b2 00 00 00 	movzwl 0xb2(%rsp),%eax
+    2d56:	c1 e6 10             	shl    $0x10,%esi
+    2d59:	09 c6                	or     %eax,%esi
+    2d5b:	83 fe ff             	cmp    $0xffffffff,%esi
+    2d5e:	0f 84 18 fe ff ff    	je     2b7c <gingetbitmap+0x153c>
+    2d64:	48 8b bc 24 98 00 00 00 	mov    0x98(%rsp),%rdi
+    2d6c:	e8 00 00 00 00       	call   2d71 <gingetbitmap+0x1731>	2d6d: R_X86_64_PLT32	tbm_add_page-0x4
+    2d71:	e9 35 fe ff ff       	jmp    2bab <gingetbitmap+0x156b>
+    2d76:	49 8b 87 e0 25 00 00 	mov    0x25e0(%r15),%rax
+    2d7d:	c7 43 18 00 00 00 00 	movl   $0x0,0x18(%rbx)
+    2d84:	bf 08 00 00 00       	mov    $0x8,%edi
+    2d89:	48 89 05 00 00 00 00 	mov    %rax,0x0(%rip)        # 2d90 <gingetbitmap+0x1750>	2d8c: R_X86_64_PC32	CurrentMemoryContext-0x4
+    2d90:	48 63 33             	movslq (%rbx),%rsi
+    2d93:	89 73 28             	mov    %esi,0x28(%rbx)
+    2d96:	e8 00 00 00 00       	call   2d9b <gingetbitmap+0x175b>	2d97: R_X86_64_PLT32	palloc_mul-0x4
+    2d9b:	8b 7b 28             	mov    0x28(%rbx),%edi
+    2d9e:	48 89 43 20          	mov    %rax,0x20(%rbx)
+    2da2:	85 ff                	test   %edi,%edi
+    2da4:	0f 8e 89 f5 ff ff    	jle    2333 <gingetbitmap+0xcf3>
+    2daa:	48 8b 53 08          	mov    0x8(%rbx),%rdx
+    2dae:	48 8b 12             	mov    (%rdx),%rdx
+    2db1:	48 89 10             	mov    %rdx,(%rax)
+    2db4:	83 7b 28 01          	cmpl   $0x1,0x28(%rbx)
+    2db8:	0f 8e 75 f5 ff ff    	jle    2333 <gingetbitmap+0xcf3>
+    2dbe:	b8 01 00 00 00       	mov    $0x1,%eax
+    2dc3:	48 8b 4b 08          	mov    0x8(%rbx),%rcx
+    2dc7:	48 63 d0             	movslq %eax,%rdx
+    2dca:	83 c0 01             	add    $0x1,%eax
+    2dcd:	48 8b 34 d1          	mov    (%rcx,%rdx,8),%rsi
+    2dd1:	48 8b 4b 20          	mov    0x20(%rbx),%rcx
+    2dd5:	48 89 34 d1          	mov    %rsi,(%rcx,%rdx,8)
+    2dd9:	3b 43 28             	cmp    0x28(%rbx),%eax
+    2ddc:	7c e5                	jl     2dc3 <gingetbitmap+0x1783>
+    2dde:	e9 50 f5 ff ff       	jmp    2333 <gingetbitmap+0xcf3>
+    2de3:	48 85 db             	test   %rbx,%rbx
+    2de6:	0f 84 3f 02 00 00    	je     302b <gingetbitmap+0x19eb>
+    2dec:	4c 8d 24 1b          	lea    (%rbx,%rbx,1),%r12
+    2df0:	4d 89 e5             	mov    %r12,%r13
+    2df3:	49 81 fc 00 00 00 01 	cmp    $0x1000000,%r12
+    2dfa:	0f 87 09 02 00 00    	ja     3009 <gingetbitmap+0x19c9>
+    2e00:	49 8d 3c 1c          	lea    (%r12,%rbx,1),%rdi
+    2e04:	48 c1 e7 02          	shl    $0x2,%rdi
+    2e08:	e8 00 00 00 00       	call   2e0d <gingetbitmap+0x17cd>	2e09: R_X86_64_PLT32	palloc-0x4
+    2e0d:	49 01 dc             	add    %rbx,%r12
+    2e10:	49 89 c7             	mov    %rax,%r15
+    2e13:	4d 01 e4             	add    %r12,%r12
+    2e16:	4d 85 f6             	test   %r14,%r14
+    2e19:	74 16                	je     2e31 <gingetbitmap+0x17f1>
+    2e1b:	48 89 c7             	mov    %rax,%rdi
+    2e1e:	4c 89 e2             	mov    %r12,%rdx
+    2e21:	4c 89 f6             	mov    %r14,%rsi
+    2e24:	e8 00 00 00 00       	call   2e29 <gingetbitmap+0x17e9>	2e25: R_X86_64_PLT32	memcpy-0x4
+    2e29:	4c 89 f7             	mov    %r14,%rdi
+    2e2c:	e8 00 00 00 00       	call   2e31 <gingetbitmap+0x17f1>	2e2d: R_X86_64_PLT32	pfree-0x4
+    2e31:	4d 89 fe             	mov    %r15,%r14
+    2e34:	e9 91 e9 ff ff       	jmp    17ca <gingetbitmap+0x18a>
+    2e39:	31 c9                	xor    %ecx,%ecx
+    2e3b:	31 d2                	xor    %edx,%edx
+    2e3d:	80 bc 24 97 00 00 00 00 	cmpb   $0x0,0x97(%rsp)
+    2e45:	b8 01 00 00 00       	mov    $0x1,%eax
+    2e4a:	0f 85 3f fd ff ff    	jne    2b8f <gingetbitmap+0x154f>
+    2e50:	48 83 bc 24 80 00 00 00 00 	cmpq   $0x0,0x80(%rsp)
+    2e59:	0f 84 83 00 00 00    	je     2ee2 <gingetbitmap+0x18a2>
+    2e5f:	0f b7 84 24 b0 00 00 00 	movzwl 0xb0(%rsp),%eax
+    2e67:	0f b7 b4 24 b2 00 00 00 	movzwl 0xb2(%rsp),%esi
+    2e6f:	31 ff                	xor    %edi,%edi
+    2e71:	4c 8b 84 24 80 00 00 00 	mov    0x80(%rsp),%r8
+    2e79:	c1 e0 10             	shl    $0x10,%eax
+    2e7c:	09 f0                	or     %esi,%eax
+    2e7e:	48 c1 e0 20          	shl    $0x20,%rax
+    2e82:	48 09 d0             	or     %rdx,%rax
+    2e85:	4c 39 c7             	cmp    %r8,%rdi
+    2e88:	73 58                	jae    2ee2 <gingetbitmap+0x18a2>
+    2e8a:	49 8d 14 38          	lea    (%r8,%rdi,1),%rdx
+    2e8e:	48 8b 5c 24 68       	mov    0x68(%rsp),%rbx
+    2e93:	49 89 d1             	mov    %rdx,%r9
+    2e96:	48 83 e2 fe          	and    $0xfffffffffffffffe,%rdx
+    2e9a:	49 d1 e9             	shr    $1,%r9
+    2e9d:	4c 01 ca             	add    %r9,%rdx
+    2ea0:	48 8d 34 53          	lea    (%rbx,%rdx,2),%rsi
+    2ea4:	0f b7 16             	movzwl (%rsi),%edx
+    2ea7:	44 0f b7 56 02       	movzwl 0x2(%rsi),%r10d
+    2eac:	0f b7 76 04          	movzwl 0x4(%rsi),%esi
+    2eb0:	c1 e2 10             	shl    $0x10,%edx
+    2eb3:	44 09 d2             	or     %r10d,%edx
+    2eb6:	48 c1 e2 20          	shl    $0x20,%rdx
+    2eba:	48 09 f2             	or     %rsi,%rdx
+    2ebd:	31 f6                	xor    %esi,%esi
+    2ebf:	48 39 c2             	cmp    %rax,%rdx
+    2ec2:	40 0f 92 c6          	setb   %sil
+    2ec6:	48 39 d0             	cmp    %rdx,%rax
+    2ec9:	83 de 00             	sbb    $0x0,%esi
+    2ecc:	83 fe ff             	cmp    $0xffffffff,%esi
+    2ecf:	74 19                	je     2eea <gingetbitmap+0x18aa>
+    2ed1:	85 f6                	test   %esi,%esi
+    2ed3:	0f 84 26 01 00 00    	je     2fff <gingetbitmap+0x19bf>
+    2ed9:	49 8d 79 01          	lea    0x1(%r9),%rdi
+    2edd:	4c 39 c7             	cmp    %r8,%rdi
+    2ee0:	72 a8                	jb     2e8a <gingetbitmap+0x184a>
+    2ee2:	0f b6 c1             	movzbl %cl,%eax
+    2ee5:	e9 a5 fc ff ff       	jmp    2b8f <gingetbitmap+0x154f>
+    2eea:	4d 89 c8             	mov    %r9,%r8
+    2eed:	eb 96                	jmp    2e85 <gingetbitmap+0x1845>
+    2eef:	41 8d 44 24 01       	lea    0x1(%r12),%eax
+    2ef4:	89 c2                	mov    %eax,%edx
+    2ef6:	48 63 f0             	movslq %eax,%rsi
+    2ef9:	49 8b 8f e0 25 00 00 	mov    0x25e0(%r15),%rcx
+    2f00:	89 53 18             	mov    %edx,0x18(%rbx)
+    2f03:	bf 08 00 00 00       	mov    $0x8,%edi
+    2f08:	48 89 0d 00 00 00 00 	mov    %rcx,0x0(%rip)        # 2f0f <gingetbitmap+0x18cf>	2f0b: R_X86_64_PC32	CurrentMemoryContext-0x4
+    2f0f:	8b 13                	mov    (%rbx),%edx
+    2f11:	29 c2                	sub    %eax,%edx
+    2f13:	89 53 28             	mov    %edx,0x28(%rbx)
+    2f16:	e8 00 00 00 00       	call   2f1b <gingetbitmap+0x18db>	2f17: R_X86_64_PLT32	palloc_mul-0x4
+    2f1b:	48 63 73 28          	movslq 0x28(%rbx),%rsi
+    2f1f:	bf 08 00 00 00       	mov    $0x8,%edi
+    2f24:	48 89 43 10          	mov    %rax,0x10(%rbx)
+    2f28:	e8 00 00 00 00       	call   2f2d <gingetbitmap+0x18ed>	2f29: R_X86_64_PLT32	palloc_mul-0x4
+    2f2d:	8b 4b 18             	mov    0x18(%rbx),%ecx
+    2f30:	48 89 43 20          	mov    %rax,0x20(%rbx)
+    2f34:	85 c9                	test   %ecx,%ecx
+    2f36:	0f 8e bc 00 00 00    	jle    2ff8 <gingetbitmap+0x19b8>
+    2f3c:	31 c0                	xor    %eax,%eax
+    2f3e:	49 63 0c 86          	movslq (%r14,%rax,4),%rcx
+    2f42:	48 8b 53 08          	mov    0x8(%rbx),%rdx
+    2f46:	48 8b 0c ca          	mov    (%rdx,%rcx,8),%rcx
+    2f4a:	48 8b 53 10          	mov    0x10(%rbx),%rdx
+    2f4e:	48 89 0c c2          	mov    %rcx,(%rdx,%rax,8)
+    2f52:	48 89 c1             	mov    %rax,%rcx
+    2f55:	48 83 c0 01          	add    $0x1,%rax
+    2f59:	39 43 18             	cmp    %eax,0x18(%rbx)
+    2f5c:	7f e0                	jg     2f3e <gingetbitmap+0x18fe>
+    2f5e:	83 c1 01             	add    $0x1,%ecx
+    2f61:	8b 53 28             	mov    0x28(%rbx),%edx
+    2f64:	31 c0                	xor    %eax,%eax
+    2f66:	85 d2                	test   %edx,%edx
+    2f68:	7e 23                	jle    2f8d <gingetbitmap+0x194d>
+    2f6a:	8d 14 01             	lea    (%rcx,%rax,1),%edx
+    2f6d:	48 63 d2             	movslq %edx,%rdx
+    2f70:	49 63 34 96          	movslq (%r14,%rdx,4),%rsi
+    2f74:	48 8b 53 08          	mov    0x8(%rbx),%rdx
+    2f78:	48 8b 34 f2          	mov    (%rdx,%rsi,8),%rsi
+    2f7c:	48 8b 53 20          	mov    0x20(%rbx),%rdx
+    2f80:	48 89 34 c2          	mov    %rsi,(%rdx,%rax,8)
+    2f84:	48 83 c0 01          	add    $0x1,%rax
+    2f88:	39 43 28             	cmp    %eax,0x28(%rbx)
+    2f8b:	7f dd                	jg     2f6a <gingetbitmap+0x192a>
+    2f8d:	49 8b 3f             	mov    (%r15),%rdi
+    2f90:	e8 00 00 00 00       	call   2f95 <gingetbitmap+0x1955>	2f91: R_X86_64_PLT32	MemoryContextReset-0x4
+    2f95:	e9 99 f3 ff ff       	jmp    2333 <gingetbitmap+0xcf3>
+    2f9a:	41 8d 44 24 02       	lea    0x2(%r12),%eax
+    2f9f:	89 c2                	mov    %eax,%edx
+    2fa1:	48 63 f0             	movslq %eax,%rsi
+    2fa4:	e9 50 ff ff ff       	jmp    2ef9 <gingetbitmap+0x18b9>
+    2fa9:	89 d8                	mov    %ebx,%eax
+    2fab:	48 8b 15 00 00 00 00 	mov    0x0(%rip),%rdx        # 2fb2 <gingetbitmap+0x1972>	2fae: R_X86_64_PC32	LocalBufferBlockPointers-0x4
+    2fb2:	f7 d0                	not    %eax
+    2fb4:	48 98                	cltq
+    2fb6:	48 8b 04 c2          	mov    (%rdx,%rax,8),%rax
+    2fba:	8b 70 18             	mov    0x18(%rax),%esi
+    2fbd:	83 fe ff             	cmp    $0xffffffff,%esi
+    2fc0:	0f 85 53 e7 ff ff    	jne    1719 <gingetbitmap+0xd9>
+    2fc6:	89 df                	mov    %ebx,%edi
+    2fc8:	e8 00 00 00 00       	call   2fcd <gingetbitmap+0x198d>	2fc9: R_X86_64_PLT32	UnlockReleaseBuffer-0x4
+    2fcd:	c6 84 24 97 00 00 00 00 	movb   $0x0,0x97(%rsp)
+    2fd5:	48 c7 44 24 78 00 00 00 00 	movq   $0x0,0x78(%rsp)
+    2fde:	48 c7 44 24 68 00 00 00 00 	movq   $0x0,0x68(%rsp)
+    2fe7:	48 c7 84 24 80 00 00 00 00 00 00 00 	movq   $0x0,0x80(%rsp)
+    2ff3:	e9 4d e9 ff ff       	jmp    1945 <gingetbitmap+0x305>
+    2ff8:	31 c9                	xor    %ecx,%ecx
+    2ffa:	e9 62 ff ff ff       	jmp    2f61 <gingetbitmap+0x1921>
+    2fff:	b8 01 00 00 00       	mov    $0x1,%eax
+    3004:	e9 86 fb ff ff       	jmp    2b8f <gingetbitmap+0x154f>
+    3009:	4d 85 f6             	test   %r14,%r14
+    300c:	74 08                	je     3016 <gingetbitmap+0x19d6>
+    300e:	4c 89 f7             	mov    %r14,%rdi
+    3011:	e8 00 00 00 00       	call   3016 <gingetbitmap+0x19d6>	3012: R_X86_64_PLT32	pfree-0x4
+    3016:	c6 84 24 97 00 00 00 01 	movb   $0x1,0x97(%rsp)
+    301e:	45 31 ed             	xor    %r13d,%r13d
+    3021:	31 db                	xor    %ebx,%ebx
+    3023:	45 31 f6             	xor    %r14d,%r14d
+    3026:	e9 bc e7 ff ff       	jmp    17e7 <gingetbitmap+0x1a7>
+    302b:	bf 00 18 00 00       	mov    $0x1800,%edi
+    3030:	41 bd 00 04 00 00    	mov    $0x400,%r13d
+    3036:	45 31 e4             	xor    %r12d,%r12d
+    3039:	e9 ca fd ff ff       	jmp    2e08 <gingetbitmap+0x17c8>
+    303e:	be 01 00 00 00       	mov    $0x1,%esi
+    3043:	ba 01 00 00 00       	mov    $0x1,%edx
+    3048:	e9 ac fe ff ff       	jmp    2ef9 <gingetbitmap+0x18b9>
+    304d:	31 f6                	xor    %esi,%esi
+    304f:	e9 68 ed ff ff       	jmp    1dbc <gingetbitmap+0x77c>
+    3054:	48 8b 15 00 00 00 00 	mov    0x0(%rip),%rdx        # 305b <gingetbitmap+0x1a1b>	3057: R_X86_64_PC32	LocalBufferBlockPointers-0x4
+    305b:	f7 d0                	not    %eax
+    305d:	48 98                	cltq
+    305f:	48 8b 3c c2          	mov    (%rdx,%rax,8),%rdi
+    3063:	e9 10 f2 ff ff       	jmp    2278 <gingetbitmap+0xc38>
+    3068:	48 8b 36             	mov    (%rsi),%rsi
+    306b:	31 d2                	xor    %edx,%edx
+    306d:	8b 86 b0 02 00 00    	mov    0x2b0(%rsi),%eax
+    3073:	f7 f1                	div    %ecx
+    3075:	89 86 b0 02 00 00    	mov    %eax,0x2b0(%rsi)
+    307b:	49 8b 87 d0 25 00 00 	mov    0x25d0(%r15),%rax
+    3082:	be 01 00 00 00       	mov    $0x1,%esi
+    3087:	48 8b 00             	mov    (%rax),%rax
+    308a:	c6 80 af 02 00 00 01 	movb   $0x1,0x2af(%rax)
+    3091:	41 8b 8f d8 25 00 00 	mov    0x25d8(%r15),%ecx
+    3098:	83 f9 01             	cmp    $0x1,%ecx
+    309b:	0f 86 8e ec ff ff    	jbe    1d2f <gingetbitmap+0x6ef>
+    30a1:	49 8b 87 d0 25 00 00 	mov    0x25d0(%r15),%rax
+    30a8:	89 f7                	mov    %esi,%edi
+    30aa:	31 d2                	xor    %edx,%edx
+    30ac:	83 c6 01             	add    $0x1,%esi
+    30af:	4c 8b 04 f8          	mov    (%rax,%rdi,8),%r8
+    30b3:	41 8b 80 b0 02 00 00 	mov    0x2b0(%r8),%eax
+    30ba:	f7 f1                	div    %ecx
+    30bc:	41 89 80 b0 02 00 00 	mov    %eax,0x2b0(%r8)
+    30c3:	49 8b 87 d0 25 00 00 	mov    0x25d0(%r15),%rax
+    30ca:	48 8b 04 f8          	mov    (%rax,%rdi,8),%rax
+    30ce:	c6 80 af 02 00 00 01 	movb   $0x1,0x2af(%rax)
+    30d5:	41 8b 8f d8 25 00 00 	mov    0x25d8(%r15),%ecx
+    30dc:	39 ce                	cmp    %ecx,%esi
+    30de:	72 c1                	jb     30a1 <gingetbitmap+0x1a61>
+    30e0:	e9 4a ec ff ff       	jmp    1d2f <gingetbitmap+0x6ef>
+    30e5:	4c 89 3d 00 00 00 00 	mov    %r15,0x0(%rip)        # 30ec <gingetbitmap+0x1aac>	30e8: R_X86_64_PC32	CurrentMemoryContext-0x4
+    30ec:	48 8b 7d 00          	mov    0x0(%rbp),%rdi
+    30f0:	e8 00 00 00 00       	call   30f5 <gingetbitmap+0x1ab5>	30f1: R_X86_64_PLT32	MemoryContextReset-0x4
+    30f5:	31 c9                	xor    %ecx,%ecx
+    30f7:	e9 90 e7 ff ff       	jmp    188c <gingetbitmap+0x24c>
+    30fc:	e8 00 00 00 00       	call   3101 <gingetbitmap+0x1ac1>	30fd: R_X86_64_PLT32	__stack_chk_fail-0x4
+    3101:	31 c9                	xor    %ecx,%ecx
+    3103:	e9 6a fa ff ff       	jmp    2b72 <gingetbitmap+0x1532>
+
+Disassembly of section .text.unlikely:
+
+0000000000000000 <collectMatchesForHeapRow.cold>:
+   0:	31 f6                	xor    %esi,%esi
+   2:	bf 15 00 00 00       	mov    $0x15,%edi
+   7:	e8 00 00 00 00       	call   c <collectMatchesForHeapRow.cold+0xc>	8: R_X86_64_PLT32	errstart_cold-0x4
+   c:	48 8d 3d 00 00 00 00 	lea    0x0(%rip),%rdi        # 13 <collectMatchesForHeapRow.cold+0x13>	f: R_X86_64_PC32	.LC1-0x4
+  13:	31 c0                	xor    %eax,%eax
+  15:	e8 00 00 00 00       	call   1a <collectMatchesForHeapRow.cold+0x1a>	16: R_X86_64_PLT32	errmsg_internal-0x4
+  1a:	48 8d 15 00 00 00 00 	lea    0x0(%rip),%rdx        # 21 <collectMatchesForHeapRow.cold+0x21>	1d: R_X86_64_PC32	.rodata+0x3c
+  21:	be b9 07 00 00       	mov    $0x7b9,%esi
+  26:	48 8d 3d 00 00 00 00 	lea    0x0(%rip),%rdi        # 2d <collectMatchesForHeapRow.cold+0x2d>	29: R_X86_64_PC32	.LC2-0x4
+  2d:	e8 00 00 00 00       	call   32 <gingetbitmap.cold>	2e: R_X86_64_PLT32	errfinish-0x4
+
+0000000000000032 <gingetbitmap.cold>:
+  32:	31 f6                	xor    %esi,%esi
+  34:	bf 15 00 00 00       	mov    $0x15,%edi
+  39:	e8 00 00 00 00       	call   3e <gingetbitmap.cold+0xc>	3a: R_X86_64_PLT32	errstart_cold-0x4
+  3e:	bf 28 0a 00 00       	mov    $0xa28,%edi
+  43:	e8 00 00 00 00       	call   48 <gingetbitmap.cold+0x16>	44: R_X86_64_PLT32	errcode-0x4
+  48:	48 8b 84 24 00 01 00 00 	mov    0x100(%rsp),%rax
+  50:	48 8d 3d 00 00 00 00 	lea    0x0(%rip),%rdi        # 57 <gingetbitmap.cold+0x25>	53: R_X86_64_PC32	.LC5-0x4
+  57:	48 8b 70 38          	mov    0x38(%rax),%rsi
+  5b:	31 c0                	xor    %eax,%eax
+  5d:	48 83 c6 04          	add    $0x4,%rsi
+  61:	e8 00 00 00 00       	call   66 <gingetbitmap.cold+0x34>	62: R_X86_64_PLT32	errmsg-0x4
+  66:	48 8d 15 00 00 00 00 	lea    0x0(%rip),%rdx        # 6d <gingetbitmap.cold+0x3b>	69: R_X86_64_PC32	.rodata+0x1c
+  6d:	be 2c 01 00 00       	mov    $0x12c,%esi
+  72:	48 8d 3d 00 00 00 00 	lea    0x0(%rip),%rdi        # 79 <gingetbitmap.cold+0x47>	75: R_X86_64_PC32	.LC2-0x4
+  79:	e8 00 00 00 00       	call   7e <__func__.2+0x3e>	7a: R_X86_64_PLT32	errfinish-0x4
