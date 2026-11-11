@@ -1,0 +1,70 @@
+{
+  "reference": {
+    "bytes": 1291,
+    "rows": 200,
+    "sha256": "b05b2c6b15a2bc723fdb05fa27bce6aba0af0f48fac98da90bae71bce33caa5c"
+  },
+  "actual": {
+    "bytes": 1291,
+    "rows": 200,
+    "sha256": "b05b2c6b15a2bc723fdb05fa27bce6aba0af0f48fac98da90bae71bce33caa5c"
+  },
+  "seq_plan": {
+    "Node Type": "Sort",
+    "Parallel Aware": false,
+    "Async Capable": false,
+    "Startup Cost": 7266.86,
+    "Total Cost": 7269.36,
+    "Plan Rows": 1000,
+    "Plan Width": 8,
+    "Disabled": false,
+    "Sort Key": [
+      "docs.id"
+    ],
+    "Plans": [
+      {
+        "Node Type": "Seq Scan",
+        "Parent Relationship": "Outer",
+        "Parallel Aware": false,
+        "Async Capable": false,
+        "Relation Name": "docs",
+        "Alias": "docs",
+        "Startup Cost": 0.0,
+        "Total Cost": 7217.03,
+        "Plan Rows": 1000,
+        "Plan Width": 8,
+        "Disabled": false,
+        "Filter": "((id % '1000'::bigint) = 0)"
+      }
+    ]
+  },
+  "gin_plan": {
+    "Node Type": "Sort",
+    "Parallel Aware": false,
+    "Async Capable": false,
+    "Startup Cost": 7266.86,
+    "Total Cost": 7269.36,
+    "Plan Rows": 1000,
+    "Plan Width": 8,
+    "Disabled": false,
+    "Sort Key": [
+      "docs.id"
+    ],
+    "Plans": [
+      {
+        "Node Type": "Seq Scan",
+        "Parent Relationship": "Outer",
+        "Parallel Aware": false,
+        "Async Capable": false,
+        "Relation Name": "docs",
+        "Alias": "docs",
+        "Startup Cost": 0.0,
+        "Total Cost": 7217.03,
+        "Plan Rows": 1000,
+        "Plan Width": 8,
+        "Disabled": true,
+        "Filter": "((id % '1000'::bigint) = 0)"
+      }
+    ]
+  }
+}

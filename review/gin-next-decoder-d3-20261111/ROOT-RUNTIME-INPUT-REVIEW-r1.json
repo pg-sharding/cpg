@@ -1,0 +1,28 @@
+{
+  "status": "PASS_ROOT_INPUT_REVIEW_BEFORE_FULL_RUNTIME",
+  "qualification_manifest_sha256": "985ef80429245f6376e57a878d420eaf31be762a957c01b5ed37f603304f8b2d",
+  "timing_manifest_sha256": "4fbf85da73d76807cdf1043ad1eb29d5b7576f40c4ac2c0088beabc28b07c5af",
+  "reviewed_files": {
+    "qualification/qualify.py": "0b53f622297f9528b0a686f8c71d0920ee10cf9fb5048f9372ddabef867965de",
+    "qualification/decoder-native.c": "c32613576bced9d313fae79246b21eb382eb3a6aedb9f83cc6fc971bd437b923",
+    "qualification/mixed_expected.py": "cdd492ae0c8f8ec8a80e0e33779de1a386acdfb7ecd1bb20e3cb188b527bfc09",
+    "run-qualification-r1.py": "2256df8eb9e4dcc6d3e83b7f71badb6dbb17daddf6489de6f6565dcdf16d2949",
+    "IMPORT-QUALIFICATION-D3-r1.py": "430a1d157b7f55a5a75c11a235da456d5eaac86b24fad3c490ebb756829ab993",
+    "timing-prep-r1/campaign.py": "d42bdb2e3b4e33dba877493c484e96e52a23701a5bfc262eb3fd31d3b422ee54",
+    "timing-prep-r1/run.py": "517f80e198f9841143c22bf428391b1da6b3d3d2b8f069bf02eed2eff3bab59d",
+    "timing-prep-r1/protocol.py": "59278bd5377159e2fb191ccd95735f6d82102cfb544d48fdc97ad7b47c4ef498",
+    "timing-prep-r1/validate.py": "51c006c049f45384e63a0360177c8923b52bda6d72d444690d5173f1accf461f",
+    "timing-prep-r1/analyze.py": "4b8ef0d5f6aa8df257bf68c7e03413aee9d88108f0c1a4178c2fbb5618efe4db",
+    "IMPORT-TIMING-D3-r1.py": "96cbc3f8411c974059fa70c196021d1616c1a024b4bcb5f17d4d8b5a9e56d10b"
+  },
+  "notes": [
+    "Reviewed exact diffs from D2: old 18 decoder cases and seven SQL cells preserved; three deterministic valid mixed cases appended.",
+    "C-generated full decoded output is checked against original input; independent integer encoding-size/checksum reference covers new valid cases.",
+    "Ordinary serial SQL, prepared, lifecycle and native boundary checks only. Fixed B prerequisite unchanged.",
+    "D3 first-stage compile results are not performance results. Full build normal codegen and actual smoke remain to be reviewed.",
+    "Timing separates whole SQL, native allocation/materialization/free CPU, whole backend CPU and client wall. Literal chronology follows source order; literal realtime cannot establish monotonic start relation.",
+    "No VM84 or archive VM51 workloads; remote launch will wait for K4 timing to finish."
+  ],
+  "source_commit": "1ce29c18ceb41882deced3ebe680ee75ba2c29b0",
+  "finished_ns": 1794387804192226000
+}

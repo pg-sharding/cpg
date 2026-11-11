@@ -1,0 +1,85 @@
+{
+  "reference": {
+    "bytes": 24,
+    "rows": 5,
+    "sha256": "768550130744103ea968fc07a47f48df983a765e3e099afc5792a15a2c32ac95"
+  },
+  "actual": {
+    "bytes": 24,
+    "rows": 5,
+    "sha256": "768550130744103ea968fc07a47f48df983a765e3e099afc5792a15a2c32ac95"
+  },
+  "seq_plan": {
+    "Node Type": "Sort",
+    "Parallel Aware": false,
+    "Async Capable": false,
+    "Startup Cost": 168.56,
+    "Total Cost": 168.57,
+    "Plan Rows": 5,
+    "Plan Width": 8,
+    "Disabled": false,
+    "Sort Key": [
+      "writes.id"
+    ],
+    "Plans": [
+      {
+        "Node Type": "Seq Scan",
+        "Parent Relationship": "Outer",
+        "Parallel Aware": false,
+        "Async Capable": false,
+        "Relation Name": "writes",
+        "Alias": "writes",
+        "Startup Cost": 0.0,
+        "Total Cost": 168.5,
+        "Plan Rows": 5,
+        "Plan Width": 8,
+        "Disabled": false,
+        "Filter": "(d @@ '''common'' & ''rare0'''::tsquery)"
+      }
+    ]
+  },
+  "gin_plan": {
+    "Node Type": "Sort",
+    "Parallel Aware": false,
+    "Async Capable": false,
+    "Startup Cost": 38.4,
+    "Total Cost": 38.41,
+    "Plan Rows": 5,
+    "Plan Width": 8,
+    "Disabled": false,
+    "Sort Key": [
+      "writes.id"
+    ],
+    "Plans": [
+      {
+        "Node Type": "Bitmap Heap Scan",
+        "Parent Relationship": "Outer",
+        "Parallel Aware": false,
+        "Async Capable": false,
+        "Relation Name": "writes",
+        "Alias": "writes",
+        "Startup Cost": 21.54,
+        "Total Cost": 38.34,
+        "Plan Rows": 5,
+        "Plan Width": 8,
+        "Disabled": false,
+        "Recheck Cond": "(d @@ '''common'' & ''rare0'''::tsquery)",
+        "Plans": [
+          {
+            "Node Type": "Bitmap Index Scan",
+            "Parent Relationship": "Outer",
+            "Parallel Aware": false,
+            "Async Capable": false,
+            "Index Name": "writes_d_gin",
+            "Startup Cost": 0.0,
+            "Total Cost": 21.54,
+            "Plan Rows": 5,
+            "Plan Width": 0,
+            "Disabled": false,
+            "Index Cond": "(d @@ '''common'' & ''rare0'''::tsquery)"
+          }
+        ]
+      }
+    ]
+  }
+}

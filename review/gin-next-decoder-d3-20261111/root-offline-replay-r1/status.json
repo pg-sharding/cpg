@@ -1,0 +1,139 @@
+{
+  "status": "PASS_LOCAL_RECORDED_FULL_REPLAY",
+  "started_ns": 1794392605270393000,
+  "commands": [
+    {
+      "label": "static",
+      "args": [
+        "python3",
+        "-B",
+        "/Users/reshke/work/pgpg/review/gin-next-20261111/decoder-d3/publication-r1/fresh-replay-r1/replay.py",
+        "--inputs",
+        "/Users/reshke/work/pgpg/review/gin-next-20261111/decoder-d3/publication-r1",
+        "--static-check"
+      ],
+      "started_ns": 1794392605270401000,
+      "returncode": 0,
+      "finished_ns": 1794392605345017000
+    },
+    {
+      "label": "qualification",
+      "args": [
+        "python3",
+        "-B",
+        "/Users/reshke/work/pgpg/review/gin-next-20261111/decoder-d3/publication-r1/audit-build-qualification-r3.py",
+        "--evidence",
+        "/Users/reshke/work/pgpg/review/gin-next-20261111/decoder-d3/publication-r1/evidence-qualification-r1",
+        "--output",
+        "/Users/reshke/work/pgpg/review/gin-next-20261111/decoder-d3/root-offline-replay-r1/qualification.json"
+      ],
+      "started_ns": 1794392605345087000,
+      "returncode": 0,
+      "finished_ns": 1794392605477619000
+    },
+    {
+      "label": "codegen",
+      "args": [
+        "python3",
+        "-B",
+        "/Users/reshke/work/pgpg/review/gin-next-20261111/decoder-d3/publication-r1/audit-normal-asm-r1.py",
+        "--evidence",
+        "/Users/reshke/work/pgpg/review/gin-next-20261111/decoder-d3/publication-r1/evidence-qualification-r1",
+        "--output",
+        "/Users/reshke/work/pgpg/review/gin-next-20261111/decoder-d3/root-offline-replay-r1/codegen.json"
+      ],
+      "started_ns": 1794392605477688000,
+      "returncode": 0,
+      "finished_ns": 1794392605517745000
+    },
+    {
+      "label": "smoke",
+      "args": [
+        "python3",
+        "-B",
+        "/Users/reshke/work/pgpg/review/gin-next-20261111/decoder-d3/publication-r1/timing-prep-r1/review-smoke-r1.py",
+        "--timing-root",
+        "/Users/reshke/work/pgpg/review/gin-next-20261111/decoder-d3/publication-r1/evidence-full-r1/timing-r1",
+        "--output",
+        "/Users/reshke/work/pgpg/review/gin-next-20261111/decoder-d3/root-offline-replay-r1/smoke.json"
+      ],
+      "started_ns": 1794392605552108000,
+      "returncode": 0,
+      "finished_ns": 1794392605626646000
+    },
+    {
+      "label": "analysis0",
+      "args": [
+        "python3",
+        "-B",
+        "/Users/reshke/work/pgpg/review/gin-next-20261111/decoder-d3/publication-r1/timing-prep-r1/analyze.py",
+        "/Users/reshke/work/pgpg/review/gin-next-20261111/decoder-d3/publication-r1/evidence-full-r1/timing-r1/cohort0",
+        "/Users/reshke/work/pgpg/review/gin-next-20261111/decoder-d3/root-offline-replay-r1/analysis0-r1"
+      ],
+      "started_ns": 1794392605626728000,
+      "returncode": 0,
+      "finished_ns": 1794392605813013000
+    },
+    {
+      "label": "analysis1",
+      "args": [
+        "python3",
+        "-B",
+        "/Users/reshke/work/pgpg/review/gin-next-20261111/decoder-d3/publication-r1/timing-prep-r1/analyze.py",
+        "/Users/reshke/work/pgpg/review/gin-next-20261111/decoder-d3/publication-r1/evidence-full-r1/timing-r1/cohort1",
+        "/Users/reshke/work/pgpg/review/gin-next-20261111/decoder-d3/root-offline-replay-r1/analysis1-r1"
+      ],
+      "started_ns": 1794392605814123000,
+      "returncode": 0,
+      "finished_ns": 1794392606001175000
+    },
+    {
+      "label": "timing-recount",
+      "args": [
+        "python3",
+        "-B",
+        "/Users/reshke/work/pgpg/review/gin-next-20261111/decoder-d3/publication-r1/timing-prep-r1/audit-independent-r1.py",
+        "--run-root",
+        "/Users/reshke/work/pgpg/review/gin-next-20261111/decoder-d3/publication-r1/evidence-full-r1/timing-r1",
+        "--analysis0",
+        "/Users/reshke/work/pgpg/review/gin-next-20261111/decoder-d3/root-offline-replay-r1/analysis0-r1",
+        "--analysis1",
+        "/Users/reshke/work/pgpg/review/gin-next-20261111/decoder-d3/root-offline-replay-r1/analysis1-r1",
+        "--answers",
+        "/Users/reshke/work/pgpg/review/gin-next-20261111/decoder-d3/publication-r1/qualification/inputs/answers.json",
+        "--out-new",
+        "/Users/reshke/work/pgpg/review/gin-next-20261111/decoder-d3/root-offline-replay-r1/INDEPENDENT-FULL-RECOUNT-r1.json"
+      ],
+      "started_ns": 1794392606002384000,
+      "returncode": 0,
+      "finished_ns": 1794392606236933000
+    }
+  ],
+  "runtime_execution": false,
+  "compiler_or_database_execution": false,
+  "full_collection": {
+    "status": "PASS_COMPLETE_COLLECTION_BYTES",
+    "manifest_sha256": "a00a78225c2e116d42d55386a04481696f16e6380b40241b0303a8cbf7972eaa",
+    "files": 432,
+    "bytes": 24687224
+  },
+  "byte_identical_bundled_analysis": {
+    "0": {
+      "absolute.json": "32f0dafe8a642269d14347b5eed5d409b4e23d7974d764c2adcc79db6b4935f4",
+      "pairs.json": "ed3b024e48d5d8d38fcc2f8ddb84854709dff56133c0cb4a44ac7f80cffb8fe9",
+      "status.json": "1126f81a87ecce48f8de17a546166d8da83f9368cfc96635e586a7b66a75000a"
+    },
+    "1": {
+      "absolute.json": "5d00d5c444a1910df95cea7d985edb2f656720160f8fc2cb0004d62f95713771",
+      "pairs.json": "ebe9fec572d6183bd0c02d4740ef9fc6e423fac67624a4629869525152e7a7b6",
+      "status.json": "c08e5e214c692373c768b0743534566911dec67d1c1c4d070514246d6bba95b8"
+    }
+  },
+  "finished_ns": 1794392606236947000,
+  "output_receipts": {
+    "INDEPENDENT-FULL-RECOUNT-r1.json": "a8cbf48ff014935202a4f41b95a5a857257c3bbf3785bc0a325679ace4babeb0",
+    "codegen.json": "b22afb5a552f399bd613b9443525a766280341746e78afd7c1fc34ecc59b5595",
+    "qualification.json": "e925ab71d15fed28d1e7d5c07fd9e414d40d040737efdd3707efff63b78dd3a3",
+    "smoke.json": "3fca0e328e18d17b6a8de4c5d4248681d877b55dd37a6f559f1afa173e1a07d3"
+  }
+}

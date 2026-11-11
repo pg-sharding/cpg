@@ -1,0 +1,43 @@
+{
+  "status": "AUXILIARY_AUDITOR_SCHEMA_ERRATUM_ONLY",
+  "written_ns": 1794389993593730000,
+  "historical_attempts": {
+    "ROOT-BUILD-QUALIFICATION-AUDIT-r1.json": {
+      "sha256": "148404a749a2de9bb8eb494918b9f692278da484c4fc9a20f98b3a23bfd9b209",
+      "status": "FAILED_PRESERVED",
+      "started_ns": 1794389620800474000,
+      "timing_samples": 0,
+      "error": "FileNotFoundError(2, 'No such file or directory')"
+    },
+    "ROOT-BUILD-QUALIFICATION-AUDIT-r2.json": {
+      "sha256": "f38e9a92a6bc6f6b3b3c348793e90de0c9b54a4eb624f61ee2db8fd6ebf4e068",
+      "status": "FAILED_PRESERVED",
+      "started_ns": 1794389634414230000,
+      "timing_samples": 0,
+      "error": "KeyError('changed_backend_objects_from_B')"
+    },
+    "PEER-BUILD-QUALIFICATION-AUDIT-r3.json": {
+      "sha256": "8cb076d19062a53bd906977a78b26a5e6a70a68ec685645255666e2cd7b02f8a",
+      "status": "FAILED_PRESERVED",
+      "started_ns": 1794389695501248000,
+      "timing_samples": 0,
+      "error": "KeyError('normal_objects')"
+    }
+  },
+  "explanation": [
+    "Root r1 ran before collection extraction; no input file existed yet.",
+    "Root r2 used the auxiliary draft auditor, which assumed the assert-build receipt contained the release-only changed_backend_objects_from_B key.",
+    "Peer r3 corrected that key but assumed an empty normal_objects map; the actual assert schema intentionally omits both release-only keys.",
+    "The explicit assert schema now requires assertions=true and absence of both release-only keys. Its output comparison is null/not_applicable_assert_build; no assert/release flag equality is claimed."
+  ],
+  "corrected_tool": {
+    "path": "audit-build-qualification-r3.py",
+    "sha256": "23bc10b306bfa4daf97a8352b0037c42bc108d58f806417e34f38a59f8d1727a"
+  },
+  "actual_pass": {
+    "path": "PEER-BUILD-QUALIFICATION-AUDIT-r4.json",
+    "sha256": "a85991929cbcc715866411901a826aa4f97b337d8877fbf917ecaa3bf74dafff"
+  },
+  "runtime_source_or_frozen_input_changes": false,
+  "runtime_retries": 0
+}

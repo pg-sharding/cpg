@@ -1,0 +1,39 @@
+{
+  "status": "LOCAL_SOURCE_PROTOTYPE_NOT_COMPILED",
+  "raw_base": "72b9498df9a369e747f8d96efb5a6cd33c2451e2",
+  "fixed_base": "8a8c475037bfde101da23cc9b0364c9c020eca93",
+  "D2": "a85a9242f455b12c93528f3ace33eb69b6cd1008",
+  "D3_commit": "da951d2777e7b021966e5c9ade770bd434242e15",
+  "source_files": {
+    "B": {
+      "path": "B/src/backend/access/gin/ginpostinglist.c",
+      "sha256": "1e312e57dd9ba216b3ef9d4ef932e1d872ef47796e78b510e49bb67adf6ce4be"
+    },
+    "D2": {
+      "path": "D2/src/backend/access/gin/ginpostinglist.c",
+      "sha256": "0235eb70b0d860fed7e41476074b93617ed7013ac5af00856faffd60ab956705"
+    },
+    "D3": {
+      "path": "D3/src/backend/access/gin/ginpostinglist.c",
+      "sha256": "d4a55221badd128e1ee045f4e6a357aaa08bc26c019105895154728d28ac3e2b"
+    }
+  },
+  "hypothesis": "One segment dispatch: initial four encoded bytes all one-byte selects unchanged D2 batch loop; otherwise exact baseline scalar loop for whole segment.",
+  "performance_risks": [
+    "Early long delta disables late dense batching.",
+    "Mixed dense-first segments retain D2 per-delta dispatch.",
+    "Compiler may merge loops back into shared dispatch, or code size/register allocation may regress."
+  ],
+  "planned_added_timing_cells": [
+    "long_first_then_dense",
+    "dense_first_then_long",
+    "alternating_one_and_multibyte"
+  ],
+  "original_18_native_and_7_SQL_retained": true,
+  "D3_tree": "c4b4a0488fa27c7c095f784434b98f1c28cdec8d",
+  "D3_branch": "experiments/gin-next-decoder-segment-dispatch-v3-20261111",
+  "author": "root <localhost>",
+  "committer": "root <localhost>",
+  "canonical_parent": "8a8c475037bfde101da23cc9b0364c9c020eca93",
+  "source_only_not_compiled": true
+}

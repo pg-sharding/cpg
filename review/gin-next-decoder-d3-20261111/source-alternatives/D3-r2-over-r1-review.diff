@@ -1,0 +1,13 @@
+diff --git a/src/backend/access/gin/ginpostinglist.c b/src/backend/access/gin/ginpostinglist.c
+index 096f401f122..04d6dfc59f4 100644
+--- a/src/backend/access/gin/ginpostinglist.c
++++ b/src/backend/access/gin/ginpostinglist.c
+@@ -129,7 +129,7 @@ encode_varbyte(uint64 val, unsigned char **ptr)
+ /*
+  * Decode varbyte-encoded integer at *ptr. *ptr is incremented to next integer.
+  */
+-static uint64
++static pg_always_inline uint64
+ decode_varbyte(unsigned char **ptr)
+ {
+ 	uint64		val;

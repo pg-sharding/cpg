@@ -1,0 +1,20 @@
+{
+  "status": "ROOT_REVIEWED_ACTUAL_CODEGEN_NO_TIMING",
+  "source_commit": "da951d2777e7b021966e5c9ade770bd434242e15",
+  "receipt_sha256": "5cd6a7e0aefecb62bb9bdc93e19ec7f770a9e4a6ad803ae6b7914a53b2073bd2",
+  "findings": [
+    "Separate segment-selected scalar and batch loops exist.",
+    "D3 compiler emits decode_varbyte as a separate219-byte helper. Calls occur on both scalar paths, at object-relative0x400 and0x4b5.",
+    "D3 stack frame reserves56bytes and has a stack-canary check; B/D2 reserve24bytes.",
+    "This does not measure a timing regression. It changes the proposed baseline-like scalar mechanism and warrants an explicit inline refinement before expensive backend timing."
+  ],
+  "symbol_sizes_bytes": {
+    "B_ginPostingListDecodeAllSegments": 589,
+    "D2_ginPostingListDecodeAllSegments": 844,
+    "D3_ginPostingListDecodeAllSegments": 852,
+    "D3_decode_varbyte": 219
+  },
+  "next": "Check static pg_always_inline refinement with same full-TU compile. Preserve this first source/codegen attempt.",
+  "backend_builds": 0,
+  "timing_samples": 0
+}

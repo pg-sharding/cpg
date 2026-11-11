@@ -1,0 +1,85 @@
+{
+  "reference": {
+    "bytes": 644449,
+    "rows": 100000,
+    "sha256": "dda66b14df0d20a22fae0541c35309d4bfaced252527a9e30def7c1c6b685bbf"
+  },
+  "actual": {
+    "bytes": 644449,
+    "rows": 100000,
+    "sha256": "dda66b14df0d20a22fae0541c35309d4bfaced252527a9e30def7c1c6b685bbf"
+  },
+  "seq_plan": {
+    "Node Type": "Sort",
+    "Parallel Aware": false,
+    "Async Capable": false,
+    "Startup Cost": 15008.13,
+    "Total Cost": 15257.75,
+    "Plan Rows": 99848,
+    "Plan Width": 8,
+    "Disabled": false,
+    "Sort Key": [
+      "docs.id"
+    ],
+    "Plans": [
+      {
+        "Node Type": "Seq Scan",
+        "Parent Relationship": "Outer",
+        "Parallel Aware": false,
+        "Async Capable": false,
+        "Relation Name": "docs",
+        "Alias": "docs",
+        "Startup Cost": 0.0,
+        "Total Cost": 6717.02,
+        "Plan Rows": 99848,
+        "Plan Width": 8,
+        "Disabled": false,
+        "Filter": "(tags @> '{1,2}'::integer[])"
+      }
+    ]
+  },
+  "gin_plan": {
+    "Node Type": "Sort",
+    "Parallel Aware": false,
+    "Async Capable": false,
+    "Startup Cost": 14441.85,
+    "Total Cost": 14691.47,
+    "Plan Rows": 99848,
+    "Plan Width": 8,
+    "Disabled": false,
+    "Sort Key": [
+      "docs.id"
+    ],
+    "Plans": [
+      {
+        "Node Type": "Bitmap Heap Scan",
+        "Parent Relationship": "Outer",
+        "Parallel Aware": false,
+        "Async Capable": false,
+        "Relation Name": "docs",
+        "Alias": "docs",
+        "Startup Cost": 685.65,
+        "Total Cost": 6150.75,
+        "Plan Rows": 99848,
+        "Plan Width": 8,
+        "Disabled": false,
+        "Recheck Cond": "(tags @> '{1,2}'::integer[])",
+        "Plans": [
+          {
+            "Node Type": "Bitmap Index Scan",
+            "Parent Relationship": "Outer",
+            "Parallel Aware": false,
+            "Async Capable": false,
+            "Index Name": "docs_tags_gin",
+            "Startup Cost": 0.0,
+            "Total Cost": 660.69,
+            "Plan Rows": 99848,
+            "Plan Width": 0,
+            "Disabled": false,
+            "Index Cond": "(tags @> '{1,2}'::integer[])"
+          }
+        ]
+      }
+    ]
+  }
+}

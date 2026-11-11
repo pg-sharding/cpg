@@ -1,0 +1,95 @@
+From da951d2777e7b021966e5c9ade770bd434242e15 Mon Sep 17 00:00:00 2001
+From: root <localhost>
+Date: Wed, 11 Nov 2026 12:42:51 +0500
+Subject: [PATCH] Select the GIN decoder loop once per posting-list segment
+
+Keep the scalar loop for segments without an initial four-one-byte run.
+Retain the bounded four-item batch for segments beginning with that run.
+---
+ src/backend/access/gin/ginpostinglist.c | 65 ++++++++++++++++++++++---
+ 1 file changed, 57 insertions(+), 8 deletions(-)
+
+diff --git a/src/backend/access/gin/ginpostinglist.c b/src/backend/access/gin/ginpostinglist.c
+index 07656574029..096f401f122 100644
+--- a/src/backend/access/gin/ginpostinglist.c
++++ b/src/backend/access/gin/ginpostinglist.c
+@@ -329,19 +329,68 @@ ginPostingListDecodeAllSegments(GinPostingList *segment, int len, int *ndecoded_
+ 		val = itemptr_to_uint64(&segment->first);
+ 		ptr = segment->bytes;
+ 		endptr = segment->bytes + segment->nbytes;
+-		while (ptr < endptr)
++		/*
++		 * Use the batched loop only when the segment starts with four
++		 * one-byte deltas.  Otherwise keep the scalar loop for this segment,
++		 * without testing batch eligibility for every decoded item.
++		 */
++		if (endptr - ptr >= 4 &&
++			((ptr[0] | ptr[1] | ptr[2] | ptr[3]) & 0x80) == 0)
+ 		{
+-			/* enlarge output array if needed */
+-			if (ndecoded >= nallocated)
++			while (ptr < endptr)
+ 			{
+-				nallocated *= 2;
+-				result = repalloc_array(result, ItemPointerData, nallocated);
++				/* enlarge output array if needed */
++				if (ndecoded >= nallocated)
++				{
++					nallocated *= 2;
++					result = repalloc_array(result, ItemPointerData, nallocated);
++				}
++
++				/*
++				 * Decode a run of four complete one-byte deltas together.  Both
++				 * the input and output bounds are checked before touching the
++				 * batch.  Reject a long first delta before testing the batch.
++				 * Longer deltas and short tails use the usual decoder.  The
++				 * allocation policy and on-disk representation are unchanged.
++				 */
++				if ((ptr[0] & 0x80) == 0 &&
++					endptr - ptr >= 4 && nallocated - ndecoded >= 4 &&
++					((ptr[1] | ptr[2] | ptr[3]) & 0x80) == 0)
++				{
++					val += ptr[0];
++					uint64_to_itemptr(val, &result[ndecoded++]);
++					val += ptr[1];
++					uint64_to_itemptr(val, &result[ndecoded++]);
++					val += ptr[2];
++					uint64_to_itemptr(val, &result[ndecoded++]);
++					val += ptr[3];
++					uint64_to_itemptr(val, &result[ndecoded++]);
++					ptr += 4;
++					continue;
++				}
++
++				val += decode_varbyte(&ptr);
++
++				uint64_to_itemptr(val, &result[ndecoded]);
++				ndecoded++;
+ 			}
++		}
++		else
++		{
++			while (ptr < endptr)
++			{
++				/* enlarge output array if needed */
++				if (ndecoded >= nallocated)
++				{
++					nallocated *= 2;
++					result = repalloc_array(result, ItemPointerData, nallocated);
++				}
+ 
+-			val += decode_varbyte(&ptr);
++				val += decode_varbyte(&ptr);
+ 
+-			uint64_to_itemptr(val, &result[ndecoded]);
+-			ndecoded++;
++				uint64_to_itemptr(val, &result[ndecoded]);
++				ndecoded++;
++			}
+ 		}
+ 		segment = GinNextPostingListSegment(segment);
+ 	}
+-- 
+2.50.1 (Apple Git-155)
+

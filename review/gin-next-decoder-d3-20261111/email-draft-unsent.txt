@@ -1,0 +1,27 @@
+UNSENT — not sent to the mailing list
+Subject: [PATCH experiment] Select a GIN posting-list decoder loop per segment
+
+This experiment follows our D2 decoder prototype. D3 selects the existing four-item batch loop or the baseline scalar loop once at the start of each posting-list segment. The format, allocation-growth contract and batch width do not change. The first four encoded bytes select the batch-capable loop only when they are all single-byte deltas; otherwise the whole segment takes scalar decoding.
+
+The measured result is selective. D3 reduces the delta3/4 and alternating-delta costs while retaining dense decoding gains, but it is not a general D2 upgrade. The fixed screen deliberately measures both mixed directions and keeps every previous negative/control.
+
+Two fresh cohorts used B, an exact B twin T, D2 and D3: 28 cells, two warm and 12 retained balanced rounds, 3136 raw commands/2688 retained/448 warm. A separate 112-command smoke accepted no samples. All percentages below are paired per-round median changes, cohort 0 / cohort 1, positive meaning slower; no cohorts are pooled and the twin is not used as a correction.
+
+Dense128 D3/B is -10.45% / -10.65% (B 2.7724 / 2.7203 ms; D3 2.4804 / 2.4326 ms for the complete 20,000-loop command). Delta3 moves from D2/B +7.15% / +7.29% to D3/B -0.20% / +0.12%; delta4 moves from +6.20% / +6.31% to +0.32% / +0.05%. Alternating one-/multi-byte deltas move from D2/B +16.41% / +16.75% to D3/B +1.56% / +1.45%.
+
+The negatives remain important. Delta2 D3/B is still +2.30% / +3.22%, and singleton segments are +2.38% / +2.51%. Long-first/dense-later loses the D2 benefit: D3/D2 is +12.11% / +12.08%, while D3/B is +0.20% / -0.04%. First-singleton/growth is +8.39% / +8.71% slower than D2. Batch4/5/8 also give back some D2 gains. All 28 cells and ranges accompany the packet, without filtering the small negatives.
+
+Whole SQL is mixed. The complete 100-probe skew command changes from B 77.8575 / 77.6110 ms to D3 76.2910 / 76.4315 ms, D3/B -2.05% / -1.47%; D2 remains faster at 76.0030 / 75.8845 ms. Dense SQL is +1.23% / -0.13%, prefix -0.68% / -0.81%, rare +1.55% / -0.16%, forced OR +1.53% / +0.34% and forced single-term +1.61% / +0.59%. D2's first-cohort OR/single regression does not recur in the second cohort, so this is not a universal SQL repair. The ID-only Seq control is +0.05% / -0.17% and has no GIN predicate. Exact-twin ranges and all backend CPU/client wall/executor metrics remain visible in the tables.
+
+Native inner CPU includes actual backend allocation, TID materialization and free; input generation, compression and full-output checking are outside that clock. Whole backend CPU and client wall time are separate metrics. SQL EXPLAIN execution time covers the complete repeated-probe command. The packet includes absolute median/min/max/mean/sample-stdev/MAD and all six direct role pairs.
+
+On Linux x86-64, release builds used GCC 13.3 with -O2 -g -fno-lto and LDFLAGS=-fno-lto, OpenSSL enabled, ICU/readline disabled. Four fresh B/D2/D3/D3_assert full backend builds passed the original 239 core and posting tests without changing expected output. The ordinary gate passed 188 ordered/prepared SQL and 48 lifecycle comparisons, 84 decoder cases/54,144 item checks and 768 valid mixed-boundary cases/33,408 item checks. Independent arithmetic recounted all 87,360 numeric fields. Final root proof records 17 stopped owned lifetimes and unchanged source, installed prefixes, modules, seeds and frozen inputs. These are finite ordinary checks, not a general concurrency or merge-readiness claim.
+
+The initial source revision is retained as a codegen-only negative: GCC outlined decode_varbyte and enlarged its local frame to 56 bytes. It was not timed as a full backend. A focused second revision uses PostgreSQL's existing pg_always_inline macro. Actual full-build normal ASM has no helper calls and the same 24-byte local frame/six saved registers as B and D2, but its function is larger: 1241 bytes versus 844 for D2 and 589 for B. Code size remains a tradeoff; no latency cause is inferred from that observation.
+
+Raw B72 is 72b9498df9a369e747f8d96efb5a6cd33c2451e2; fixed B is 8a8c475037bfde101da23cc9b0364c9c020eca93. D2 is a85a9242f455b12c93528f3ace33eb69b6cd1008. D3r2 is 1ce29c18ceb41882deced3ebe680ee75ba2c29b0; r1 da951d2777e7b021966e5c9ade770bd434242e15 is archived separately. D2 and D3 standalone patches are alternatives, not a series. The shared fixed prerequisite is identical in every tree.
+
+This is a measured local decoder heuristic, not a claim of a new general decoding algorithm. The previous general GIN performance discussion is context, not a direct decoder match:
+https://www.postgresql.org/message-id/52F373CC.4050800%40vmware.com
+
+The source and replay packet contains exact diffs/format patches, full source/header/ELF bindings, actual normal ASM, plain raw/literal journals, all controls and negative results, and Linux build/setup/native/SQL instructions. The portable fresh-host frontdoor is static-validated only; actual historical runs used the recorded root controllers. Local recorded-data replay is distinct from a new Linux run. The bounded monitor covers the campaign but can miss short-lived/thread activity and does not measure frequency or steal time. No second-host or disk-cold claim is made.

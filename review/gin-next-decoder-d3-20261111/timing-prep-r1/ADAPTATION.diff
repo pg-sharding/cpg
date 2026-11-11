@@ -1,0 +1,309 @@
+--- executed-D2/campaign.py
++++ D3/campaign.py
+@@ -30,7 +30,7 @@
+ def frozen_inputs():
+     paths = [p for p in HERE.rglob('*') if p.is_file() and '__pycache__' not in p.parts]
+     paths += [p for p in (ROOT / 'qualification').rglob('*') if p.is_file() and '__pycache__' not in p.parts]
+-    paths += [ROOT / n for n in ['build-source/SOURCE.json', 'BUILD-INPUTS-D2-r1.json', 'QUALIFICATION-INPUTS-D2-r1.json', 'TIMING-INPUTS-D2-r1.json', 'build-harness/common.py']]
++    paths += [ROOT / n for n in ['build-source/SOURCE.json', 'BUILD-INPUTS-D3-r1.json', 'QUALIFICATION-INPUTS-D3-r1.json', 'TIMING-INPUTS-D3-r1.json', 'build-harness/common.py']]
+     return {p.relative_to(ROOT).as_posix(): dict(bytes=p.stat().st_size, sha256=bc.sha(p)) for p in sorted(paths)}
+ 
+ 
+@@ -40,7 +40,7 @@
+     p.add_argument('--build', type=pathlib.Path, required=True)
+     p.add_argument('--qualified', type=pathlib.Path, required=True)
+     p.add_argument('--output', type=pathlib.Path, required=True)
+-    p.add_argument('--first-port', type=int, default=47000)
++    p.add_argument('--first-port', type=int, default=48200)
+     p.add_argument('--cpu-pairs', default='0:4,4:0', help='server:client for each cohort; topology is recorded')
+     p.add_argument('--environment-label', choices=['SHARED_LOAD_DIAGNOSTIC', 'FRESH_HOST_CLEAN_SCREEN'], default='SHARED_LOAD_DIAGNOSTIC')
+     p.add_argument('--review', type=pathlib.Path, help='External root-authored smoke review, required by run stage')
+@@ -53,33 +53,33 @@
+     bc.child_limits()
+     build = bc.checked_build(args.build)
+     qualified = json.loads((args.qualified / 'status.json').read_text())
+-    assert qualified['status'] == 'PASS_D2_ORDINARY_SQL_AND_VALID_DECODER' and qualified['remaining_owned'] == 0 and not qualified['cleanup_errors']
++    assert qualified['status'] == 'PASS_D3_ORDINARY_SQL_AND_VALID_DECODER' and qualified['remaining_owned'] == 0 and not qualified['cleanup_errors']
+     assert qualified['build_receipt_sha256'] == bc.sha(args.build / 'build-receipt.json')
+-    for name, expected in [('BUILD-INPUTS-D2-r1.json', '11b348197ca1e912cd3616bb332a09a2780d70061e43c777aea15d25f75b30f7'),
+-                           ('QUALIFICATION-INPUTS-D2-r1.json', '526681c089d361901c67d74a981c35674f45429d48cd864f806a432fe33a92fb')]:
++    for name, expected in [('BUILD-INPUTS-D3-r1.json', '34e3453794ebb4de2833865fc911d01350f16309aab1b2dee551be00d7a11267'),
++                           ('QUALIFICATION-INPUTS-D3-r1.json', '985ef80429245f6376e57a878d420eaf31be762a957c01b5ed37f603304f8b2d')]:
+         manifest = ROOT / name
+         assert bc.sha(manifest) == expected
+         for relative, binding in json.loads(manifest.read_text())['files'].items():
+             path = ROOT / relative
+             assert not path.is_symlink() and path.stat().st_size == binding['bytes'] and bc.sha(path) == binding['sha256']
+     assert qualified['timing_samples'] == 0
+-    assert set(qualified['variants']) == {'B', 'D1', 'D2', 'D2_assert'}
++    assert set(qualified['variants']) == {'B', 'D2', 'D3', 'D3_assert'}
+     for artifact in qualified['variants'].values():
+         assert bc.sha(artifact['path']) == artifact['sha256']
+         assert json.loads(pathlib.Path(artifact['path']).read_text())['status'] == 'PASS'
+-    for name, expected in dict(ordered_cases_per_variant=40, prepared_cases_per_variant=7,lifecycle_comparisons_per_variant=12,decoder_cases_per_variant=18).items():
++    for name, expected in dict(ordered_cases_per_variant=40, prepared_cases_per_variant=7,lifecycle_comparisons_per_variant=12,decoder_cases_per_variant=21,mixed_boundary_cases_per_variant=192,mixed_boundary_item_checks_per_variant=8352).items():
+         assert qualified[name] == expected
+     for item in qualified['clusters']:
+         assert item['stopped']
+         bc.stopped(item['prefix'], item['data'])
+         for key in ('pid', 'backend_pid'):
+             assert not item.get(key) or not pathlib.Path('/proc', str(item[key])).exists()
+-    assert build['source_plan_sha256'] == '882122bce7ebbfd93f218e978ccc6dde510449d09796230b119eac331638615b'
++    assert build['source_plan_sha256'] == '59e277145711e1a3ad4ed3e942f9120c94203417071b0c3d27eda75634209007'
+     assert qualified['source_plan_sha256'] == build['source_plan_sha256']
+-    assert {k: build['variants'][k]['commit'] for k in ('B', 'D1', 'D2', 'D2_assert')} == {
+-        'B': FIXED, 'D1': 'c2b5dd6f9012cc4a27628c9d6c507ac467795ac5',
+-        'D2': 'a85a9242f455b12c93528f3ace33eb69b6cd1008',
+-        'D2_assert': 'a85a9242f455b12c93528f3ace33eb69b6cd1008'}
++    assert {k: build['variants'][k]['commit'] for k in ('B', 'D2', 'D3', 'D3_assert')} == {
++        'B': FIXED, 'D2': 'a85a9242f455b12c93528f3ace33eb69b6cd1008',
++        'D3': '1ce29c18ceb41882deced3ebe680ee75ba2c29b0',
++        'D3_assert': '1ce29c18ceb41882deced3ebe680ee75ba2c29b0'}
+     spec = plan()
+     out = args.output.resolve()
+     if args.stage == 'prepare':
+@@ -93,7 +93,7 @@
+     bc.save(status_path, state)
+     owned = []
+     prefixes = {r: pathlib.Path(v['prefix']) for r, v in build['variants'].items()}
+-    source_manifest = json.loads((args.build / 'D2_assert-source-inventory.json').read_text())
++    source_manifest = json.loads((args.build / 'D3_assert-source-inventory.json').read_text())
+ 
+     def verify_sources():
+         bc.checked_build(args.build)
+@@ -130,7 +130,7 @@
+             bc.sync(seed)
+             bc.save(out / 'seed-inventory.json', expected)
+             modules = {}
+-            for role in ('B','D1','D2'):
++            for role in ('B','D2','D3'):
+                 result = json.loads((args.qualified / role / 'result.json').read_text())
+                 module = args.qualified / role / 'decoder-native.so'
+                 assert bc.sha(module) == result['module_sha256']
+@@ -187,7 +187,7 @@
+                 mapping = dict(zip(spec['roles'], range(4) if cohort == 0 else reversed(range(4))))
+                 current = []
+                 label = 'smoke' if args.stage == 'smoke' else 'cohort' + str(cohort)
+-                runtime = dict(status='QUALIFIED_D2_DECODER_PERFORMANCE_INPUTS', base_commit=BASE, fixed_commit=FIXED,
++                runtime = dict(status='QUALIFIED_D3_DECODER_PERFORMANCE_INPUTS', base_commit=BASE, fixed_commit=FIXED,
+                                fix0001_sha256=build['fix0001_sha256'], roles={}, server_cpu=server, client_cpu=client,
+                                environment_label=args.environment_label, session_order=sorted(spec['roles'], key=mapping.get))
+                 try:
+--- executed-D2/run.py
++++ D3/run.py
+@@ -44,7 +44,7 @@
+     runtime = json.loads(a.runtime.read_text())
+     spec = plan()
+     roles = spec['roles']
+-    assert runtime['status'] == 'QUALIFIED_D2_DECODER_PERFORMANCE_INPUTS'
++    assert runtime['status'] == 'QUALIFIED_D3_DECODER_PERFORMANCE_INPUTS'
+     assert runtime['base_commit'] == BASE and runtime['fixed_commit'] == FIXED
+     assert list(runtime['roles']) == roles and os.sched_getaffinity(0) == {runtime['client_cpu']}
+     assert runtime['environment_label'] in {'SHARED_LOAD_DIAGNOSTIC', 'FRESH_HOST_CLEAN_SCREEN'}
+@@ -53,7 +53,7 @@
+         assert item['correctness_status'] == 'PASS'
+         assert item['fix0001_sha256'] == runtime['fix0001_sha256']
+         assert sha(item['decoder_module']) == item['decoder_module_sha256']
+-    assert {r:runtime['roles'][r]['source_commit']for r in roles} == dict(B=FIXED,T=FIXED,D1='c2b5dd6f9012cc4a27628c9d6c507ac467795ac5',D2='a85a9242f455b12c93528f3ace33eb69b6cd1008')
++    assert {r:runtime['roles'][r]['source_commit']for r in roles} == dict(B=FIXED,T=FIXED,D2='a85a9242f455b12c93528f3ace33eb69b6cd1008',D3='1ce29c18ceb41882deced3ebe680ee75ba2c29b0')
+     assert runtime['roles']['B']['prefix'] == runtime['roles']['T']['prefix']
+     assert runtime['roles']['B']['backend_sha256'] == runtime['roles']['T']['backend_sha256']
+     cases = list(reversed(spec['cases'])) if a.cohort else spec['cases']
+--- executed-D2/protocol.py
++++ D3/protocol.py
+@@ -1,4 +1,4 @@
+-"""Fixed D2 allocation-inclusive decoder and whole-SQL protocol; no result-dependent tuning."""
++"""Fixed D3 allocation-inclusive decoder and whole-SQL protocol; no result-dependent tuning."""
+ import collections,json,pathlib
+ HERE=pathlib.Path(__file__).resolve().parent
+ INPUTS=HERE.parent/'qualification/inputs'
+@@ -25,10 +25,20 @@
+     ('delta5', 128, 21, 128, False, 20000),
+     ('delta6', 128, 24, 128, False, 20000),
+     ('delta7', 2, 31, 2, False, 200000),
++    ('long_first_then_dense',128,-2,128,False,20000),
++    ('dense_first_then_long',128,-3,128,False,20000),
++    ('alternating_one_multibyte',128,-4,128,False,20000),
+ ]
+ 
+ def decode_expected(n, shift, segment_items, first_singleton, loops):
+     tids = [(i // 128, 1 + i % 128) if shift < 0 else (i << shift, 1) for i in range(n)]
++    if shift < -1:
++        tids=[]; packed=1
++        for i in range(n):
++            if i:
++                long_delta=(i==1) if shift==-2 else (i>4) if shift==-3 else bool(i%2)
++                packed += 2048 if long_delta else 1
++            tids.append((packed>>11,packed&2047))
+     checksum = 1469598103934665603
+     for block, offset in tids:
+         checksum = ((checksum ^ block) * 1099511628211) % (1 << 64)
+@@ -48,13 +58,13 @@
+  return json.loads((INPUTS/'queries.json').read_text())['cases']+json.loads((INPUTS/'queries-holdout.json').read_text())['cases']
+ 
+ def plan():
+- roles=['B','T','D1','D2'];base=[0,1,3,2]
++ roles=['B','T','D2','D3'];base=[0,1,3,2]
+  orders=[[roles[(x+k)%4]for x in base]for k in range(4)]*3
+  assert collections.Counter((r,i)for order in orders for i,r in enumerate(order))==collections.Counter({(r,i):3 for r in roles for i in range(4)})
+  assert collections.Counter((a,b)for order in orders for a,b in zip(order,order[1:]))==collections.Counter({(a,b):3 for a in roles for b in roles if a!=b})
+  sql=[dict(c,kind='sql')for c in sql_cases()if c['name']in SQL_NAMES];assert len(sql)==7
+  decoder=[dict(name='decode_'+name,decoder_case=name,kind='decoder',settings='',loops=loops,expected=decode_expected(n,shift,seg,first,loops),sql=f"SELECT public.gin_decoder_bench('{name}', {loops})")for name,n,shift,seg,first,loops in DECODE]
+- cases=sql+decoder;assert len(cases)==len({c['name']for c in cases})==25
+- return dict(roles=roles,cases=cases,orders=orders,warmups=2,retained_rounds=12,cohorts=2,raw=2800,retained=2400,warm=400,scope='7 wholeSQL +18 actualbackend allocation/materialization/free decoder cells; exact B/T; all6pairs and all negatives retained; no AM/fragment claim')
++ cases=sql+decoder;assert len(cases)==len({c['name']for c in cases})==28
++ return dict(roles=roles,cases=cases,orders=orders,warmups=2,retained_rounds=12,cohorts=2,raw=3136,retained=2688,warm=448,scope='7 wholeSQL +21 actualbackend allocation/materialization/free decoder cells; exact B/T; all6pairs and all negatives retained; no AM/fragment claim')
+ 
+ if __name__=='__main__':print(json.dumps(plan(),indent=2))
+--- executed-D2/analyze.py
++++ D3/analyze.py
+@@ -76,8 +76,8 @@
+                                   percent=spread([100 * (x['right'] / x['left'] - 1) for x in direct]),
+                                   difference=spread([x['right'] - x['left'] for x in direct])))
+     metrics_per_role = sum(len(v) for v in case_metrics.values())
+-    assert metrics_per_role == 75  # 7 SQL*3 + 18 decoder*3.
+-    assert len(absolute) == 300 and len(pairs) == 450
++    assert metrics_per_role == 84  # 7 SQL*3 + 21 decoder*3.
++    assert len(absolute) == 336 and len(pairs) == 504
+     a.out_new.mkdir()
+     receipt = dict(status='PASS', cohort=status['cohort'], environment_label=status['environment_label'],
+                    raw=len(rows), retained=sum(x['retained'] for x in rows), warm=sum(not x['retained'] for x in rows),
+--- executed-D2/audit-independent-r1.py
++++ D3/audit-independent-r1.py
+@@ -8,7 +8,7 @@
+ import math
+ import pathlib
+ 
+-ROLES = ['B', 'T', 'D1', 'D2']
++ROLES = ['B', 'T', 'D2', 'D3']
+ DECODE = [
+  ('one',1,-1,1,False,200000),('tail1',2,-1,8,False,200000),
+  ('tail2',3,-1,8,False,200000),('tail3',4,-1,8,False,200000),
+@@ -18,7 +18,10 @@
+  ('first_singleton_grow',4096,-1,511,True,1000),('singletons',64,-1,1,False,20000),
+  ('delta2',128,0,128,False,20000),('delta3',128,7,128,False,20000),
+  ('delta4',128,14,128,False,20000),('delta5',128,21,128,False,20000),
+- ('delta6',128,24,128,False,20000),('delta7',2,31,2,False,200000)]
++ ('delta6',128,24,128,False,20000),('delta7',2,31,2,False,200000),
++ ('long_first_then_dense',128,-2,128,False,20000),
++ ('dense_first_then_long',128,-3,128,False,20000),
++ ('alternating_one_multibyte',128,-4,128,False,20000)]
+ AM = [('am_inline',10000,4),('am_absent',5000,0),('am_skew1000',100,200),
+       ('am_full',10,200000),('am_or',10,200000),('am_dense',10,33333),('am_rare',1000,200)]
+ 
+@@ -54,6 +57,15 @@
+ 
+ def decoder_expected(n,shift,segment,first,loops):
+     points=[(i//128,1+i%128) if shift<0 else (i*(2**shift),1) for i in range(n)]
++    if shift < -1:
++        points=[]; packed=1
++        for i in range(n):
++            if i:
++                if shift==-2: step=2048 if i==1 else 1
++                elif shift==-3: step=1 if i<=4 else 2048
++                else: step=2048 if i&1 else 1
++                packed+=step
++            points.append(divmod(packed,2048))
+     checksum=1469598103934665603
+     for block,offset in points:
+         for value in (block,offset):
+@@ -86,9 +98,9 @@
+     base=[0,1,3,2]
+     orders=[[ROLES[(v+shift)%4]for v in base]for shift in range(4)]*3
+     assert protocol['roles']==ROLES and protocol['orders']==orders
+-    assert (protocol['raw'],protocol['retained'],protocol['warm'],protocol['warmups'],protocol['retained_rounds'])==(2800,2400,400,2,12)
+-    cases=protocol['cases']; assert len(cases)==25
+-    assert collections.Counter(c['kind'] for c in cases)=={'sql':7,'decoder':18}
++    assert (protocol['raw'],protocol['retained'],protocol['warm'],protocol['warmups'],protocol['retained_rounds'])==(3136,2688,448,2,12)
++    cases=protocol['cases']; assert len(cases)==28
++    assert collections.Counter(c['kind'] for c in cases)=={'sql':7,'decoder':21}
+     am={name:(loops,tids) for name,loops,tids in AM}
+     decode={name:(loops,decoder_expected(n,shift,segment,first,loops)) for name,n,shift,segment,first,loops in DECODE}
+     checks=0; largest_error=0.0; bindings={}; cohort_receipts=[];plans={};settings_reference={};last_end=0
+@@ -112,13 +124,13 @@
+         run=a.run_root/('cohort'+str(cohort))
+         status=json.loads((run/'status.json').read_text())
+         assert status['status']=='PASS' and not status['cleanup_errors'] and not status['smoke_only']
+-        assert status['cohort']==cohort and status['accepted_timing_samples']==1400
++        assert status['cohort']==cohort and status['accepted_timing_samples']==1568
+         assert status['environment_label']==freeze['environment_label'] and status['environment_label']in ['SHARED_LOAD_DIAGNOSTIC','FRESH_HOST_CLEAN_SCREEN']
+         raw_path=run/'raw.jsonl'; literal_path=run/'literal.jsonl'
+         assert sha(raw_path)==status['raw_sha256'] and sha(literal_path)==status['literal_sha256']
+         rows=[json.loads(line) for line in raw_path.read_bytes().splitlines()]
+         journals=[json.loads(line) for line in literal_path.read_bytes().splitlines()]
+-        assert len(rows)==len(journals)==1400 and sum(x['retained'] for x in rows)==1200
++        assert len(rows)==len(journals)==1568 and sum(x['retained'] for x in rows)==1344
+         settings=json.loads((run/'case-settings.json').read_text());assert set(settings)=={c['name']for c in cases}
+         for name,role_values in settings.items():
+             assert set(role_values)==set(ROLES)
+@@ -179,16 +191,16 @@
+                         groups[name,role,metric].append(value)
+                         assert (name,rnd,role,metric) not in points
+                         points[name,rnd,role,metric]=value
+-        assert position==1400 and len(groups)==300
++        assert position==1568 and len(groups)==336
+         actual_abs=json.loads((analysis/'absolute.json').read_text())
+         absolute={(v['case'],v['role'],v['metric']):v for v in actual_abs}
+-        assert len(actual_abs)==len(absolute)==300 and set(absolute)==set(groups)
++        assert len(actual_abs)==len(absolute)==336 and set(absolute)==set(groups)
+         for (name,role,metric),values in groups.items():
+             assert len(values)==12
+             equal(absolute[name,role,metric],dict(case=name,role=role,metric=metric,**stats(values)))
+         actual_pairs=json.loads((analysis/'pairs.json').read_text())
+         pairs={(v['case'],v['left'],v['right'],v['metric']):v for v in actual_pairs}
+-        assert len(actual_pairs)==len(pairs)==450
++        assert len(actual_pairs)==len(pairs)==504
+         for case in cases:
+             name=case['name']
+             for left,right in itertools.combinations(ROLES,2):
+@@ -198,10 +210,11 @@
+                                   percent=stats([100*(d['right']/d['left']-1) for d in direct]),difference=stats([d['right']-d['left'] for d in direct]))
+                     equal(pairs[name,left,right,metric],expected)
+         bindings[str(cohort)]=dict(raw_sha256=sha(raw_path),literal_sha256=sha(literal_path),absolute_sha256=sha(analysis/'absolute.json'),pairs_sha256=sha(analysis/'pairs.json'))
+-        cohort_receipts.append(dict(cohort=cohort,raw=1400,retained=1200,warm=200,absolute_groups=300,pair_groups=450,direct_pairs=5400,retained_diagnostics=dict(diagnostics)))
+-    result=dict(status='PASS_INDEPENDENT_COMPLETE_RECOUNT',raw=2800,retained=2400,warm=400,absolute_groups=600,pair_groups=900,direct_pairs=10800,
++        cohort_receipts.append(dict(cohort=cohort,raw=1568,retained=1344,warm=224,absolute_groups=336,pair_groups=504,direct_pairs=6048,retained_diagnostics=dict(diagnostics)))
++    assert checks==87360 and len(plans)==7 and len(settings_reference)==28
++    result=dict(status='PASS_INDEPENDENT_COMPLETE_RECOUNT',raw=3136,retained=2688,warm=448,absolute_groups=672,pair_groups=1008,direct_pairs=12096,
+                 numeric_comparisons=checks,max_absolute_numeric_error=largest_error,cohorts=cohort_receipts,bindings=bindings,
+-                full_semantic_SQL_plan_signatures=len(plans),settings_cases=len(settings_reference),ordered_oracles=200,exact_B_T_verified=True,chronology_samples=2800,
++                full_semantic_SQL_plan_signatures=len(plans),settings_cases=len(settings_reference),ordered_oracles=200,exact_B_T_verified=True,chronology_samples=3136,
+                 freeze_sha256=sha(a.run_root/'freeze.json'),answers_sha256=sha(a.answers),all_controls_preserved=True,
+                 environment_label=freeze['environment_label'],rules='No pooling, trimming, control normalization, significance or causal attribution')
+     a.out_new.write_text(json.dumps(result,indent=2)+'\n'); print(json.dumps(result))
+--- executed-D2/review-smoke-r1.py
++++ D3/review-smoke-r1.py
+@@ -1,5 +1,5 @@
+ #!/usr/bin/env python3
+-"""Independent offline100-command smoke recount; this is not root timing approval."""
++"""Independent offline112-command smoke recount; this is not root timing approval."""
+ import argparse,hashlib,importlib.util,json,pathlib
+ HERE=pathlib.Path(__file__).resolve().parent
+ loader=importlib.util.spec_from_file_location('ownaudit',HERE/'audit-independent-r1.py');ind=importlib.util.module_from_spec(loader);loader.loader.exec_module(ind)
+@@ -8,14 +8,14 @@
+ def main():
+  p=argparse.ArgumentParser(description=__doc__);p.add_argument('--timing-root',type=pathlib.Path,required=True);p.add_argument('--answers',type=pathlib.Path,default=HERE.parent/'qualification/inputs/answers.json');p.add_argument('--output',type=pathlib.Path,required=True);a=p.parse_args();assert not a.output.exists();r=a.timing_root;s=load(r/'smoke-status.json');run=r/'smoke';status=load(run/'status.json');freeze=load(r/'freeze.json');protocol=freeze['protocol'];runtime=load(r/'runtime-smoke.json');cases=protocol['cases'];roles=ind.ROLES
+  assert s['status']=='PASS_SMOKE_NEEDS_ROOT_REVIEW'and s['timing_samples']==s['remaining_owned']==0 and s['cleanup_errors']==[] and s['unused_accepted_copies']==8
+- assert status['status']=='PASS'and status['smoke_only']and status['retained']==status['accepted_timing_samples']==0 and status['raw']==100 and status['cleanup_errors']==[]
+- assert protocol['roles']==roles and(protocol['raw'],protocol['retained'],protocol['warm'])==(2800,2400,400)and len(cases)==25
++ assert status['status']=='PASS'and status['smoke_only']and status['retained']==status['accepted_timing_samples']==0 and status['raw']==112 and status['cleanup_errors']==[]
++ assert protocol['roles']==roles and(protocol['raw'],protocol['retained'],protocol['warm'])==(3136,2688,448)and len(cases)==28
+  assert len(freeze['copies'])==12 and all(v['fsync_end_ns']<=freeze['all_copies_fsync_done_ns']<s['started_ns']for v in freeze['copies'])
+  assert len(s['clusters'])==4 and all(v['stopped']and v['stop_proof']['pidfile_absent']for v in s['clusters'])
+  assert runtime['roles']['B']['prefix']==runtime['roles']['T']['prefix']and runtime['roles']['B']['backend_sha256']==runtime['roles']['T']['backend_sha256']and runtime['roles']['B']['decoder_module_sha256']==runtime['roles']['T']['decoder_module_sha256']
+  assert sha(run/'raw.jsonl')==status['raw_sha256']and sha(run/'literal.jsonl')==status['literal_sha256']
+- rows=[json.loads(line)for line in(run/'raw.jsonl').read_text().splitlines()];literals=[json.loads(line)for line in(run/'literal.jsonl').read_text().splitlines()];assert len(rows)==len(literals)==100
+- answers=load(a.answers);decoder={name:(loops,ind.decoder_expected(n,shift,seg,first,loops))for name,n,shift,seg,first,loops in ind.DECODE};order=['B','T','D2','D1'];plans={};last_end=0
++ rows=[json.loads(line)for line in(run/'raw.jsonl').read_text().splitlines()];literals=[json.loads(line)for line in(run/'literal.jsonl').read_text().splitlines()];assert len(rows)==len(literals)==112
++ answers=load(a.answers);decoder={name:(loops,ind.decoder_expected(n,shift,seg,first,loops))for name,n,shift,seg,first,loops in ind.DECODE};order=['B','T','D3','D2'];plans={};last_end=0
+  for index,(row,journal)in enumerate(zip(rows,literals)):
+   c=cases[index//4];role=order[index%4];name=c['name'];assert(row['cohort'],row['case'],row['role'],row['position'],row['round'],row['retained'],row['smoke_only'],row['order'])==(0,name,role,index%4,0,False,True,order)
+   assert(journal['case'],journal['role'],journal['round'],journal['answer'])==(name,role,0,row['literal_answer'])
+@@ -37,6 +37,6 @@
+  for value in oracles['answers'].values():assert value['actual_sha256']==value['reference_sha256']
+  settings=load(run/'case-settings.json');assert set(settings)=={c['name']for c in cases}
+  for case,value in settings.items():assert set(value)==set(roles)and all(x==value['B']for x in value.values())
+- result=dict(status='PASS_INDEPENDENT_D2_SMOKE_RECOUNT',measured_commands=100,accepted_retained=0,ordered_SQL_comparisons=100,full_semantic_SQL_signatures=7,settings_cases=25,decoder_cases=18,exact_B_T=True,raw_sha256=sha(run/'raw.jsonl'),freeze_sha256=sha(r/'freeze.json'),smoke_status_sha256=sha(r/'smoke-status.json'),root_live_check_and_external_approval='STILL_REQUIRED')
++ result=dict(status='PASS_INDEPENDENT_D3_SMOKE_RECOUNT',measured_commands=112,accepted_retained=0,ordered_SQL_comparisons=100,full_semantic_SQL_signatures=7,settings_cases=28,decoder_cases=21,exact_B_T=True,raw_sha256=sha(run/'raw.jsonl'),freeze_sha256=sha(r/'freeze.json'),smoke_status_sha256=sha(r/'smoke-status.json'),root_live_check_and_external_approval='STILL_REQUIRED')
+  a.output.write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result))
+ if __name__=='__main__':main()

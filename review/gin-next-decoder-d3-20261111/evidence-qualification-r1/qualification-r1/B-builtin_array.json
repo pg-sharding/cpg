@@ -1,0 +1,85 @@
+{
+  "reference": {
+    "bytes": 1291,
+    "rows": 200,
+    "sha256": "b05b2c6b15a2bc723fdb05fa27bce6aba0af0f48fac98da90bae71bce33caa5c"
+  },
+  "actual": {
+    "bytes": 1291,
+    "rows": 200,
+    "sha256": "b05b2c6b15a2bc723fdb05fa27bce6aba0af0f48fac98da90bae71bce33caa5c"
+  },
+  "seq_plan": {
+    "Node Type": "Sort",
+    "Parallel Aware": false,
+    "Async Capable": false,
+    "Startup Cost": 4620.58,
+    "Total Cost": 4621.13,
+    "Plan Rows": 220,
+    "Plan Width": 8,
+    "Disabled": false,
+    "Sort Key": [
+      "builtin_arrays.id"
+    ],
+    "Plans": [
+      {
+        "Node Type": "Seq Scan",
+        "Parent Relationship": "Outer",
+        "Parallel Aware": false,
+        "Async Capable": false,
+        "Relation Name": "builtin_arrays",
+        "Alias": "builtin_arrays",
+        "Startup Cost": 0.0,
+        "Total Cost": 4612.02,
+        "Plan Rows": 220,
+        "Plan Width": 8,
+        "Disabled": false,
+        "Filter": "(tags OPERATOR(pg_catalog.@>) '{1,1001}'::integer[])"
+      }
+    ]
+  },
+  "gin_plan": {
+    "Node Type": "Sort",
+    "Parallel Aware": false,
+    "Async Capable": false,
+    "Startup Cost": 679.13,
+    "Total Cost": 679.68,
+    "Plan Rows": 220,
+    "Plan Width": 8,
+    "Disabled": false,
+    "Sort Key": [
+      "builtin_arrays.id"
+    ],
+    "Plans": [
+      {
+        "Node Type": "Bitmap Heap Scan",
+        "Parent Relationship": "Outer",
+        "Parallel Aware": false,
+        "Async Capable": false,
+        "Relation Name": "builtin_arrays",
+        "Alias": "builtin_arrays",
+        "Startup Cost": 26.48,
+        "Total Cost": 670.57,
+        "Plan Rows": 220,
+        "Plan Width": 8,
+        "Disabled": false,
+        "Recheck Cond": "(tags OPERATOR(pg_catalog.@>) '{1,1001}'::integer[])",
+        "Plans": [
+          {
+            "Node Type": "Bitmap Index Scan",
+            "Parent Relationship": "Outer",
+            "Parallel Aware": false,
+            "Async Capable": false,
+            "Index Name": "builtin_tags_gin",
+            "Startup Cost": 0.0,
+            "Total Cost": 26.43,
+            "Plan Rows": 220,
+            "Plan Width": 0,
+            "Disabled": false,
+            "Index Cond": "(tags OPERATOR(pg_catalog.@>) '{1,1001}'::integer[])"
+          }
+        ]
+      }
+    ]
+  }
+}

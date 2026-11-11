@@ -1,0 +1,123 @@
+{
+  "status": "PASS_ACTUAL_RELEASE_NORMAL_ASM_REVIEW",
+  "reviewed_ns": 1794392485900570000,
+  "timing_samples": 0,
+  "roles": {
+    "B": {
+      "asm_sha256": "1f9e9b438ab90581e05e4a14ff95e999325e2165166c25c92a63c087fcb0ded8",
+      "object_sha256": "a98daa0c192559dfbd49c4a9800d06390e98d31928d2e221db839031d308fc1b",
+      "function_bytes": 589,
+      "machine_bytes_sha256": "6002290a3d91c3c4dab5c1be1ca531321bbbc62179fc1ec9f3deb829a039df4d",
+      "function_bytes_match_reviewed_r2_compile": true,
+      "helper_symbol_or_call": false,
+      "local_rsp_bytes": 24,
+      "saved_registers": [
+        "%r15",
+        "%r14",
+        "%r13",
+        "%r12",
+        "%rbp",
+        "%rbx"
+      ],
+      "saved_register_bytes": 48,
+      "additional_stack_bytes_excluding_incoming_return_address": 72,
+      "stack_canary_in_this_function": false,
+      "static_call_sites": [
+        {
+          "address": "0x228",
+          "target": "palloc_mul"
+        },
+        {
+          "address": "0x30b",
+          "target": "repalloc_mul"
+        },
+        {
+          "address": "0x36f",
+          "target": "repalloc_mul"
+        }
+      ]
+    },
+    "D2": {
+      "asm_sha256": "a86af49f57df3089a6335973a85167a3a9d526d6e4a0f9c5e7cac7e713c293d2",
+      "object_sha256": "7649679e9a8b9f31727e89e7337840fc9d0f033aa526917000cbeda1edfac2d4",
+      "function_bytes": 844,
+      "machine_bytes_sha256": "6cf47c09d959aade0f46433439d45f05205ed337f1a5d8fb46243a1e9d93112b",
+      "function_bytes_match_reviewed_r2_compile": true,
+      "helper_symbol_or_call": false,
+      "local_rsp_bytes": 24,
+      "saved_registers": [
+        "%r15",
+        "%r14",
+        "%r13",
+        "%r12",
+        "%rbp",
+        "%rbx"
+      ],
+      "saved_register_bytes": 48,
+      "additional_stack_bytes_excluding_incoming_return_address": 72,
+      "stack_canary_in_this_function": false,
+      "static_call_sites": [
+        {
+          "address": "0x228",
+          "target": "palloc_mul"
+        },
+        {
+          "address": "0x30d",
+          "target": "repalloc_mul"
+        },
+        {
+          "address": "0x3a3",
+          "target": "repalloc_mul"
+        }
+      ]
+    },
+    "D3": {
+      "asm_sha256": "84899e1990415e4e1ef0e0b15f633a086d1990270efcdc98126ca83204d3248a",
+      "object_sha256": "7b58941f381b560f7f82f25053500716f950e09740ba9b41f98a877c9d43221b",
+      "function_bytes": 1241,
+      "machine_bytes_sha256": "24ad7c71c9d19faf7fa123c3eb4e73ee7e2d88e020de9fffe53d8881f303a01d",
+      "function_bytes_match_reviewed_r2_compile": true,
+      "helper_symbol_or_call": false,
+      "local_rsp_bytes": 24,
+      "saved_registers": [
+        "%r15",
+        "%r14",
+        "%r13",
+        "%r12",
+        "%rbp",
+        "%rbx"
+      ],
+      "saved_register_bytes": 48,
+      "additional_stack_bytes_excluding_incoming_return_address": 72,
+      "stack_canary_in_this_function": false,
+      "static_call_sites": [
+        {
+          "address": "0x228",
+          "target": "palloc_mul"
+        },
+        {
+          "address": "0x363",
+          "target": "repalloc_mul"
+        },
+        {
+          "address": "0x3a3",
+          "target": "repalloc_mul"
+        },
+        {
+          "address": "0x43b",
+          "target": "repalloc_mul"
+        }
+      ]
+    }
+  },
+  "build_receipt_sha256": "9a8565dbfeaa6bb042f36e1c1425e6fe3e278573e2f99df80eb3b64b4f8ef82d",
+  "observation": "D3 segment classification and separate scalar/batch paths remain. Machine bytes match the reviewed normal r2 compile exactly.",
+  "negatives": [
+    "D3 is397bytes/+47.04% larger than D2 and652bytes/+110.70% larger than B.",
+    "D3 duplicates one growth-call site, not evidence of extra runtime allocation calls.",
+    "Early multi-byte deltas select scalar for the whole segment and can lose later batch gains; initially dense segments retain later D2 dispatch costs.",
+    "No latency result or causal performance conclusion follows from this static review."
+  ],
+  "assert_build_scope": "Excluded from release normal-codegen comparisons; different flags.",
+  "finished_ns": 1794392485907582000
+}

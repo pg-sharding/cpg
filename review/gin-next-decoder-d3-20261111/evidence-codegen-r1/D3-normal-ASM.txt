@@ -1,0 +1,700 @@
+
+/home/reshke/allfuzz/gin-dec-d3-20261111/codegen-r1/common-ginpostinglist.o:     file format elf64-x86-64
+
+
+Disassembly of section .text:
+
+0000000000000000 <decode_varbyte>:
+   0:	48 8b 37             	mov    (%rdi),%rsi
+   3:	48 89 f8             	mov    %rdi,%rax
+   6:	0f b6 0e             	movzbl (%rsi),%ecx
+   9:	48 89 ca             	mov    %rcx,%rdx
+   c:	83 e2 7f             	and    $0x7f,%edx
+   f:	84 c9                	test   %cl,%cl
+  11:	78 0d                	js     20 <decode_varbyte+0x20>
+  13:	48 8d 4e 01          	lea    0x1(%rsi),%rcx
+  17:	48 89 08             	mov    %rcx,(%rax)
+  1a:	48 89 d0             	mov    %rdx,%rax
+  1d:	c3                   	ret
+  1e:	66 90                	xchg   %ax,%ax
+  20:	0f b6 7e 01          	movzbl 0x1(%rsi),%edi
+  24:	48 89 f9             	mov    %rdi,%rcx
+  27:	48 c1 e1 07          	shl    $0x7,%rcx
+  2b:	81 e1 80 3f 00 00    	and    $0x3f80,%ecx
+  31:	48 09 ca             	or     %rcx,%rdx
+  34:	48 8d 4e 02          	lea    0x2(%rsi),%rcx
+  38:	40 84 ff             	test   %dil,%dil
+  3b:	79 da                	jns    17 <decode_varbyte+0x17>
+  3d:	0f b6 7e 02          	movzbl 0x2(%rsi),%edi
+  41:	48 89 f9             	mov    %rdi,%rcx
+  44:	48 c1 e1 0e          	shl    $0xe,%rcx
+  48:	81 e1 00 c0 1f 00    	and    $0x1fc000,%ecx
+  4e:	48 09 ca             	or     %rcx,%rdx
+  51:	48 8d 4e 03          	lea    0x3(%rsi),%rcx
+  55:	40 84 ff             	test   %dil,%dil
+  58:	79 bd                	jns    17 <decode_varbyte+0x17>
+  5a:	0f b6 7e 03          	movzbl 0x3(%rsi),%edi
+  5e:	48 89 f9             	mov    %rdi,%rcx
+  61:	48 c1 e1 15          	shl    $0x15,%rcx
+  65:	81 e1 00 00 e0 0f    	and    $0xfe00000,%ecx
+  6b:	48 09 ca             	or     %rcx,%rdx
+  6e:	48 8d 4e 04          	lea    0x4(%rsi),%rcx
+  72:	40 84 ff             	test   %dil,%dil
+  75:	79 a0                	jns    17 <decode_varbyte+0x17>
+  77:	49 b8 00 00 00 f0 07 00 00 00 	movabs $0x7f0000000,%r8
+  81:	0f b6 7e 04          	movzbl 0x4(%rsi),%edi
+  85:	48 89 f9             	mov    %rdi,%rcx
+  88:	48 c1 e1 1c          	shl    $0x1c,%rcx
+  8c:	4c 21 c1             	and    %r8,%rcx
+  8f:	48 09 ca             	or     %rcx,%rdx
+  92:	48 8d 4e 05          	lea    0x5(%rsi),%rcx
+  96:	40 84 ff             	test   %dil,%dil
+  99:	0f 89 78 ff ff ff    	jns    17 <decode_varbyte+0x17>
+  9f:	49 b8 00 00 00 00 f8 03 00 00 	movabs $0x3f800000000,%r8
+  a9:	0f b6 7e 05          	movzbl 0x5(%rsi),%edi
+  ad:	48 89 f9             	mov    %rdi,%rcx
+  b0:	48 c1 e1 23          	shl    $0x23,%rcx
+  b4:	4c 21 c1             	and    %r8,%rcx
+  b7:	48 09 ca             	or     %rcx,%rdx
+  ba:	48 8d 4e 06          	lea    0x6(%rsi),%rcx
+  be:	40 84 ff             	test   %dil,%dil
+  c1:	0f 89 50 ff ff ff    	jns    17 <decode_varbyte+0x17>
+  c7:	48 8d 4e 07          	lea    0x7(%rsi),%rcx
+  cb:	0f b6 76 06          	movzbl 0x6(%rsi),%esi
+  cf:	48 c1 e6 2a          	shl    $0x2a,%rsi
+  d3:	48 09 f2             	or     %rsi,%rdx
+  d6:	e9 3c ff ff ff       	jmp    17 <decode_varbyte+0x17>
+  db:	0f 1f 44 00 00       	nopl   0x0(%rax,%rax,1)
+
+00000000000000e0 <ginCompressPostingList>:
+  e0:	f3 0f 1e fa          	endbr64
+  e4:	41 57                	push   %r15
+  e6:	83 e2 fe             	and    $0xfffffffe,%edx
+  e9:	49 89 ff             	mov    %rdi,%r15
+  ec:	41 56                	push   %r14
+  ee:	48 63 fa             	movslq %edx,%rdi
+  f1:	41 55                	push   %r13
+  f3:	41 54                	push   %r12
+  f5:	49 89 cc             	mov    %rcx,%r12
+  f8:	55                   	push   %rbp
+  f9:	48 89 fd             	mov    %rdi,%rbp
+  fc:	53                   	push   %rbx
+  fd:	89 f3                	mov    %esi,%ebx
+  ff:	48 83 ec 18          	sub    $0x18,%rsp
+ 103:	64 48 8b 04 25 28 00 00 00 	mov    %fs:0x28,%rax
+ 10c:	48 89 44 24 08       	mov    %rax,0x8(%rsp)
+ 111:	31 c0                	xor    %eax,%eax
+ 113:	e8 00 00 00 00       	call   118 <ginCompressPostingList+0x38>	114: R_X86_64_PLT32	palloc-0x4
+ 118:	44 8d 5d f8          	lea    -0x8(%rbp),%r11d
+ 11c:	49 89 c5             	mov    %rax,%r13
+ 11f:	41 8b 07             	mov    (%r15),%eax
+ 122:	4d 63 db             	movslq %r11d,%r11
+ 125:	4d 8d 75 08          	lea    0x8(%r13),%r14
+ 129:	41 89 45 00          	mov    %eax,0x0(%r13)
+ 12d:	41 0f b7 45 00       	movzwl 0x0(%r13),%eax
+ 132:	4d 01 f3             	add    %r14,%r11
+ 135:	41 0f b7 55 02       	movzwl 0x2(%r13),%edx
+ 13a:	41 0f b7 7f 04       	movzwl 0x4(%r15),%edi
+ 13f:	c1 e0 10             	shl    $0x10,%eax
+ 142:	09 d0                	or     %edx,%eax
+ 144:	66 41 89 7d 04       	mov    %di,0x4(%r13)
+ 149:	48 c1 e0 0b          	shl    $0xb,%rax
+ 14d:	48 09 c7             	or     %rax,%rdi
+ 150:	83 fb 01             	cmp    $0x1,%ebx
+ 153:	0f 8e 59 01 00 00    	jle    2b2 <ginCompressPostingList+0x1d2>
+ 159:	49 8d 77 06          	lea    0x6(%r15),%rsi
+ 15d:	4c 89 f1             	mov    %r14,%rcx
+ 160:	41 b8 01 00 00 00    	mov    $0x1,%r8d
+ 166:	48 8d 6c 24 01       	lea    0x1(%rsp),%rbp
+ 16b:	0f 1f 44 00 00       	nopl   0x0(%rax,%rax,1)
+ 170:	0f b7 06             	movzwl (%rsi),%eax
+ 173:	0f b7 56 02          	movzwl 0x2(%rsi),%edx
+ 177:	4d 89 d9             	mov    %r11,%r9
+ 17a:	49 29 c9             	sub    %rcx,%r9
+ 17d:	c1 e0 10             	shl    $0x10,%eax
+ 180:	09 d0                	or     %edx,%eax
+ 182:	48 89 fa             	mov    %rdi,%rdx
+ 185:	0f b7 7e 04          	movzwl 0x4(%rsi),%edi
+ 189:	48 c1 e0 0b          	shl    $0xb,%rax
+ 18d:	48 09 c7             	or     %rax,%rdi
+ 190:	48 89 f8             	mov    %rdi,%rax
+ 193:	48 29 d0             	sub    %rdx,%rax
+ 196:	49 83 f9 06          	cmp    $0x6,%r9
+ 19a:	0f 8f c8 00 00 00    	jg     268 <ginCompressPostingList+0x188>
+ 1a0:	49 89 ea             	mov    %rbp,%r10
+ 1a3:	48 89 ea             	mov    %rbp,%rdx
+ 1a6:	48 83 f8 7f          	cmp    $0x7f,%rax
+ 1aa:	0f 86 e0 00 00 00    	jbe    290 <ginCompressPostingList+0x1b0>
+ 1b0:	41 89 c7             	mov    %eax,%r15d
+ 1b3:	48 83 c2 01          	add    $0x1,%rdx
+ 1b7:	48 c1 e8 07          	shr    $0x7,%rax
+ 1bb:	41 83 cf 80          	or     $0xffffff80,%r15d
+ 1bf:	44 88 7a ff          	mov    %r15b,-0x1(%rdx)
+ 1c3:	48 83 f8 7f          	cmp    $0x7f,%rax
+ 1c7:	77 e7                	ja     1b0 <ginCompressPostingList+0xd0>
+ 1c9:	88 02                	mov    %al,(%rdx)
+ 1cb:	48 83 c2 01          	add    $0x1,%rdx
+ 1cf:	4c 29 d2             	sub    %r10,%rdx
+ 1d2:	49 39 d1             	cmp    %rdx,%r9
+ 1d5:	0f 8c cf 00 00 00    	jl     2aa <ginCompressPostingList+0x1ca>
+ 1db:	48 85 d2             	test   %rdx,%rdx
+ 1de:	74 14                	je     1f4 <ginCompressPostingList+0x114>
+ 1e0:	31 c0                	xor    %eax,%eax
+ 1e2:	45 0f b6 0c 02       	movzbl (%r10,%rax,1),%r9d
+ 1e7:	44 88 0c 01          	mov    %r9b,(%rcx,%rax,1)
+ 1eb:	48 83 c0 01          	add    $0x1,%rax
+ 1ef:	48 39 d0             	cmp    %rdx,%rax
+ 1f2:	72 ee                	jb     1e2 <ginCompressPostingList+0x102>
+ 1f4:	41 83 c0 01          	add    $0x1,%r8d
+ 1f8:	48 01 d1             	add    %rdx,%rcx
+ 1fb:	48 83 c6 06          	add    $0x6,%rsi
+ 1ff:	44 39 c3             	cmp    %r8d,%ebx
+ 202:	0f 85 68 ff ff ff    	jne    170 <ginCompressPostingList+0x90>
+ 208:	4c 29 f1             	sub    %r14,%rcx
+ 20b:	0f b7 d1             	movzwl %cx,%edx
+ 20e:	66 41 89 4d 06       	mov    %cx,0x6(%r13)
+ 213:	48 8d 42 01          	lea    0x1(%rdx),%rax
+ 217:	48 83 e0 fe          	and    $0xfffffffffffffffe,%rax
+ 21b:	48 39 c2             	cmp    %rax,%rdx
+ 21e:	74 06                	je     226 <ginCompressPostingList+0x146>
+ 220:	41 c6 44 15 08 00    	movb   $0x0,0x8(%r13,%rdx,1)
+ 226:	4d 85 e4             	test   %r12,%r12
+ 229:	74 04                	je     22f <ginCompressPostingList+0x14f>
+ 22b:	41 89 1c 24          	mov    %ebx,(%r12)
+ 22f:	48 8b 44 24 08       	mov    0x8(%rsp),%rax
+ 234:	64 48 2b 04 25 28 00 00 00 	sub    %fs:0x28,%rax
+ 23d:	0f 85 80 00 00 00    	jne    2c3 <ginCompressPostingList+0x1e3>
+ 243:	48 83 c4 18          	add    $0x18,%rsp
+ 247:	4c 89 e8             	mov    %r13,%rax
+ 24a:	5b                   	pop    %rbx
+ 24b:	5d                   	pop    %rbp
+ 24c:	41 5c                	pop    %r12
+ 24e:	41 5d                	pop    %r13
+ 250:	41 5e                	pop    %r14
+ 252:	41 5f                	pop    %r15
+ 254:	c3                   	ret
+ 255:	0f 1f 00             	nopl   (%rax)
+ 258:	89 c2                	mov    %eax,%edx
+ 25a:	48 83 c1 01          	add    $0x1,%rcx
+ 25e:	48 c1 e8 07          	shr    $0x7,%rax
+ 262:	83 ca 80             	or     $0xffffff80,%edx
+ 265:	88 51 ff             	mov    %dl,-0x1(%rcx)
+ 268:	48 83 f8 7f          	cmp    $0x7f,%rax
+ 26c:	77 ea                	ja     258 <ginCompressPostingList+0x178>
+ 26e:	41 83 c0 01          	add    $0x1,%r8d
+ 272:	88 01                	mov    %al,(%rcx)
+ 274:	48 83 c6 06          	add    $0x6,%rsi
+ 278:	48 83 c1 01          	add    $0x1,%rcx
+ 27c:	44 39 c3             	cmp    %r8d,%ebx
+ 27f:	0f 85 eb fe ff ff    	jne    170 <ginCompressPostingList+0x90>
+ 285:	eb 81                	jmp    208 <ginCompressPostingList+0x128>
+ 287:	66 0f 1f 84 00 00 00 00 00 	nopw   0x0(%rax,%rax,1)
+ 290:	4c 8d 54 24 01       	lea    0x1(%rsp),%r10
+ 295:	4c 89 d2             	mov    %r10,%rdx
+ 298:	88 02                	mov    %al,(%rdx)
+ 29a:	48 83 c2 01          	add    $0x1,%rdx
+ 29e:	4c 29 d2             	sub    %r10,%rdx
+ 2a1:	49 39 d1             	cmp    %rdx,%r9
+ 2a4:	0f 8d 31 ff ff ff    	jge    1db <ginCompressPostingList+0xfb>
+ 2aa:	44 89 c3             	mov    %r8d,%ebx
+ 2ad:	e9 56 ff ff ff       	jmp    208 <ginCompressPostingList+0x128>
+ 2b2:	31 c0                	xor    %eax,%eax
+ 2b4:	bb 01 00 00 00       	mov    $0x1,%ebx
+ 2b9:	66 41 89 45 06       	mov    %ax,0x6(%r13)
+ 2be:	e9 63 ff ff ff       	jmp    226 <ginCompressPostingList+0x146>
+ 2c3:	e8 00 00 00 00       	call   2c8 <ginCompressPostingList+0x1e8>	2c4: R_X86_64_PLT32	__stack_chk_fail-0x4
+ 2c8:	0f 1f 84 00 00 00 00 00 	nopl   0x0(%rax,%rax,1)
+
+00000000000002d0 <ginPostingListDecodeAllSegments>:
+ 2d0:	f3 0f 1e fa          	endbr64
+ 2d4:	41 57                	push   %r15
+ 2d6:	48 63 f6             	movslq %esi,%rsi
+ 2d9:	45 31 ff             	xor    %r15d,%r15d
+ 2dc:	41 56                	push   %r14
+ 2de:	4c 8d 34 37          	lea    (%rdi,%rsi,1),%r14
+ 2e2:	41 55                	push   %r13
+ 2e4:	41 54                	push   %r12
+ 2e6:	55                   	push   %rbp
+ 2e7:	48 89 fd             	mov    %rdi,%rbp
+ 2ea:	53                   	push   %rbx
+ 2eb:	48 83 ec 38          	sub    $0x38,%rsp
+ 2ef:	48 89 54 24 18       	mov    %rdx,0x18(%rsp)
+ 2f4:	64 48 8b 04 25 28 00 00 00 	mov    %fs:0x28,%rax
+ 2fd:	48 89 44 24 28       	mov    %rax,0x28(%rsp)
+ 302:	31 c0                	xor    %eax,%eax
+ 304:	0f b7 47 06          	movzwl 0x6(%rdi),%eax
+ 308:	bf 06 00 00 00       	mov    $0x6,%edi
+ 30d:	4c 89 74 24 10       	mov    %r14,0x10(%rsp)
+ 312:	8d 5c 00 01          	lea    0x1(%rax,%rax,1),%ebx
+ 316:	48 63 f3             	movslq %ebx,%rsi
+ 319:	e8 00 00 00 00       	call   31e <ginPostingListDecodeAllSegments+0x4e>	31a: R_X86_64_PLT32	palloc_mul-0x4
+ 31e:	49 89 c1             	mov    %rax,%r9
+ 321:	48 8d 44 24 20       	lea    0x20(%rsp),%rax
+ 326:	48 89 44 24 08       	mov    %rax,0x8(%rsp)
+ 32b:	4c 39 f5             	cmp    %r14,%rbp
+ 32e:	0f 83 bc 02 00 00    	jae    5f0 <ginPostingListDecodeAllSegments+0x320>
+ 334:	0f 1f 40 00          	nopl   0x0(%rax)
+ 338:	49 63 c7             	movslq %r15d,%rax
+ 33b:	8b 55 00             	mov    0x0(%rbp),%edx
+ 33e:	4c 8d 75 08          	lea    0x8(%rbp),%r14
+ 342:	41 83 c7 01          	add    $0x1,%r15d
+ 346:	48 8d 04 40          	lea    (%rax,%rax,2),%rax
+ 34a:	4c 89 74 24 20       	mov    %r14,0x20(%rsp)
+ 34f:	49 8d 04 41          	lea    (%r9,%rax,2),%rax
+ 353:	89 10                	mov    %edx,(%rax)
+ 355:	0f b7 55 04          	movzwl 0x4(%rbp),%edx
+ 359:	66 89 50 04          	mov    %dx,0x4(%rax)
+ 35d:	0f b7 45 00          	movzwl 0x0(%rbp),%eax
+ 361:	0f b7 55 02          	movzwl 0x2(%rbp),%edx
+ 365:	44 0f b7 45 04       	movzwl 0x4(%rbp),%r8d
+ 36a:	c1 e0 10             	shl    $0x10,%eax
+ 36d:	09 d0                	or     %edx,%eax
+ 36f:	48 c1 e0 0b          	shl    $0xb,%rax
+ 373:	49 09 c0             	or     %rax,%r8
+ 376:	0f b7 45 06          	movzwl 0x6(%rbp),%eax
+ 37a:	4d 89 c5             	mov    %r8,%r13
+ 37d:	4d 8d 24 06          	lea    (%r14,%rax,1),%r12
+ 381:	66 83 f8 03          	cmp    $0x3,%ax
+ 385:	0f 86 1d 01 00 00    	jbe    4a8 <ginPostingListDecodeAllSegments+0x1d8>
+ 38b:	0f b6 55 08          	movzbl 0x8(%rbp),%edx
+ 38f:	0a 55 09             	or     0x9(%rbp),%dl
+ 392:	0a 55 0a             	or     0xa(%rbp),%dl
+ 395:	0a 55 0b             	or     0xb(%rbp),%dl
+ 398:	0f 88 0a 01 00 00    	js     4a8 <ginPostingListDecodeAllSegments+0x1d8>
+ 39e:	4d 39 e6             	cmp    %r12,%r14
+ 3a1:	0f 82 8c 00 00 00    	jb     433 <ginPostingListDecodeAllSegments+0x163>
+ 3a7:	e9 b8 00 00 00       	jmp    464 <ginPostingListDecodeAllSegments+0x194>
+ 3ac:	0f 1f 40 00          	nopl   0x0(%rax)
+ 3b0:	49 63 c7             	movslq %r15d,%rax
+ 3b3:	41 0f b6 36          	movzbl (%r14),%esi
+ 3b7:	45 8d 57 01          	lea    0x1(%r15),%r10d
+ 3bb:	48 8d 04 40          	lea    (%rax,%rax,2),%rax
+ 3bf:	4d 8d 1c 41          	lea    (%r9,%rax,2),%r11
+ 3c3:	40 84 f6             	test   %sil,%sil
+ 3c6:	78 30                	js     3f8 <ginPostingListDecodeAllSegments+0x128>
+ 3c8:	4c 89 e0             	mov    %r12,%rax
+ 3cb:	4c 29 f0             	sub    %r14,%rax
+ 3ce:	48 83 f8 03          	cmp    $0x3,%rax
+ 3d2:	7e 24                	jle    3f8 <ginPostingListDecodeAllSegments+0x128>
+ 3d4:	89 d8                	mov    %ebx,%eax
+ 3d6:	44 29 f8             	sub    %r15d,%eax
+ 3d9:	83 f8 03             	cmp    $0x3,%eax
+ 3dc:	7e 1a                	jle    3f8 <ginPostingListDecodeAllSegments+0x128>
+ 3de:	41 0f b6 46 01       	movzbl 0x1(%r14),%eax
+ 3e3:	41 0a 46 02          	or     0x2(%r14),%al
+ 3e7:	41 0a 46 03          	or     0x3(%r14),%al
+ 3eb:	0f 89 27 01 00 00    	jns    518 <ginPostingListDecodeAllSegments+0x248>
+ 3f1:	0f 1f 80 00 00 00 00 	nopl   0x0(%rax)
+ 3f8:	48 8b 7c 24 08       	mov    0x8(%rsp),%rdi
+ 3fd:	45 89 d7             	mov    %r10d,%r15d
+ 400:	e8 fb fb ff ff       	call   0 <decode_varbyte>
+ 405:	4c 8b 74 24 20       	mov    0x20(%rsp),%r14
+ 40a:	49 01 c5             	add    %rax,%r13
+ 40d:	44 89 e8             	mov    %r13d,%eax
+ 410:	66 25 ff 07          	and    $0x7ff,%ax
+ 414:	66 41 89 43 04       	mov    %ax,0x4(%r11)
+ 419:	4c 89 e8             	mov    %r13,%rax
+ 41c:	48 c1 e8 0b          	shr    $0xb,%rax
+ 420:	89 c1                	mov    %eax,%ecx
+ 422:	66 41 89 43 02       	mov    %ax,0x2(%r11)
+ 427:	c1 e9 10             	shr    $0x10,%ecx
+ 42a:	66 41 89 0b          	mov    %cx,(%r11)
+ 42e:	4d 39 e6             	cmp    %r12,%r14
+ 431:	73 2d                	jae    460 <ginPostingListDecodeAllSegments+0x190>
+ 433:	44 39 fb             	cmp    %r15d,%ebx
+ 436:	0f 8f 74 ff ff ff    	jg     3b0 <ginPostingListDecodeAllSegments+0xe0>
+ 43c:	01 db                	add    %ebx,%ebx
+ 43e:	4c 89 cf             	mov    %r9,%rdi
+ 441:	be 06 00 00 00       	mov    $0x6,%esi
+ 446:	48 63 d3             	movslq %ebx,%rdx
+ 449:	e8 00 00 00 00       	call   44e <ginPostingListDecodeAllSegments+0x17e>	44a: R_X86_64_PLT32	repalloc_mul-0x4
+ 44e:	49 89 c1             	mov    %rax,%r9
+ 451:	e9 5a ff ff ff       	jmp    3b0 <ginPostingListDecodeAllSegments+0xe0>
+ 456:	66 2e 0f 1f 84 00 00 00 00 00 	cs nopw 0x0(%rax,%rax,1)
+ 460:	0f b7 45 06          	movzwl 0x6(%rbp),%eax
+ 464:	48 83 c0 01          	add    $0x1,%rax
+ 468:	48 83 e0 fe          	and    $0xfffffffffffffffe,%rax
+ 46c:	48 8d 6c 05 08       	lea    0x8(%rbp,%rax,1),%rbp
+ 471:	48 8b 44 24 10       	mov    0x10(%rsp),%rax
+ 476:	48 39 c5             	cmp    %rax,%rbp
+ 479:	0f 83 71 01 00 00    	jae    5f0 <ginPostingListDecodeAllSegments+0x320>
+ 47f:	44 39 fb             	cmp    %r15d,%ebx
+ 482:	0f 8f b0 fe ff ff    	jg     338 <ginPostingListDecodeAllSegments+0x68>
+ 488:	01 db                	add    %ebx,%ebx
+ 48a:	4c 89 cf             	mov    %r9,%rdi
+ 48d:	be 06 00 00 00       	mov    $0x6,%esi
+ 492:	48 63 d3             	movslq %ebx,%rdx
+ 495:	e8 00 00 00 00       	call   49a <ginPostingListDecodeAllSegments+0x1ca>	496: R_X86_64_PLT32	repalloc_mul-0x4
+ 49a:	49 89 c1             	mov    %rax,%r9
+ 49d:	e9 96 fe ff ff       	jmp    338 <ginPostingListDecodeAllSegments+0x68>
+ 4a2:	66 0f 1f 44 00 00    	nopw   0x0(%rax,%rax,1)
+ 4a8:	4d 39 e6             	cmp    %r12,%r14
+ 4ab:	72 49                	jb     4f6 <ginPostingListDecodeAllSegments+0x226>
+ 4ad:	eb b5                	jmp    464 <ginPostingListDecodeAllSegments+0x194>
+ 4af:	90                   	nop
+ 4b0:	48 8b 7c 24 08       	mov    0x8(%rsp),%rdi
+ 4b5:	e8 46 fb ff ff       	call   0 <decode_varbyte>
+ 4ba:	49 01 c5             	add    %rax,%r13
+ 4bd:	49 63 c7             	movslq %r15d,%rax
+ 4c0:	41 83 c7 01          	add    $0x1,%r15d
+ 4c4:	48 8d 04 40          	lea    (%rax,%rax,2),%rax
+ 4c8:	44 89 ea             	mov    %r13d,%edx
+ 4cb:	49 8d 04 41          	lea    (%r9,%rax,2),%rax
+ 4cf:	66 81 e2 ff 07       	and    $0x7ff,%dx
+ 4d4:	66 89 50 04          	mov    %dx,0x4(%rax)
+ 4d8:	4c 89 ea             	mov    %r13,%rdx
+ 4db:	48 c1 ea 0b          	shr    $0xb,%rdx
+ 4df:	89 d6                	mov    %edx,%esi
+ 4e1:	66 89 50 02          	mov    %dx,0x2(%rax)
+ 4e5:	c1 ee 10             	shr    $0x10,%esi
+ 4e8:	66 89 30             	mov    %si,(%rax)
+ 4eb:	4c 39 64 24 20       	cmp    %r12,0x20(%rsp)
+ 4f0:	0f 83 6a ff ff ff    	jae    460 <ginPostingListDecodeAllSegments+0x190>
+ 4f6:	44 39 fb             	cmp    %r15d,%ebx
+ 4f9:	7f b5                	jg     4b0 <ginPostingListDecodeAllSegments+0x1e0>
+ 4fb:	01 db                	add    %ebx,%ebx
+ 4fd:	4c 89 cf             	mov    %r9,%rdi
+ 500:	be 06 00 00 00       	mov    $0x6,%esi
+ 505:	48 63 d3             	movslq %ebx,%rdx
+ 508:	e8 00 00 00 00       	call   50d <ginPostingListDecodeAllSegments+0x23d>	509: R_X86_64_PLT32	repalloc_mul-0x4
+ 50d:	49 89 c1             	mov    %rax,%r9
+ 510:	eb 9e                	jmp    4b0 <ginPostingListDecodeAllSegments+0x1e0>
+ 512:	66 0f 1f 44 00 00    	nopw   0x0(%rax,%rax,1)
+ 518:	4c 01 ee             	add    %r13,%rsi
+ 51b:	4d 63 d2             	movslq %r10d,%r10
+ 51e:	49 83 c6 04          	add    $0x4,%r14
+ 522:	89 f0                	mov    %esi,%eax
+ 524:	66 25 ff 07          	and    $0x7ff,%ax
+ 528:	66 41 89 43 04       	mov    %ax,0x4(%r11)
+ 52d:	48 89 f0             	mov    %rsi,%rax
+ 530:	48 c1 e8 0b          	shr    $0xb,%rax
+ 534:	89 c7                	mov    %eax,%edi
+ 536:	66 41 89 43 02       	mov    %ax,0x2(%r11)
+ 53b:	4b 8d 04 52          	lea    (%r10,%r10,2),%rax
+ 53f:	c1 ef 10             	shr    $0x10,%edi
+ 542:	49 8d 04 41          	lea    (%r9,%rax,2),%rax
+ 546:	66 41 89 3b          	mov    %di,(%r11)
+ 54a:	41 0f b6 56 fd       	movzbl -0x3(%r14),%edx
+ 54f:	48 01 f2             	add    %rsi,%rdx
+ 552:	89 d6                	mov    %edx,%esi
+ 554:	66 81 e6 ff 07       	and    $0x7ff,%si
+ 559:	66 89 70 04          	mov    %si,0x4(%rax)
+ 55d:	48 89 d6             	mov    %rdx,%rsi
+ 560:	48 c1 ee 0b          	shr    $0xb,%rsi
+ 564:	89 f7                	mov    %esi,%edi
+ 566:	66 89 70 02          	mov    %si,0x2(%rax)
+ 56a:	41 8d 77 02          	lea    0x2(%r15),%esi
+ 56e:	c1 ef 10             	shr    $0x10,%edi
+ 571:	48 63 f6             	movslq %esi,%rsi
+ 574:	66 89 38             	mov    %di,(%rax)
+ 577:	41 0f b6 46 fe       	movzbl -0x2(%r14),%eax
+ 57c:	48 8d 34 76          	lea    (%rsi,%rsi,2),%rsi
+ 580:	49 8d 34 71          	lea    (%r9,%rsi,2),%rsi
+ 584:	48 01 d0             	add    %rdx,%rax
+ 587:	41 8d 57 03          	lea    0x3(%r15),%edx
+ 58b:	41 83 c7 04          	add    $0x4,%r15d
+ 58f:	89 c7                	mov    %eax,%edi
+ 591:	66 81 e7 ff 07       	and    $0x7ff,%di
+ 596:	66 89 7e 04          	mov    %di,0x4(%rsi)
+ 59a:	48 89 c7             	mov    %rax,%rdi
+ 59d:	48 c1 ef 0b          	shr    $0xb,%rdi
+ 5a1:	41 89 f8             	mov    %edi,%r8d
+ 5a4:	66 89 7e 02          	mov    %di,0x2(%rsi)
+ 5a8:	41 c1 e8 10          	shr    $0x10,%r8d
+ 5ac:	66 44 89 06          	mov    %r8w,(%rsi)
+ 5b0:	45 0f b6 46 ff       	movzbl -0x1(%r14),%r8d
+ 5b5:	4c 89 74 24 20       	mov    %r14,0x20(%rsp)
+ 5ba:	4d 8d 2c 00          	lea    (%r8,%rax,1),%r13
+ 5be:	48 63 c2             	movslq %edx,%rax
+ 5c1:	48 8d 04 40          	lea    (%rax,%rax,2),%rax
+ 5c5:	44 89 ea             	mov    %r13d,%edx
+ 5c8:	49 8d 04 41          	lea    (%r9,%rax,2),%rax
+ 5cc:	66 81 e2 ff 07       	and    $0x7ff,%dx
+ 5d1:	66 89 50 04          	mov    %dx,0x4(%rax)
+ 5d5:	4c 89 ea             	mov    %r13,%rdx
+ 5d8:	48 c1 ea 0b          	shr    $0xb,%rdx
+ 5dc:	89 d6                	mov    %edx,%esi
+ 5de:	66 89 50 02          	mov    %dx,0x2(%rax)
+ 5e2:	c1 ee 10             	shr    $0x10,%esi
+ 5e5:	66 89 30             	mov    %si,(%rax)
+ 5e8:	e9 41 fe ff ff       	jmp    42e <ginPostingListDecodeAllSegments+0x15e>
+ 5ed:	0f 1f 00             	nopl   (%rax)
+ 5f0:	48 8b 44 24 18       	mov    0x18(%rsp),%rax
+ 5f5:	48 85 c0             	test   %rax,%rax
+ 5f8:	74 03                	je     5fd <ginPostingListDecodeAllSegments+0x32d>
+ 5fa:	44 89 38             	mov    %r15d,(%rax)
+ 5fd:	48 8b 44 24 28       	mov    0x28(%rsp),%rax
+ 602:	64 48 2b 04 25 28 00 00 00 	sub    %fs:0x28,%rax
+ 60b:	75 12                	jne    61f <ginPostingListDecodeAllSegments+0x34f>
+ 60d:	48 83 c4 38          	add    $0x38,%rsp
+ 611:	4c 89 c8             	mov    %r9,%rax
+ 614:	5b                   	pop    %rbx
+ 615:	5d                   	pop    %rbp
+ 616:	41 5c                	pop    %r12
+ 618:	41 5d                	pop    %r13
+ 61a:	41 5e                	pop    %r14
+ 61c:	41 5f                	pop    %r15
+ 61e:	c3                   	ret
+ 61f:	e8 00 00 00 00       	call   624 <ginPostingListDecodeAllSegments+0x354>	620: R_X86_64_PLT32	__stack_chk_fail-0x4
+ 624:	66 66 2e 0f 1f 84 00 00 00 00 00 	data16 cs nopw 0x0(%rax,%rax,1)
+ 62f:	90                   	nop
+
+0000000000000630 <ginPostingListDecode>:
+ 630:	f3 0f 1e fa          	endbr64
+ 634:	0f b7 47 06          	movzwl 0x6(%rdi),%eax
+ 638:	48 89 f2             	mov    %rsi,%rdx
+ 63b:	8d 70 01             	lea    0x1(%rax),%esi
+ 63e:	89 f0                	mov    %esi,%eax
+ 640:	83 e0 fe             	and    $0xfffffffe,%eax
+ 643:	8d 70 08             	lea    0x8(%rax),%esi
+ 646:	e9 85 fc ff ff       	jmp    2d0 <ginPostingListDecodeAllSegments>
+ 64b:	0f 1f 44 00 00       	nopl   0x0(%rax,%rax,1)
+
+0000000000000650 <ginPostingListDecodeAllSegmentsToTbm>:
+ 650:	f3 0f 1e fa          	endbr64
+ 654:	41 54                	push   %r12
+ 656:	55                   	push   %rbp
+ 657:	48 89 d5             	mov    %rdx,%rbp
+ 65a:	53                   	push   %rbx
+ 65b:	48 83 ec 10          	sub    $0x10,%rsp
+ 65f:	64 48 8b 04 25 28 00 00 00 	mov    %fs:0x28,%rax
+ 668:	48 89 44 24 08       	mov    %rax,0x8(%rsp)
+ 66d:	31 c0                	xor    %eax,%eax
+ 66f:	48 8d 54 24 04       	lea    0x4(%rsp),%rdx
+ 674:	e8 00 00 00 00       	call   679 <ginPostingListDecodeAllSegmentsToTbm+0x29>	675: R_X86_64_PLT32	ginPostingListDecodeAllSegments-0x4
+ 679:	44 8b 64 24 04       	mov    0x4(%rsp),%r12d
+ 67e:	31 c9                	xor    %ecx,%ecx
+ 680:	48 89 ef             	mov    %rbp,%rdi
+ 683:	48 89 c3             	mov    %rax,%rbx
+ 686:	48 89 c6             	mov    %rax,%rsi
+ 689:	44 89 e2             	mov    %r12d,%edx
+ 68c:	e8 00 00 00 00       	call   691 <ginPostingListDecodeAllSegmentsToTbm+0x41>	68d: R_X86_64_PLT32	tbm_add_tuples-0x4
+ 691:	48 89 df             	mov    %rbx,%rdi
+ 694:	e8 00 00 00 00       	call   699 <ginPostingListDecodeAllSegmentsToTbm+0x49>	695: R_X86_64_PLT32	pfree-0x4
+ 699:	48 8b 44 24 08       	mov    0x8(%rsp),%rax
+ 69e:	64 48 2b 04 25 28 00 00 00 	sub    %fs:0x28,%rax
+ 6a7:	75 0c                	jne    6b5 <ginPostingListDecodeAllSegmentsToTbm+0x65>
+ 6a9:	48 83 c4 10          	add    $0x10,%rsp
+ 6ad:	44 89 e0             	mov    %r12d,%eax
+ 6b0:	5b                   	pop    %rbx
+ 6b1:	5d                   	pop    %rbp
+ 6b2:	41 5c                	pop    %r12
+ 6b4:	c3                   	ret
+ 6b5:	e8 00 00 00 00       	call   6ba <ginPostingListDecodeAllSegmentsToTbm+0x6a>	6b6: R_X86_64_PLT32	__stack_chk_fail-0x4
+ 6ba:	66 0f 1f 44 00 00    	nopw   0x0(%rax,%rax,1)
+
+00000000000006c0 <ginMergeItemPointers>:
+ 6c0:	f3 0f 1e fa          	endbr64
+ 6c4:	41 57                	push   %r15
+ 6c6:	41 56                	push   %r14
+ 6c8:	41 89 ce             	mov    %ecx,%r14d
+ 6cb:	41 55                	push   %r13
+ 6cd:	49 89 fd             	mov    %rdi,%r13
+ 6d0:	bf 06 00 00 00       	mov    $0x6,%edi
+ 6d5:	41 54                	push   %r12
+ 6d7:	49 89 d4             	mov    %rdx,%r12
+ 6da:	55                   	push   %rbp
+ 6db:	89 f5                	mov    %esi,%ebp
+ 6dd:	53                   	push   %rbx
+ 6de:	42 8d 74 35 00       	lea    0x0(%rbp,%r14,1),%esi
+ 6e3:	48 89 f3             	mov    %rsi,%rbx
+ 6e6:	48 83 ec 18          	sub    $0x18,%rsp
+ 6ea:	4c 89 04 24          	mov    %r8,(%rsp)
+ 6ee:	e8 00 00 00 00       	call   6f3 <ginMergeItemPointers+0x33>	6ef: R_X86_64_PLT32	palloc_mul-0x4
+ 6f3:	49 89 c7             	mov    %rax,%r15
+ 6f6:	85 ed                	test   %ebp,%ebp
+ 6f8:	0f 84 a2 01 00 00    	je     8a0 <ginMergeItemPointers+0x1e0>
+ 6fe:	45 85 f6             	test   %r14d,%r14d
+ 701:	0f 84 99 01 00 00    	je     8a0 <ginMergeItemPointers+0x1e0>
+ 707:	8d 45 ff             	lea    -0x1(%rbp),%eax
+ 70a:	45 0f b7 44 24 02    	movzwl 0x2(%r12),%r8d
+ 710:	45 0f b7 4c 24 04    	movzwl 0x4(%r12),%r9d
+ 716:	31 f6                	xor    %esi,%esi
+ 718:	48 8d 04 40          	lea    (%rax,%rax,2),%rax
+ 71c:	49 8d 54 45 00       	lea    0x0(%r13,%rax,2),%rdx
+ 721:	0f b7 02             	movzwl (%rdx),%eax
+ 724:	0f b7 4a 02          	movzwl 0x2(%rdx),%ecx
+ 728:	0f b7 52 04          	movzwl 0x4(%rdx),%edx
+ 72c:	c1 e0 10             	shl    $0x10,%eax
+ 72f:	09 c8                	or     %ecx,%eax
+ 731:	41 0f b7 0c 24       	movzwl (%r12),%ecx
+ 736:	48 c1 e0 20          	shl    $0x20,%rax
+ 73a:	48 09 d0             	or     %rdx,%rax
+ 73d:	89 ca                	mov    %ecx,%edx
+ 73f:	c1 e2 10             	shl    $0x10,%edx
+ 742:	44 09 c2             	or     %r8d,%edx
+ 745:	48 c1 e2 20          	shl    $0x20,%rdx
+ 749:	4c 09 ca             	or     %r9,%rdx
+ 74c:	48 39 c2             	cmp    %rax,%rdx
+ 74f:	40 0f 92 c6          	setb   %sil
+ 753:	48 39 d0             	cmp    %rdx,%rax
+ 756:	89 f0                	mov    %esi,%eax
+ 758:	83 d8 00             	sbb    $0x0,%eax
+ 75b:	83 f8 ff             	cmp    $0xffffffff,%eax
+ 75e:	0f 84 3c 01 00 00    	je     8a0 <ginMergeItemPointers+0x1e0>
+ 764:	41 8d 46 ff          	lea    -0x1(%r14),%eax
+ 768:	45 0f b7 55 02       	movzwl 0x2(%r13),%r10d
+ 76d:	45 0f b7 5d 04       	movzwl 0x4(%r13),%r11d
+ 772:	31 ff                	xor    %edi,%edi
+ 774:	48 8d 04 40          	lea    (%rax,%rax,2),%rax
+ 778:	49 8d 14 44          	lea    (%r12,%rax,2),%rdx
+ 77c:	0f b7 02             	movzwl (%rdx),%eax
+ 77f:	0f b7 72 02          	movzwl 0x2(%rdx),%esi
+ 783:	0f b7 52 04          	movzwl 0x4(%rdx),%edx
+ 787:	c1 e0 10             	shl    $0x10,%eax
+ 78a:	09 f0                	or     %esi,%eax
+ 78c:	41 0f b7 75 00       	movzwl 0x0(%r13),%esi
+ 791:	48 c1 e0 20          	shl    $0x20,%rax
+ 795:	48 09 d0             	or     %rdx,%rax
+ 798:	89 f2                	mov    %esi,%edx
+ 79a:	c1 e2 10             	shl    $0x10,%edx
+ 79d:	44 09 d2             	or     %r10d,%edx
+ 7a0:	48 c1 e2 20          	shl    $0x20,%rdx
+ 7a4:	4c 09 da             	or     %r11,%rdx
+ 7a7:	48 39 c2             	cmp    %rax,%rdx
+ 7aa:	40 0f 92 c7          	setb   %dil
+ 7ae:	48 39 d0             	cmp    %rdx,%rax
+ 7b1:	83 df 00             	sbb    $0x0,%edi
+ 7b4:	83 ff ff             	cmp    $0xffffffff,%edi
+ 7b7:	0f 84 d3 01 00 00    	je     990 <ginMergeItemPointers+0x2d0>
+ 7bd:	4c 89 5c 24 08       	mov    %r11,0x8(%rsp)
+ 7c2:	41 89 f3             	mov    %esi,%r11d
+ 7c5:	44 89 d6             	mov    %r10d,%esi
+ 7c8:	4d 89 ca             	mov    %r9,%r10
+ 7cb:	4c 89 e2             	mov    %r12,%rdx
+ 7ce:	41 89 c9             	mov    %ecx,%r9d
+ 7d1:	4c 89 ef             	mov    %r13,%rdi
+ 7d4:	4c 89 d1             	mov    %r10,%rcx
+ 7d7:	4c 89 f8             	mov    %r15,%rax
+ 7da:	4c 8b 54 24 08       	mov    0x8(%rsp),%r10
+ 7df:	48 bb ab aa aa aa aa aa aa aa 	movabs $0xaaaaaaaaaaaaaaab,%rbx
+ 7e9:	eb 5c                	jmp    847 <ginMergeItemPointers+0x187>
+ 7eb:	0f 1f 44 00 00       	nopl   0x0(%rax,%rax,1)
+ 7f0:	8b 0a                	mov    (%rdx),%ecx
+ 7f2:	48 83 c2 06          	add    $0x6,%rdx
+ 7f6:	89 48 fa             	mov    %ecx,-0x6(%rax)
+ 7f9:	0f b7 4a fe          	movzwl -0x2(%rdx),%ecx
+ 7fd:	66 89 48 fe          	mov    %cx,-0x2(%rax)
+ 801:	48 89 fe             	mov    %rdi,%rsi
+ 804:	48 89 d1             	mov    %rdx,%rcx
+ 807:	4c 29 ee             	sub    %r13,%rsi
+ 80a:	4c 29 e1             	sub    %r12,%rcx
+ 80d:	48 d1 fe             	sar    $1,%rsi
+ 810:	48 d1 f9             	sar    $1,%rcx
+ 813:	48 0f af f3          	imul   %rbx,%rsi
+ 817:	48 0f af cb          	imul   %rbx,%rcx
+ 81b:	48 39 ee             	cmp    %rbp,%rsi
+ 81e:	0f 8d 13 01 00 00    	jge    937 <ginMergeItemPointers+0x277>
+ 824:	49 39 ce             	cmp    %rcx,%r14
+ 827:	0f 8e d3 00 00 00    	jle    900 <ginMergeItemPointers+0x240>
+ 82d:	44 0f b7 0a          	movzwl (%rdx),%r9d
+ 831:	44 0f b7 42 02       	movzwl 0x2(%rdx),%r8d
+ 836:	0f b7 4a 04          	movzwl 0x4(%rdx),%ecx
+ 83a:	44 0f b7 1f          	movzwl (%rdi),%r11d
+ 83e:	0f b7 77 02          	movzwl 0x2(%rdi),%esi
+ 842:	44 0f b7 57 04       	movzwl 0x4(%rdi),%r10d
+ 847:	41 c1 e3 10          	shl    $0x10,%r11d
+ 84b:	41 c1 e1 10          	shl    $0x10,%r9d
+ 84f:	41 09 f3             	or     %esi,%r11d
+ 852:	45 09 c1             	or     %r8d,%r9d
+ 855:	49 c1 e3 20          	shl    $0x20,%r11
+ 859:	49 c1 e1 20          	shl    $0x20,%r9
+ 85d:	49 09 c9             	or     %rcx,%r9
+ 860:	4d 09 d3             	or     %r10,%r11
+ 863:	31 c9                	xor    %ecx,%ecx
+ 865:	4d 39 d9             	cmp    %r11,%r9
+ 868:	0f 92 c1             	setb   %cl
+ 86b:	4d 39 cb             	cmp    %r9,%r11
+ 86e:	83 d9 00             	sbb    $0x0,%ecx
+ 871:	48 83 c0 06          	add    $0x6,%rax
+ 875:	83 f9 01             	cmp    $0x1,%ecx
+ 878:	0f 84 72 ff ff ff    	je     7f0 <ginMergeItemPointers+0x130>
+ 87e:	48 8d 77 06          	lea    0x6(%rdi),%rsi
+ 882:	85 c9                	test   %ecx,%ecx
+ 884:	75 62                	jne    8e8 <ginMergeItemPointers+0x228>
+ 886:	8b 0a                	mov    (%rdx),%ecx
+ 888:	48 89 f7             	mov    %rsi,%rdi
+ 88b:	48 83 c2 06          	add    $0x6,%rdx
+ 88f:	89 48 fa             	mov    %ecx,-0x6(%rax)
+ 892:	0f b7 4a fe          	movzwl -0x2(%rdx),%ecx
+ 896:	66 89 48 fe          	mov    %cx,-0x2(%rax)
+ 89a:	e9 62 ff ff ff       	jmp    801 <ginMergeItemPointers+0x141>
+ 89f:	90                   	nop
+ 8a0:	48 8d 6c 6d 00       	lea    0x0(%rbp,%rbp,2),%rbp
+ 8a5:	4c 89 ee             	mov    %r13,%rsi
+ 8a8:	4c 89 ff             	mov    %r15,%rdi
+ 8ab:	48 01 ed             	add    %rbp,%rbp
+ 8ae:	48 89 ea             	mov    %rbp,%rdx
+ 8b1:	e8 00 00 00 00       	call   8b6 <ginMergeItemPointers+0x1f6>	8b2: R_X86_64_PLT32	memcpy-0x4
+ 8b6:	4b 8d 14 76          	lea    (%r14,%r14,2),%rdx
+ 8ba:	49 8d 3c 2f          	lea    (%r15,%rbp,1),%rdi
+ 8be:	4c 89 e6             	mov    %r12,%rsi
+ 8c1:	48 01 d2             	add    %rdx,%rdx
+ 8c4:	e8 00 00 00 00       	call   8c9 <ginMergeItemPointers+0x209>	8c5: R_X86_64_PLT32	memcpy-0x4
+ 8c9:	48 8b 04 24          	mov    (%rsp),%rax
+ 8cd:	89 18                	mov    %ebx,(%rax)
+ 8cf:	48 83 c4 18          	add    $0x18,%rsp
+ 8d3:	4c 89 f8             	mov    %r15,%rax
+ 8d6:	5b                   	pop    %rbx
+ 8d7:	5d                   	pop    %rbp
+ 8d8:	41 5c                	pop    %r12
+ 8da:	41 5d                	pop    %r13
+ 8dc:	41 5e                	pop    %r14
+ 8de:	41 5f                	pop    %r15
+ 8e0:	c3                   	ret
+ 8e1:	0f 1f 80 00 00 00 00 	nopl   0x0(%rax)
+ 8e8:	8b 0f                	mov    (%rdi),%ecx
+ 8ea:	89 48 fa             	mov    %ecx,-0x6(%rax)
+ 8ed:	0f b7 4f 04          	movzwl 0x4(%rdi),%ecx
+ 8f1:	48 89 f7             	mov    %rsi,%rdi
+ 8f4:	66 89 48 fe          	mov    %cx,-0x2(%rax)
+ 8f8:	e9 04 ff ff ff       	jmp    801 <ginMergeItemPointers+0x141>
+ 8fd:	0f 1f 00             	nopl   (%rax)
+ 900:	49 b8 ab aa aa aa aa aa aa aa 	movabs $0xaaaaaaaaaaaaaaab,%r8
+ 90a:	66 0f 1f 44 00 00    	nopw   0x0(%rax,%rax,1)
+ 910:	8b 37                	mov    (%rdi),%esi
+ 912:	48 83 c7 06          	add    $0x6,%rdi
+ 916:	48 83 c0 06          	add    $0x6,%rax
+ 91a:	89 70 fa             	mov    %esi,-0x6(%rax)
+ 91d:	0f b7 77 fe          	movzwl -0x2(%rdi),%esi
+ 921:	66 89 70 fe          	mov    %si,-0x2(%rax)
+ 925:	48 89 fe             	mov    %rdi,%rsi
+ 928:	4c 29 ee             	sub    %r13,%rsi
+ 92b:	48 d1 fe             	sar    $1,%rsi
+ 92e:	49 0f af f0          	imul   %r8,%rsi
+ 932:	48 39 ee             	cmp    %rbp,%rsi
+ 935:	7c d9                	jl     910 <ginMergeItemPointers+0x250>
+ 937:	49 39 ce             	cmp    %rcx,%r14
+ 93a:	7e 3b                	jle    977 <ginMergeItemPointers+0x2b7>
+ 93c:	48 be ab aa aa aa aa aa aa aa 	movabs $0xaaaaaaaaaaaaaaab,%rsi
+ 946:	66 2e 0f 1f 84 00 00 00 00 00 	cs nopw 0x0(%rax,%rax,1)
+ 950:	8b 0a                	mov    (%rdx),%ecx
+ 952:	48 83 c2 06          	add    $0x6,%rdx
+ 956:	48 83 c0 06          	add    $0x6,%rax
+ 95a:	89 48 fa             	mov    %ecx,-0x6(%rax)
+ 95d:	0f b7 4a fe          	movzwl -0x2(%rdx),%ecx
+ 961:	66 89 48 fe          	mov    %cx,-0x2(%rax)
+ 965:	48 89 d1             	mov    %rdx,%rcx
+ 968:	4c 29 e1             	sub    %r12,%rcx
+ 96b:	48 d1 f9             	sar    $1,%rcx
+ 96e:	48 0f af ce          	imul   %rsi,%rcx
+ 972:	4c 39 f1             	cmp    %r14,%rcx
+ 975:	7c d9                	jl     950 <ginMergeItemPointers+0x290>
+ 977:	4c 29 f8             	sub    %r15,%rax
+ 97a:	48 89 c3             	mov    %rax,%rbx
+ 97d:	48 d1 fb             	sar    $1,%rbx
+ 980:	69 db ab aa aa aa    	imul   $0xaaaaaaab,%ebx,%ebx
+ 986:	e9 3e ff ff ff       	jmp    8c9 <ginMergeItemPointers+0x209>
+ 98b:	0f 1f 44 00 00       	nopl   0x0(%rax,%rax,1)
+ 990:	4f 8d 34 76          	lea    (%r14,%r14,2),%r14
+ 994:	4c 89 e6             	mov    %r12,%rsi
+ 997:	4c 89 ff             	mov    %r15,%rdi
+ 99a:	4d 01 f6             	add    %r14,%r14
+ 99d:	4c 89 f2             	mov    %r14,%rdx
+ 9a0:	e8 00 00 00 00       	call   9a5 <ginMergeItemPointers+0x2e5>	9a1: R_X86_64_PLT32	memcpy-0x4
+ 9a5:	48 8d 54 6d 00       	lea    0x0(%rbp,%rbp,2),%rdx
+ 9aa:	4b 8d 3c 37          	lea    (%r15,%r14,1),%rdi
+ 9ae:	4c 89 ee             	mov    %r13,%rsi
+ 9b1:	48 01 d2             	add    %rdx,%rdx
+ 9b4:	e8 00 00 00 00       	call   9b9 <ginMergeItemPointers+0x2f9>	9b5: R_X86_64_PLT32	memcpy-0x4
+ 9b9:	e9 0b ff ff ff       	jmp    8c9 <ginMergeItemPointers+0x209>

@@ -1,0 +1,25 @@
+Exact B72 src/include/c.h excerpt; repository-owned macro
+#endif
+
+/*
+ * Use "pg_always_inline" in place of "inline" for functions that
+ * we wish to force inlining of, even when the compiler's heuristics would
+ * choose not to.  But, if possible, don't force inlining in unoptimized
+ * debug builds.
+ */
+#if defined(__GNUC__) && defined(__OPTIMIZE__)
+/* GCC supports always_inline via __attribute__ */
+#define pg_always_inline __attribute__((always_inline)) inline
+#elif defined(_MSC_VER)
+/* MSVC has a special keyword for this */
+#define pg_always_inline __forceinline
+#else
+/* Otherwise, the best we can do is to say "inline" */
+#define pg_always_inline inline
+#endif
+
+/*
+ * Forcing a function not to be inlined can be useful if it's the slow path of
+ * a performance-critical function, or should be visible in profiles to allow
+ * for proper cost attribution.  Note that unlike the pg_attribute_XXX macros
+ * above, this should be placed before the function's return type and name.

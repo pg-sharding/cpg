@@ -1,0 +1,27 @@
+{
+  "status": "PASS_LOCAL_FRESH_FRONTDOOR_STATIC_REVIEW_r2",
+  "reviewed_ns": 1794390637312032000,
+  "frontdoor_sha256": "5a8af57beb06ff45339be75cd0a43340f15e05331c30ae4b96ddf2b6dce683e6",
+  "files": 40,
+  "details": {
+    "status": "PASS_FROZEN_INPUT_BYTES_AND_PYTHON_AST",
+    "files": 40,
+    "manifests": {
+      "BUILD-INPUTS-D3-r1.json": "34e3453794ebb4de2833865fc911d01350f16309aab1b2dee551be00d7a11267",
+      "QUALIFICATION-INPUTS-D3-r1.json": "985ef80429245f6376e57a878d420eaf31be762a957c01b5ed37f603304f8b2d",
+      "TIMING-INPUTS-D3-r1.json": "4fbf85da73d76807cdf1043ad1eb29d5b7576f40c4ac2c0088beabc28b07c5af"
+    },
+    "source_plan_sha256": "59e277145711e1a3ad4ed3e942f9120c94203417071b0c3d27eda75634209007",
+    "new_frontdoor_Linux_runtime": "NOT_EXECUTED_BY_STATIC_CHECK"
+  },
+  "previous_source": "historical-static-r1/replay.py",
+  "previous_source_sha256": "4d393c5c7fc0f31c10c18923861cd851164f4708b17c7288e12844eea24f4843",
+  "new_Linux_build_gate_timing": "NOT_EXECUTED",
+  "cleanup_revision": "Explicit default SIGINT; only owned controller PID receives SIGINT;480-second grace; cleanup_timeout preserved and wrapper fails without group SIGKILL.",
+  "source_review": [
+    "Builder catches BaseException and finally verifies own regression PID UID/ELF/-D before pg_ctl stop; records core_cleanup_errors.",
+    "Qualifier catches BaseException and finally closes owned clients and stops all known owned clusters with UID/ELF/-D/PID/socket and pg_controldata proofs.",
+    "Frozen common.run and Session.close may terminate their own command/client groups. The portable parent no longer force-terminates the controller group.",
+    "SIGINT handling and timeout behavior reviewed in source only; no interruption/failure test or fresh Linux run was executed."
+  ]
+}

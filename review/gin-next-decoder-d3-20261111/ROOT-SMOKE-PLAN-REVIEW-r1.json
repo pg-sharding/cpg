@@ -1,0 +1,374 @@
+{
+  "status": "PASS_ROOT_ACTUAL_D3_SMOKE_PLANS_AND_EXPECTED_GUCS",
+  "settings_checks": 112,
+  "SQL_plans": 28,
+  "signatures": {
+    "skew1000": {
+      "Node Type": "Aggregate",
+      "Actual Loops": 1,
+      "Actual Rows": 1.0,
+      "Plans": [
+        {
+          "Node Type": "Nested Loop",
+          "Actual Loops": 1,
+          "Actual Rows": 100.0,
+          "Plans": [
+            {
+              "Node Type": "Function Scan",
+              "Actual Loops": 1,
+              "Actual Rows": 100.0,
+              "Plans": []
+            },
+            {
+              "Node Type": "Aggregate",
+              "Actual Loops": 100,
+              "Actual Rows": 1.0,
+              "Plans": [
+                {
+                  "Node Type": "Bitmap Heap Scan",
+                  "Relation Name": "docs",
+                  "Rows Removed by Index Recheck": 0,
+                  "Recheck Cond": "(d @@ to_tsquery('simple'::regconfig, ('common & rare'::text || ((p.i % 2))::text)))",
+                  "Exact Heap Blocks": 19850,
+                  "Lossy Heap Blocks": 0,
+                  "Actual Loops": 100,
+                  "Actual Rows": 198.5,
+                  "Plans": [
+                    {
+                      "Node Type": "Bitmap Index Scan",
+                      "Index Cond": "(d @@ to_tsquery('simple'::regconfig, ('common & rare'::text || ((p.i % 2))::text)))",
+                      "Index Name": "docs_d_gin",
+                      "Actual Loops": 100,
+                      "Actual Rows": 198.5,
+                      "Plans": []
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "dense_and": {
+      "Node Type": "Aggregate",
+      "Actual Loops": 1,
+      "Actual Rows": 1.0,
+      "Plans": [
+        {
+          "Node Type": "Nested Loop",
+          "Actual Loops": 1,
+          "Actual Rows": 10.0,
+          "Plans": [
+            {
+              "Node Type": "Function Scan",
+              "Actual Loops": 1,
+              "Actual Rows": 10.0,
+              "Plans": []
+            },
+            {
+              "Node Type": "Limit",
+              "Actual Loops": 10,
+              "Actual Rows": 1.0,
+              "Plans": [
+                {
+                  "Node Type": "Aggregate",
+                  "Actual Loops": 10,
+                  "Actual Rows": 1.0,
+                  "Plans": [
+                    {
+                      "Node Type": "Bitmap Heap Scan",
+                      "Relation Name": "docs",
+                      "Rows Removed by Index Recheck": 0,
+                      "Recheck Cond": "(d @@ '''dense2'' & ''dense3'''::tsquery)",
+                      "Exact Heap Blocks": 42160,
+                      "Lossy Heap Blocks": 0,
+                      "Actual Loops": 10,
+                      "Actual Rows": 33333.0,
+                      "Plans": [
+                        {
+                          "Node Type": "Bitmap Index Scan",
+                          "Index Cond": "(d @@ '''dense2'' & ''dense3'''::tsquery)",
+                          "Index Name": "docs_d_gin",
+                          "Actual Loops": 10,
+                          "Actual Rows": 33333.0,
+                          "Plans": []
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "or_forced": {
+      "Node Type": "Aggregate",
+      "Actual Loops": 1,
+      "Actual Rows": 1.0,
+      "Plans": [
+        {
+          "Node Type": "Nested Loop",
+          "Actual Loops": 1,
+          "Actual Rows": 5.0,
+          "Plans": [
+            {
+              "Node Type": "Function Scan",
+              "Actual Loops": 1,
+              "Actual Rows": 5.0,
+              "Plans": []
+            },
+            {
+              "Node Type": "Limit",
+              "Actual Loops": 5,
+              "Actual Rows": 1.0,
+              "Plans": [
+                {
+                  "Node Type": "Aggregate",
+                  "Actual Loops": 5,
+                  "Actual Rows": 1.0,
+                  "Plans": [
+                    {
+                      "Node Type": "Bitmap Heap Scan",
+                      "Relation Name": "docs",
+                      "Rows Removed by Index Recheck": 0,
+                      "Recheck Cond": "(d @@ '''common'' | ''rare0'''::tsquery)",
+                      "Exact Heap Blocks": 21085,
+                      "Lossy Heap Blocks": 0,
+                      "Actual Loops": 5,
+                      "Actual Rows": 200000.0,
+                      "Plans": [
+                        {
+                          "Node Type": "Bitmap Index Scan",
+                          "Index Cond": "(d @@ '''common'' | ''rare0'''::tsquery)",
+                          "Index Name": "docs_d_gin",
+                          "Actual Loops": 5,
+                          "Actual Rows": 200000.0,
+                          "Plans": []
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "single_forced": {
+      "Node Type": "Aggregate",
+      "Actual Loops": 1,
+      "Actual Rows": 1.0,
+      "Plans": [
+        {
+          "Node Type": "Nested Loop",
+          "Actual Loops": 1,
+          "Actual Rows": 5.0,
+          "Plans": [
+            {
+              "Node Type": "Function Scan",
+              "Actual Loops": 1,
+              "Actual Rows": 5.0,
+              "Plans": []
+            },
+            {
+              "Node Type": "Limit",
+              "Actual Loops": 5,
+              "Actual Rows": 1.0,
+              "Plans": [
+                {
+                  "Node Type": "Aggregate",
+                  "Actual Loops": 5,
+                  "Actual Rows": 1.0,
+                  "Plans": [
+                    {
+                      "Node Type": "Bitmap Heap Scan",
+                      "Relation Name": "docs",
+                      "Rows Removed by Index Recheck": 0,
+                      "Recheck Cond": "(d @@ '''common'''::tsquery)",
+                      "Exact Heap Blocks": 21085,
+                      "Lossy Heap Blocks": 0,
+                      "Actual Loops": 5,
+                      "Actual Rows": 200000.0,
+                      "Plans": [
+                        {
+                          "Node Type": "Bitmap Index Scan",
+                          "Index Cond": "(d @@ '''common'''::tsquery)",
+                          "Index Name": "docs_d_gin",
+                          "Actual Loops": 5,
+                          "Actual Rows": 200000.0,
+                          "Plans": []
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "single_rare": {
+      "Node Type": "Aggregate",
+      "Actual Loops": 1,
+      "Actual Rows": 1.0,
+      "Plans": [
+        {
+          "Node Type": "Nested Loop",
+          "Actual Loops": 1,
+          "Actual Rows": 100.0,
+          "Plans": [
+            {
+              "Node Type": "Function Scan",
+              "Actual Loops": 1,
+              "Actual Rows": 100.0,
+              "Plans": []
+            },
+            {
+              "Node Type": "Limit",
+              "Actual Loops": 100,
+              "Actual Rows": 1.0,
+              "Plans": [
+                {
+                  "Node Type": "Aggregate",
+                  "Actual Loops": 100,
+                  "Actual Rows": 1.0,
+                  "Plans": [
+                    {
+                      "Node Type": "Bitmap Heap Scan",
+                      "Relation Name": "docs",
+                      "Rows Removed by Index Recheck": 0,
+                      "Recheck Cond": "(d @@ '''rare0'''::tsquery)",
+                      "Exact Heap Blocks": 20000,
+                      "Lossy Heap Blocks": 0,
+                      "Actual Loops": 100,
+                      "Actual Rows": 200.0,
+                      "Plans": [
+                        {
+                          "Node Type": "Bitmap Index Scan",
+                          "Index Cond": "(d @@ '''rare0'''::tsquery)",
+                          "Index Name": "docs_d_gin",
+                          "Actual Loops": 100,
+                          "Actual Rows": 200.0,
+                          "Plans": []
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "prefix": {
+      "Node Type": "Aggregate",
+      "Actual Loops": 1,
+      "Actual Rows": 1.0,
+      "Plans": [
+        {
+          "Node Type": "Nested Loop",
+          "Actual Loops": 1,
+          "Actual Rows": 100.0,
+          "Plans": [
+            {
+              "Node Type": "Function Scan",
+              "Actual Loops": 1,
+              "Actual Rows": 100.0,
+              "Plans": []
+            },
+            {
+              "Node Type": "Limit",
+              "Actual Loops": 100,
+              "Actual Rows": 1.0,
+              "Plans": [
+                {
+                  "Node Type": "Aggregate",
+                  "Actual Loops": 100,
+                  "Actual Rows": 1.0,
+                  "Plans": [
+                    {
+                      "Node Type": "Bitmap Heap Scan",
+                      "Relation Name": "docs",
+                      "Rows Removed by Index Recheck": 0,
+                      "Recheck Cond": "(d @@ '''group1'':* & ''rare0'''::tsquery)",
+                      "Exact Heap Blocks": 5300,
+                      "Lossy Heap Blocks": 0,
+                      "Actual Loops": 100,
+                      "Actual Rows": 53.0,
+                      "Plans": [
+                        {
+                          "Node Type": "Bitmap Index Scan",
+                          "Index Cond": "(d @@ '''group1'':* & ''rare0'''::tsquery)",
+                          "Index Name": "docs_d_gin",
+                          "Actual Loops": 100,
+                          "Actual Rows": 53.0,
+                          "Plans": []
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "seq_control": {
+      "Node Type": "Aggregate",
+      "Actual Loops": 1,
+      "Actual Rows": 1.0,
+      "Plans": [
+        {
+          "Node Type": "Nested Loop",
+          "Actual Loops": 1,
+          "Actual Rows": 5.0,
+          "Plans": [
+            {
+              "Node Type": "Function Scan",
+              "Actual Loops": 1,
+              "Actual Rows": 5.0,
+              "Plans": []
+            },
+            {
+              "Node Type": "Limit",
+              "Actual Loops": 5,
+              "Actual Rows": 1.0,
+              "Plans": [
+                {
+                  "Node Type": "Aggregate",
+                  "Actual Loops": 5,
+                  "Actual Rows": 1.0,
+                  "Plans": [
+                    {
+                      "Node Type": "Seq Scan",
+                      "Filter": "((id % '1000'::bigint) = 0)",
+                      "Relation Name": "docs",
+                      "Actual Loops": 5,
+                      "Actual Rows": 200.0,
+                      "Rows Removed by Filter": 199802,
+                      "Plans": []
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "all9lifetimes_stopped": true,
+  "unused_copies": 8,
+  "raw_sha256": "dc82d6022d4fb194dca9c7bd80d2766bcebd21e57449536f9fbf5d27f24e7901",
+  "smoke_audit_sha256": "3fca0e328e18d17b6a8de4c5d4248681d877b55dd37a6f559f1afa173e1a07d3",
+  "live_sha256": "e60a467fd2389db86cc476962dab88fdbe813c9005315e419bfe319453746ad0",
+  "finished_ns": 1794390876549118000,
+  "scope": "Finite ordinary cases; actual rows/loops/predicates and complete expected recorded settings. No timing inference from smoke."
+}
