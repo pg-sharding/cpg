@@ -1,0 +1,124 @@
+--- tested-startup/qualify.py
++++ new-D2/qualify.py
+@@ -18,7 +18,7 @@
+ loader = importlib.util.spec_from_file_location('bc', HERE.parent / 'build-harness/common.py')
+ bc = importlib.util.module_from_spec(loader)
+ loader.loader.exec_module(bc)
+-VARIANTS = ('B', 'S1', 'D1', 'C9', 'S1_assert', 'D1_assert')
++VARIANTS = ('B', 'D1', 'D2', 'D2_assert')
+ SEQ = 'SET enable_seqscan=on;SET enable_bitmapscan=off;SET enable_indexscan=off;SET enable_indexonlyscan=off;'
+ GIN = 'SET enable_seqscan=off;SET enable_bitmapscan=on;SET enable_indexscan=off;SET enable_indexonlyscan=off;'
+ RESET = "RESET enable_seqscan;RESET enable_bitmapscan;RESET enable_indexscan;RESET enable_indexonlyscan;SET work_mem='64MB';"
+@@ -72,12 +72,13 @@
+     parser.add_argument('--build', required=True, type=pathlib.Path)
+     parser.add_argument('--output', required=True, type=pathlib.Path,
+                         help='New path only; preserve every failed attempt')
+-    parser.add_argument('--first-port', type=int, default=45600)
++    parser.add_argument('--first-port', type=int, default=46960)
+     args = parser.parse_args()
+     assert 1024 <= args.first_port <= 65520
+     out = args.output.resolve()
+     out.mkdir()
+     bc.nice10()
++    bc.child_limits()
+     receipt = bc.checked_build(args.build)
+     prefixes = {k: pathlib.Path(v['prefix']) for k, v in receipt['variants'].items()}
+     state = dict(status='RUNNING', phase='seed', pid=os.getpid(), started_ns=time.time_ns(),
+@@ -96,7 +97,8 @@
+ 
+     def start(label, variant, data, port):
+         prefix = prefixes[variant]
+-        sock = bc.socket_directory(out / ('s-' + label), port)
++        (out.parent / 's').mkdir(exist_ok=True)
++        sock = bc.socket_directory(out.parent / 's' / ('q-' + label), port)
+         item = dict(label=label, variant=variant, prefix=str(prefix), data=str(data), socket=str(sock), port=port)
+         owned.append(item)
+         state['clusters'].append(item)
+@@ -123,8 +125,17 @@
+         data, prefix = pathlib.Path(item['data']), pathlib.Path(item['prefix'])
+         assert data.parent == out
+         if (data / 'postmaster.pid').exists():
+-            bc.run([prefix / 'bin/pg_ctl', '-D', data, '-m', 'fast', '-w', 'stop'],
+-                   out / (item['label'] + '-stop.log'), prefix=prefix, timeout=120)
++            pid = int((data / 'postmaster.pid').read_text().splitlines()[0])
++            assert not item.get('pid') or item['pid'] == pid
++            proc = pathlib.Path('/proc', str(pid))
++            if proc.exists():
++                assert proc.stat().st_uid == os.getuid()
++                assert bc.sha(proc / 'exe') == receipt['variants'][item['variant']]['postgres_sha256']
++                tokens = (proc / 'cmdline').read_bytes().split(b'\0')
++                assert b'-D' in tokens
++                assert pathlib.Path(os.fsdecode(tokens[tokens.index(b'-D') + 1])).resolve() == data.resolve()
++                bc.run([prefix / 'bin/pg_ctl', '-D', data, '-m', 'fast', '-w', 'stop'],
++                       out / (item['label'] + '-stop.log'), prefix=prefix, timeout=120)
+         proof = bc.stopped(prefix, data)
+         assert not pathlib.Path(item['socket'], '.s.PGSQL.' + str(item['port'])).exists()
+         for key in ('pid', 'backend_pid'):
+@@ -169,7 +180,8 @@
+             stop(seed_item)
+         seed_inventory = bc.inventory(seed)
+         bc.save(out / 'seed-inventory.json', seed_inventory)
+-        baseline_rows, baseline_decoder = {}, None
++        prior_reference = json.loads((HERE / 'reference-B.json').read_text())
++        baseline_rows, baseline_decoder = prior_reference['rows'], prior_reference['decoder']
+         for ix, variant in enumerate(VARIANTS):
+             state['phase'] = variant
+             bc.save(out / 'status.json', state)
+@@ -198,18 +210,17 @@
+                 assert (s.sql('SHOW debug_assertions') == 'on') == variant.endswith('_assert')
+                 s.sql("CREATE FUNCTION public.gin_decoder_oracle() RETURNS text AS '" + str(module) + "', 'gin_decoder_oracle' LANGUAGE C STRICT")
+                 raw = s.sql('SELECT public.gin_decoder_oracle()')
+-                (stage / 'decoder-raw.txt').write_text(raw + '\n')
++                with (stage / 'decoder-raw.txt').open('x') as stream:
++                    stream.write(raw + '\n'); stream.flush(); os.fsync(stream.fileno())
+                 decoder = json.loads(raw)
++                result['decoder'] = decoder
++                bc.save(stage / 'result.json', result)
+                 assert decoder['status'] == 'PASS_VALID_DECODER' and decoder['timing_samples'] == 0
+                 assert len(decoder['cases']) == 18
+-                if baseline_decoder is None:
+-                    baseline_decoder = decoder
+                 assert decoder == baseline_decoder
+                 result['decoder'] = decoder
+                 for case in cases:
+                     value = row_comparison(s, variant, case['name'], case['rows_sql'], case['index'])
+-                    if variant == 'B':
+-                        baseline_rows[case['name']] = value['reference']
+                     assert value['actual'] == baseline_rows[case['name']]
+                     s.sql(RESET + case['settings'])
+                     literal = s.sql(case['sql'])
+@@ -227,8 +238,6 @@
+                     result['extra_cases'][case['name']] = dict(count=count, **value)
+                     bc.save(stage / 'result.json', result)
+                     assert count == case['answer']
+-                    if variant == 'B':
+-                        baseline_rows[case['name']] = value['reference']
+                     assert value['actual'] == baseline_rows[case['name']]
+                 s.sql(RESET + 'SET plan_cache_mode=force_generic_plan;PREPARE repeated_gin(tsquery) AS SELECT id FROM g1.docs WHERE d @@ $1 ORDER BY id')
+                 for text in ['common & missing', 'common | missing', 'common & rare0', 'dense2 & dense3', 'common', 'group1:* & missing', 'common <-> rare0']:
+@@ -246,8 +255,6 @@
+                     assert reference == actual == repeated
+                     assert any(n['Node Type'] == 'Seq Scan' for n in nodes(seq_plan))
+                     assert any(n.get('Index Name') == 'docs_d_gin' for n in nodes(gin_plan))
+-                    if variant == 'B':
+-                        baseline_rows['prepared-' + text] = digest(reference)
+                     assert digest(actual) == baseline_rows['prepared-' + text]
+                 s.sql('DEALLOCATE repeated_gin')
+                 # Ordinary one-session pending-list writes; no concurrent actors.
+@@ -264,6 +271,7 @@
+                         value = row_comparison(s, variant, 'writes-' + phase + '-' + text.replace(' ', '').replace('&', 'and').replace('|', 'or'),
+                                                "SELECT id FROM g1.writes WHERE d @@ '" + text + "'::tsquery", 'writes_d_gin')
+                         result['lifecycle'][phase][text] = value['actual']
++                        assert value['actual'] == prior_reference['lifecycle'][phase][text]
+                     bc.save(stage / 'result.json', result)
+                 s.sql('BEGIN ISOLATION LEVEL SERIALIZABLE READ ONLY')
+                 for text in ['common & missing', 'common & rare0', 'common | missing']:
+@@ -279,7 +287,7 @@
+         bc.checked_build(args.build)
+         for name, value in frozen.items():
+             assert (HERE / name).stat().st_size == value['bytes'] and bc.sha(HERE / name) == value['sha256']
+-        state.update(status='PASS_ORDINARY_SQL_AND_VALID_DECODER', timing_samples=0,
++        state.update(status='PASS_D2_ORDINARY_SQL_AND_VALID_DECODER', timing_samples=0,
+                      ordered_cases_per_variant=40, prepared_cases_per_variant=7,
+                      lifecycle_comparisons_per_variant=12, decoder_cases_per_variant=18,
+                      seed_unchanged=True, installed_trees_unchanged=True, frozen_inputs_unchanged=True,

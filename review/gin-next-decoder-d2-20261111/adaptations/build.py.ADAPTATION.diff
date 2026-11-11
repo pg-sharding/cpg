@@ -1,0 +1,109 @@
+--- tested-startup/build.py
++++ new-D2/build.py
+@@ -1,5 +1,5 @@
+ #!/usr/bin/env python3
+-"""Matched GIN startup and decoder builds with an identical object set outside the edited unit from a verified public B72 source archive."""
++"""Matched GIN D1/D2 decoder builds with an identical object set outside the edited unit from a verified public B72 source archive."""
+ import argparse
+ import hashlib
+ import io
+@@ -15,7 +15,7 @@
+ import time
+ import traceback
+ from common import (HERE, ROLES, sha, save, nice10, env, run, capture,
+-                    inventory, stopped, source_plan)
++                    inventory, stopped, source_plan, child_limits)
+ 
+ 
+ def main():
+@@ -30,17 +30,18 @@
+     parser.add_argument('--output', type=pathlib.Path, required=True,
+                         help='New nonexistent output root; preserve every failed attempt')
+     parser.add_argument('--cc', default='gcc')
+-    parser.add_argument('--core-port', type=int, default=45540,
+-                        help='First of six unused regression ports')
++    parser.add_argument('--core-port', type=int, default=46900,
++                        help='First of four unused regression ports')
+     args = parser.parse_args()
+     assert 1024 <= args.core_port <= 65530
+     root = args.output.resolve()
+     assert not any(c.isspace() for c in str(root))
+     root.mkdir()
+     nice10()
++    child_limits()
+     state = dict(status='RUNNING', pid=os.getpid(), started_ns=time.time_ns(),
+                  variants={}, commands=[], timing_samples=0,
+-                 scope='New matched builds; All B/S1/D1/C9/S1_assert/D1_assert builds clean; no prior result reproduced')
++                 scope='New matched builds; All B/D1/D2/D2_assert builds clean; no prior result reproduced')
+     save(root / 'status.json', state)
+     source, build, compiled = root / 'common-source', root / 'common-build', root / 'prefix'
+     source.mkdir()
+@@ -83,7 +84,7 @@
+         expected_files = {k: v for k, v in baseline.items()
+                           if k.startswith('src/test/regress/expected/')}
+         release_config = None
+-        sequence = [('B', 'B', False), ('S1', 'S1', False), ('D1', 'D1', False), ('C9', 'C9', False), ('S1_assert', 'S1', True), ('D1_assert', 'D1', True)]
++        sequence = [('B', 'B', False), ('D1', 'D1', False), ('D2', 'D2', False), ('D2_assert', 'D2', True)]
+         baseline_objects = None
+         previous_objects = None
+         for index, (label, role, assertions) in enumerate(sequence):
+@@ -186,23 +187,23 @@
+                     baseline_objects = objects
+                 assert objects.keys() == baseline_objects.keys()
+                 edits = [n for n in objects if objects[n] != baseline_objects[n]]
+-                assert all(n.startswith('access/gin/') for n in edits), edits
++                assert set(edits) <= {'access/gin/ginpostinglist.o'}, edits
+                 current['changed_backend_objects_from_B'] = edits
+             previous_objects = objects
+             state['variants'][label] = current
+             save(root / (label + '-provenance.json'), current)
+             save(root / 'status.json', state)
+-        receipt = dict(status='PASS_GIN_STARTUP_DECODER_BUILDS', base=spec['base'],
++        receipt = dict(status='PASS_GIN_D2_MATCHED_BUILDS', base=spec['base'],
+                        common_fix_commit=spec['common_fix_commit'],
+                        fix0001_sha256=spec['fix0001_sha256'],
+                        source_plan_path=str(plan_path), source_plan_sha256=sha(plan_path),
+                        source_archive_sha256=state['source_archive_sha256'],
+                        variants=state['variants'], core239_each=True, source_files=7726,
+-                       role_to_variant={'B': 'B', 'T': 'B', 'S1': 'S1', 'D1': 'D1', 'C9': 'C9'},
++                       role_to_variant={'B': 'B', 'T': 'B', 'D1': 'D1', 'D2': 'D2'},
+                        common_source=str(source), common_build=str(build),
+-                       compiled_prefix=str(compiled), nice=10, jobs=2,
++                       compiled_prefix=str(compiled), nice=10, jobs=2, child_RLIMIT_AS=3000000000,
+                        scripts={p.name: sha(p) for p in HERE.iterdir() if p.is_file()},
+-                       build_method='All six builds clean; exact non-GIN backend object identity checked for releases',
++                       build_method='All four builds clean; exact backend object identity outside ginpostinglist.o checked for releases',
+                        AM_qualification='NOT RUN BY BUILD SCRIPT', timing_samples=0,
+                        original_measurements_reproduced=False)
+         save(root / 'build-receipt.json', receipt)
+@@ -219,15 +220,26 @@
+                     assert controls, 'no control binary for own regression cluster'
+                     control = controls[0]
+                     data = pidfile.parent
+-                    q = subprocess.run([str(control), '-D', str(data), '-m', 'fast', '-w', 'stop'],
+-                                       env=env(control.parent.parent), capture_output=True, timeout=120)
+-                    assert q.returncode == 0
++                    assert data.resolve().is_relative_to(build.resolve())
++                    pid = int(pidfile.read_text().splitlines()[0])
++                    proc = pathlib.Path('/proc', str(pid))
++                    if proc.exists():
++                        assert proc.stat().st_uid == os.getuid()
++                        allowed = {sha(p.parent / 'postgres') for p in controls}
++                        assert sha(proc / 'exe') in allowed
++                        tokens = (proc / 'cmdline').read_bytes().split(b'\0')
++                        assert b'-D' in tokens
++                        actual_data = pathlib.Path(os.fsdecode(tokens[tokens.index(b'-D') + 1])).resolve()
++                        assert actual_data == data.resolve()
++                        q = subprocess.run([str(control), '-D', str(data), '-m', 'fast', '-w', 'stop'],
++                                           env=env(control.parent.parent), capture_output=True, timeout=120)
++                        assert q.returncode == 0
+                     proofs.append(dict(data=str(data), **stopped(control.parent.parent, data)))
+                 except BaseException as exc:
+                     errors.append(dict(data=str(pidfile.parent), error=repr(exc)))
+         state['core_finally_stops'] = proofs
+         state['core_cleanup_errors'] = errors
+-        if errors and state['status'] == 'PASS_GIN_STARTUP_DECODER_BUILDS':
++        if errors and state['status'] == 'PASS_GIN_D2_MATCHED_BUILDS':
+             state['status'] = 'FAILED_CLEANUP'
+         save(root / 'status.json', state)
+         if errors and not sys.exc_info()[0]:

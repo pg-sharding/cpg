@@ -1,0 +1,72 @@
+--- tested-startup/common.py
++++ new-D2/common.py
+@@ -1,15 +1,16 @@
+-"""Bounded local helpers for fresh B/S1/D1/C9 fixed-source GIN builds and finite qualification."""
++"""Bounded local helpers for fresh B/D1/D2 fixed-source GIN builds and finite qualification."""
+ import hashlib
+ import json
+ import os
+ import pathlib
++import resource
+ import signal
+ import subprocess
+ import time
+ 
+ HERE = pathlib.Path(__file__).resolve().parent
+ BASE = '72b9498df9a369e747f8d96efb5a6cd33c2451e2'
+-ROLES = ('B', 'S1', 'D1', 'C9')
++ROLES = ('B', 'D1', 'D2')
+ 
+ 
+ def sha(path):
+@@ -48,6 +49,10 @@
+     return result
+ 
+ 
++def child_limits():
++    resource.setrlimit(resource.RLIMIT_AS, (3000000000, 3000000000))
++
++
+ def run(args, log, *, cwd=None, prefix=None, timeout=3600, environment=None):
+     """Record even failed commands; terminate only our own new process group."""
+     args = list(map(str, args))
+@@ -59,7 +64,7 @@
+         with log.open('xb') as stream:
+             proc = subprocess.Popen(args, cwd=cwd, env=environment or env(prefix),
+                                     stdout=stream, stderr=subprocess.STDOUT,
+-                                    start_new_session=True)
++                                    start_new_session=True, preexec_fn=child_limits)
+             record['pid'] = proc.pid
+             record['returncode'] = proc.wait(timeout=timeout)
+     except BaseException as exc:
+@@ -159,24 +164,25 @@
+             snapshot = path.parent / role / name
+             assert snapshot.stat().st_size == value['bytes']
+             assert sha(snapshot) == value['sha256']
+-    assert set(spec['variants']['S1']['source_files']) == {'src/backend/access/gin/ginget.c'}
+     assert set(spec['variants']['D1']['source_files']) == {'src/backend/access/gin/ginget.c', 'src/backend/access/gin/ginpostinglist.c'}
+-    assert set(spec['variants']['C9']['source_files']) == {'src/backend/access/gin/ginget.c', 'src/backend/access/gin/ginscan.c', 'src/include/access/gin_private.h'}
++    assert set(spec['variants']['D2']['source_files']) == {'src/backend/access/gin/ginget.c', 'src/backend/access/gin/ginpostinglist.c'}
+     return spec, expected
+ 
+ 
+ def checked_build(path):
+     path = pathlib.Path(path).resolve()
+     receipt = json.loads((path / 'build-receipt.json').read_text())
+-    assert receipt['status'] == 'PASS_GIN_STARTUP_DECODER_BUILDS'
++    assert receipt['status'] == 'PASS_GIN_D2_MATCHED_BUILDS'
+     assert json.loads((path / 'status.json').read_text())['status'] == receipt['status']
+     assert receipt['base'] == BASE and receipt['core239_each'] is True
+-    assert set(receipt['variants']) == {'B', 'S1', 'D1', 'C9', 'S1_assert', 'D1_assert'}
+-    assert receipt['role_to_variant'] == {'B': 'B', 'T': 'B', 'S1': 'S1', 'D1': 'D1', 'C9': 'C9'}
++    assert set(receipt['variants']) == {'B', 'D1', 'D2', 'D2_assert'}
++    assert receipt['role_to_variant'] == {'B': 'B', 'T': 'B', 'D1': 'D1', 'D2': 'D2'}
+     for variant in receipt['variants'].values():
+         prefix = pathlib.Path(variant['prefix'])
+         assert sha(prefix / 'bin/postgres') == variant['postgres_sha256']
+         assert inventory(prefix, allow_symlinks=True) == variant['installed_files']
++    assert not json.loads((path / 'status.json').read_text())['core_cleanup_errors']
++    assert inventory(receipt['common_source']) == json.loads((path / 'D2_assert-source-inventory.json').read_text())
+     return receipt
+ 
+ 

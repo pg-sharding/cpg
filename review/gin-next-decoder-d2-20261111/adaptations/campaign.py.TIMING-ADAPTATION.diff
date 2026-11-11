@@ -1,0 +1,168 @@
+--- review/gin-next-20261110/cache-k3-qualification-20261110/timing-prep-r1/campaign.py
++++ D2/campaign.py
+@@ -30,7 +30,7 @@
+ def frozen_inputs():
+     paths = [p for p in HERE.rglob('*') if p.is_file() and '__pycache__' not in p.parts]
+     paths += [p for p in (ROOT / 'qualification').rglob('*') if p.is_file() and '__pycache__' not in p.parts]
+-    paths += [ROOT / n for n in ['source/SOURCE.json', 'BUILD-INPUTS-K3-r1.json', 'QUALIFICATION-INPUTS-K3-r1.json', 'TIMING-INPUTS-K3-r1.json', 'build-harness/common.py']]
++    paths += [ROOT / n for n in ['build-source/SOURCE.json', 'BUILD-INPUTS-D2-r1.json', 'QUALIFICATION-INPUTS-D2-r1.json', 'TIMING-INPUTS-D2-r1.json', 'build-harness/common.py']]
+     return {p.relative_to(ROOT).as_posix(): dict(bytes=p.stat().st_size, sha256=bc.sha(p)) for p in sorted(paths)}
+ 
+ 
+@@ -40,7 +40,7 @@
+     p.add_argument('--build', type=pathlib.Path, required=True)
+     p.add_argument('--qualified', type=pathlib.Path, required=True)
+     p.add_argument('--output', type=pathlib.Path, required=True)
+-    p.add_argument('--first-port', type=int, default=46340)
++    p.add_argument('--first-port', type=int, default=47000)
+     p.add_argument('--cpu-pairs', default='0:4,4:0', help='server:client for each cohort; topology is recorded')
+     p.add_argument('--environment-label', choices=['SHARED_LOAD_DIAGNOSTIC', 'FRESH_HOST_CLEAN_SCREEN'], default='SHARED_LOAD_DIAGNOSTIC')
+     p.add_argument('--review', type=pathlib.Path, help='External root-authored smoke review, required by run stage')
+@@ -50,39 +50,36 @@
+     assert set(sum((list(v) for v in cpu_pairs), [])) <= os.sched_getaffinity(0)
+     assert 1024 <= args.first_port <= 65490
+     bc.nice10()
++    bc.child_limits()
+     build = bc.checked_build(args.build)
+     qualified = json.loads((args.qualified / 'status.json').read_text())
+-    assert qualified['status'] == 'PASS_ORDINARY_SQL_NATIVE_CACHE_BUDGET_AND_GENERIC_FALLBACK' and qualified['remaining_owned'] == 0 and not qualified['cleanup_errors']
++    assert qualified['status'] == 'PASS_D2_ORDINARY_SQL_AND_VALID_DECODER' and qualified['remaining_owned'] == 0 and not qualified['cleanup_errors']
+     assert qualified['build_receipt_sha256'] == bc.sha(args.build / 'build-receipt.json')
+-    for name, expected in [('BUILD-INPUTS-K3-r1.json', '9a5ce6dddb63b9332cd14b3094340042111f69bab32366fa4c171389b7a57447'),
+-                           ('QUALIFICATION-INPUTS-K3-r1.json', '9c109b49a4fbd3cc40cfc304bec0b582bd6e0a7edec21f64620abb30149564b8')]:
++    for name, expected in [('BUILD-INPUTS-D2-r1.json', '11b348197ca1e912cd3616bb332a09a2780d70061e43c777aea15d25f75b30f7'),
++                           ('QUALIFICATION-INPUTS-D2-r1.json', '526681c089d361901c67d74a981c35674f45429d48cd864f806a432fe33a92fb')]:
+         manifest = ROOT / name
+         assert bc.sha(manifest) == expected
+         for relative, binding in json.loads(manifest.read_text())['files'].items():
+             path = ROOT / relative
+             assert not path.is_symlink() and path.stat().st_size == binding['bytes'] and bc.sha(path) == binding['sha256']
+     assert qualified['timing_samples'] == 0
+-    assert set(qualified['variants']) == {'B', 'K1', 'K3', 'K3_assert'}
++    assert set(qualified['variants']) == {'B', 'D1', 'D2', 'D2_assert'}
+     for artifact in qualified['variants'].values():
+         assert bc.sha(artifact['path']) == artifact['sha256']
+         assert json.loads(pathlib.Path(artifact['path']).read_text())['status'] == 'PASS'
+-    for name, expected in dict(ordered_cases_per_variant=40, prepared_cases_per_variant=7,
+-                               lifecycle_comparisons_per_variant=12, native_cases_per_variant=11,
+-                               budget_native_cases_per_variant=11, generic_fallback_cases_per_variant=11,
+-                               budget_native_calls=51744, budget_dispatch_transitions=180,
+-                               budget_initializations=528, budget_context_resets=88).items():
++    for name, expected in dict(ordered_cases_per_variant=40, prepared_cases_per_variant=7,lifecycle_comparisons_per_variant=12,decoder_cases_per_variant=18).items():
+         assert qualified[name] == expected
+     for item in qualified['clusters']:
+         assert item['stopped']
+         bc.stopped(item['prefix'], item['data'])
+         for key in ('pid', 'backend_pid'):
+             assert not item.get(key) or not pathlib.Path('/proc', str(item[key])).exists()
+-    assert build['source_plan_sha256'] == '36e9b65fa36b3f7cc6da350987f2671d798241d94ea7ccbc654d56b1bedbdf4d'
++    assert build['source_plan_sha256'] == '882122bce7ebbfd93f218e978ccc6dde510449d09796230b119eac331638615b'
+     assert qualified['source_plan_sha256'] == build['source_plan_sha256']
+-    assert {k: build['variants'][k]['commit'] for k in ('B', 'K1', 'K3', 'K3_assert')} == {
+-        'B': FIXED, 'K1': '9e0d6e84c5bd538e58a534c99cb39ca669c567b7',
+-        'K3': 'ec32d586cf3bb6cfa76eb672db70160b436ce47c',
+-        'K3_assert': 'ec32d586cf3bb6cfa76eb672db70160b436ce47c'}
++    assert {k: build['variants'][k]['commit'] for k in ('B', 'D1', 'D2', 'D2_assert')} == {
++        'B': FIXED, 'D1': 'c2b5dd6f9012cc4a27628c9d6c507ac467795ac5',
++        'D2': 'a85a9242f455b12c93528f3ace33eb69b6cd1008',
++        'D2_assert': 'a85a9242f455b12c93528f3ace33eb69b6cd1008'}
+     spec = plan()
+     out = args.output.resolve()
+     if args.stage == 'prepare':
+@@ -96,7 +93,7 @@
+     bc.save(status_path, state)
+     owned = []
+     prefixes = {r: pathlib.Path(v['prefix']) for r, v in build['variants'].items()}
+-    source_manifest = json.loads((args.build / 'K3_assert-source-inventory.json').read_text())
++    source_manifest = json.loads((args.build / 'D2_assert-source-inventory.json').read_text())
+ 
+     def verify_sources():
+         bc.checked_build(args.build)
+@@ -110,6 +107,7 @@
+         if (data / 'postmaster.pid').exists():
+             pid = int((data / 'postmaster.pid').read_text().splitlines()[0])
+             assert not item.get('pid') or item['pid'] == pid
++            assert pathlib.Path('/proc', str(pid)).stat().st_uid == os.getuid()
+             assert bc.sha(pathlib.Path('/proc', str(pid), 'exe')) == bc.sha(prefix / 'bin/postgres')
+             assert str(data).encode() in pathlib.Path('/proc', str(pid), 'cmdline').read_bytes().split(b'\0')
+             bc.run([prefix / 'bin/pg_ctl', '-D', data, '-m', 'fast', '-w', 'stop'],
+@@ -131,14 +129,15 @@
+             assert bc.inventory(seed) == expected
+             bc.sync(seed)
+             bc.save(out / 'seed-inventory.json', expected)
+-            module, obj = out / 'gin-am-micro.so', out / 'gin-am-micro.o'
+-            pg = prefixes['B'] / 'bin/pg_config'
+-            flags = shlex.split(bc.capture([pg, '--cflags'], prefixes['B'])) + shlex.split(bc.capture([pg, '--cppflags'], prefixes['B']))
+-            headers = pathlib.Path(bc.capture([pg, '--includedir-server'], prefixes['B']).strip())
+-            assert bc.inventory(headers) == build['variants']['B']['headers']
+-            bc.run(['gcc', *flags, '-Werror', '-fPIC', '-I' + str(headers), '-I' + str(prefixes['B'] / 'include'),
+-                    '-c', HERE / 'gin-am-micro.c', '-o', obj], out / 'am-compile.log', prefix=prefixes['B'])
+-            bc.run(['gcc', '-shared', '-fno-lto', obj, '-o', module], out / 'am-link.log', prefix=prefixes['B'])
++            modules = {}
++            for role in ('B','D1','D2'):
++                result = json.loads((args.qualified / role / 'result.json').read_text())
++                module = args.qualified / role / 'decoder-native.so'
++                assert bc.sha(module) == result['module_sha256']
++                assert result['module_source_sha256'] == bc.sha(ROOT / 'qualification/decoder-native.c')
++                assert result['postgres_sha256'] == build['variants'][role]['postgres_sha256']
++                assert result['headers_sha256'] == build['variants'][role]['headers_sha256']
++                modules[role] = dict(path=str(module),sha256=bc.sha(module),source_sha256=result['module_source_sha256'],headers_sha256=result['headers_sha256'])
+             copies = []
+             for rank in range(12):
+                 data = out / ('copy-' + str(rank))
+@@ -151,7 +150,7 @@
+                           qualification_sha256=bc.sha(args.qualified / 'status.json'),
+                           seed_inventory_sha256=bc.sha(out / 'seed-inventory.json'), copies=copies,
+                           all_copies_fsync_done_ns=time.time_ns(),
+-                          am_module=dict(path=str(module), sha256=bc.sha(module)), protocol=spec,
++                          decoder_modules=modules, protocol=spec,
+                           environment_label=args.environment_label, first_port=args.first_port, cpu_pairs=cpu_pairs)
+             bc.save(out / 'freeze.json', freeze)
+             state.update(status='PASS_PREPARED_NO_TIMINGS', copies=12, all_before_role_assignment=True)
+@@ -165,7 +164,8 @@
+             seed_inventory = json.loads((out / 'seed-inventory.json').read_text())
+             assert bc.sha(out / 'seed-inventory.json') == freeze['seed_inventory_sha256']
+             assert bc.inventory(out / 'seed') == seed_inventory
+-            assert bc.sha(freeze['am_module']['path']) == freeze['am_module']['sha256']
++            for module in freeze['decoder_modules'].values():
++                assert bc.sha(module['path']) == module['sha256']
+             accepted = freeze['copies'][4:]
+             for copy in accepted:
+                 assert bc.inventory(copy['path']) == seed_inventory
+@@ -187,10 +187,9 @@
+                 mapping = dict(zip(spec['roles'], range(4) if cohort == 0 else reversed(range(4))))
+                 current = []
+                 label = 'smoke' if args.stage == 'smoke' else 'cohort' + str(cohort)
+-                runtime = dict(status='QUALIFIED_TSQUERY_CACHE_PERFORMANCE_INPUTS', base_commit=BASE, fixed_commit=FIXED,
++                runtime = dict(status='QUALIFIED_D2_DECODER_PERFORMANCE_INPUTS', base_commit=BASE, fixed_commit=FIXED,
+                                fix0001_sha256=build['fix0001_sha256'], roles={}, server_cpu=server, client_cpu=client,
+-                               environment_label=args.environment_label, session_order=sorted(spec['roles'], key=mapping.get),
+-                               am_module=freeze['am_module']['path'], am_module_sha256=freeze['am_module']['sha256'])
++                               environment_label=args.environment_label, session_order=sorted(spec['roles'], key=mapping.get))
+                 try:
+                     for role in runtime['session_order']:
+                         variant = build['role_to_variant'][role]
+@@ -198,7 +197,8 @@
+                         data = pathlib.Path(subset[mapping[role]]['path'])
+                         assert bc.inventory(data) == seed_inventory
+                         port = args.first_port + (0 if args.stage == 'smoke' else 10 + cohort * 4) + mapping[role]
+-                        socket = bc.socket_directory(out / ('s-' + label + '-' + role), port)
++                        (out.parent / 's').mkdir(exist_ok=True)
++                        socket = bc.socket_directory(out.parent / 's' / ('t-' + label + '-' + role), port)
+                         item = dict(label=label + '-' + role, role=role, prefix=str(prefix), data=str(data), socket=str(socket), port=port)
+                         owned.append(item); current.append(item); state['clusters'].append(item)
+                         bc.save(status_path, state)
+@@ -213,11 +213,11 @@
+                         assert os.sched_getaffinity(item['pid']) == {server}
+                         assert bc.sha(pathlib.Path('/proc', str(item['pid']), 'exe')) == build['variants'][variant]['postgres_sha256']
+                         dsn = bc.local_dsn(socket, port)
+-                        commands = "CREATE FUNCTION public.gin_am_micro(regclass,tsquery,integer) RETURNS jsonb AS '" + freeze['am_module']['path'] + "', 'gin_am_micro' LANGUAGE C STRICT"
++                        commands = "CREATE FUNCTION public.gin_decoder_bench(text,integer) RETURNS text AS '" + freeze['decoder_modules'][variant]['path'] + "', 'gin_decoder_bench' LANGUAGE C STRICT"
+                         bc.run([prefix / 'bin/psql', '-XAtq', '-v', 'ON_ERROR_STOP=1', '-d', dsn, '-c', commands],
+                                out / (item['label'] + '-binding.log'), prefix=prefix, timeout=60)
+                         runtime['roles'][role] = dict(prefix=str(prefix), dsn=dsn, backend_sha256=build['variants'][variant]['postgres_sha256'],
+-                            source_commit=build['variants'][variant]['commit'], correctness_status='PASS', fix0001_sha256=build['fix0001_sha256'])
++                            source_commit=build['variants'][variant]['commit'], correctness_status='PASS', fix0001_sha256=build['fix0001_sha256'],decoder_module=freeze['decoder_modules'][variant]['path'],decoder_module_sha256=freeze['decoder_modules'][variant]['sha256'])
+                     # Preserve the canonical role order independently of physical birth order.
+                     runtime['roles'] = {r: runtime['roles'][r] for r in spec['roles']}
+                     runtime_path = out / ('runtime-' + label + '.json')

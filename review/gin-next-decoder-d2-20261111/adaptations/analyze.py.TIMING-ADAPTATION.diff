@@ -1,0 +1,32 @@
+--- review/gin-next-20261110/startup-decoder/screen/analyze.py
++++ D2/analyze.py
+@@ -65,24 +65,24 @@
+                     points[key] = value
+     assert position == len(rows)
+     absolute = [dict(case=c, role=role, metric=m, **spread(values)) for (c, role, m), values in groups.items()]
+-    assert all(x['n'] == 10 for x in absolute)
++    assert all(x['n'] == 12 for x in absolute)
+     pairs = []
+     for case in cases:
+         for left, right in itertools.combinations(roles, 2):
+             for metric in case_metrics[case['name']]:
+-                direct = [dict(round=r, left=points[case['name'], r, left, metric], right=points[case['name'], r, right, metric]) for r in range(2, 12)]
++                direct = [dict(round=r, left=points[case['name'], r, left, metric], right=points[case['name'], r, right, metric]) for r in range(2, 14)]
+                 pairs.append(dict(case=case['name'], kind=case['kind'], left=left, right=right,
+                                   metric=metric, direct=direct,
+                                   percent=spread([100 * (x['right'] / x['left'] - 1) for x in direct]),
+                                   difference=spread([x['right'] - x['left'] for x in direct])))
+     metrics_per_role = sum(len(v) for v in case_metrics.values())
+-    assert metrics_per_role == 130  # 16 SQL*3 + 7 actual-AM*4 + 18 decoder*3.
+-    assert len(absolute) == 650 and len(pairs) == 1300
++    assert metrics_per_role == 75  # 7 SQL*3 + 18 decoder*3.
++    assert len(absolute) == 300 and len(pairs) == 450
+     a.out_new.mkdir()
+     receipt = dict(status='PASS', cohort=status['cohort'], environment_label=status['environment_label'],
+                    raw=len(rows), retained=sum(x['retained'] for x in rows), warm=sum(not x['retained'] for x in rows),
+                    raw_sha256=status['raw_sha256'], literal_sha256=status['literal_sha256'],
+-                   absolute_groups=len(absolute), pairs=len(pairs), direct_pairs=len(pairs) * 10,
++                   absolute_groups=len(absolute), pairs=len(pairs), direct_pairs=len(pairs) * 12,
+                    retained_diagnostics=dict(io),
+                    rules='All observations retained; separate cohorts and metric boundaries, no pooling/trimming/control normalization/significance or causal attribution.')
+     for name, value in [('absolute.json', absolute), ('pairs.json', pairs), ('status.json', receipt)]:

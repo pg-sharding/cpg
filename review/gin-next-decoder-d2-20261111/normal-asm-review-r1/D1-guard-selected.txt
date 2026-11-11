@@ -1,0 +1,36 @@
+Source: evidence-r1/build-r1/D1-ginpostinglist-normal-ASM.txt
+Function: ginPostingListDecodeAllSegments
+
+ 2c1:	41 39 ee             	cmp    %ebp,%r14d
+ 2c4:	7e 6a                	jle    330 <ginPostingListDecodeAllSegments+0x140>
+ 2c6:	48 63 d5             	movslq %ebp,%rdx
+ 2c9:	4c 89 ee             	mov    %r13,%rsi
+ 2cc:	0f b6 03             	movzbl (%rbx),%eax
+ 2cf:	44 8d 55 01          	lea    0x1(%rbp),%r10d
+ 2d3:	48 8d 14 52          	lea    (%rdx,%rdx,2),%rdx
+ 2d7:	48 29 de             	sub    %rbx,%rsi
+ 2da:	48 8d 14 57          	lea    (%rdi,%rdx,2),%rdx
+ 2de:	48 83 fe 03          	cmp    $0x3,%rsi
+ 2e2:	7e 1a                	jle    2fe <ginPostingListDecodeAllSegments+0x10e>
+ 2e4:	44 89 f6             	mov    %r14d,%esi
+ 2e7:	29 ee                	sub    %ebp,%esi
+ 2e9:	83 fe 03             	cmp    $0x3,%esi
+ 2ec:	7e 10                	jle    2fe <ginPostingListDecodeAllSegments+0x10e>
+ 2ee:	0f b6 73 01          	movzbl 0x1(%rbx),%esi
+ 2f2:	09 c6                	or     %eax,%esi
+ 2f4:	40 0a 73 02          	or     0x2(%rbx),%sil
+ 2f8:	40 0a 73 03          	or     0x3(%rbx),%sil
+ 2fc:	79 72                	jns    370 <ginPostingListDecodeAllSegments+0x180>
+ 2fe:	48 89 c6             	mov    %rax,%rsi
+ 301:	83 e6 7f             	and    $0x7f,%esi
+ 304:	84 c0                	test   %al,%al
+ 306:	79 88                	jns    290 <ginPostingListDecodeAllSegments+0xa0>
+ 308:	44 0f b6 5b 01       	movzbl 0x1(%rbx),%r11d
+ 30d:	4c 89 d8             	mov    %r11,%rax
+ 310:	48 c1 e0 07          	shl    $0x7,%rax
+ 314:	25 80 3f 00 00       	and    $0x3f80,%eax
+ 319:	48 09 c6             	or     %rax,%rsi
+ 31c:	45 84 db             	test   %r11b,%r11b
+ 31f:	78 27                	js     348 <ginPostingListDecodeAllSegments+0x158>
+ 321:	48 83 c3 02          	add    $0x2,%rbx
+ 325:	e9 6a ff ff ff       	jmp    294 <ginPostingListDecodeAllSegments+0xa4>

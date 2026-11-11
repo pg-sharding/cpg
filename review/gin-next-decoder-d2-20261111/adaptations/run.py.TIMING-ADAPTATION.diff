@@ -1,0 +1,29 @@
+--- review/gin-next-20261110/startup-decoder/screen/run.py
++++ D2/run.py
+@@ -1,5 +1,5 @@
+ #!/usr/bin/env python3
+-"""One finite SQL/actual-AM/actual-decoder cohort on already owned backends."""
++"""One finite SQL/actual-decoder cohort on already owned backends."""
+ import argparse
+ import hashlib
+ import json
+@@ -36,7 +36,7 @@
+     runtime = json.loads(a.runtime.read_text())
+     spec = plan()
+     roles = spec['roles']
+-    assert runtime['status'] == 'QUALIFIED_STARTUP_DECODER_PERFORMANCE_INPUTS'
++    assert runtime['status'] == 'QUALIFIED_D2_DECODER_PERFORMANCE_INPUTS'
+     assert runtime['base_commit'] == BASE and runtime['fixed_commit'] == FIXED
+     assert list(runtime['roles']) == roles and os.sched_getaffinity(0) == {runtime['client_cpu']}
+     assert runtime['environment_label'] in {'SHARED_LOAD_DIAGNOSTIC', 'FRESH_HOST_CLEAN_SCREEN'}
+@@ -45,9 +45,9 @@
+         assert item['correctness_status'] == 'PASS'
+         assert item['fix0001_sha256'] == runtime['fix0001_sha256']
+         assert sha(item['decoder_module']) == item['decoder_module_sha256']
++    assert {r:runtime['roles'][r]['source_commit']for r in roles} == dict(B=FIXED,T=FIXED,D1='c2b5dd6f9012cc4a27628c9d6c507ac467795ac5',D2='a85a9242f455b12c93528f3ace33eb69b6cd1008')
+     assert runtime['roles']['B']['prefix'] == runtime['roles']['T']['prefix']
+     assert runtime['roles']['B']['backend_sha256'] == runtime['roles']['T']['backend_sha256']
+-    assert sha(runtime['am_module']) == runtime['am_module_sha256']
+     cases = list(reversed(spec['cases'])) if a.cohort else spec['cases']
+     answers = json.loads((INPUTS / 'answers.json').read_text())
+     a.out_new.mkdir()
