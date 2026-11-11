@@ -129,7 +129,7 @@ encode_varbyte(uint64 val, unsigned char **ptr)
 /*
  * Decode varbyte-encoded integer at *ptr. *ptr is incremented to next integer.
  */
-static uint64
+static pg_always_inline uint64
 decode_varbyte(unsigned char **ptr)
 {
 	uint64		val;
@@ -329,19 +329,68 @@ ginPostingListDecodeAllSegments(GinPostingList *segment, int len, int *ndecoded_
 		val = itemptr_to_uint64(&segment->first);
 		ptr = segment->bytes;
 		endptr = segment->bytes + segment->nbytes;
-		while (ptr < endptr)
+		/*
+		 * Use the batched loop only when the segment starts with four
+		 * one-byte deltas.  Otherwise keep the scalar loop for this segment,
+		 * without testing batch eligibility for every decoded item.
+		 */
+		if (endptr - ptr >= 4 &&
+			((ptr[0] | ptr[1] | ptr[2] | ptr[3]) & 0x80) == 0)
 		{
-			/* enlarge output array if needed */
-			if (ndecoded >= nallocated)
+			while (ptr < endptr)
 			{
-				nallocated *= 2;
-				result = repalloc_array(result, ItemPointerData, nallocated);
+				/* enlarge output array if needed */
+				if (ndecoded >= nallocated)
+				{
+					nallocated *= 2;
+					result = repalloc_array(result, ItemPointerData, nallocated);
+				}
+
+				/*
+				 * Decode a run of four complete one-byte deltas together.  Both
+				 * the input and output bounds are checked before touching the
+				 * batch.  Reject a long first delta before testing the batch.
+				 * Longer deltas and short tails use the usual decoder.  The
+				 * allocation policy and on-disk representation are unchanged.
+				 */
+				if ((ptr[0] & 0x80) == 0 &&
+					endptr - ptr >= 4 && nallocated - ndecoded >= 4 &&
+					((ptr[1] | ptr[2] | ptr[3]) & 0x80) == 0)
+				{
+					val += ptr[0];
+					uint64_to_itemptr(val, &result[ndecoded++]);
+					val += ptr[1];
+					uint64_to_itemptr(val, &result[ndecoded++]);
+					val += ptr[2];
+					uint64_to_itemptr(val, &result[ndecoded++]);
+					val += ptr[3];
+					uint64_to_itemptr(val, &result[ndecoded++]);
+					ptr += 4;
+					continue;
+				}
+
+				val += decode_varbyte(&ptr);
+
+				uint64_to_itemptr(val, &result[ndecoded]);
+				ndecoded++;
 			}
+		}
+		else
+		{
+			while (ptr < endptr)
+			{
+				/* enlarge output array if needed */
+				if (ndecoded >= nallocated)
+				{
+					nallocated *= 2;
+					result = repalloc_array(result, ItemPointerData, nallocated);
+				}
 
-			val += decode_varbyte(&ptr);
+				val += decode_varbyte(&ptr);
 
-			uint64_to_itemptr(val, &result[ndecoded]);
-			ndecoded++;
+				uint64_to_itemptr(val, &result[ndecoded]);
+				ndecoded++;
+			}
 		}
 		segment = GinNextPostingListSegment(segment);
 	}
