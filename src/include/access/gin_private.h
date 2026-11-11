@@ -284,8 +284,8 @@ typedef struct GinScanKeyData
 	 */
 	GinScanEntry *requiredEntries;
 	int			nrequired;
-	GinScanEntry *additionalEntries;
 	int			nadditional;
+	GinScanEntry *additionalEntries;
 
 	/* array of check flags, reported to consistentFn */
 	GinTernaryValue *entryRes;
