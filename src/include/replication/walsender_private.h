@@ -44,6 +44,7 @@ typedef struct WalSnd
 
 	WalSndState state;			/* this walsender's state */
 	XLogRecPtr	sentPtr;		/* WAL has been sent up to this point */
+	TimeLineID	sentTLI;		/* physical stream timeline, or 0 for logical */
 	bool		needreload;		/* does currently-open file need to be
 								 * reloaded? */
 

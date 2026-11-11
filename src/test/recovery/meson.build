@@ -71,6 +71,7 @@ tests += {
       't/057_timeline_switch_archive_divergence.pl',
       't/058_timeline_switch_intermediate_tl.pl',
       't/130_every_sync_rep.pl',
+      't/131_sync_rep_old_timeline.pl',
       't/102_mdb_replication_reserved_slots.pl',
       't/110_archive_shared.pl',
       't/111_archive_shared_checkpoint.pl',

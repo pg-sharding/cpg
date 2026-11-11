@@ -5244,6 +5244,12 @@ HINT:  If it is safe for all REPLICATION users to use this library as an output 
         availability and protection against data loss.
        </para>
        <para>
+        A physical standby streaming an older timeline is not selected as an
+        active synchronous standby.  After a timeline change, transactions
+        can wait until enough standbys are streaming the current timeline and
+        have reported their progress on it.
+       </para>
+       <para>
         The name of a standby server for this purpose is the
         <varname>application_name</varname> setting of the standby, as set in the
         standby's connection information.  In case of a physical replication

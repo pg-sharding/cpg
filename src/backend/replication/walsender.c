@@ -1063,6 +1063,11 @@ StartReplication(StartReplicationCmd *cmd)
 		/* Initialize shared memory status, too */
 		SpinLockAcquire(&MyWalSnd->mutex);
 		MyWalSnd->sentPtr = sentPtr;
+		MyWalSnd->sentTLI = sendTimeLine;
+		/* Feedback from an earlier stream cannot confirm this stream's WAL. */
+		MyWalSnd->write = InvalidXLogRecPtr;
+		MyWalSnd->flush = InvalidXLogRecPtr;
+		MyWalSnd->apply = InvalidXLogRecPtr;
 		SpinLockRelease(&MyWalSnd->mutex);
 
 		SyncRepInitConfig();
@@ -1648,6 +1653,10 @@ StartLogicalReplication(StartReplicationCmd *cmd)
 	/* Also update the sent position status in shared memory */
 	SpinLockAcquire(&MyWalSnd->mutex);
 	MyWalSnd->sentPtr = MyReplicationSlot->data.restart_lsn;
+	MyWalSnd->sentTLI = 0;
+	MyWalSnd->write = InvalidXLogRecPtr;
+	MyWalSnd->flush = InvalidXLogRecPtr;
+	MyWalSnd->apply = InvalidXLogRecPtr;
 	SpinLockRelease(&MyWalSnd->mutex);
 
 	replication_active = true;
@@ -3403,6 +3412,7 @@ InitWalSenderSlot(void)
 			walsnd->pid = MyProcPid;
 			walsnd->state = WALSNDSTATE_STARTUP;
 			walsnd->sentPtr = InvalidXLogRecPtr;
+			walsnd->sentTLI = 0;
 			walsnd->needreload = false;
 			walsnd->write = InvalidXLogRecPtr;
 			walsnd->flush = InvalidXLogRecPtr;

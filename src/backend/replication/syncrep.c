@@ -75,6 +75,7 @@
 #include <unistd.h>
 
 #include "access/xact.h"
+#include "access/xlogrecovery.h"
 #include "common/int.h"
 #include "miscadmin.h"
 #include "pgstat.h"
@@ -784,6 +785,7 @@ SyncRepGetCandidateStandbys(SyncRepStandbyData **standbys,
 {
 	int			i;
 	int			n;
+	TimeLineID	insertTLI;
 
 	/* Create result array */
 	*standbys = palloc_array(SyncRepStandbyData, max_wal_senders);
@@ -795,6 +797,12 @@ SyncRepGetCandidateStandbys(SyncRepStandbyData **standbys,
 	if (SyncRepConfig == NULL)
 		return 0;
 
+	/*
+	 * There is no insertion timeline, and no synchronous replication, during
+	 * recovery.
+	 */
+	insertTLI = RecoveryInProgress() ? 0 : GetWALInsertionTimeLine();
+
 	/* Collect raw data from shared memory */
 	n = 0;
 	*num_forced_standbys = 0;
@@ -804,12 +812,14 @@ SyncRepGetCandidateStandbys(SyncRepStandbyData **standbys,
 									 * rearrangement */
 		SyncRepStandbyData stby;
 		WalSndState state;		/* not included in SyncRepStandbyData */
+		TimeLineID	sentTLI;
 
 		walsnd = &WalSndCtl->walsnds[i];
 
 		SpinLockAcquire(&walsnd->mutex);
 		stby.pid = walsnd->pid;
 		state = walsnd->state;
+		sentTLI = walsnd->sentTLI;
 		stby.write = walsnd->write;
 		stby.flush = walsnd->flush;
 		stby.apply = walsnd->apply;
@@ -827,6 +837,15 @@ SyncRepGetCandidateStandbys(SyncRepStandbyData **standbys,
 
 		/* Must be synchronous */
 		if (stby.sync_standby_priority == 0)
+			continue;
+
+		/*
+		 * A physical sender streaming an old timeline cannot confirm WAL on
+		 * the insertion timeline, even if its reported LSN is numerically
+		 * ahead.  Check every candidate, not just the sender releasing waiters.
+		 * Logical senders use zero: their decoding stream follows our history.
+		 */
+		if (sentTLI != 0 && sentTLI != insertTLI)
 			continue;
 
 		/* Must have a valid flush position */
