@@ -1,0 +1,51 @@
+UNSENT DRAFT — source/codegen only; no D4 runtime result
+
+Subject: Exploratory GIN posting-list decoder first-byte routing
+
+I have a small alternative to the D3r2 segment-dispatch experiment. D3 chooses
+scalar decoding for the rest of a segment when its first encoded bytes do not
+qualify for a batch. That prevents a later dense run from batching. This draft
+uses one caller-owned first-byte continuation decision: a long value enters
+the inline continuation decoder, and a short value can start a bounded batch
+of four. It can therefore resume batching later in the same segment. Posting
+representation and output-array growth are unchanged.
+
+This deliberately returns to D2-shaped per-item dispatch. In particular,
+alternating short/long deltas may repeatedly try and reject batching, so the
+draft does not establish a better tradeoff than D2 or D3. It does not remove a
+demonstrated duplicate load/test: the existing D2 release compiler already
+reuses byte 0.
+
+The only new executed check is isolated normal full-translation-unit codegen,
+using the same GCC 13.3/Linux x86-64 release flags (-O2 -g -fno-lto included),
+common source/object paths and 907 recorded installed server headers for B,
+D2, D3r2 and D4. B/D2/D3 reproduce the previous function bytes and relocations
+exactly. The decoder function sizes are 589/844/1241/838 bytes respectively;
+all four have a 24-byte local stack frame plus the same six saved registers.
+No scalar helper call survives. Size and code placement are observations,
+not dynamic instruction-count or speed results. The inherited environment
+and complete system-header closure were not recorded.
+
+Canonical D4 is d2866655e3b0932ce449fe8ecbf3db52404fe4f8, directly over D3r2
+1ce29c18ceb41882deced3ebe680ee75ba2c29b0. The packet includes that format-patch
+and, as an alternative application route, a cumulative diff over fixed B
+8a8c475037bfde101da23cc9b0364c9c020eca93. It also includes the exact source,
+text codegen evidence, independent review and compile-only replay commands.
+No backend binary or object is included.
+
+Full D4 backend/assert qualification and every timing comparison remain
+pending. A future screen would retain all 21 native and seven complete SQL
+cells, including alternating, long-first, growth, multibyte and no-GIN
+controls; compare B/exact twin T/D2/D3r2/D4 with a prospectively fixed balanced
+five-role schedule; and report absolute/spread/paired results and negatives.
+The valid-input gate would retain the 192 mixed-boundary cases and existing
+SQL/prepared/lifecycle/core/posting checks. No new throughput run is proposed
+as part of this codegen-only packet, and there is no D4 speed claim.
+
+This is a local source/codegen experiment, not a claim of a new decoding
+algorithm. The preceding D3 measurements and their negative results are here:
+https://github.com/pg-sharding/cpg/tree/experiments/gin-next-decoder-d3-results-b72-20261111/review/gin-next-decoder-d3-20261111
+
+The broader earlier GIN performance discussion is context, rather than a
+direct match to this decoder branch-layout experiment:
+https://www.postgresql.org/message-id/52F373CC.4050800%40vmware.com

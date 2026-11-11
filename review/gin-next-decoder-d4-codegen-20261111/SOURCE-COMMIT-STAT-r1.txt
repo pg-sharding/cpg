@@ -1,0 +1,18 @@
+commit d2866655e3b0932ce449fe8ecbf3db52404fe4f8
+Author:     root <localhost>
+AuthorDate: Wed Nov 11 15:28:26 2026 +0500
+Commit:     root <localhost>
+CommitDate: Wed Nov 11 15:28:26 2026 +0500
+
+    Route GIN decoder batches through the first-byte decision
+    
+    Consume the initial byte before choosing the multibyte continuation
+    helper or the one-byte batch path. This allows a batch to start after
+    long deltas within a segment, with unchanged allocation growth and
+    posting-list representation.
+    
+    This is an exploratory source alternative; normal release codegen was
+    checked, but full backend qualification and timing remain pending.
+
+ src/backend/access/gin/ginpostinglist.c | 127 ++++++++++++--------------------
+ 1 file changed, 48 insertions(+), 79 deletions(-)
