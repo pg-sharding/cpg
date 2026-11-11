@@ -1,0 +1,29 @@
+From af91ab8d13c4b7829ce2b3385d2072f55afc84f4 Mon Sep 17 00:00:00 2001
+From: root <localhost>
+Date: Wed, 11 Nov 2026 12:43:29 +0500
+Subject: [PATCH] Keep the GIN scan-key entry counts adjacent
+
+Move nadditional beside nrequired so the two counts occupy the existing
+alignment region before additionalEntries. This layout-only control
+leaves callback arguments and scan policies unchanged.
+---
+ src/include/access/gin_private.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/include/access/gin_private.h b/src/include/access/gin_private.h
+index 3c5fd6ba817..acbf7f70c1a 100644
+--- a/src/include/access/gin_private.h
++++ b/src/include/access/gin_private.h
+@@ -282,8 +282,8 @@ typedef struct GinScanKeyData
+ 	 */
+ 	GinScanEntry *requiredEntries;
+ 	int			nrequired;
+-	GinScanEntry *additionalEntries;
+ 	int			nadditional;
++	GinScanEntry *additionalEntries;
+ 
+ 	/* array of check flags, reported to consistentFn */
+ 	GinTernaryValue *entryRes;
+-- 
+2.50.1 (Apple Git-155)
+

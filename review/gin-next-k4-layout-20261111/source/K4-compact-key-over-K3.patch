@@ -1,0 +1,33 @@
+From 9d81c7ec4a3c27caeae1230b44f92bb5a8d47d3b Mon Sep 17 00:00:00 2001
+From: root <localhost>
+Date: Wed, 11 Nov 2026 11:35:52 +0500
+Subject: [PATCH] Keep the GIN scan-key counts adjacent
+
+Place nadditional beside nrequired so it occupies the existing alignment
+gap before additionalEntries. On the measured 64-bit ABI this reduces
+GinScanKeyData from 160 to 152 bytes with the experimental tsquery memo.
+
+This layout experiment leaves cache eligibility, miss policy and callback
+arguments unchanged. Compile-only layout assertions pass; backend tests
+and performance comparisons have not been run for this variant.
+---
+ src/include/access/gin_private.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/include/access/gin_private.h b/src/include/access/gin_private.h
+index 62d53f2f12f..8668e1f2cbb 100644
+--- a/src/include/access/gin_private.h
++++ b/src/include/access/gin_private.h
+@@ -284,8 +284,8 @@ typedef struct GinScanKeyData
+ 	 */
+ 	GinScanEntry *requiredEntries;
+ 	int			nrequired;
+-	GinScanEntry *additionalEntries;
+ 	int			nadditional;
++	GinScanEntry *additionalEntries;
+ 
+ 	/* array of check flags, reported to consistentFn */
+ 	GinTernaryValue *entryRes;
+-- 
+2.50.1 (Apple Git-155)
+

@@ -1,0 +1,88 @@
+{
+  "reference": {
+    "bytes": 638,
+    "rows": 99,
+    "sha256": "1eccaca92a4ac936ab5c96a949f6bd4bdfd6573d11dfd052295f530ac67cae11"
+  },
+  "original_gin": {
+    "bytes": 638,
+    "rows": 99,
+    "sha256": "1eccaca92a4ac936ab5c96a949f6bd4bdfd6573d11dfd052295f530ac67cae11"
+  },
+  "actual": {
+    "bytes": 638,
+    "rows": 99,
+    "sha256": "1eccaca92a4ac936ab5c96a949f6bd4bdfd6573d11dfd052295f530ac67cae11"
+  },
+  "literal_count": 99,
+  "observed_counts": {
+    "scope": "untimed known-builtin callback counts; no cached results",
+    "max_entries": 8,
+    "callbacks": {
+      "bool": {
+        "calls": 0,
+        "eligible": 0,
+        "context_changes": 0,
+        "consecutive_same_vector": 0,
+        "false": 0,
+        "true": 0,
+        "maybe": 0,
+        "recheck_true": 0
+      },
+      "tri": {
+        "calls": 198,
+        "eligible": 198,
+        "context_changes": 1,
+        "consecutive_same_vector": 0,
+        "false": 99,
+        "true": 99,
+        "maybe": 0,
+        "recheck_true": 0
+      }
+    }
+  },
+  "plan": {
+    "Node Type": "Sort",
+    "Parallel Aware": false,
+    "Async Capable": false,
+    "Startup Cost": 296.95,
+    "Total Cost": 297.15,
+    "Plan Rows": 80,
+    "Plan Width": 8,
+    "Disabled": false,
+    "Sort Key": [
+      "id"
+    ],
+    "Plans": [
+      {
+        "Node Type": "Bitmap Heap Scan",
+        "Parent Relationship": "Outer",
+        "Parallel Aware": false,
+        "Async Capable": false,
+        "Relation Name": "docs",
+        "Alias": "docs",
+        "Startup Cost": 21.93,
+        "Total Cost": 294.42,
+        "Plan Rows": 80,
+        "Plan Width": 8,
+        "Disabled": false,
+        "Recheck Cond": "(d @@ '''rare1'' & !''dense2'''::tsquery)",
+        "Plans": [
+          {
+            "Node Type": "Bitmap Index Scan",
+            "Parent Relationship": "Outer",
+            "Parallel Aware": false,
+            "Async Capable": false,
+            "Index Name": "probe_d_gin",
+            "Startup Cost": 0.0,
+            "Total Cost": 21.91,
+            "Plan Rows": 80,
+            "Plan Width": 0,
+            "Disabled": false,
+            "Index Cond": "(d @@ '''rare1'' & !''dense2'''::tsquery)"
+          }
+        ]
+      }
+    ]
+  }
+}

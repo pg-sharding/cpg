@@ -1,0 +1,98 @@
+--- old-K3/build.py
++++ K4/build.py
+@@ -1,5 +1,5 @@
+ #!/usr/bin/env python3
+-"""Matched GIN consecutive-miss cache comparison builds with an identical object set outside the edited unit from a verified public B72 source archive."""
++"""Matched clean GIN baseline/layout/cache builds from the verified B72 source archive, with installed ABI assertions."""
+ import argparse
+ import hashlib
+ import io
+@@ -26,21 +26,21 @@
+     origin.add_argument('--git', type=pathlib.Path,
+                         help='Alternative local repository already containing B72')
+     parser.add_argument('--source-plan', type=pathlib.Path,
+-                        default=HERE.parent / 'source/SOURCE.json')
++                        default=HERE.parent / 'build-source/SOURCE.json')
+     parser.add_argument('--output', type=pathlib.Path, required=True,
+                         help='New nonexistent output root; preserve every failed attempt')
+     parser.add_argument('--cc', default='gcc')
+-    parser.add_argument('--core-port', type=int, default=46140,
+-                        help='First of four unused regression ports')
++    parser.add_argument('--core-port', type=int, default=47100,
++                        help='First of five unused core regression ports; posting checks use +30..+34')
+     args = parser.parse_args()
+-    assert 1024 <= args.core_port <= 65530
++    assert 1024 <= args.core_port <= 65501
+     root = args.output.resolve()
+     assert not any(c.isspace() for c in str(root))
+     root.mkdir()
+     nice10()
+     state = dict(status='RUNNING', pid=os.getpid(), started_ns=time.time_ns(),
+                  variants={}, commands=[], timing_samples=0,
+-                 scope='New matched builds; All B/K1/K3/K3_assert builds clean; no prior result reproduced')
++                 scope='Five matched clean B/C/K3/K4/K4_assert builds; no prior result reproduced')
+     save(root / 'status.json', state)
+     source, build, compiled = root / 'common-source', root / 'common-build', root / 'prefix'
+     source.mkdir()
+@@ -83,7 +83,7 @@
+         expected_files = {k: v for k, v in baseline.items()
+                           if k.startswith('src/test/regress/expected/')}
+         release_config = None
+-        sequence = [('B', 'B', False), ('K1', 'K1', False), ('K3', 'K3', False), ('K3_assert', 'K3', True)]
++        sequence = [('B', 'B', False), ('C', 'C', False), ('K3', 'K3', False), ('K4', 'K4', False), ('K4_assert', 'K4', True)]
+         baseline_objects = None
+         previous_objects = None
+         for index, (label, role, assertions) in enumerate(sequence):
+@@ -162,6 +162,22 @@
+                            core239=True, expected_files_unchanged=True,
+                            compiler=capture(shlex.split(args.cc) + ['--version']))
+             assert '-fno-lto' in current['cflags'] and '-flto' not in current['cflags']
++            layout = spec['expected_layout'][role]
++            probe = HERE / 'layout-assert.c'
++            command = shlex.split(args.cc) + shlex.split(current['cflags']) + shlex.split(current['cppflags'])
++            command += ['-I' + str(headers), '-I' + str(prefix / 'include'), '-Werror', '-fsyntax-only',
++                        '-DEXPECT_SIZE=' + str(layout['size']),
++                        '-DEXPECT_NADDITIONAL=' + str(layout['nadditional']),
++                        '-DEXPECT_ENTRYRES=' + str(layout['entryRes']),
++                        '-DEXPECT_TRI_FN=' + str(layout['triConsistentFn']),
++                        '-DEXPECT_STRATEGY=' + str(layout['strategy'])]
++            if layout['triCache'] is not None:
++                command += ['-DEXPECT_CACHE=' + str(layout['triCache'])]
++            command += [str(probe)]
++            record = run(command, root / (label + '-layout-assert.log'), environment=environment)
++            state['commands'].append(dict(variant=label, name='installed-layout-assert', **record))
++            current['installed_layout'] = dict(layout, status='PASS_COMPILE_ONLY_INSTALLED_ABI',
++                                               probe_sha256=sha(probe), log_sha256=sha(root / (label + '-layout-assert.log')))
+             if not assertions:
+                 if release_config is None:
+                     release_config = current['configure']
+@@ -193,17 +209,17 @@
+             state['variants'][label] = current
+             save(root / (label + '-provenance.json'), current)
+             save(root / 'status.json', state)
+-        receipt = dict(status='PASS_GIN_CONSECUTIVE_CACHE_BUILDS', base=spec['base'],
++        receipt = dict(status='PASS_GIN_K4_LAYOUT_BUILDS', base=spec['base'],
+                        common_fix_commit=spec['common_fix_commit'],
+                        fix0001_sha256=spec['fix0001_sha256'],
+                        source_plan_path=str(plan_path), source_plan_sha256=sha(plan_path),
+                        source_archive_sha256=state['source_archive_sha256'],
+                        variants=state['variants'], core239_each=True, source_files=7726,
+-                       role_to_variant={'B': 'B', 'T': 'B', 'K1': 'K1', 'K3': 'K3'},
++                       role_to_variant={'B': 'B', 'T': 'B', 'C': 'C', 'K3': 'K3', 'K4': 'K4'},
+                        common_source=str(source), common_build=str(build),
+                        compiled_prefix=str(compiled), nice=10, jobs=2,
+                        scripts={p.name: sha(p) for p in HERE.iterdir() if p.is_file()},
+-                       build_method='All four builds clean; exact non-GIN backend object identity checked for releases',
++                       build_method='All five builds clean; installed ABI assertions each; exact non-GIN backend object identity checked for releases',
+                        AM_qualification='NOT RUN BY BUILD SCRIPT', timing_samples=0,
+                        original_measurements_reproduced=False)
+         save(root / 'build-receipt.json', receipt)
+@@ -228,7 +244,7 @@
+                     errors.append(dict(data=str(pidfile.parent), error=repr(exc)))
+         state['core_finally_stops'] = proofs
+         state['core_cleanup_errors'] = errors
+-        if errors and state['status'] == 'PASS_GIN_CONSECUTIVE_CACHE_BUILDS':
++        if errors and state['status'] == 'PASS_GIN_K4_LAYOUT_BUILDS':
+             state['status'] = 'FAILED_CLEANUP'
+         save(root / 'status.json', state)
+         if errors and not sys.exc_info()[0]:

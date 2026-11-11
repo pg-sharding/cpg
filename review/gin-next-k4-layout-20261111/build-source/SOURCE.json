@@ -1,0 +1,115 @@
+{
+  "base": "72b9498df9a369e747f8d96efb5a6cd33c2451e2",
+  "files": 7726,
+  "common_fix_commit": "8a8c475037bfde101da23cc9b0364c9c020eca93",
+  "fix0001_sha256": "7857fa1bc05131a1a8c276bc0575d8debc7563d2e4f61b4494e639fc135b5e9e",
+  "variants": {
+    "B": {
+      "commit": "8a8c475037bfde101da23cc9b0364c9c020eca93",
+      "source_files": {
+        "src/backend/access/gin/ginget.c": {
+          "bytes": 57671,
+          "sha256": "ca07396284189adf2180ab24dfd7549481a134348d4944ee6fb6c8f7d289e518"
+        }
+      },
+      "patch": {
+        "path": "B/code-B72.diff",
+        "sha256": "13cf2d32c98463de99bd3d22a622d6ebfe2410ae5ad4ab2d55d55f311072574d"
+      }
+    },
+    "C": {
+      "commit": "af91ab8d13c4b7829ce2b3385d2072f55afc84f4",
+      "source_files": {
+        "src/backend/access/gin/ginget.c": {
+          "bytes": 57671,
+          "sha256": "ca07396284189adf2180ab24dfd7549481a134348d4944ee6fb6c8f7d289e518"
+        },
+        "src/include/access/gin_private.h": {
+          "bytes": 18356,
+          "sha256": "6348e1ab690432f67f92fc8b6503152e294d0716f6255b322493147e5bf33913"
+        }
+      },
+      "patch": {
+        "path": "C/code-B72.diff",
+        "sha256": "ea3c0fc88a3b30459e13024aabc43f76e32347e53b3dee716e70b0b8f739e470"
+      }
+    },
+    "K3": {
+      "commit": "ec32d586cf3bb6cfa76eb672db70160b436ce47c",
+      "source_files": {
+        "src/backend/access/gin/ginget.c": {
+          "bytes": 57671,
+          "sha256": "ca07396284189adf2180ab24dfd7549481a134348d4944ee6fb6c8f7d289e518"
+        },
+        "src/backend/access/gin/ginlogic.c": {
+          "bytes": 10550,
+          "sha256": "9537f66e95ad8d9f45f12f4cc95d96339a29d21e724ef9c86737e2637fde9ec1"
+        },
+        "src/include/access/gin_private.h": {
+          "bytes": 18542,
+          "sha256": "cb6b3a876c1ec8fa2621eae95d5e7f3e3b4a7ef86fc5bfa8cd52415e96aa1fb0"
+        }
+      },
+      "patch": {
+        "path": "K3/code-B72.diff",
+        "sha256": "ead84b000e1a7d1d0eb00f5d72c611913c43ecdfca416432de3da5f47f164845"
+      }
+    },
+    "K4": {
+      "commit": "9d81c7ec4a3c27caeae1230b44f92bb5a8d47d3b",
+      "source_files": {
+        "src/backend/access/gin/ginget.c": {
+          "bytes": 57671,
+          "sha256": "ca07396284189adf2180ab24dfd7549481a134348d4944ee6fb6c8f7d289e518"
+        },
+        "src/backend/access/gin/ginlogic.c": {
+          "bytes": 10550,
+          "sha256": "9537f66e95ad8d9f45f12f4cc95d96339a29d21e724ef9c86737e2637fde9ec1"
+        },
+        "src/include/access/gin_private.h": {
+          "bytes": 18542,
+          "sha256": "8feb606e6e825f5e40e6f57c5fc37fe000d88f2aaae011b1a67e2cd8c0862311"
+        }
+      },
+      "patch": {
+        "path": "K4/code-B72.diff",
+        "sha256": "c0b7023ffec0002a269e099500150121a74716967435f85fe8dd6cc1a303d1c2"
+      }
+    }
+  },
+  "expected_layout": {
+    "B": {
+      "size": 152,
+      "nadditional": 40,
+      "entryRes": 48,
+      "triConsistentFn": 64,
+      "strategy": 128,
+      "triCache": null
+    },
+    "C": {
+      "size": 144,
+      "nadditional": 28,
+      "entryRes": 40,
+      "triConsistentFn": 56,
+      "strategy": 120,
+      "triCache": null
+    },
+    "K3": {
+      "size": 160,
+      "nadditional": 40,
+      "entryRes": 48,
+      "triConsistentFn": 64,
+      "strategy": 128,
+      "triCache": 152
+    },
+    "K4": {
+      "size": 152,
+      "nadditional": 28,
+      "entryRes": 40,
+      "triConsistentFn": 56,
+      "strategy": 120,
+      "triCache": 144
+    }
+  },
+  "comparison": "Five clean builds B,C,K3,K4,K4_assert; C is layout-only fixedB control, K4 is compact layout on K3. No observer; no runtime/timing by build capsule."
+}

@@ -1,0 +1,85 @@
+{
+  "reference": {
+    "bytes": 312,
+    "rows": 49,
+    "sha256": "69b14ba0b12c9938d42ae700114010d0589e28ad0880c86981e15f8ceb02a734"
+  },
+  "actual": {
+    "bytes": 312,
+    "rows": 49,
+    "sha256": "69b14ba0b12c9938d42ae700114010d0589e28ad0880c86981e15f8ceb02a734"
+  },
+  "seq_plan": {
+    "Node Type": "Sort",
+    "Parallel Aware": false,
+    "Async Capable": false,
+    "Startup Cost": 6720.07,
+    "Total Cost": 6720.3,
+    "Plan Rows": 93,
+    "Plan Width": 8,
+    "Disabled": false,
+    "Sort Key": [
+      "docs.id"
+    ],
+    "Plans": [
+      {
+        "Node Type": "Seq Scan",
+        "Parent Relationship": "Outer",
+        "Parallel Aware": false,
+        "Async Capable": false,
+        "Relation Name": "docs",
+        "Alias": "docs",
+        "Startup Cost": 0.0,
+        "Total Cost": 6717.02,
+        "Plan Rows": 93,
+        "Plan Width": 8,
+        "Disabled": false,
+        "Filter": "(d @@ '''common'' & ''group17'''::tsquery)"
+      }
+    ]
+  },
+  "gin_plan": {
+    "Node Type": "Sort",
+    "Parallel Aware": false,
+    "Async Capable": false,
+    "Startup Cost": 353.44,
+    "Total Cost": 353.67,
+    "Plan Rows": 93,
+    "Plan Width": 8,
+    "Disabled": false,
+    "Sort Key": [
+      "docs.id"
+    ],
+    "Plans": [
+      {
+        "Node Type": "Bitmap Heap Scan",
+        "Parent Relationship": "Outer",
+        "Parallel Aware": false,
+        "Async Capable": false,
+        "Relation Name": "docs",
+        "Alias": "docs",
+        "Startup Cost": 22.0,
+        "Total Cost": 350.4,
+        "Plan Rows": 93,
+        "Plan Width": 8,
+        "Disabled": false,
+        "Recheck Cond": "(d @@ '''common'' & ''group17'''::tsquery)",
+        "Plans": [
+          {
+            "Node Type": "Bitmap Index Scan",
+            "Parent Relationship": "Outer",
+            "Parallel Aware": false,
+            "Async Capable": false,
+            "Index Name": "docs_d_gin",
+            "Startup Cost": 0.0,
+            "Total Cost": 21.98,
+            "Plan Rows": 93,
+            "Plan Width": 0,
+            "Disabled": false,
+            "Index Cond": "(d @@ '''common'' & ''group17'''::tsquery)"
+          }
+        ]
+      }
+    ]
+  }
+}

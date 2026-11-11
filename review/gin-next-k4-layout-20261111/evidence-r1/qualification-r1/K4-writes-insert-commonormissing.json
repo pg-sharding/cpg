@@ -1,0 +1,85 @@
+{
+  "reference": {
+    "bytes": 24116,
+    "rows": 5032,
+    "sha256": "35b8f218e5ac235797675e2d17deec6559886bc590a00bc9f59aa34fb2183725"
+  },
+  "actual": {
+    "bytes": 24116,
+    "rows": 5032,
+    "sha256": "35b8f218e5ac235797675e2d17deec6559886bc590a00bc9f59aa34fb2183725"
+  },
+  "seq_plan": {
+    "Node Type": "Sort",
+    "Parallel Aware": false,
+    "Async Capable": false,
+    "Startup Cost": 475.69,
+    "Total Cost": 488.19,
+    "Plan Rows": 5000,
+    "Plan Width": 8,
+    "Disabled": false,
+    "Sort Key": [
+      "writes.id"
+    ],
+    "Plans": [
+      {
+        "Node Type": "Seq Scan",
+        "Parent Relationship": "Outer",
+        "Parallel Aware": false,
+        "Async Capable": false,
+        "Relation Name": "writes",
+        "Alias": "writes",
+        "Startup Cost": 0.0,
+        "Total Cost": 168.5,
+        "Plan Rows": 5000,
+        "Plan Width": 8,
+        "Disabled": false,
+        "Filter": "(d @@ '''common'' | ''missing'''::tsquery)"
+      }
+    ]
+  },
+  "gin_plan": {
+    "Node Type": "Sort",
+    "Parallel Aware": false,
+    "Async Capable": false,
+    "Startup Cost": 531.83,
+    "Total Cost": 544.33,
+    "Plan Rows": 5000,
+    "Plan Width": 8,
+    "Disabled": false,
+    "Sort Key": [
+      "writes.id"
+    ],
+    "Plans": [
+      {
+        "Node Type": "Bitmap Heap Scan",
+        "Parent Relationship": "Outer",
+        "Parallel Aware": false,
+        "Async Capable": false,
+        "Relation Name": "writes",
+        "Alias": "writes",
+        "Startup Cost": 56.14,
+        "Total Cost": 224.63,
+        "Plan Rows": 5000,
+        "Plan Width": 8,
+        "Disabled": false,
+        "Recheck Cond": "(d @@ '''common'' | ''missing'''::tsquery)",
+        "Plans": [
+          {
+            "Node Type": "Bitmap Index Scan",
+            "Parent Relationship": "Outer",
+            "Parallel Aware": false,
+            "Async Capable": false,
+            "Index Name": "writes_d_gin",
+            "Startup Cost": 0.0,
+            "Total Cost": 54.89,
+            "Plan Rows": 5000,
+            "Plan Width": 0,
+            "Disabled": false,
+            "Index Cond": "(d @@ '''common'' | ''missing'''::tsquery)"
+          }
+        ]
+      }
+    ]
+  }
+}

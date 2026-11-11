@@ -1,0 +1,64 @@
+UNSENT — REVIEW DRAFT; NO MESSAGE HAS BEEN SENT
+
+Subject: GIN scan-key layout control and complete builtin-memo comparison
+
+Hi,
+
+I tested one private GinScanKeyData field reorder with and without the
+existing experimental builtin tsquery memo. Moving nadditional next to
+nrequired gives a no-memo control C. Applying the same reorder to K3 gives
+K4 with unchanged eligibility, arguments, ternary/recheck contract and
+64-consecutive-miss policy. Installed-header assertions give B 152, C 144,
+K3 160 and K4 152 bytes on the target LP64 ABI. This does not itself imply a
+performance gain.
+
+All five clean builds, core239 and posting-list checks, ordinary SQL,
+prepared/write/delete/vacuum, ternary, budget and fallback qualification
+passed. On Linux x86-64, release builds used GCC with -O2 -g -fno-lto
+and LDFLAGS=-fno-lto; flags and paths were matched across variants.
+The fixed comparison has 17 whole-SQL and seven actual-AM cases,
+five roles including an identical-prefix/ELF twin, and two fresh cohorts
+with balanced retained orders. Each complete attempt has 2880 raw / 2400
+retained observations. Patches and a deterministic reproduction packet
+include absolute times, spreads, every sample and all ten role pairs.
+
+R1 is retained as a shared-load diagnostic after foreign CPU work was
+observed at its tail with unknown overlap. Before reading accepted-run
+timing values, we committed to the complete unchanged r2 repeat. Smoke
+correctness outputs had already been reviewed. R2 used fresh data/socket
+namespaces and a quieter monitored window; endpoint samples still cannot
+prove absence of interference. Neither attempt is trimmed or pooled.
+
+The repeat does not establish a general benefit from the reorder. K4/K3
+whole-SQL executor differences are +0.178%/-0.134% on skew1000 and
++0.447%/-0.389% on separate_keys. Dense K4/B is +0.090%/-1.247%, with mixed
+ranges. OR SQL K4/B is -4.744%/-5.122%, but K3/B is already -4.598%/-4.698%.
+The absolute OR SQL medians are B 151.7905 -> K4 144.5640 ms and
+B 151.6425 -> K4 144.9805 ms, each for the complete five-probe batch.
+The percentages above are medians of direct paired ratios, not ratios
+of those absolute medians. Actual-AM OR K4/K3 is -0.701%/-0.616%;
+the much larger K4/B difference is
+not the incremental effect of the new layout.
+
+Controls also remain material: seq_control uses no GIN but K4/B changes
+-2.428%/+1.250%; cohort-1 actual-AM OR/dense exact twins differ by -6.506%
+and -6.175%. C alone makes absent AM +5.234%/+5.112% slower than B, while
+K4/B there is +0.378%/+0.208%. We make no control-normalized estimate or
+causal cache-line/allocator/code-placement attribution. All negative
+outcomes and the original r1 diagnostic remain included.
+
+Both attempts passed full numerical and semantic review: 114550 fields
+per attempt, exact group completeness, matching plans/rows/loops/rechecks,
+settings and answers. The independent peer extracts raw metrics without
+importing the runtime validator. Arithmetic correctness does not resolve
+identical-binary placement variation.
+
+The cache idea already has direct context in Heikki's 2014 message [1].
+Related extraction/build work is in David Geier's thread [2]. This packet
+contributes a concrete layout-only control and reproducible observations,
+not a new cache algorithm. It compares historical B72 plus one unchanged
+fixedB prerequisite, with canonical alternative C and K3/K4 source paths;
+it is not a current-master patch series or a broad speedup claim.
+
+[1] https://www.postgresql.org/message-id/52F373CC.4050800%40vmware.com
+[2] https://www.postgresql.org/message-id/b53f3df9-d584-47e4-a1dd-405dd8146e27%40gmail.com

@@ -1,0 +1,99 @@
+{
+  "status": "PASS_BUILD_GATES_SMOKE",
+  "pid": 947607,
+  "started_ns": 1794386010155238754,
+  "stages": [
+    {
+      "name": "build",
+      "command": [
+        "python3",
+        "-B",
+        "/home/reshke/allfuzz/gin-cache-k4-20261111/inputs/build-harness/build.py",
+        "--source-archive",
+        "/home/reshke/allfuzz/gin-next-c11-bitmap-20261110/inputs/baseline.tar.gz",
+        "--source-plan",
+        "/home/reshke/allfuzz/gin-cache-k4-20261111/inputs/build-source/SOURCE.json",
+        "--output",
+        "/home/reshke/allfuzz/gin-cache-k4-20261111/build-r1",
+        "--core-port",
+        "47100"
+      ],
+      "started_ns": 1794386010249140542,
+      "pid": 947608,
+      "returncode": 0,
+      "finished_ns": 1794387047471901845
+    },
+    {
+      "name": "qualification",
+      "command": [
+        "python3",
+        "-B",
+        "/home/reshke/allfuzz/gin-cache-k4-20261111/inputs/qualification/qualify.py",
+        "--build",
+        "/home/reshke/allfuzz/gin-cache-k4-20261111/build-r1",
+        "--output",
+        "/home/reshke/allfuzz/gin-cache-k4-20261111/qualification-r1",
+        "--first-port",
+        "47160"
+      ],
+      "started_ns": 1794387047474915587,
+      "pid": 1057769,
+      "returncode": 0,
+      "finished_ns": 1794387162623842598
+    },
+    {
+      "name": "prepare",
+      "command": [
+        "python3",
+        "-B",
+        "/home/reshke/allfuzz/gin-cache-k4-20261111/inputs/timing-prep-r1/campaign.py",
+        "--build",
+        "/home/reshke/allfuzz/gin-cache-k4-20261111/build-r1",
+        "--qualified",
+        "/home/reshke/allfuzz/gin-cache-k4-20261111/qualification-r1",
+        "--output",
+        "/home/reshke/allfuzz/gin-cache-k4-20261111/timing-r1",
+        "--first-port",
+        "47200",
+        "--cpu-pairs",
+        "0:4,4:0",
+        "--environment-label",
+        "FRESH_HOST_CLEAN_SCREEN",
+        "--stage",
+        "prepare"
+      ],
+      "started_ns": 1794387162627500243,
+      "pid": 1060315,
+      "returncode": 0,
+      "finished_ns": 1794387237526463288
+    },
+    {
+      "name": "smoke",
+      "command": [
+        "python3",
+        "-B",
+        "/home/reshke/allfuzz/gin-cache-k4-20261111/inputs/timing-prep-r1/campaign.py",
+        "--build",
+        "/home/reshke/allfuzz/gin-cache-k4-20261111/build-r1",
+        "--qualified",
+        "/home/reshke/allfuzz/gin-cache-k4-20261111/qualification-r1",
+        "--output",
+        "/home/reshke/allfuzz/gin-cache-k4-20261111/timing-r1",
+        "--first-port",
+        "47200",
+        "--cpu-pairs",
+        "0:4,4:0",
+        "--environment-label",
+        "FRESH_HOST_CLEAN_SCREEN",
+        "--stage",
+        "smoke"
+      ],
+      "started_ns": 1794387237530891120,
+      "pid": 1061814,
+      "returncode": 0,
+      "finished_ns": 1794387314740175468
+    }
+  ],
+  "phase": "smoke",
+  "finished_ns": 1794387314745454149
+}

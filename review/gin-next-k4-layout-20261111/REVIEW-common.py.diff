@@ -1,0 +1,61 @@
+--- old-K3/common.py
++++ K4/common.py
+@@ -1,4 +1,4 @@
+-"""Bounded local helpers for fresh B/K1/K3 fixed-source GIN builds and finite qualification."""
++"""Bounded helpers for five clean B/C/K3/K4/K4_assert fixed-source builds."""
+ import hashlib
+ import json
+ import os
+@@ -9,7 +9,7 @@
+ 
+ HERE = pathlib.Path(__file__).resolve().parent
+ BASE = '72b9498df9a369e747f8d96efb5a6cd33c2451e2'
+-ROLES = ('B', 'K1', 'K3')
++ROLES = ('B', 'C', 'K3', 'K4')
+ 
+ 
+ def sha(path):
+@@ -159,19 +159,39 @@
+             snapshot = path.parent / role / name
+             assert snapshot.stat().st_size == value['bytes']
+             assert sha(snapshot) == value['sha256']
+-    for candidate in ('K1', 'K3'):
++    assert set(spec['variants']['C']['source_files']) == {'src/backend/access/gin/ginget.c', 'src/include/access/gin_private.h'}
++    assert spec['variants']['K3']['commit'] == 'ec32d586cf3bb6cfa76eb672db70160b436ce47c'
++    assert spec['variants']['K4']['commit'] == '9d81c7ec4a3c27caeae1230b44f92bb5a8d47d3b'
++    for candidate in ('K3', 'K4'):
+         assert set(spec['variants'][candidate]['source_files']) == {'src/backend/access/gin/ginget.c', 'src/backend/access/gin/ginlogic.c', 'src/include/access/gin_private.h'}
++    assert spec['expected_layout'] == {
++        'B': dict(size=152,nadditional=40,entryRes=48,triConsistentFn=64,strategy=128,triCache=None),
++        'C': dict(size=144,nadditional=28,entryRes=40,triConsistentFn=56,strategy=120,triCache=None),
++        'K3': dict(size=160,nadditional=40,entryRes=48,triConsistentFn=64,strategy=128,triCache=152),
++        'K4': dict(size=152,nadditional=28,entryRes=40,triConsistentFn=56,strategy=120,triCache=144)}
++    old = b'\tint\t\t\tnrequired;\n\tGinScanEntry *additionalEntries;\n\tint\t\t\tnadditional;'
++    new = b'\tint\t\t\tnrequired;\n\tint\t\t\tnadditional;\n\tGinScanEntry *additionalEntries;'
++    header = 'src/include/access/gin_private.h'
++    c_header = (path.parent / 'C' / header).read_bytes()
++    k3_header = (path.parent / 'K3' / header).read_bytes()
++    k4_header = (path.parent / 'K4' / header).read_bytes()
++    assert c_header.count(new) == 1 and b'GinTriConsistentCacheData' not in c_header
++    restored = c_header.replace(new, old)
++    assert len(restored) == expected[header]['bytes'] and hashlib.sha256(restored).hexdigest() == expected[header]['sha256']
++    assert k3_header.count(old) == 1 and k3_header.replace(old, new) == k4_header
++    logic = 'src/backend/access/gin/ginlogic.c'
++    assert (path.parent / 'K3' / logic).read_bytes() == (path.parent / 'K4' / logic).read_bytes()
+     return spec, expected
+ 
+ 
+ def checked_build(path):
+     path = pathlib.Path(path).resolve()
+     receipt = json.loads((path / 'build-receipt.json').read_text())
+-    assert receipt['status'] == 'PASS_GIN_CONSECUTIVE_CACHE_BUILDS'
++    assert receipt['status'] == 'PASS_GIN_K4_LAYOUT_BUILDS'
+     assert json.loads((path / 'status.json').read_text())['status'] == receipt['status']
+     assert receipt['base'] == BASE and receipt['core239_each'] is True
+-    assert set(receipt['variants']) == {'B', 'K1', 'K3', 'K3_assert'}
+-    assert receipt['role_to_variant'] == {'B': 'B', 'T': 'B', 'K1': 'K1', 'K3': 'K3'}
++    assert set(receipt['variants']) == {'B', 'C', 'K3', 'K4', 'K4_assert'}
++    assert receipt['role_to_variant'] == {'B': 'B', 'T': 'B', 'C': 'C', 'K3': 'K3', 'K4': 'K4'}
+     for variant in receipt['variants'].values():
+         prefix = pathlib.Path(variant['prefix'])
+         assert sha(prefix / 'bin/postgres') == variant['postgres_sha256']

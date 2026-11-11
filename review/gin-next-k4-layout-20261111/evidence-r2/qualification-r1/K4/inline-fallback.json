@@ -1,0 +1,88 @@
+{
+  "reference": {
+    "bytes": 13,
+    "rows": 4,
+    "sha256": "6aefea89033f769fea187c556dda1bb50d31d145eee6a2cd38a49cfb234d7689"
+  },
+  "original_gin": {
+    "bytes": 13,
+    "rows": 4,
+    "sha256": "6aefea89033f769fea187c556dda1bb50d31d145eee6a2cd38a49cfb234d7689"
+  },
+  "actual": {
+    "bytes": 13,
+    "rows": 4,
+    "sha256": "6aefea89033f769fea187c556dda1bb50d31d145eee6a2cd38a49cfb234d7689"
+  },
+  "literal_count": 4,
+  "observed_counts": {
+    "scope": "untimed known-builtin callback counts; no cached results",
+    "max_entries": 8,
+    "callbacks": {
+      "bool": {
+        "calls": 0,
+        "eligible": 0,
+        "context_changes": 0,
+        "consecutive_same_vector": 0,
+        "false": 0,
+        "true": 0,
+        "maybe": 0,
+        "recheck_true": 0
+      },
+      "tri": {
+        "calls": 5,
+        "eligible": 5,
+        "context_changes": 1,
+        "consecutive_same_vector": 3,
+        "false": 1,
+        "true": 4,
+        "maybe": 0,
+        "recheck_true": 0
+      }
+    }
+  },
+  "plan": {
+    "Node Type": "Sort",
+    "Parallel Aware": false,
+    "Async Capable": false,
+    "Startup Cost": 16.06,
+    "Total Cost": 16.07,
+    "Plan Rows": 4,
+    "Plan Width": 4,
+    "Disabled": false,
+    "Sort Key": [
+      "id"
+    ],
+    "Plans": [
+      {
+        "Node Type": "Bitmap Heap Scan",
+        "Parent Relationship": "Outer",
+        "Parallel Aware": false,
+        "Async Capable": false,
+        "Relation Name": "inline",
+        "Alias": "inline",
+        "Startup Cost": 12.97,
+        "Total Cost": 16.02,
+        "Plan Rows": 4,
+        "Plan Width": 4,
+        "Disabled": false,
+        "Recheck Cond": "(d @@ '''common'' & ''token17'''::tsquery)",
+        "Plans": [
+          {
+            "Node Type": "Bitmap Index Scan",
+            "Parent Relationship": "Outer",
+            "Parallel Aware": false,
+            "Async Capable": false,
+            "Index Name": "probe_inline_gin",
+            "Startup Cost": 0.0,
+            "Total Cost": 12.97,
+            "Plan Rows": 4,
+            "Plan Width": 0,
+            "Disabled": false,
+            "Index Cond": "(d @@ '''common'' & ''token17'''::tsquery)"
+          }
+        ]
+      }
+    ]
+  }
+}

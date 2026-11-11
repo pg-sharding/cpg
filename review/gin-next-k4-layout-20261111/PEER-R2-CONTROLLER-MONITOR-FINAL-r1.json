@@ -1,0 +1,56 @@
+{
+  "status": "PASS_FINAL_LOCAL_R2_WRAPPER_MONITOR_SOURCE_REVIEW",
+  "as_of": "2026-11-11",
+  "sources": {
+    "run-repeat-r2.py": "a6d974e5f5291ce264b75b627ab863d82756ad42bb67e8d698df40b6d89b6f62",
+    "host-load-monitor.py": "a860622146493ee5b784b9ba22f211e86fd7b71a5ddf34002202c0fa446449ba"
+  },
+  "frozen_input_files_verified": 45,
+  "scope": "Source/AST review and earlier local SIGINT-inheritance experiment only; no VM, backend, benchmark or actual cancellation test",
+  "new_timing_path": "R/r2/timing-r2",
+  "new_socket_namespace": "R/r2/s",
+  "ports": {
+    "smoke": [
+      47300,
+      47304
+    ],
+    "cohort0": [
+      47310,
+      47314
+    ],
+    "cohort1": [
+      47315,
+      47319
+    ]
+  },
+  "cpu_pairs": [
+    [
+      0,
+      4
+    ],
+    [
+      4,
+      0
+    ]
+  ],
+  "raw": 2880,
+  "retained": 2400,
+  "warm": 480,
+  "protocol_changed": false,
+  "cleanup_changes": "Wrapper explicitly resets SIGINT to Python default handler; wrapper SIGTERM raises KeyboardInterrupt; guarded child-wait cancellation/timeout sends SIGINT to unchanged campaign, allowing its finally cleanup",
+  "actual_stop_proof": "Required for each attempt; source review is not a guarantee of live cleanup or complete monitor coverage",
+  "monitor": {
+    "cpu": 6,
+    "interval_seconds": 5,
+    "max_seconds": 3600,
+    "top_consumers_per_interval": 20,
+    "reads": "PID, comm, starttime, utime/stime from /proc/<pid>/stat; no cmdline arguments",
+    "foreign_signals": false,
+    "limitations": [
+      "Endpoint deltas miss short-lived tasks and CPU before first/after last observed endpoint",
+      "Top20 only; no thread residency, affinity history, steal/throttling attribution or exact per-command overlap",
+      "No ready barrier before campaign launch; earliest startup coverage not guaranteed",
+      "Own /proc and JSON work can share host resources; low load/empty samples do not prove absence of interference"
+    ]
+  }
+}

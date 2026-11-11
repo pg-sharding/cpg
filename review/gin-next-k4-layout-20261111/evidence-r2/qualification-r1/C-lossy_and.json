@@ -1,0 +1,85 @@
+{
+  "reference": {
+    "bytes": 214815,
+    "rows": 33333,
+    "sha256": "d232239b01fd07fadd0a5704b582857d53d4a37876749ef39f59456efb9b31a2"
+  },
+  "actual": {
+    "bytes": 214815,
+    "rows": 33333,
+    "sha256": "d232239b01fd07fadd0a5704b582857d53d4a37876749ef39f59456efb9b31a2"
+  },
+  "seq_plan": {
+    "Node Type": "Sort",
+    "Parallel Aware": false,
+    "Async Capable": false,
+    "Startup Cost": 9237.99,
+    "Total Cost": 9321.84,
+    "Plan Rows": 33538,
+    "Plan Width": 8,
+    "Disabled": false,
+    "Sort Key": [
+      "docs.id"
+    ],
+    "Plans": [
+      {
+        "Node Type": "Seq Scan",
+        "Parent Relationship": "Outer",
+        "Parallel Aware": false,
+        "Async Capable": false,
+        "Relation Name": "docs",
+        "Alias": "docs",
+        "Startup Cost": 0.0,
+        "Total Cost": 6717.02,
+        "Plan Rows": 33538,
+        "Plan Width": 8,
+        "Disabled": false,
+        "Filter": "(d @@ '''dense2'' & ''dense3'''::tsquery)"
+      }
+    ]
+  },
+  "gin_plan": {
+    "Node Type": "Sort",
+    "Parallel Aware": false,
+    "Async Capable": false,
+    "Startup Cost": 7404.28,
+    "Total Cost": 7488.13,
+    "Plan Rows": 33538,
+    "Plan Width": 8,
+    "Disabled": false,
+    "Sort Key": [
+      "docs.id"
+    ],
+    "Plans": [
+      {
+        "Node Type": "Bitmap Heap Scan",
+        "Parent Relationship": "Outer",
+        "Parallel Aware": false,
+        "Async Capable": false,
+        "Relation Name": "docs",
+        "Alias": "docs",
+        "Startup Cost": 247.09,
+        "Total Cost": 4883.31,
+        "Plan Rows": 33538,
+        "Plan Width": 8,
+        "Disabled": false,
+        "Recheck Cond": "(d @@ '''dense2'' & ''dense3'''::tsquery)",
+        "Plans": [
+          {
+            "Node Type": "Bitmap Index Scan",
+            "Parent Relationship": "Outer",
+            "Parallel Aware": false,
+            "Async Capable": false,
+            "Index Name": "docs_d_gin",
+            "Startup Cost": 0.0,
+            "Total Cost": 238.7,
+            "Plan Rows": 33538,
+            "Plan Width": 0,
+            "Disabled": false,
+            "Index Cond": "(d @@ '''dense2'' & ''dense3'''::tsquery)"
+          }
+        ]
+      }
+    ]
+  }
+}

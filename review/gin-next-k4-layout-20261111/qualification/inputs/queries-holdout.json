@@ -1,0 +1,95 @@
+{
+  "rows": 200000,
+  "probes": 100,
+  "cases": [
+    {
+      "name": "phrase_positive",
+      "table": "docs",
+      "predicate": "d @@ 'dense2 <-> rare0'::tsquery",
+      "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'dense2 <-> rare0'::tsquery",
+      "sql": "SELECT sum(q.n) FROM generate_series(1,100) p(i) CROSS JOIN LATERAL (SELECT count(*) n FROM g1.docs WHERE d @@ 'dense2 <-> rare0'::tsquery OFFSET(p.i%1))q",
+      "settings": "",
+      "index": "docs_d_gin",
+      "role": "unmeasured holdout frozen after histogram and before release timing",
+      "probes": 100
+    },
+    {
+      "name": "not_positive",
+      "table": "docs",
+      "predicate": "d @@ 'rare1 & !dense2'::tsquery",
+      "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'rare1 & !dense2'::tsquery",
+      "sql": "SELECT sum(q.n) FROM generate_series(1,100) p(i) CROSS JOIN LATERAL (SELECT count(*) n FROM g1.docs WHERE d @@ 'rare1 & !dense2'::tsquery OFFSET(p.i%1))q",
+      "settings": "",
+      "index": "docs_d_gin",
+      "role": "unmeasured holdout frozen after histogram and before release timing",
+      "probes": 100
+    },
+    {
+      "name": "skew_group4096",
+      "table": "docs",
+      "predicate": "d @@ 'common & group17'::tsquery",
+      "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'common & group17'::tsquery",
+      "sql": "SELECT sum(q.n) FROM generate_series(1,100) p(i) CROSS JOIN LATERAL (SELECT count(*) n FROM g1.docs WHERE d @@ 'common & group17'::tsquery OFFSET(p.i%1))q",
+      "settings": "",
+      "index": "docs_d_gin",
+      "role": "unmeasured holdout frozen after histogram and before release timing",
+      "probes": 100
+    },
+    {
+      "name": "array_dense",
+      "table": "docs",
+      "predicate": "tags @> ARRAY[1,2]",
+      "rows_sql": "SELECT id FROM g1.docs WHERE tags @> ARRAY[1,2]",
+      "sql": "SELECT sum(q.n) FROM generate_series(1,100) p(i) CROSS JOIN LATERAL (SELECT count(*) n FROM g1.docs WHERE tags @> ARRAY[1,2] OFFSET(p.i%1))q",
+      "settings": "",
+      "index": "docs_tags_gin",
+      "role": "unmeasured holdout frozen after histogram and before release timing",
+      "probes": 100
+    },
+    {
+      "name": "inline_single",
+      "table": "inline_docs",
+      "predicate": "d @@ 'common'::tsquery",
+      "rows_sql": "SELECT id FROM g1.inline_docs WHERE d @@ 'common'::tsquery",
+      "sql": "SELECT sum(q.n) FROM generate_series(1,100) p(i) CROSS JOIN LATERAL (SELECT count(*) n FROM g1.inline_docs WHERE d @@ 'common'::tsquery OFFSET(p.i%1))q",
+      "settings": "SET enable_seqscan=off;",
+      "index": "inline_d_gin",
+      "role": "unmeasured holdout frozen after histogram and before release timing",
+      "probes": 100
+    },
+    {
+      "name": "absent",
+      "table": "docs",
+      "predicate": "d @@ 'common & missing'::tsquery",
+      "rows_sql": "SELECT id FROM g1.docs WHERE d @@ 'common & missing'::tsquery",
+      "sql": "SELECT sum(q.n) FROM generate_series(1,100) p(i) CROSS JOIN LATERAL (SELECT count(*) n FROM g1.docs WHERE d @@ 'common & missing'::tsquery OFFSET(p.i%1))q",
+      "settings": "",
+      "index": "docs_d_gin",
+      "role": "unmeasured holdout frozen after histogram and before release timing",
+      "probes": 100
+    },
+    {
+      "name": "not_only",
+      "table": "docs",
+      "predicate": "d @@ '!missing'::tsquery",
+      "rows_sql": "SELECT id FROM g1.docs WHERE d @@ '!missing'::tsquery",
+      "sql": "SELECT sum(q.n) FROM generate_series(1,5)p(i) CROSS JOIN LATERAL(SELECT count(*) n FROM g1.docs WHERE d @@ '!missing'::tsquery OFFSET(p.i%1))q",
+      "settings": "SET enable_seqscan=off;",
+      "index": "docs_d_gin",
+      "role": "forced bitmap/category holdout",
+      "probes": 5
+    },
+    {
+      "name": "empty_array",
+      "table": "docs",
+      "predicate": "tags @> ARRAY[]::int[]",
+      "rows_sql": "SELECT id FROM g1.docs WHERE tags @> ARRAY[]::int[]",
+      "sql": "SELECT sum(q.n) FROM generate_series(1,5)p(i) CROSS JOIN LATERAL(SELECT count(*) n FROM g1.docs WHERE tags @> ARRAY[]::int[] OFFSET(p.i%1))q",
+      "settings": "SET enable_seqscan=off;",
+      "index": "docs_tags_gin",
+      "role": "forced bitmap/category holdout",
+      "probes": 5
+    }
+  ],
+  "status": "holdout definitions only, frozen before release timing; same discovery fixture rows"
+}

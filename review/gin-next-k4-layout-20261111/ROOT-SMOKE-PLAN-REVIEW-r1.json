@@ -1,0 +1,745 @@
+{
+  "status": "PASS_SMOKE_PLAN_REVIEW",
+  "whole_sql_cases": 17,
+  "roles": 5,
+  "signatures": {
+    "skew1000": {
+      "Node Type": "Aggregate",
+      "Plans": [
+        {
+          "Node Type": "Nested Loop",
+          "Join Type": "Inner",
+          "Parent Relationship": "Outer",
+          "Plans": [
+            {
+              "Node Type": "Function Scan",
+              "Parent Relationship": "Outer",
+              "Plans": []
+            },
+            {
+              "Node Type": "Aggregate",
+              "Parent Relationship": "Inner",
+              "Plans": [
+                {
+                  "Node Type": "Bitmap Heap Scan",
+                  "Relation Name": "docs",
+                  "Parent Relationship": "Outer",
+                  "Recheck Cond": "(d @@ to_tsquery('simple'::regconfig, ('common & rare'::text || ((p.i % 2))::text)))",
+                  "Plans": [
+                    {
+                      "Node Type": "Bitmap Index Scan",
+                      "Index Name": "docs_d_gin",
+                      "Parent Relationship": "Outer",
+                      "Index Cond": "(d @@ to_tsquery('simple'::regconfig, ('common & rare'::text || ((p.i % 2))::text)))",
+                      "Plans": []
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "skew127": {
+      "Node Type": "Aggregate",
+      "Plans": [
+        {
+          "Node Type": "Nested Loop",
+          "Join Type": "Inner",
+          "Parent Relationship": "Outer",
+          "Plans": [
+            {
+              "Node Type": "Function Scan",
+              "Parent Relationship": "Outer",
+              "Plans": []
+            },
+            {
+              "Node Type": "Limit",
+              "Parent Relationship": "Inner",
+              "Plans": [
+                {
+                  "Node Type": "Aggregate",
+                  "Parent Relationship": "Outer",
+                  "Plans": [
+                    {
+                      "Node Type": "Bitmap Heap Scan",
+                      "Relation Name": "docs",
+                      "Parent Relationship": "Outer",
+                      "Recheck Cond": "(d @@ '''common'' & ''rare2'''::tsquery)",
+                      "Plans": [
+                        {
+                          "Node Type": "Bitmap Index Scan",
+                          "Index Name": "docs_d_gin",
+                          "Parent Relationship": "Outer",
+                          "Index Cond": "(d @@ '''common'' & ''rare2'''::tsquery)",
+                          "Plans": []
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "separate_keys": {
+      "Node Type": "Aggregate",
+      "Plans": [
+        {
+          "Node Type": "Nested Loop",
+          "Join Type": "Inner",
+          "Parent Relationship": "Outer",
+          "Plans": [
+            {
+              "Node Type": "Function Scan",
+              "Parent Relationship": "Outer",
+              "Plans": []
+            },
+            {
+              "Node Type": "Limit",
+              "Parent Relationship": "Inner",
+              "Plans": [
+                {
+                  "Node Type": "Aggregate",
+                  "Parent Relationship": "Outer",
+                  "Plans": [
+                    {
+                      "Node Type": "Bitmap Heap Scan",
+                      "Relation Name": "docs",
+                      "Parent Relationship": "Outer",
+                      "Recheck Cond": "((d @@ '''common'''::tsquery) AND (d @@ '''rare0'''::tsquery))",
+                      "Plans": [
+                        {
+                          "Node Type": "Bitmap Index Scan",
+                          "Index Name": "docs_d_gin",
+                          "Parent Relationship": "Outer",
+                          "Index Cond": "((d @@ '''common'''::tsquery) AND (d @@ '''rare0'''::tsquery))",
+                          "Plans": []
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "dense_and": {
+      "Node Type": "Aggregate",
+      "Plans": [
+        {
+          "Node Type": "Nested Loop",
+          "Join Type": "Inner",
+          "Parent Relationship": "Outer",
+          "Plans": [
+            {
+              "Node Type": "Function Scan",
+              "Parent Relationship": "Outer",
+              "Plans": []
+            },
+            {
+              "Node Type": "Limit",
+              "Parent Relationship": "Inner",
+              "Plans": [
+                {
+                  "Node Type": "Aggregate",
+                  "Parent Relationship": "Outer",
+                  "Plans": [
+                    {
+                      "Node Type": "Bitmap Heap Scan",
+                      "Relation Name": "docs",
+                      "Parent Relationship": "Outer",
+                      "Recheck Cond": "(d @@ '''dense2'' & ''dense3'''::tsquery)",
+                      "Plans": [
+                        {
+                          "Node Type": "Bitmap Index Scan",
+                          "Index Name": "docs_d_gin",
+                          "Parent Relationship": "Outer",
+                          "Index Cond": "(d @@ '''dense2'' & ''dense3'''::tsquery)",
+                          "Plans": []
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "or_forced": {
+      "Node Type": "Aggregate",
+      "Plans": [
+        {
+          "Node Type": "Nested Loop",
+          "Join Type": "Inner",
+          "Parent Relationship": "Outer",
+          "Plans": [
+            {
+              "Node Type": "Function Scan",
+              "Parent Relationship": "Outer",
+              "Plans": []
+            },
+            {
+              "Node Type": "Limit",
+              "Parent Relationship": "Inner",
+              "Plans": [
+                {
+                  "Node Type": "Aggregate",
+                  "Parent Relationship": "Outer",
+                  "Plans": [
+                    {
+                      "Node Type": "Bitmap Heap Scan",
+                      "Relation Name": "docs",
+                      "Parent Relationship": "Outer",
+                      "Recheck Cond": "(d @@ '''common'' | ''rare0'''::tsquery)",
+                      "Plans": [
+                        {
+                          "Node Type": "Bitmap Index Scan",
+                          "Index Name": "docs_d_gin",
+                          "Parent Relationship": "Outer",
+                          "Index Cond": "(d @@ '''common'' | ''rare0'''::tsquery)",
+                          "Plans": []
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "single_forced": {
+      "Node Type": "Aggregate",
+      "Plans": [
+        {
+          "Node Type": "Nested Loop",
+          "Join Type": "Inner",
+          "Parent Relationship": "Outer",
+          "Plans": [
+            {
+              "Node Type": "Function Scan",
+              "Parent Relationship": "Outer",
+              "Plans": []
+            },
+            {
+              "Node Type": "Limit",
+              "Parent Relationship": "Inner",
+              "Plans": [
+                {
+                  "Node Type": "Aggregate",
+                  "Parent Relationship": "Outer",
+                  "Plans": [
+                    {
+                      "Node Type": "Bitmap Heap Scan",
+                      "Relation Name": "docs",
+                      "Parent Relationship": "Outer",
+                      "Recheck Cond": "(d @@ '''common'''::tsquery)",
+                      "Plans": [
+                        {
+                          "Node Type": "Bitmap Index Scan",
+                          "Index Name": "docs_d_gin",
+                          "Parent Relationship": "Outer",
+                          "Index Cond": "(d @@ '''common'''::tsquery)",
+                          "Plans": []
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "single_rare": {
+      "Node Type": "Aggregate",
+      "Plans": [
+        {
+          "Node Type": "Nested Loop",
+          "Join Type": "Inner",
+          "Parent Relationship": "Outer",
+          "Plans": [
+            {
+              "Node Type": "Function Scan",
+              "Parent Relationship": "Outer",
+              "Plans": []
+            },
+            {
+              "Node Type": "Limit",
+              "Parent Relationship": "Inner",
+              "Plans": [
+                {
+                  "Node Type": "Aggregate",
+                  "Parent Relationship": "Outer",
+                  "Plans": [
+                    {
+                      "Node Type": "Bitmap Heap Scan",
+                      "Relation Name": "docs",
+                      "Parent Relationship": "Outer",
+                      "Recheck Cond": "(d @@ '''rare0'''::tsquery)",
+                      "Plans": [
+                        {
+                          "Node Type": "Bitmap Index Scan",
+                          "Index Name": "docs_d_gin",
+                          "Parent Relationship": "Outer",
+                          "Index Cond": "(d @@ '''rare0'''::tsquery)",
+                          "Plans": []
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "inline": {
+      "Node Type": "Aggregate",
+      "Plans": [
+        {
+          "Node Type": "Nested Loop",
+          "Join Type": "Inner",
+          "Parent Relationship": "Outer",
+          "Plans": [
+            {
+              "Node Type": "Function Scan",
+              "Parent Relationship": "Outer",
+              "Plans": []
+            },
+            {
+              "Node Type": "Limit",
+              "Parent Relationship": "Inner",
+              "Plans": [
+                {
+                  "Node Type": "Aggregate",
+                  "Parent Relationship": "Outer",
+                  "Plans": [
+                    {
+                      "Node Type": "Bitmap Heap Scan",
+                      "Relation Name": "inline_docs",
+                      "Parent Relationship": "Outer",
+                      "Recheck Cond": "(d @@ '''common'' & ''token17'''::tsquery)",
+                      "Plans": [
+                        {
+                          "Node Type": "Bitmap Index Scan",
+                          "Index Name": "inline_d_gin",
+                          "Parent Relationship": "Outer",
+                          "Index Cond": "(d @@ '''common'' & ''token17'''::tsquery)",
+                          "Plans": []
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "prefix": {
+      "Node Type": "Aggregate",
+      "Plans": [
+        {
+          "Node Type": "Nested Loop",
+          "Join Type": "Inner",
+          "Parent Relationship": "Outer",
+          "Plans": [
+            {
+              "Node Type": "Function Scan",
+              "Parent Relationship": "Outer",
+              "Plans": []
+            },
+            {
+              "Node Type": "Limit",
+              "Parent Relationship": "Inner",
+              "Plans": [
+                {
+                  "Node Type": "Aggregate",
+                  "Parent Relationship": "Outer",
+                  "Plans": [
+                    {
+                      "Node Type": "Bitmap Heap Scan",
+                      "Relation Name": "docs",
+                      "Parent Relationship": "Outer",
+                      "Recheck Cond": "(d @@ '''group1'':* & ''rare0'''::tsquery)",
+                      "Plans": [
+                        {
+                          "Node Type": "Bitmap Index Scan",
+                          "Index Name": "docs_d_gin",
+                          "Parent Relationship": "Outer",
+                          "Index Cond": "(d @@ '''group1'':* & ''rare0'''::tsquery)",
+                          "Plans": []
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "phrase": {
+      "Node Type": "Aggregate",
+      "Plans": [
+        {
+          "Node Type": "Nested Loop",
+          "Join Type": "Inner",
+          "Parent Relationship": "Outer",
+          "Plans": [
+            {
+              "Node Type": "Function Scan",
+              "Parent Relationship": "Outer",
+              "Plans": []
+            },
+            {
+              "Node Type": "Limit",
+              "Parent Relationship": "Inner",
+              "Plans": [
+                {
+                  "Node Type": "Aggregate",
+                  "Parent Relationship": "Outer",
+                  "Plans": [
+                    {
+                      "Node Type": "Bitmap Heap Scan",
+                      "Relation Name": "docs",
+                      "Parent Relationship": "Outer",
+                      "Recheck Cond": "(d @@ '''common'' <-> ''rare0'''::tsquery)",
+                      "Plans": [
+                        {
+                          "Node Type": "Bitmap Index Scan",
+                          "Index Name": "docs_d_gin",
+                          "Parent Relationship": "Outer",
+                          "Index Cond": "(d @@ '''common'' <-> ''rare0'''::tsquery)",
+                          "Plans": []
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "not": {
+      "Node Type": "Aggregate",
+      "Plans": [
+        {
+          "Node Type": "Nested Loop",
+          "Join Type": "Inner",
+          "Parent Relationship": "Outer",
+          "Plans": [
+            {
+              "Node Type": "Function Scan",
+              "Parent Relationship": "Outer",
+              "Plans": []
+            },
+            {
+              "Node Type": "Limit",
+              "Parent Relationship": "Inner",
+              "Plans": [
+                {
+                  "Node Type": "Aggregate",
+                  "Parent Relationship": "Outer",
+                  "Plans": [
+                    {
+                      "Node Type": "Bitmap Heap Scan",
+                      "Relation Name": "docs",
+                      "Parent Relationship": "Outer",
+                      "Recheck Cond": "(d @@ '''rare0'' & !''dense2'''::tsquery)",
+                      "Plans": [
+                        {
+                          "Node Type": "Bitmap Index Scan",
+                          "Index Name": "docs_d_gin",
+                          "Parent Relationship": "Outer",
+                          "Index Cond": "(d @@ '''rare0'' & !''dense2'''::tsquery)",
+                          "Plans": []
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "jsonb": {
+      "Node Type": "Aggregate",
+      "Plans": [
+        {
+          "Node Type": "Nested Loop",
+          "Join Type": "Inner",
+          "Parent Relationship": "Outer",
+          "Plans": [
+            {
+              "Node Type": "Function Scan",
+              "Parent Relationship": "Outer",
+              "Plans": []
+            },
+            {
+              "Node Type": "Limit",
+              "Parent Relationship": "Inner",
+              "Plans": [
+                {
+                  "Node Type": "Aggregate",
+                  "Parent Relationship": "Outer",
+                  "Plans": [
+                    {
+                      "Node Type": "Bitmap Heap Scan",
+                      "Relation Name": "docs",
+                      "Parent Relationship": "Outer",
+                      "Recheck Cond": "(jb @> '{\"rare\": 42, \"common\": true}'::jsonb)",
+                      "Plans": [
+                        {
+                          "Node Type": "Bitmap Index Scan",
+                          "Index Name": "docs_jb_gin",
+                          "Parent Relationship": "Outer",
+                          "Index Cond": "(jb @> '{\"rare\": 42, \"common\": true}'::jsonb)",
+                          "Plans": []
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "lossy_and": {
+      "Node Type": "Aggregate",
+      "Plans": [
+        {
+          "Node Type": "Nested Loop",
+          "Join Type": "Inner",
+          "Parent Relationship": "Outer",
+          "Plans": [
+            {
+              "Node Type": "Function Scan",
+              "Parent Relationship": "Outer",
+              "Plans": []
+            },
+            {
+              "Node Type": "Limit",
+              "Parent Relationship": "Inner",
+              "Plans": [
+                {
+                  "Node Type": "Aggregate",
+                  "Parent Relationship": "Outer",
+                  "Plans": [
+                    {
+                      "Node Type": "Bitmap Heap Scan",
+                      "Relation Name": "docs",
+                      "Parent Relationship": "Outer",
+                      "Recheck Cond": "(d @@ '''dense2'' & ''dense3'''::tsquery)",
+                      "Plans": [
+                        {
+                          "Node Type": "Bitmap Index Scan",
+                          "Index Name": "docs_d_gin",
+                          "Parent Relationship": "Outer",
+                          "Index Cond": "(d @@ '''dense2'' & ''dense3'''::tsquery)",
+                          "Plans": []
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "seq_control": {
+      "Node Type": "Aggregate",
+      "Plans": [
+        {
+          "Node Type": "Nested Loop",
+          "Join Type": "Inner",
+          "Parent Relationship": "Outer",
+          "Plans": [
+            {
+              "Node Type": "Function Scan",
+              "Parent Relationship": "Outer",
+              "Plans": []
+            },
+            {
+              "Node Type": "Limit",
+              "Parent Relationship": "Inner",
+              "Plans": [
+                {
+                  "Node Type": "Aggregate",
+                  "Parent Relationship": "Outer",
+                  "Plans": [
+                    {
+                      "Node Type": "Seq Scan",
+                      "Relation Name": "docs",
+                      "Parent Relationship": "Outer",
+                      "Filter": "((id % '1000'::bigint) = 0)",
+                      "Plans": []
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "skew_group4096": {
+      "Node Type": "Aggregate",
+      "Plans": [
+        {
+          "Node Type": "Nested Loop",
+          "Join Type": "Inner",
+          "Parent Relationship": "Outer",
+          "Plans": [
+            {
+              "Node Type": "Function Scan",
+              "Parent Relationship": "Outer",
+              "Plans": []
+            },
+            {
+              "Node Type": "Limit",
+              "Parent Relationship": "Inner",
+              "Plans": [
+                {
+                  "Node Type": "Aggregate",
+                  "Parent Relationship": "Outer",
+                  "Plans": [
+                    {
+                      "Node Type": "Bitmap Heap Scan",
+                      "Relation Name": "docs",
+                      "Parent Relationship": "Outer",
+                      "Recheck Cond": "(d @@ '''common'' & ''group17'''::tsquery)",
+                      "Plans": [
+                        {
+                          "Node Type": "Bitmap Index Scan",
+                          "Index Name": "docs_d_gin",
+                          "Parent Relationship": "Outer",
+                          "Index Cond": "(d @@ '''common'' & ''group17'''::tsquery)",
+                          "Plans": []
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "inline_single": {
+      "Node Type": "Aggregate",
+      "Plans": [
+        {
+          "Node Type": "Nested Loop",
+          "Join Type": "Inner",
+          "Parent Relationship": "Outer",
+          "Plans": [
+            {
+              "Node Type": "Function Scan",
+              "Parent Relationship": "Outer",
+              "Plans": []
+            },
+            {
+              "Node Type": "Limit",
+              "Parent Relationship": "Inner",
+              "Plans": [
+                {
+                  "Node Type": "Aggregate",
+                  "Parent Relationship": "Outer",
+                  "Plans": [
+                    {
+                      "Node Type": "Bitmap Heap Scan",
+                      "Relation Name": "inline_docs",
+                      "Parent Relationship": "Outer",
+                      "Recheck Cond": "(d @@ '''common'''::tsquery)",
+                      "Plans": [
+                        {
+                          "Node Type": "Bitmap Index Scan",
+                          "Index Name": "inline_d_gin",
+                          "Parent Relationship": "Outer",
+                          "Index Cond": "(d @@ '''common'''::tsquery)",
+                          "Plans": []
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "absent": {
+      "Node Type": "Aggregate",
+      "Plans": [
+        {
+          "Node Type": "Nested Loop",
+          "Join Type": "Inner",
+          "Parent Relationship": "Outer",
+          "Plans": [
+            {
+              "Node Type": "Function Scan",
+              "Parent Relationship": "Outer",
+              "Plans": []
+            },
+            {
+              "Node Type": "Limit",
+              "Parent Relationship": "Inner",
+              "Plans": [
+                {
+                  "Node Type": "Aggregate",
+                  "Parent Relationship": "Outer",
+                  "Plans": [
+                    {
+                      "Node Type": "Bitmap Heap Scan",
+                      "Relation Name": "docs",
+                      "Parent Relationship": "Outer",
+                      "Recheck Cond": "(d @@ '''common'' & ''missing'''::tsquery)",
+                      "Plans": [
+                        {
+                          "Node Type": "Bitmap Index Scan",
+                          "Index Name": "docs_d_gin",
+                          "Parent Relationship": "Outer",
+                          "Index Cond": "(d @@ '''common'' & ''missing'''::tsquery)",
+                          "Plans": []
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "audit_sha256": "77a21db213e54f232c163916247d9390d05a60aa5ab32ec19f546edbc71f7094",
+  "live_sha256": "4077da8c7b189eeda3732db85e7a4dd5a353a93c053db6f00b9f199e8b89c597",
+  "finished_ns": 1794387592243765000,
+  "scope": "Exact semantic fields listed in signatures; finite ordinary result checks and recorded GUCs, lossy heap blocks and two separate GIN conditions. No timing inference from smoke."
+}
