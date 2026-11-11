@@ -17,9 +17,11 @@ complete pinned file inventories, exact deltas and changed-file snapshots.
 The candidate-only diff applies after the common baseline. L4/L8/L9 are
 alternative comparison trees, not steps to apply after C9.
 
-From a local PostgreSQL repository containing B72:
+Create the parent directory first (the build driver creates only its new
+output leaf). From a local PostgreSQL repository containing B72:
 
 ```sh
+mkdir -p /home/reshke/wpgpg/new-c9
 git -C /path/to/postgres archive 72b9498df9a369e747f8d96efb5a6cd33c2451e2 > baseline-B72.tar
 python3 -B inputs-r1/followup-r3/build-harness/build.py \
   --source-archive baseline-B72.tar \
